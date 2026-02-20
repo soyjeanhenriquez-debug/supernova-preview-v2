@@ -14,7 +14,174 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      campaigns: {
+        Row: {
+          budget: number
+          clicks: number
+          conversions: number
+          created_at: string
+          ctr: number | null
+          description: string | null
+          end_date: string | null
+          id: string
+          impressions: number
+          name: string
+          objective: Database["public"]["Enums"]["campaign_objective"]
+          platform: Database["public"]["Enums"]["campaign_platform"]
+          roas: number | null
+          spent: number
+          start_date: string | null
+          status: Database["public"]["Enums"]["campaign_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          budget?: number
+          clicks?: number
+          conversions?: number
+          created_at?: string
+          ctr?: number | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          impressions?: number
+          name: string
+          objective?: Database["public"]["Enums"]["campaign_objective"]
+          platform?: Database["public"]["Enums"]["campaign_platform"]
+          roas?: number | null
+          spent?: number
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["campaign_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          budget?: number
+          clicks?: number
+          conversions?: number
+          created_at?: string
+          ctr?: number | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          impressions?: number
+          name?: string
+          objective?: Database["public"]["Enums"]["campaign_objective"]
+          platform?: Database["public"]["Enums"]["campaign_platform"]
+          roas?: number | null
+          spent?: number
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["campaign_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      keywords: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          keyword: string
+          last_searched_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          keyword: string
+          last_searched_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          keyword?: string
+          last_searched_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          company_name: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          company_name?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          company_name?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      winning_ads: {
+        Row: {
+          ad_description: string | null
+          ad_format: string | null
+          ad_title: string | null
+          ad_url: string | null
+          advertiser: string | null
+          engagement_score: number | null
+          id: string
+          impressions_estimate: string | null
+          is_featured: boolean
+          keyword: string
+          platform: string
+          raw_data: Json | null
+          scraped_at: string
+        }
+        Insert: {
+          ad_description?: string | null
+          ad_format?: string | null
+          ad_title?: string | null
+          ad_url?: string | null
+          advertiser?: string | null
+          engagement_score?: number | null
+          id?: string
+          impressions_estimate?: string | null
+          is_featured?: boolean
+          keyword: string
+          platform?: string
+          raw_data?: Json | null
+          scraped_at?: string
+        }
+        Update: {
+          ad_description?: string | null
+          ad_format?: string | null
+          ad_title?: string | null
+          ad_url?: string | null
+          advertiser?: string | null
+          engagement_score?: number | null
+          id?: string
+          impressions_estimate?: string | null
+          is_featured?: boolean
+          keyword?: string
+          platform?: string
+          raw_data?: Json | null
+          scraped_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +190,22 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      campaign_objective:
+        | "conversions"
+        | "awareness"
+        | "traffic"
+        | "leads"
+        | "engagement"
+        | "app_installs"
+      campaign_platform:
+        | "Meta"
+        | "Google"
+        | "TikTok"
+        | "LinkedIn"
+        | "Twitter"
+        | "YouTube"
+        | "Other"
+      campaign_status: "active" | "paused" | "draft" | "completed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +332,25 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      campaign_objective: [
+        "conversions",
+        "awareness",
+        "traffic",
+        "leads",
+        "engagement",
+        "app_installs",
+      ],
+      campaign_platform: [
+        "Meta",
+        "Google",
+        "TikTok",
+        "LinkedIn",
+        "Twitter",
+        "YouTube",
+        "Other",
+      ],
+      campaign_status: ["active", "paused", "draft", "completed"],
+    },
   },
 } as const

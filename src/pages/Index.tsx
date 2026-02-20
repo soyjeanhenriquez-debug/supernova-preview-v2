@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
 import { DashboardPage } from "@/pages/DashboardPage";
-import { CampaignsPage } from "@/pages/CampaignsPage";
+import { RealCampaignsPage } from "@/pages/RealCampaignsPage";
 import { AudiencesPage } from "@/pages/AudiencesPage";
 import { CreativesPage } from "@/pages/CreativesPage";
+import { WinningAdsPage } from "@/pages/WinningAdsPage";
 
 const Index = () => {
   const [activePage, setActivePage] = useState("Dashboard");
@@ -12,7 +13,8 @@ const Index = () => {
   const renderPage = () => {
     switch (activePage) {
       case "Dashboard": return <DashboardPage />;
-      case "Campañas": return <CampaignsPage />;
+      case "Campañas": return <RealCampaignsPage />;
+      case "Anuncios Ganadores": return <WinningAdsPage />;
       case "Audiencias": return <AudiencesPage />;
       case "Creatividades": return <CreativesPage />;
       case "Reportes":

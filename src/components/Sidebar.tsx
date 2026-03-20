@@ -1,4 +1,4 @@
-import { LayoutDashboard, Megaphone, Zap, ChevronDown, Trophy, LogOut, Eye, MessageSquare, Sparkles } from "lucide-react";
+import { LayoutDashboard, Megaphone, Zap, ChevronDown, Trophy, LogOut, Eye, MessageSquare, Sparkles, Bot, FileText, BookOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -9,6 +9,9 @@ const navItems = [
   { icon: Eye, label: "Espía" },
   { icon: Sparkles, label: "Generadores" },
   { icon: MessageSquare, label: "Chat IA" },
+  { icon: Bot, label: "Agentes" },
+  { icon: FileText, label: "Templates" },
+  { icon: BookOpen, label: "Biblioteca" },
 ];
 
 interface SidebarProps {
@@ -64,8 +67,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
       </nav>
 
       {/* User section */}
-      <div className="px-3 pb-4 space-y-3">
-        {/* User card */}
+      <div className="px-3 pb-4">
         <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-secondary/50">
           <div className="w-8 h-8 rounded-full gradient-brand flex items-center justify-center text-sm font-bold text-primary-foreground flex-shrink-0">
             {initials}

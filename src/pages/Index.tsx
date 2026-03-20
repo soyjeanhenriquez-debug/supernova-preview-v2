@@ -7,6 +7,9 @@ import { WinningAdsPage } from "@/pages/WinningAdsPage";
 import { SpyPage } from "@/pages/SpyPage";
 import { ChatPage } from "@/pages/ChatPage";
 import { GeneradoresPage } from "@/pages/GeneradoresPage";
+import { AgentsPage } from "@/pages/AgentsPage";
+import { TemplatesPage } from "@/pages/TemplatesPage";
+import { LibraryPage } from "@/pages/LibraryPage";
 
 const Index = () => {
   const [activePage, setActivePage] = useState("Dashboard");
@@ -19,6 +22,9 @@ const Index = () => {
       case "Espía": return <SpyPage />;
       case "Generadores": return <GeneradoresPage />;
       case "Chat IA": return <ChatPage />;
+      case "Agentes": return <AgentsPage />;
+      case "Templates": return <TemplatesPage />;
+      case "Biblioteca": return <LibraryPage />;
       default: return <DashboardPage />;
     }
   };

@@ -6,6 +6,8 @@ import { RealCampaignsPage } from "@/pages/RealCampaignsPage";
 import { AudiencesPage } from "@/pages/AudiencesPage";
 import { CreativesPage } from "@/pages/CreativesPage";
 import { WinningAdsPage } from "@/pages/WinningAdsPage";
+import { SpyPage } from "@/pages/SpyPage";
+import { ChatPage } from "@/pages/ChatPage";
 
 const Index = () => {
   const [activePage, setActivePage] = useState("Dashboard");

@@ -11,6 +11,8 @@ type AIModel = {
   description: string;
   icon: React.ReactNode;
   model: string;
+  provider: "openai" | "google" | "supernova";
+  tier: "premium" | "standard" | "fast";
 };
 
 type Conversation = {

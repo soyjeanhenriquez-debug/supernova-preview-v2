@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Loader2, Sparkles, Trash2, MessageSquare, FolderOpen, TrendingUp, Rocket, Zap, Flame, Brain, Diamond, Clock } from "lucide-react";
+import { Send, Bot, User, Loader2, Sparkles, Trash2, MessageSquare, FolderOpen, TrendingUp, Rocket, Zap, Flame, Brain, Diamond, Clock, Atom, Crown, Gauge, Star, CircuitBoard, Cpu } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 
@@ -11,6 +11,8 @@ type AIModel = {
   description: string;
   icon: React.ReactNode;
   model: string;
+  provider: "openai" | "google" | "supernova";
+  tier: "premium" | "standard" | "fast";
 };
 
 type Conversation = {
@@ -23,18 +25,25 @@ type Conversation = {
 };
 
 const AI_MODELS: AIModel[] = [
-  { id: "gpt5", name: "GPT-5", description: "Razonamiento potente, contexto largo y multimodal", icon: <Brain className="w-6 h-6 text-amber-400" />, model: "openai/gpt-5" },
-  { id: "gpt5mini", name: "GPT-5 Mini", description: "Balance entre rendimiento y velocidad", icon: <Zap className="w-6 h-6 text-yellow-400" />, model: "openai/gpt-5-mini" },
-  { id: "gemini-pro", name: "Gemini Pro", description: "Top en razonamiento complejo y contextos largos", icon: <Diamond className="w-6 h-6 text-sky-400" />, model: "google/gemini-2.5-pro" },
-  { id: "gemini-flash", name: "Gemini Flash", description: "Rápido y eficiente para tareas generales", icon: <Rocket className="w-6 h-6 text-primary" />, model: "google/gemini-3-flash-preview" },
-  { id: "gemini-lite", name: "Gemini Lite", description: "Ultra rápido para tareas simples y alto volumen", icon: <Sparkles className="w-6 h-6 text-purple-400" />, model: "google/gemini-2.5-flash-lite" },
-  { id: "nexus", name: "Nexus Power", description: "IA especializada en marketing digital y ventas", icon: <Flame className="w-6 h-6 text-orange-500" />, model: "google/gemini-3-flash-preview" },
+  // OpenAI
+  { id: "gpt5.2", name: "GPT-5.2", description: "Lo último de OpenAI. Razonamiento avanzado y resolución de problemas complejos", icon: <Crown className="w-6 h-6 text-warning" />, model: "openai/gpt-5.2", provider: "openai", tier: "premium" },
+  { id: "gpt5", name: "GPT-5", description: "Razonamiento potente, contexto largo y multimodal", icon: <Brain className="w-6 h-6 text-warning" />, model: "openai/gpt-5", provider: "openai", tier: "premium" },
+  { id: "gpt5mini", name: "GPT-5 Mini", description: "Balance entre rendimiento y velocidad. Ideal para la mayoría de tareas", icon: <Zap className="w-6 h-6 text-warning" />, model: "openai/gpt-5-mini", provider: "openai", tier: "standard" },
+  { id: "gpt5nano", name: "GPT-5 Nano", description: "Ultra rápido y económico. Perfecto para tareas simples de alto volumen", icon: <Gauge className="w-6 h-6 text-warning" />, model: "openai/gpt-5-nano", provider: "openai", tier: "fast" },
+  // Google Gemini
+  { id: "gemini-3.1-pro", name: "Gemini 3.1 Pro", description: "Última generación de Google. Razonamiento de vanguardia", icon: <Star className="w-6 h-6 text-accent" />, model: "google/gemini-3.1-pro-preview", provider: "google", tier: "premium" },
+  { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", description: "Top en razonamiento complejo, imagen+texto y contextos enormes", icon: <Diamond className="w-6 h-6 text-accent" />, model: "google/gemini-2.5-pro", provider: "google", tier: "premium" },
+  { id: "gemini-flash", name: "Gemini Flash", description: "Rápido y eficiente. Equilibrio ideal entre velocidad y capacidad", icon: <Rocket className="w-6 h-6 text-accent" />, model: "google/gemini-3-flash-preview", provider: "google", tier: "standard" },
+  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", description: "Bueno en multimodal y razonamiento con menos costo que Pro", icon: <CircuitBoard className="w-6 h-6 text-accent" />, model: "google/gemini-2.5-flash", provider: "google", tier: "standard" },
+  { id: "gemini-lite", name: "Gemini Lite", description: "El más rápido y económico. Ideal para clasificación y resúmenes", icon: <Cpu className="w-6 h-6 text-accent" />, model: "google/gemini-2.5-flash-lite", provider: "google", tier: "fast" },
+  // Supernova Custom
+  { id: "nexus", name: "Nexus Power", description: "IA SUPERNOVA especializada en marketing digital, ads y ventas", icon: <Flame className="w-6 h-6 text-destructive" />, model: "google/gemini-3-flash-preview", provider: "supernova", tier: "standard" },
 ];
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
 
 export function ChatPage() {
-  const [selectedModel, setSelectedModel] = useState<AIModel>(AI_MODELS[3]); // Gemini Flash default
+  const [selectedModel, setSelectedModel] = useState<AIModel>(AI_MODELS[6]); // Gemini Flash default
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -223,14 +232,15 @@ Responde siempre en español. Sé directo, práctico y orientado a resultados. U
       {/* AI Models */}
       <div>
         <h3 className="font-display font-semibold text-foreground mb-3">Inteligencias Artificiales</h3>
-        <div className="grid grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {AI_MODELS.map((model) => {
             const isSelected = selectedModel.id === model.id;
+            const tierBadge = model.tier === "premium" ? "⚡ Premium" : model.tier === "fast" ? "🚀 Rápido" : "";
             return (
               <button
                 key={model.id}
                 onClick={() => setSelectedModel(model)}
-                className={`relative text-left rounded-xl p-4 border transition-all ${
+                className={`relative text-left rounded-xl p-3.5 border transition-all ${
                   isSelected
                     ? "border-primary bg-primary/10 ring-1 ring-primary/30"
                     : "border-border bg-secondary hover:border-muted-foreground/30"
@@ -239,9 +249,12 @@ Responde siempre en español. Sé directo, práctico y orientado a resultados. U
                 {isSelected && (
                   <div className="absolute top-3 right-3 w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
                 )}
-                <div className="mb-3">{model.icon}</div>
-                <div className="font-display font-semibold text-sm text-foreground">{model.name}</div>
-                <div className="text-[11px] text-muted-foreground mt-1 leading-tight line-clamp-2">{model.description}</div>
+                <div className="mb-2">{model.icon}</div>
+                <div className="font-display font-semibold text-xs text-foreground">{model.name}</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">{model.description}</div>
+                {tierBadge && (
+                  <div className="text-[9px] text-muted-foreground mt-1.5 opacity-70">{tierBadge}</div>
+                )}
               </button>
             );
           })}

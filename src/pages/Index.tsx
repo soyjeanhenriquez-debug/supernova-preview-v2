@@ -23,7 +23,7 @@ const Index = () => {
       case "Generadores": return <GeneradoresPage />;
       case "Chat IA": return <ChatPage />;
       case "Agentes": return <AgentsPage />;
-      case "Templates": return <TemplatesPage />;
+      case "Plantillas": return <TemplatesPage />;
       case "Biblioteca": return <LibraryPage />;
       default: return <DashboardPage />;
     }

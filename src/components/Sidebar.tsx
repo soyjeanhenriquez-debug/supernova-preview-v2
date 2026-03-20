@@ -10,7 +10,7 @@ const navItems = [
   { icon: Sparkles, label: "Generadores" },
   { icon: MessageSquare, label: "Chat IA" },
   { icon: Bot, label: "Agentes" },
-  { icon: FileText, label: "Templates" },
+  { icon: FileText, label: "Plantillas" },
   { icon: BookOpen, label: "Biblioteca" },
 ];
 

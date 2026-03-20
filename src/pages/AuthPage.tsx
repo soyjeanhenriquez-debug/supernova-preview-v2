@@ -145,7 +145,7 @@ export function AuthPage() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground/50 mt-6">
-          © 2025 QuantumAds · Todos los derechos reservados
+          © 2025 META 10X · Todos los derechos reservados
         </p>
       </div>
     </div>

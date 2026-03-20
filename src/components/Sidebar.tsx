@@ -37,7 +37,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
           <div className="absolute inset-0 rounded-lg animate-pulse-glow opacity-60" />
         </div>
         <div>
-          <span className="font-display font-bold text-foreground text-base tracking-tight">QuantumAds</span>
+          <span className="font-display font-bold text-foreground text-base tracking-tight">META 10X</span>
           <div className="text-xs text-muted-foreground">Workflow Tool</div>
         </div>
       </div>

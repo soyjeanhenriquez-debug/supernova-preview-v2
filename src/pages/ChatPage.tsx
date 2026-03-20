@@ -232,14 +232,15 @@ Responde siempre en español. Sé directo, práctico y orientado a resultados. U
       {/* AI Models */}
       <div>
         <h3 className="font-display font-semibold text-foreground mb-3">Inteligencias Artificiales</h3>
-        <div className="grid grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {AI_MODELS.map((model) => {
             const isSelected = selectedModel.id === model.id;
+            const tierBadge = model.tier === "premium" ? "⚡ Premium" : model.tier === "fast" ? "🚀 Rápido" : "";
             return (
               <button
                 key={model.id}
                 onClick={() => setSelectedModel(model)}
-                className={`relative text-left rounded-xl p-4 border transition-all ${
+                className={`relative text-left rounded-xl p-3.5 border transition-all ${
                   isSelected
                     ? "border-primary bg-primary/10 ring-1 ring-primary/30"
                     : "border-border bg-secondary hover:border-muted-foreground/30"
@@ -248,9 +249,12 @@ Responde siempre en español. Sé directo, práctico y orientado a resultados. U
                 {isSelected && (
                   <div className="absolute top-3 right-3 w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
                 )}
-                <div className="mb-3">{model.icon}</div>
-                <div className="font-display font-semibold text-sm text-foreground">{model.name}</div>
-                <div className="text-[11px] text-muted-foreground mt-1 leading-tight line-clamp-2">{model.description}</div>
+                <div className="mb-2">{model.icon}</div>
+                <div className="font-display font-semibold text-xs text-foreground">{model.name}</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">{model.description}</div>
+                {tierBadge && (
+                  <div className="text-[9px] text-muted-foreground mt-1.5 opacity-70">{tierBadge}</div>
+                )}
               </button>
             );
           })}

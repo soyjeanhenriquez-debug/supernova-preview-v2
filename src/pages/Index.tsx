@@ -8,6 +8,7 @@ import { CreativesPage } from "@/pages/CreativesPage";
 import { WinningAdsPage } from "@/pages/WinningAdsPage";
 import { SpyPage } from "@/pages/SpyPage";
 import { ChatPage } from "@/pages/ChatPage";
+import { GeneradoresPage } from "@/pages/GeneradoresPage";
 
 const Index = () => {
   const [activePage, setActivePage] = useState("Dashboard");
@@ -18,6 +19,7 @@ const Index = () => {
       case "Campañas": return <RealCampaignsPage />;
       case "Anuncios Ganadores": return <WinningAdsPage />;
       case "Espía": return <SpyPage />;
+      case "Generadores": return <GeneradoresPage />;
       case "Chat IA": return <ChatPage />;
       case "Audiencias": return <AudiencesPage />;
       case "Creatividades": return <CreativesPage />;

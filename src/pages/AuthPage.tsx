@@ -52,7 +52,7 @@ export function AuthPage() {
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl gradient-brand mb-4 animate-pulse-glow">
             <Zap className="w-7 h-7 text-primary-foreground" fill="currentColor" />
           </div>
-          <h1 className="font-display font-bold text-3xl text-foreground">QuantumAds</h1>
+          <h1 className="font-display font-bold text-3xl text-foreground">META 10X</h1>
           <p className="text-muted-foreground mt-1 text-sm">Workflow Tool · Ads Intelligence</p>
         </div>
 
@@ -145,7 +145,7 @@ export function AuthPage() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground/50 mt-6">
-          © 2025 QuantumAds · Todos los derechos reservados
+          © 2025 META 10X · Todos los derechos reservados
         </p>
       </div>
     </div>

@@ -49,8 +49,8 @@ export function AuthPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Logo */}
         <div className="text-center mb-8 animate-fade-up">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl gradient-brand mb-4 animate-pulse-glow">
-            <Zap className="w-7 h-7 text-primary-foreground" fill="currentColor" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 animate-pulse-glow">
+            <img src="/supernova-icon.png" alt="SUPERNOVA" className="w-14 h-14" />
           </div>
           <h1 className="font-display font-bold text-3xl text-foreground">SUPERNOVA</h1>
           <p className="text-muted-foreground mt-1 text-sm">Workflow Tool · Ads Intelligence</p>

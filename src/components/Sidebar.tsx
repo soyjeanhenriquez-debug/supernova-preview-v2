@@ -38,7 +38,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
           <Zap className="w-5 h-5 text-primary-foreground" fill="currentColor" />
         </div>
         <div>
-          <span className="font-display font-bold text-foreground text-[15px] tracking-tight">META 10X</span>
+          <span className="font-display font-bold text-foreground text-[15px] tracking-tight">SUPERNOVA</span>
           <div className="text-[11px] text-muted-foreground tracking-wide">Workflow Tool</div>
         </div>
       </div>

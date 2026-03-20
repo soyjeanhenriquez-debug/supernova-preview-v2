@@ -134,7 +134,7 @@ export function ChatPage() {
             <div className="w-16 h-16 rounded-2xl gradient-brand flex items-center justify-center mb-4 animate-pulse-glow">
               <Bot className="w-8 h-8 text-primary-foreground" />
             </div>
-            <h3 className="font-display font-semibold text-foreground text-lg mb-2">¡Hola! Soy tu asistente META 10X</h3>
+            <h3 className="font-display font-semibold text-foreground text-lg mb-2">¡Hola! Soy tu asistente SUPERNOVA</h3>
             <p className="text-sm text-muted-foreground max-w-md">
               Puedo ayudarte a optimizar campañas, generar copy persuasivo, analizar métricas y sugerir estrategias ganadoras
             </p>

@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      agents: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_favorite: boolean
+          name: string
+          system_prompt: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_favorite?: boolean
+          name: string
+          system_prompt: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_favorite?: boolean
+          name?: string
+          system_prompt?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       campaigns: {
         Row: {
           budget: number
@@ -104,6 +140,39 @@ export type Database = {
         }
         Relationships: []
       }
+      library_items: {
+        Row: {
+          category: string
+          content: string
+          created_at: string
+          generator_type: string | null
+          id: string
+          is_favorite: boolean
+          title: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          content: string
+          created_at?: string
+          generator_type?: string | null
+          id?: string
+          is_favorite?: boolean
+          title: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string
+          generator_type?: string | null
+          id?: string
+          is_favorite?: boolean
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -130,6 +199,39 @@ export type Database = {
           display_name?: string | null
           id?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      templates: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          is_favorite: boolean
+          name: string
+          prompt_template: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_favorite?: boolean
+          name: string
+          prompt_template: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_favorite?: boolean
+          name?: string
+          prompt_template?: string
           user_id?: string
         }
         Relationships: []

@@ -34,12 +34,12 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
     <aside className="flex flex-col w-[260px] min-h-screen border-r border-border bg-card">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5">
-        <div className="relative flex items-center justify-center w-9 h-9 rounded-xl gradient-brand">
-          <Zap className="w-5 h-5 text-primary-foreground" fill="currentColor" />
+        <div className="relative flex items-center justify-center w-10 h-10">
+          <img src="/supernova-icon.png" alt="SUPERNOVA" className="w-10 h-10" />
         </div>
         <div>
-          <span className="font-display font-bold text-foreground text-[15px] tracking-tight">SUPERNOVA</span>
-          <div className="text-[11px] text-muted-foreground tracking-wide">Workflow Tool</div>
+          <span className="font-display font-extrabold text-foreground text-[16px] tracking-tight">SUPERNOVA</span>
+          <div className="text-[11px] text-muted-foreground tracking-wide">Ads Intelligence</div>
         </div>
       </div>
 

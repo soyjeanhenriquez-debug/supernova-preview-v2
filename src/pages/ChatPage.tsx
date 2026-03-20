@@ -43,7 +43,7 @@ const AI_MODELS: AIModel[] = [
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
 
 export function ChatPage() {
-  const [selectedModel, setSelectedModel] = useState<AIModel>(AI_MODELS[3]); // Gemini Flash default
+  const [selectedModel, setSelectedModel] = useState<AIModel>(AI_MODELS[6]); // Gemini Flash default
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);

@@ -25,12 +25,19 @@ type Conversation = {
 };
 
 const AI_MODELS: AIModel[] = [
-  { id: "gpt5", name: "GPT-5", description: "Razonamiento potente, contexto largo y multimodal", icon: <Brain className="w-6 h-6 text-amber-400" />, model: "openai/gpt-5" },
-  { id: "gpt5mini", name: "GPT-5 Mini", description: "Balance entre rendimiento y velocidad", icon: <Zap className="w-6 h-6 text-yellow-400" />, model: "openai/gpt-5-mini" },
-  { id: "gemini-pro", name: "Gemini Pro", description: "Top en razonamiento complejo y contextos largos", icon: <Diamond className="w-6 h-6 text-sky-400" />, model: "google/gemini-2.5-pro" },
-  { id: "gemini-flash", name: "Gemini Flash", description: "Rápido y eficiente para tareas generales", icon: <Rocket className="w-6 h-6 text-primary" />, model: "google/gemini-3-flash-preview" },
-  { id: "gemini-lite", name: "Gemini Lite", description: "Ultra rápido para tareas simples y alto volumen", icon: <Sparkles className="w-6 h-6 text-purple-400" />, model: "google/gemini-2.5-flash-lite" },
-  { id: "nexus", name: "Nexus Power", description: "IA especializada en marketing digital y ventas", icon: <Flame className="w-6 h-6 text-orange-500" />, model: "google/gemini-3-flash-preview" },
+  // OpenAI
+  { id: "gpt5.2", name: "GPT-5.2", description: "Lo último de OpenAI. Razonamiento avanzado y resolución de problemas complejos", icon: <Crown className="w-6 h-6 text-warning" />, model: "openai/gpt-5.2", provider: "openai", tier: "premium" },
+  { id: "gpt5", name: "GPT-5", description: "Razonamiento potente, contexto largo y multimodal", icon: <Brain className="w-6 h-6 text-warning" />, model: "openai/gpt-5", provider: "openai", tier: "premium" },
+  { id: "gpt5mini", name: "GPT-5 Mini", description: "Balance entre rendimiento y velocidad. Ideal para la mayoría de tareas", icon: <Zap className="w-6 h-6 text-warning" />, model: "openai/gpt-5-mini", provider: "openai", tier: "standard" },
+  { id: "gpt5nano", name: "GPT-5 Nano", description: "Ultra rápido y económico. Perfecto para tareas simples de alto volumen", icon: <Gauge className="w-6 h-6 text-warning" />, model: "openai/gpt-5-nano", provider: "openai", tier: "fast" },
+  // Google Gemini
+  { id: "gemini-3.1-pro", name: "Gemini 3.1 Pro", description: "Última generación de Google. Razonamiento de vanguardia", icon: <Star className="w-6 h-6 text-accent" />, model: "google/gemini-3.1-pro-preview", provider: "google", tier: "premium" },
+  { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", description: "Top en razonamiento complejo, imagen+texto y contextos enormes", icon: <Diamond className="w-6 h-6 text-accent" />, model: "google/gemini-2.5-pro", provider: "google", tier: "premium" },
+  { id: "gemini-flash", name: "Gemini Flash", description: "Rápido y eficiente. Equilibrio ideal entre velocidad y capacidad", icon: <Rocket className="w-6 h-6 text-accent" />, model: "google/gemini-3-flash-preview", provider: "google", tier: "standard" },
+  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", description: "Bueno en multimodal y razonamiento con menos costo que Pro", icon: <CircuitBoard className="w-6 h-6 text-accent" />, model: "google/gemini-2.5-flash", provider: "google", tier: "standard" },
+  { id: "gemini-lite", name: "Gemini Lite", description: "El más rápido y económico. Ideal para clasificación y resúmenes", icon: <Cpu className="w-6 h-6 text-accent" />, model: "google/gemini-2.5-flash-lite", provider: "google", tier: "fast" },
+  // Supernova Custom
+  { id: "nexus", name: "Nexus Power", description: "IA SUPERNOVA especializada en marketing digital, ads y ventas", icon: <Flame className="w-6 h-6 text-destructive" />, model: "google/gemini-3-flash-preview", provider: "supernova", tier: "standard" },
 ];
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;

@@ -7,6 +7,7 @@ const navItems = [
   { icon: Megaphone, label: "Campañas" },
   { icon: Trophy, label: "Anuncios Ganadores", badge: "IA" },
   { icon: Eye, label: "Espía", badge: "NEW" },
+  { icon: Sparkles, label: "Generadores", badge: "IA" },
   { icon: MessageSquare, label: "Chat IA", badge: "IA" },
   { icon: Users, label: "Audiencias" },
   { icon: ImageIcon, label: "Creatividades" },

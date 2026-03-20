@@ -24,7 +24,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `Eres el asistente IA de META 10X, una plataforma de gestión de campañas publicitarias. 
+            content: systemPrompt || `Eres el asistente IA de META 10X, una plataforma de gestión de campañas publicitarias. 
 Tu rol es ayudar al usuario a:
 - Optimizar campañas de Meta Ads, Google Ads, TikTok Ads
 - Generar copy persuasivo y hooks de venta

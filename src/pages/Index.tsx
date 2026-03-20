@@ -17,6 +17,8 @@ const Index = () => {
       case "Dashboard": return <DashboardPage />;
       case "Campañas": return <RealCampaignsPage />;
       case "Anuncios Ganadores": return <WinningAdsPage />;
+      case "Espía": return <SpyPage />;
+      case "Chat IA": return <ChatPage />;
       case "Audiencias": return <AudiencesPage />;
       case "Creatividades": return <CreativesPage />;
       case "Reportes":

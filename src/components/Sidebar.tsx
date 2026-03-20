@@ -6,6 +6,8 @@ const navItems = [
   { icon: LayoutDashboard, label: "Dashboard" },
   { icon: Megaphone, label: "Campañas" },
   { icon: Trophy, label: "Anuncios Ganadores", badge: "IA" },
+  { icon: Eye, label: "Espía", badge: "NEW" },
+  { icon: MessageSquare, label: "Chat IA", badge: "IA" },
   { icon: Users, label: "Audiencias" },
   { icon: ImageIcon, label: "Creatividades" },
   { icon: BarChart2, label: "Reportes" },

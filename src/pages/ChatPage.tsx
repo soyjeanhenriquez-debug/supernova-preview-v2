@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Loader2, Sparkles, Trash2, MessageSquare, FolderOpen, TrendingUp, Rocket, Zap, Flame, Brain, Diamond, Clock } from "lucide-react";
+import { Send, Bot, User, Loader2, Sparkles, Trash2, MessageSquare, FolderOpen, TrendingUp, Rocket, Zap, Flame, Brain, Diamond, Clock, Atom, Crown, Gauge, Star, CircuitBoard, Cpu } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Megaphone, Users, ImageIcon, BarChart2, Settings, Zap, ChevronDown, Bell, Trophy, LogOut, Eye, MessageSquare, Sparkles } from "lucide-react";
+import { LayoutDashboard, Megaphone, Zap, ChevronDown, Bell, Trophy, LogOut, Eye, MessageSquare, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -9,10 +9,6 @@ const navItems = [
   { icon: Eye, label: "Espía", badge: "NEW" },
   { icon: Sparkles, label: "Generadores", badge: "IA" },
   { icon: MessageSquare, label: "Chat IA", badge: "IA" },
-  { icon: Users, label: "Audiencias" },
-  { icon: ImageIcon, label: "Creatividades" },
-  { icon: BarChart2, label: "Reportes" },
-  { icon: Settings, label: "Configuración" },
 ];
 
 interface SidebarProps {

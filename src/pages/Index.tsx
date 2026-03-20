@@ -3,8 +3,6 @@ import { Sidebar } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { RealCampaignsPage } from "@/pages/RealCampaignsPage";
-import { AudiencesPage } from "@/pages/AudiencesPage";
-import { CreativesPage } from "@/pages/CreativesPage";
 import { WinningAdsPage } from "@/pages/WinningAdsPage";
 import { SpyPage } from "@/pages/SpyPage";
 import { ChatPage } from "@/pages/ChatPage";
@@ -21,28 +19,6 @@ const Index = () => {
       case "Espía": return <SpyPage />;
       case "Generadores": return <GeneradoresPage />;
       case "Chat IA": return <ChatPage />;
-      case "Audiencias": return <AudiencesPage />;
-      case "Creatividades": return <CreativesPage />;
-      case "Reportes":
-        return (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center space-y-2">
-              <div className="text-4xl">📊</div>
-              <div className="font-display font-semibold text-foreground">Reportes</div>
-              <div className="text-sm text-muted-foreground">Módulo en desarrollo</div>
-            </div>
-          </div>
-        );
-      case "Configuración":
-        return (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center space-y-2">
-              <div className="text-4xl">⚙️</div>
-              <div className="font-display font-semibold text-foreground">Configuración</div>
-              <div className="text-sm text-muted-foreground">Módulo en desarrollo</div>
-            </div>
-          </div>
-        );
       default: return <DashboardPage />;
     }
   };

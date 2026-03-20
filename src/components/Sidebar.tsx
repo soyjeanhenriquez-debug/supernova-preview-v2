@@ -1,4 +1,4 @@
-import { LayoutDashboard, Megaphone, Users, ImageIcon, BarChart2, Settings, Zap, ChevronDown, Bell, Trophy, LogOut } from "lucide-react";
+import { LayoutDashboard, Megaphone, Users, ImageIcon, BarChart2, Settings, Zap, ChevronDown, Bell, Trophy, LogOut, Eye, MessageSquare } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 

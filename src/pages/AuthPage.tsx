@@ -127,6 +127,42 @@ export function AuthPage() {
             </button>
           </form>
 
+          {/* Test access button (DEV) */}
+          <button
+            type="button"
+            onClick={async () => {
+              setLoading(true);
+              const testEmail = "demo@supernova.test";
+              const testPassword = "Demo123456!";
+              try {
+                let { error } = await supabase.auth.signInWithPassword({ email: testEmail, password: testPassword });
+                if (error) {
+                  const { error: signUpError } = await supabase.auth.signUp({
+                    email: testEmail,
+                    password: testPassword,
+                    options: {
+                      data: { display_name: "Demo SUPERNOVA" },
+                      emailRedirectTo: window.location.origin,
+                    },
+                  });
+                  if (signUpError) throw signUpError;
+                  const retry = await supabase.auth.signInWithPassword({ email: testEmail, password: testPassword });
+                  if (retry.error) throw retry.error;
+                }
+                toast.success("Acceso de prueba activado 🚀");
+              } catch (err: any) {
+                toast.error(err.message || "Error en acceso de prueba");
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+            className="w-full mt-3 border border-primary/40 text-primary py-3 rounded-lg font-semibold text-sm hover:bg-primary/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+          >
+            <Sparkles className="w-4 h-4" />
+            Acceso rápido de prueba
+          </button>
+
           <div className="mt-6 text-center text-sm text-muted-foreground">
             {mode === "login" ? (
               <>¿Sin cuenta aún?{" "}

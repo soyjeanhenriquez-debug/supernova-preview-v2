@@ -198,9 +198,9 @@ export function WinningAdsPage() {
 
         {filtered.length === 0 ? (
           <div className="card-surface rounded-xl py-16 text-center">
-            <div className="text-4xl mb-3">🔍</div>
-            <div className="font-display font-semibold mb-1">Sin resultados con los filtros actuales</div>
-            <div className="text-sm text-muted-foreground">Ajusta los filtros o cambia el mercado</div>
+            <div className="empty-icon mb-4"><Trophy className="w-9 h-9" /></div>
+            <div className="font-display font-bold text-lg mb-1">Aún no hay ganadores en este filtro</div>
+            <div className="text-sm text-muted-foreground max-w-sm mx-auto">Ajusta días, repeticiones o cambia de mercado para descubrir más oportunidades</div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

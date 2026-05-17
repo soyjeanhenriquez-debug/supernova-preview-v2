@@ -35,9 +35,9 @@ export function BrainPage() {
         <h3 className="font-display font-bold text-lg mb-3">Tus proyectos activos</h3>
         {projects.length === 0 ? (
           <div className="card-surface rounded-xl py-16 text-center">
-            <Brain className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-            <div className="font-display font-semibold mb-1">Sin proyectos todavía</div>
-            <div className="text-sm text-muted-foreground">Crea uno desde Anuncios Ganadores o desde Modo Crear</div>
+            <div className="empty-icon mb-4"><Brain className="w-9 h-9" /></div>
+            <div className="font-display font-bold text-lg mb-1">Tu cerebro está listo para encender</div>
+            <div className="text-sm text-muted-foreground max-w-sm mx-auto">Cada proyecto que crees alimenta tu motor SUPERNOVA. Empieza por Anuncios Ganadores o Modo Crear.</div>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">

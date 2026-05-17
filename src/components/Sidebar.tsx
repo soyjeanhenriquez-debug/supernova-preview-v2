@@ -82,6 +82,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
             <div className="flex items-center gap-2 mb-1">
               <Brain className="w-4 h-4 text-primary" />
               <span className="font-display font-bold text-[12px] text-foreground tracking-wide">SUPERNOVA BRAIN</span>
+              {projects.length > 0 && <span className="activity-dot ml-auto" title="Proyectos activos" />}
             </div>
             <div className="text-[10px] text-primary/80 mb-2 tracking-widest">— 6 PILARES —</div>
             <div className="text-[10px] text-muted-foreground mb-3">Motor de inteligencia DR</div>

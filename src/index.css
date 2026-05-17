@@ -253,3 +253,93 @@
   border-left: 3px solid hsl(21 90% 53%);
   color: hsl(21 90% 53%);
 }
+
+/* ===== Page heading with decorative underline ===== */
+.page-heading {
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  position: relative;
+  padding-bottom: 10px;
+}
+.page-heading::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 40px;
+  height: 2px;
+  background: linear-gradient(90deg, hsl(38 92% 50%), hsl(21 90% 53%));
+  border-radius: 2px;
+}
+
+/* ===== Ad card hover — breathing effect ===== */
+.ad-card-hover {
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+.ad-card-hover:hover {
+  transform: scale(1.01);
+  border-color: hsl(21 90% 53% / 0.7);
+  box-shadow: 0 0 28px hsl(21 90% 53% / 0.25);
+}
+
+/* ===== Activity dot ===== */
+.activity-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: hsl(21 90% 53%);
+  box-shadow: 0 0 8px hsl(21 90% 53% / 0.9);
+  animation: pulse-hot 1.8s infinite;
+  display: inline-block;
+}
+
+/* ===== Empty state icon ===== */
+.empty-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 30% 30%, hsl(38 92% 50% / 0.35), hsl(21 90% 53% / 0.15) 60%, transparent 80%);
+  border: 1px solid hsl(21 90% 53% / 0.3);
+  box-shadow: 0 0 30px hsl(21 90% 53% / 0.25);
+  color: hsl(21 90% 53%);
+}
+
+/* ===== Project thumbnail (abstract gradient) ===== */
+.brain-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+}
+.brain-thumb::before,
+.brain-thumb::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(28px);
+  opacity: 0.85;
+}
+.brain-thumb::before {
+  width: 70%; height: 110%;
+  top: -20%; left: -10%;
+  background: hsl(var(--th-c1, 21 90% 53%));
+}
+.brain-thumb::after {
+  width: 55%; height: 110%;
+  bottom: -30%; right: -10%;
+  background: hsl(var(--th-c2, 8 80% 50%));
+}
+.brain-thumb > .brain-thumb-spark {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 80% 20%, hsl(var(--th-c3, 38 92% 55%) / 0.5), transparent 40%),
+    linear-gradient(135deg, #0a0a0a 0%, #181818 100%);
+  z-index: 0;
+}

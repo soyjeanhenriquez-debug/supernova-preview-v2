@@ -86,10 +86,8 @@ export function WinningAdsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="font-display font-bold text-2xl text-foreground flex items-center gap-3">
-            ANUNCIOS GANADORES <span className="text-primary">——•</span>
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">Anuncios validados con datos reales. Encuentra, analiza, clona.</p>
+          <h2 className="page-heading font-display text-2xl text-foreground">ANUNCIOS GANADORES</h2>
+          <p className="text-sm text-muted-foreground mt-3">Anuncios validados con datos reales. Encuentra, analiza, clona.</p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 pulse-hot">
           <span className="live-dot" />
@@ -200,9 +198,9 @@ export function WinningAdsPage() {
 
         {filtered.length === 0 ? (
           <div className="card-surface rounded-xl py-16 text-center">
-            <div className="text-4xl mb-3">🔍</div>
-            <div className="font-display font-semibold mb-1">Sin resultados con los filtros actuales</div>
-            <div className="text-sm text-muted-foreground">Ajusta los filtros o cambia el mercado</div>
+            <div className="empty-icon mb-4"><Trophy className="w-9 h-9" /></div>
+            <div className="font-display font-bold text-lg mb-1">Aún no hay ganadores en este filtro</div>
+            <div className="text-sm text-muted-foreground max-w-sm mx-auto">Ajusta días, repeticiones o cambia de mercado para descubrir más oportunidades</div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -256,7 +254,7 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
     "bg-neutral-700 text-neutral-300";
 
   return (
-    <div className="card-surface rounded-xl p-5 flex flex-col gap-3 hover:border-primary/40 transition-all">
+    <div className="card-surface rounded-xl p-5 flex flex-col gap-3 ad-card-hover">
       <div className="flex items-start justify-between">
         <span className={`text-[11px] font-bold px-2.5 py-1 rounded ${tier.cls}`}>{tier.icon} {tier.label}</span>
         <div className="flex items-center gap-2">

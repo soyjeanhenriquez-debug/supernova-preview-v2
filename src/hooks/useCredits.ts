@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 
-const KEY = "supernova_credits_v1";
+const KEY = "supernova_credits_v2";
 const HIST_KEY = "supernova_credits_history_v1";
-const DEFAULT_BALANCE = 50;
-const DEFAULT_LIMIT = 100;
+const DEFAULT_BALANCE = 3000;
+const DEFAULT_LIMIT = 3000;
 
 export type CreditAction =
   | "search_ads"

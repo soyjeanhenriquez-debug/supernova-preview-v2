@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Brain, Trash2, ArrowRight, Sparkles, Plus as PlusIcon, CheckCircle2, Circle } from "lucide-react";
 import { useProjects, PILLARS, type BrainProject } from "@/hooks/useProjects";
+import { ProjectThumb } from "@/components/ProjectThumb";
 
 export function BrainPage() {
   const { projects, remove, togglePillar, setNote } = useProjects();
@@ -11,10 +12,10 @@ export function BrainPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h2 className="font-display font-bold text-2xl text-foreground flex items-center gap-2">
-            <Brain className="w-6 h-6 text-primary" /> SUPERNOVA BRAIN <span className="text-primary">— 6 PILARES</span>
+          <h2 className="page-heading font-display text-2xl text-foreground flex items-center gap-2">
+            <Brain className="w-6 h-6 text-primary" /> SUPERNOVA BRAIN — 6 PILARES
           </h2>
-          <p className="text-sm text-muted-foreground mt-1">Tu sistema de inteligencia secuencial para Direct Response</p>
+          <p className="text-sm text-muted-foreground mt-3">Tu sistema de inteligencia secuencial para Direct Response</p>
         </div>
       </div>
 
@@ -34,9 +35,9 @@ export function BrainPage() {
         <h3 className="font-display font-bold text-lg mb-3">Tus proyectos activos</h3>
         {projects.length === 0 ? (
           <div className="card-surface rounded-xl py-16 text-center">
-            <Brain className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-            <div className="font-display font-semibold mb-1">Sin proyectos todavía</div>
-            <div className="text-sm text-muted-foreground">Crea uno desde Anuncios Ganadores o desde Modo Crear</div>
+            <div className="empty-icon mb-4"><Brain className="w-9 h-9" /></div>
+            <div className="font-display font-bold text-lg mb-1">Tu cerebro está listo para encender</div>
+            <div className="text-sm text-muted-foreground max-w-sm mx-auto">Cada proyecto que crees alimenta tu motor SUPERNOVA. Empieza por Anuncios Ganadores o Modo Crear.</div>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -54,7 +55,8 @@ function ProjectCard({ p, onOpen, onDelete }: { p: BrainProject; onOpen: () => v
   const progress = (p.completedPillars.length / 6) * 100;
   const modeLabel = p.mode === "sofisticar" ? "⚡ Sofisticar" : p.mode === "crear" ? "✦ Crear" : "🎯 Blueprint";
   return (
-    <div className="card-surface rounded-xl p-4 flex flex-col gap-3 hover:border-primary/40 transition-all">
+    <div className="card-surface rounded-xl p-4 flex flex-col gap-3 ad-card-hover">
+      <ProjectThumb seed={p.name} />
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-[10px] uppercase tracking-widest text-primary font-bold">{modeLabel}</div>

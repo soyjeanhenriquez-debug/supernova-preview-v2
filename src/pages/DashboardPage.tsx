@@ -1,227 +1,115 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { TrendingUp, TrendingDown, MousePointer, Eye, DollarSign, Target, Loader2, Megaphone, Zap } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
+import { useMemo } from "react";
+import { Trophy, Sparkles, Brain, Coins, ArrowRight } from "lucide-react";
+import { useCredits } from "@/hooks/useCredits";
+import { useProjects, PILLARS } from "@/hooks/useProjects";
 
-interface Campaign {
-  id: string;
-  name: string;
-  platform: string;
-  status: string;
-  budget: number;
-  spent: number;
-  impressions: number;
-  clicks: number;
-  conversions: number;
-  ctr: number | null;
-  roas: number | null;
-}
+interface Props { onNavigate: (p: string) => void; }
 
-const platformColor: Record<string, string> = {
-  Meta: "#1877F2", Google: "#34A853", TikTok: "#FF0050",
-  LinkedIn: "#0A66C2", Twitter: "#1DA1F2", YouTube: "#FF0000", Other: "#6B7280",
-};
+export function DashboardPage({ onNavigate }: Props) {
+  const { balance, limit, history } = useCredits();
+  const { projects } = useProjects();
 
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="card-surface rounded-lg p-3 text-xs space-y-1 min-w-[140px]">
-      <div className="font-semibold text-foreground mb-2">{label}</div>
-      {payload.map((p: any) => (
-        <div key={p.name} className="flex justify-between gap-4">
-          <span className="text-muted-foreground capitalize">{p.name}</span>
-          <span className="font-semibold" style={{ color: p.color }}>
-            {typeof p.value === "number" ? p.value.toLocaleString() : p.value}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-};
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const stats = useMemo(() => {
+    const today = history.filter((h) => h.date.slice(0, 10) === todayKey);
+    const analyzed = today.filter((h) => h.action === "analyze_url" || h.action === "sofisticar" || h.action === "blueprint").length;
+    const searches = today.filter((h) => h.action === "search_ads").length;
+    return { analyzed, searches };
+  }, [history, todayKey]);
 
-export function DashboardPage() {
-  const { user } = useAuth();
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!user) return;
-    const fetch = async () => {
-      const { data } = await supabase
-        .from("campaigns")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-      setCampaigns((data as Campaign[]) || []);
-      setLoading(false);
-    };
-    fetch();
-  }, [user]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-      </div>
-    );
-  }
-
-  const totalImpressions = campaigns.reduce((s, c) => s + c.impressions, 0);
-  const totalClicks = campaigns.reduce((s, c) => s + c.clicks, 0);
-  const totalSpent = campaigns.reduce((s, c) => s + Number(c.spent), 0);
-  const totalConversions = campaigns.reduce((s, c) => s + c.conversions, 0);
-  const activeCount = campaigns.filter((c) => c.status === "active").length;
-
-  const formatNum = (n: number) => {
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-    return n.toLocaleString();
-  };
-
-  // Group by platform for chart
-  const platformData = Object.entries(
-    campaigns.reduce<Record<string, { spent: number; conversions: number }>>((acc, c) => {
-      if (!acc[c.platform]) acc[c.platform] = { spent: 0, conversions: 0 };
-      acc[c.platform].spent += Number(c.spent);
-      acc[c.platform].conversions += c.conversions;
-      return acc;
-    }, {})
-  ).map(([platform, data]) => ({ platform, ...data }));
-
-  const metrics = [
-    { label: "Impresiones totales", value: formatNum(totalImpressions), icon: <Eye className="w-4 h-4" />, highlight: true },
-    { label: "Clics totales", value: formatNum(totalClicks), icon: <MousePointer className="w-4 h-4" /> },
-    { label: "Gasto total", value: `$${formatNum(totalSpent)}`, icon: <DollarSign className="w-4 h-4" /> },
-    { label: "Conversiones", value: formatNum(totalConversions), icon: <Target className="w-4 h-4" /> },
-  ];
-
-  const isEmpty = campaigns.length === 0;
+  const recent = projects.slice(0, 3);
+  const low = balance < 10;
 
   return (
     <div className="space-y-6">
-      {/* Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {metrics.map((m) => (
-          <div key={m.label} className="card-surface rounded-xl p-5 hover:border-primary/30 transition-all group">
-            <div className="flex items-start justify-between mb-4">
-              <div className={`p-2.5 rounded-lg transition-all ${m.highlight ? "gradient-brand" : "bg-secondary group-hover:bg-secondary/80"}`}>
-                <div className={m.highlight ? "text-primary-foreground" : "text-primary"}>{m.icon}</div>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Megaphone className="w-3 h-3 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">{activeCount} activas</span>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="text-2xl font-display font-bold text-foreground">{m.value}</div>
-              <div className="text-sm text-muted-foreground">{m.label}</div>
-            </div>
-          </div>
-        ))}
+      <div>
+        <h2 className="font-display font-bold text-2xl text-foreground">INTELLIGENCE HUB <span className="text-primary">——</span></h2>
+        <p className="text-sm text-muted-foreground mt-1">Tu motor de descubrimiento de ofertas ganadoras</p>
       </div>
 
-      {isEmpty ? (
-        <div className="card-surface rounded-xl py-20 text-center">
-          <div className="text-5xl mb-4">📢</div>
-          <div className="font-display font-semibold text-foreground mb-2">Sin campañas todavía</div>
-          <div className="text-sm text-muted-foreground max-w-md mx-auto">
-            Ve a la sección de Campañas para crear tu primera campaña y empezar a ver métricas reales aquí
-          </div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Anuncios analizados hoy" value={stats.analyzed} icon={<Trophy className="w-4 h-4" />} />
+        <StatCard label="Búsquedas realizadas" value={stats.searches} icon={<Sparkles className="w-4 h-4" />} />
+        <StatCard label="Proyectos en BRAIN" value={projects.length} icon={<Brain className="w-4 h-4" />} />
+        <StatCard label="Créditos restantes" value={balance} icon={<Coins className="w-4 h-4" />} highlight={low ? "destructive" : "primary"} />
+      </div>
+
+      {/* Quick actions */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <ActionCard
+          title="🏆 Buscar Anuncios Ganadores"
+          subtitle="Encuentra lo que está escalando ahora mismo"
+          onClick={() => onNavigate("Anuncios Ganadores")}
+        />
+        <ActionCard
+          title="⚡ Iniciar SOFISTICAR"
+          subtitle="Convierte una oferta ganadora en tu producto"
+          onClick={() => onNavigate("Anuncios Ganadores")}
+        />
+      </div>
+
+      {/* Recent projects */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-display font-bold text-base flex items-center gap-2"><Brain className="w-4 h-4 text-primary" /> Proyectos recientes</h3>
+          <button onClick={() => onNavigate("Proyectos")} className="text-xs text-primary hover:underline flex items-center gap-1">Ver todos <ArrowRight className="w-3 h-3" /></button>
         </div>
-      ) : (
-        <>
-          {/* Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Spending by platform */}
-            <div className="card-surface rounded-xl p-6">
-              <h3 className="font-display font-semibold text-foreground mb-5 flex items-center gap-2">
-                <Zap className="w-4 h-4 text-primary" />
-                Gasto por Plataforma
-              </h3>
-              {platformData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={platformData} barSize={28}>
-                    <XAxis dataKey="platform" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="spent" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} name="Gasto" />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-[220px] flex items-center justify-center text-sm text-muted-foreground">Sin datos</div>
-              )}
-            </div>
-
-            {/* Conversions by platform */}
-            <div className="card-surface rounded-xl p-6">
-              <h3 className="font-display font-semibold text-foreground mb-5 flex items-center gap-2">
-                <Target className="w-4 h-4 text-accent" />
-                Conversiones por Plataforma
-              </h3>
-              {platformData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={platformData} barSize={28}>
-                    <XAxis dataKey="platform" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="conversions" fill="hsl(var(--accent))" radius={[6, 6, 0, 0]} name="Conversiones" />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-[220px] flex items-center justify-center text-sm text-muted-foreground">Sin datos</div>
-              )}
-            </div>
+        {recent.length === 0 ? (
+          <div className="card-surface rounded-xl py-10 text-center text-sm text-muted-foreground">Sin proyectos. Crea uno desde Anuncios Ganadores.</div>
+        ) : (
+          <div className="grid md:grid-cols-3 gap-3">
+            {recent.map((p) => {
+              const pct = (p.completedPillars.length / 6) * 100;
+              return (
+                <div key={p.id} className="card-surface rounded-xl p-4">
+                  <div className="text-[10px] uppercase tracking-widest text-primary font-bold">{p.mode === "sofisticar" ? "⚡ Sofisticar" : p.mode === "crear" ? "✦ Crear" : "🎯 Blueprint"}</div>
+                  <div className="font-display font-bold text-sm mt-1 truncate">{p.name}</div>
+                  <div className="text-[11px] text-muted-foreground mt-1">Pilar {p.pillar}: {PILLARS[p.pillar - 1]?.name}</div>
+                  <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden mt-2">
+                    <div className="h-full btn-primary-nova" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
           </div>
+        )}
+      </div>
 
-          {/* Campaigns summary */}
-          <div className="card-surface rounded-xl">
-            <div className="px-6 py-4 border-b border-border">
-              <h3 className="font-display font-semibold text-foreground">Resumen de Campañas</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    {["Campaña", "Estado", "Presupuesto", "Gastado", "Impresiones", "CTR", "ROAS"].map((h) => (
-                      <th key={h} className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {campaigns.slice(0, 5).map((c) => (
-                    <tr key={c.id} className="hover:bg-secondary/40 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-2 h-8 rounded-full flex-shrink-0" style={{ background: platformColor[c.platform] || "#6B7280" }} />
-                          <div>
-                            <div className="text-sm font-medium text-foreground max-w-[180px] truncate">{c.name}</div>
-                            <div className="text-xs text-muted-foreground">{c.platform}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          c.status === "active" ? "text-success bg-success/10" :
-                          c.status === "paused" ? "text-warning bg-warning/10" :
-                          "text-muted-foreground bg-muted"
-                        }`}>
-                          {c.status === "active" ? "Activa" : c.status === "paused" ? "Pausada" : c.status === "completed" ? "Completada" : "Borrador"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium text-foreground">${Number(c.budget).toLocaleString()}</td>
-                      <td className="px-6 py-4 text-sm text-foreground">${Number(c.spent).toLocaleString()}</td>
-                      <td className="px-6 py-4 text-sm text-foreground">{c.impressions > 0 ? formatNum(c.impressions) : "—"}</td>
-                      <td className="px-6 py-4 text-sm font-semibold text-accent">{c.ctr && c.ctr > 0 ? `${c.ctr}%` : "—"}</td>
-                      <td className="px-6 py-4"><span className={`text-sm font-bold ${c.roas && c.roas > 0 ? "text-success" : "text-muted-foreground"}`}>{c.roas && c.roas > 0 ? `${c.roas}x` : "—"}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      {/* Credits bar */}
+      <div className="card-surface rounded-xl p-5">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <div className="font-display font-bold">Créditos del mes</div>
+            <div className="text-xs text-muted-foreground">Se renuevan el {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString("es-ES")}</div>
           </div>
-        </>
-      )}
+          <button onClick={() => onNavigate("Créditos")} className="btn-primary-nova px-4 py-2 rounded-lg text-sm">Conseguir más</button>
+        </div>
+        <div className="w-full h-2.5 bg-secondary rounded-full overflow-hidden">
+          <div className="h-full btn-primary-nova" style={{ width: `${(balance / limit) * 100}%` }} />
+        </div>
+        <div className="text-xs text-muted-foreground mt-2">{balance} de {limit} disponibles</div>
+      </div>
     </div>
+  );
+}
+
+function StatCard({ label, value, icon, highlight }: { label: string; value: number; icon: React.ReactNode; highlight?: "primary" | "destructive" }) {
+  const color = highlight === "destructive" ? "text-destructive" : "text-primary";
+  return (
+    <div className="card-surface rounded-xl p-5">
+      <div className={`flex items-center gap-2 ${color}`}>{icon}<span className="text-xs uppercase tracking-wider font-bold">{label}</span></div>
+      <div className={`text-3xl font-display font-extrabold mt-2 ${highlight === "destructive" ? "text-destructive" : "text-foreground"}`}>{value}</div>
+    </div>
+  );
+}
+
+function ActionCard({ title, subtitle, onClick }: { title: string; subtitle: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="card-surface rounded-xl p-6 text-left hover:border-primary/40 hover:shadow-[0_0_30px_hsl(var(--primary)/0.15)] transition-all group">
+      <div className="font-display font-bold text-lg text-foreground">{title}</div>
+      <div className="text-sm text-muted-foreground mt-1">{subtitle}</div>
+      <div className="text-xs text-primary mt-3 flex items-center gap-1 group-hover:gap-2 transition-all">Empezar <ArrowRight className="w-3 h-3" /></div>
+    </button>
   );
 }

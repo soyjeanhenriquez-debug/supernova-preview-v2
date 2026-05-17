@@ -7,31 +7,34 @@
 /* ===== DESIGN SYSTEM ===== */
 @layer base {
   :root {
-    /* Core surfaces — Deep space */
-    --background: 20 15% 5%;
-    --foreground: 35 30% 95%;
+    /* Core surfaces — Pure void */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
 
-    --card: 20 12% 8%;
-    --card-foreground: 35 30% 95%;
+    --card: 0 0% 9%;
+    --card-foreground: 0 0% 100%;
 
-    --popover: 20 12% 8%;
-    --popover-foreground: 35 30% 95%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 100%;
 
-    /* Brand: Supernova Orange */
-    --primary: 28 95% 55%;
-    --primary-foreground: 20 15% 5%;
+    /* Brand: Supernova Orange (#F97316) */
+    --primary: 21 90% 53%;
+    --primary-foreground: 0 0% 0%;
 
     /* Secondary surfaces */
-    --secondary: 20 10% 12%;
-    --secondary-foreground: 35 30% 90%;
+    --secondary: 0 0% 11%;
+    --secondary-foreground: 0 0% 95%;
 
     /* Muted */
-    --muted: 20 10% 12%;
-    --muted-foreground: 25 10% 48%;
+    --muted: 0 0% 11%;
+    --muted-foreground: 0 0% 64%;
 
-    /* Accent: Solar Gold */
-    --accent: 42 100% 60%;
-    --accent-foreground: 20 15% 5%;
+    /* Accent: Amber (#F59E0B) */
+    --accent: 38 92% 50%;
+    --accent-foreground: 0 0% 0%;
+
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 100%;
 
     /* States */
     --destructive: 0 72% 55%;
@@ -44,35 +47,37 @@
     --warning-foreground: 20 15% 5%;
 
     /* Borders & inputs */
-    --border: 20 10% 16%;
-    --input: 20 10% 16%;
-    --ring: 28 95% 55%;
+    --border: 0 0% 14%;
+    --input: 0 0% 14%;
+    --ring: 21 90% 53%;
 
-    --radius: 0.75rem;
+    --radius: 0.875rem;
 
     /* Sidebar */
-    --sidebar-background: 20 15% 4%;
-    --sidebar-foreground: 25 10% 55%;
-    --sidebar-primary: 28 95% 55%;
-    --sidebar-primary-foreground: 20 15% 5%;
-    --sidebar-accent: 20 10% 10%;
-    --sidebar-accent-foreground: 35 30% 95%;
-    --sidebar-border: 20 10% 10%;
-    --sidebar-ring: 28 95% 55%;
+    --sidebar-background: 0 0% 4%;
+    --sidebar-foreground: 0 0% 64%;
+    --sidebar-primary: 21 90% 53%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 0 0% 9%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 10%;
+    --sidebar-ring: 21 90% 53%;
 
     /* Custom tokens — Supernova */
-    --glow-primary: 0 0 28px hsl(28 95% 55% / 0.35);
-    --glow-accent: 0 0 24px hsl(42 100% 60% / 0.3);
-    --gradient-brand: linear-gradient(135deg, hsl(28 95% 55%), hsl(42 100% 60%));
-    --gradient-card: linear-gradient(145deg, hsl(20 12% 10%), hsl(20 12% 7%));
-    --gradient-sidebar: linear-gradient(180deg, hsl(20 15% 4%), hsl(20 15% 3%));
-    --shadow-card: 0 4px 24px hsl(20 15% 2% / 0.7);
-    --shadow-glow: 0 0 40px hsl(28 95% 55% / 0.12);
+    --glow-primary: 0 0 32px hsl(21 90% 53% / 0.45);
+    --glow-accent: 0 0 24px hsl(38 92% 50% / 0.4);
+    --gradient-brand: linear-gradient(135deg, hsl(38 92% 50%), hsl(21 90% 53%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 10%), hsl(0 0% 7%));
+    --gradient-sidebar: linear-gradient(180deg, hsl(0 0% 4%), hsl(0 0% 2%));
+    --shadow-card: 0 4px 24px hsl(0 0% 0% / 0.8);
+    --shadow-glow: 0 0 40px hsl(21 90% 53% / 0.15);
 
     /* Extended palette */
     --nova-ember: 15 85% 50%;
     --nova-flame: 8 80% 55%;
-    --nova-nebula: 270 40% 35%;
+    --tier-mega: 38 92% 50%;
+    --tier-rising: 217 91% 60%;
+    --tier-solid: 158 64% 45%;
   }
 }
 
@@ -214,4 +219,37 @@
   height: 8px;
   border-radius: 50%;
   background: hsl(var(--muted-foreground));
+}
+
+/* ===== Tier badges ===== */
+.tier-mega { background: hsl(var(--tier-mega)); color: #000; }
+.tier-rising { background: hsl(var(--tier-rising)); color: #fff; }
+.tier-solid { background: hsl(var(--tier-solid)); color: #fff; }
+
+.pulse-hot {
+  animation: pulse-hot 1.4s ease-in-out infinite;
+}
+@keyframes pulse-hot {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.55); }
+  50% { box-shadow: 0 0 0 8px hsl(var(--primary) / 0); }
+}
+
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #22c55e; box-shadow: 0 0 10px #22c55e;
+  animation: pulse-hot 2s infinite;
+}
+
+.btn-primary-nova {
+  background: linear-gradient(135deg, hsl(38 92% 50%), hsl(21 90% 53%));
+  color: #000; font-weight: 700;
+  transition: all .2s ease;
+}
+.btn-primary-nova:hover { filter: brightness(1.1); box-shadow: var(--glow-primary); }
+.btn-primary-nova:disabled { opacity: .5; cursor: not-allowed; }
+
+.sidebar-active {
+  background: linear-gradient(90deg, hsl(21 90% 53% / 0.15), transparent);
+  border-left: 3px solid hsl(21 90% 53%);
+  color: hsl(21 90% 53%);
 }

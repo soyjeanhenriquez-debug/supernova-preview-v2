@@ -55,7 +55,8 @@ function ProjectCard({ p, onOpen, onDelete }: { p: BrainProject; onOpen: () => v
   const progress = (p.completedPillars.length / 6) * 100;
   const modeLabel = p.mode === "sofisticar" ? "⚡ Sofisticar" : p.mode === "crear" ? "✦ Crear" : "🎯 Blueprint";
   return (
-    <div className="card-surface rounded-xl p-4 flex flex-col gap-3 hover:border-primary/40 transition-all">
+    <div className="card-surface rounded-xl p-4 flex flex-col gap-3 ad-card-hover">
+      <ProjectThumb seed={p.name} />
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-[10px] uppercase tracking-widest text-primary font-bold">{modeLabel}</div>

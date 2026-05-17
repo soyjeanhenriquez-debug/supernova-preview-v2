@@ -1,0 +1,135 @@
+// Realistic demo data for Anuncios Ganadores
+export type OfferType = "infoproducto" | "ecommerce" | "saas" | "app" | "servicio";
+export type AdMarket = "BR" | "US" | "ES" | "MX" | "RU" | "LATAM";
+export type AdLang = "en" | "es" | "pt" | "ru";
+export type Tier = "mega" | "rising" | "solid";
+
+export interface DemoAd {
+  id: string;
+  pageId: string;
+  pageName: string;
+  title: string;
+  body: string;
+  daysActive: number;
+  duplicates: number;
+  score: number;
+  tier: Tier;
+  offerType: OfferType;
+  market: AdMarket;
+  marketLabel: string;
+  flag: string;
+  lang: AdLang;
+  checkoutPlatform?: string;
+  adUrl: string;
+}
+
+function calcScore(days: number, dups: number, impHint: number) {
+  let s = 0;
+  if (days >= 60) s += 35; else if (days >= 30) s += 28; else if (days >= 14) s += 20; else if (days >= 7) s += 12;
+  if (dups >= 50) s += 30; else if (dups >= 10) s += 22; else if (dups >= 5) s += 14; else if (dups >= 3) s += 8;
+  s += Math.min(20, impHint);
+  s += 10; // platform spread
+  return Math.min(100, s);
+}
+
+function tierFromScore(s: number): Tier {
+  if (s >= 80) return "mega";
+  if (s >= 60) return "rising";
+  return "solid";
+}
+
+const ADS: Omit<DemoAd, "score" | "tier">[] = [
+  // BR · health · 5 variants
+  { id: "br1-1", pageId: "saude_br_1", pageName: "Saúde Natural Brasil", title: "O segredo dos médicos para emagrecer", body: "O segredo que os médicos não querem que você saiba para emagrecer 10kg em 30 dias sem dieta e sem academia. Mais de 47.000 pessoas já transformaram seus corpos com este método natural. Garantia de 60 dias.", daysActive: 45, duplicates: 50, offerType: "infoproducto", market: "BR", marketLabel: "Brasil", flag: "🇧🇷", lang: "pt", checkoutPlatform: "Hotmart", adUrl: "https://facebook.com/ads/library/?id=demo_br1_1" },
+  { id: "br1-2", pageId: "saude_br_1", pageName: "Saúde Natural Brasil", title: "Emagreça 10kg em 30 dias", body: "Método natural comprovado: emagrecimento de 10kg em 30 dias sem dieta nem academia. Segredo médico revelado. Garantia 60 dias.", daysActive: 42, duplicates: 50, offerType: "infoproducto", market: "BR", marketLabel: "Brasil", flag: "🇧🇷", lang: "pt", checkoutPlatform: "Hotmart", adUrl: "https://facebook.com/ads/library/?id=demo_br1_2" },
+
+  // BR · digital course
+  { id: "br2-1", pageId: "renda_extra_br", pageName: "Renda Extra Online", title: "Ganhe R$ 5.000 por mês trabalhando de casa", body: "Descobri o método que está fazendo donas de casa ganharem R$5.000 por mês trabalhando 2h por dia. Só hoje: acesso ao treinamento completo + bônus. Saiba mais clicando agora.", daysActive: 62, duplicates: 12, offerType: "infoproducto", market: "BR", marketLabel: "Brasil", flag: "🇧🇷", lang: "pt", checkoutPlatform: "Kiwify", adUrl: "https://facebook.com/ads/library/?id=demo_br2_1" },
+
+  // US · ecom skincare mega
+  { id: "us1-1", pageId: "skinglow_us", pageName: "SkinGlow Official", title: "Dermatologist Approved Routine", body: "The routine that dermatologists are talking about. 92% of users saw visible results in 14 days. Free shipping worldwide, 90-day money back guarantee. Join 200K+ happy customers.", daysActive: 75, duplicates: 28, offerType: "ecommerce", market: "US", marketLabel: "USA", flag: "🇺🇸", lang: "en", checkoutPlatform: "Shopify", adUrl: "https://facebook.com/ads/library/?id=demo_us1_1" },
+  { id: "us1-2", pageId: "skinglow_us", pageName: "SkinGlow Official", title: "92% See Results in 14 Days", body: "Dermatologist-recommended routine. 92% visible results in 14 days. 200K+ customers. Free shipping, 90-day guarantee.", daysActive: 70, duplicates: 28, offerType: "ecommerce", market: "US", marketLabel: "USA", flag: "🇺🇸", lang: "en", checkoutPlatform: "Shopify", adUrl: "https://facebook.com/ads/library/?id=demo_us1_2" },
+
+  // US · make money mega
+  { id: "us2-1", pageId: "wealth_lab_us", pageName: "Wealth Lab", title: "How I made $10K/month with AI", body: "What they don't want you to know: this AI tool is making regular people $10K/month. Just pay shipping for your starter kit. Claim yours before it's gone.", daysActive: 38, duplicates: 18, offerType: "infoproducto", market: "US", marketLabel: "USA", flag: "🇺🇸", lang: "en", checkoutPlatform: "Clickbank", adUrl: "https://facebook.com/ads/library/?id=demo_us2_1" },
+
+  // ES · fitness rising
+  { id: "es1-1", pageId: "fit_es", pageName: "FitMax España", title: "Pierde 8 kilos en 21 días", body: "El secreto que nadie te dice: pierde 8 kilos en 21 días sin pasar hambre. Método probado por más de 30.000 españoles. Webinar gratuito solo hoy. Accede ahora.", daysActive: 22, duplicates: 9, offerType: "infoproducto", market: "ES", marketLabel: "España", flag: "🇪🇸", lang: "es", checkoutPlatform: "Stripe", adUrl: "https://facebook.com/ads/library/?id=demo_es1_1" },
+  { id: "es1-2", pageId: "fit_es", pageName: "FitMax España", title: "¿Cansado de las dietas que no funcionan?", body: "Por fin un método probado: pierde 8 kilos en 21 días. Sin dietas extremas. Webinar gratuito hoy. Garantizado.", daysActive: 18, duplicates: 9, offerType: "infoproducto", market: "ES", marketLabel: "España", flag: "🇪🇸", lang: "es", checkoutPlatform: "Stripe", adUrl: "https://facebook.com/ads/library/?id=demo_es1_2" },
+
+  // MX · ecom
+  { id: "mx1-1", pageId: "envio_mx", pageName: "EnvíoShop México", title: "Envío gratis hoy en todo México", body: "Última oportunidad: 50% OFF y envío gratis a todo México. Solo hoy. Más de 12.000 clientes felices este mes. Garantía de devolución.", daysActive: 14, duplicates: 6, offerType: "ecommerce", market: "MX", marketLabel: "México", flag: "🇲🇽", lang: "es", checkoutPlatform: "Shopify", adUrl: "https://facebook.com/ads/library/?id=demo_mx1_1" },
+
+  // LATAM · crypto rising
+  { id: "la1-1", pageId: "cripto_lat", pageName: "Cripto Académica LATAM", title: "Cómo gané $3.000 USD con cripto en 30 días", body: "Lo que nadie te cuenta sobre cripto. Método 100% probado por 18.000 latinos. Acceso ahora con garantía total. Webinar gratuito.", daysActive: 30, duplicates: 11, offerType: "infoproducto", market: "LATAM", marketLabel: "LATAM", flag: "🌎", lang: "es", checkoutPlatform: "Hotmart", adUrl: "https://facebook.com/ads/library/?id=demo_la1_1" },
+
+  // RU · education
+  { id: "ru1-1", pageId: "rus_edu", pageName: "Мастер-Класс PRO", title: "Узнайте как зарабатывать онлайн", body: "Секрет, который никто не говорит: получите доступ к мастер-классу бесплатно. Только сегодня. Гарантировано результат за 14 дней.", daysActive: 28, duplicates: 7, offerType: "infoproducto", market: "RU", marketLabel: "Rusia", flag: "🇷🇺", lang: "ru", checkoutPlatform: "Stripe", adUrl: "https://facebook.com/ads/library/?id=demo_ru1_1" },
+
+  // SaaS US solid
+  { id: "us3-1", pageId: "aitool_us", pageName: "Copybird AI", title: "Write ad copy 10x faster with AI", body: "The AI tool that writes high-converting ad copy in seconds. Free 7-day trial, no credit card. Trusted by 80K marketers.", daysActive: 10, duplicates: 4, offerType: "saas", market: "US", marketLabel: "USA", flag: "🇺🇸", lang: "en", checkoutPlatform: "Stripe", adUrl: "https://facebook.com/ads/library/?id=demo_us3_1" },
+
+  // App MX solid
+  { id: "mx2-1", pageId: "app_mx_fin", pageName: "Finanzas Pro App", title: "La app que está ayudando a millones a ahorrar", body: "Descubre la app de finanzas personales que está cambiando vidas en México. Más de 500.000 descargas. Gratis los primeros 30 días.", daysActive: 9, duplicates: 3, offerType: "app", market: "MX", marketLabel: "México", flag: "🇲🇽", lang: "es", adUrl: "https://facebook.com/ads/library/?id=demo_mx2_1" },
+];
+
+export function getDemoAds(): DemoAd[] {
+  return ADS.map((a) => {
+    const impHint = Math.min(20, Math.floor(a.duplicates * 0.4));
+    const score = calcScore(a.daysActive, a.duplicates, impHint);
+    return { ...a, score, tier: tierFromScore(score) };
+  });
+}
+
+export const MARKETS = [
+  { id: "all", label: "Todos", flag: "🌍" },
+  { id: "en",  label: "English", flag: "🇺🇸" },
+  { id: "es",  label: "Español", flag: "🇪🇸" },
+  { id: "pt",  label: "Português", flag: "🇧🇷" },
+  { id: "ru",  label: "Русский", flag: "🇷🇺" },
+] as const;
+
+export const KEYWORD_CHIPS: Record<string, string[]> = {
+  all: ["Learn more", "El secreto", "O segredo", "Free shipping", "Envío gratis", "Só hoje", "Секрет", "The secret", "Más información", "Saiba mais", "Only today", "Solo hoy"],
+  en:  ["Learn more", "Free shipping", "Limited time", "The secret", "Just pay shipping", "Claim your", "Risk free", "Discovered", "Order now", "Act now", "What they don't want", "Get yours"],
+  es:  ["El secreto", "Más información", "Envío gratis", "Solo hoy", "Lo que nadie te dice", "¿Cansado de", "Método probado", "Garantizado", "Accede ahora", "Webinar gratuito", "Por fin", "¿Sigues luchando"],
+  pt:  ["O segredo", "Saiba mais", "Frete grátis", "Só hoje", "O que ninguém te conta", "Você sabia", "Método comprovado", "Garantido", "Acesse agora", "Webinar gratuito", "Hotmart", "Kiwify"],
+  ru:  ["Секрет", "Узнать больше", "Бесплатно", "Только сегодня", "Метод", "Гарантировано", "Получить доступ", "Мастер-класс", "Никто не говорит", "Узнайте как"],
+};
+
+export const PLACEHOLDERS: Record<string, string> = {
+  all: "Busca en todos los mercados...",
+  en:  "Learn more, free shipping, the secret...",
+  es:  "El secreto, más información, solo hoy...",
+  pt:  "O segredo, saiba mais, só hoje...",
+  ru:  "Секрет, узнать больше, только сегодня...",
+};
+
+export const OFFER_TYPE_LABEL: Record<OfferType, string> = {
+  infoproducto: "INFOPRODUCTO",
+  ecommerce: "ECOMMERCE",
+  saas: "SAAS",
+  app: "APP",
+  servicio: "SERVICIO",
+};
+
+export function despeguePercent(daysActive: number, duplicates: number) {
+  const v = Math.min(100, Math.round((duplicates * daysActive) / 30));
+  let label = "Estable";
+  if (v >= 80) label = "Dominando";
+  else if (v >= 60) label = "Escalando";
+  else if (v >= 30) label = "Despegando";
+  else if (v >= 10) label = "Iniciando";
+  let color = "#22c55e";
+  if (v < 30) color = "#f59e0b";
+  return { value: v, label, color };
+}
+
+// Global demo stats (always visible)
+export const GLOBAL_STATS = {
+  total: 47832,
+  unique: 8241,
+  mega: 312,
+  rising: 1847,
+  solid: 6082,
+};

@@ -7,31 +7,34 @@
 /* ===== DESIGN SYSTEM ===== */
 @layer base {
   :root {
-    /* Core surfaces — Deep space */
-    --background: 20 15% 5%;
-    --foreground: 35 30% 95%;
+    /* Core surfaces — Pure void */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
 
-    --card: 20 12% 8%;
-    --card-foreground: 35 30% 95%;
+    --card: 0 0% 9%;
+    --card-foreground: 0 0% 100%;
 
-    --popover: 20 12% 8%;
-    --popover-foreground: 35 30% 95%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 100%;
 
-    /* Brand: Supernova Orange */
-    --primary: 28 95% 55%;
-    --primary-foreground: 20 15% 5%;
+    /* Brand: Supernova Orange (#F97316) */
+    --primary: 21 90% 53%;
+    --primary-foreground: 0 0% 0%;
 
     /* Secondary surfaces */
-    --secondary: 20 10% 12%;
-    --secondary-foreground: 35 30% 90%;
+    --secondary: 0 0% 11%;
+    --secondary-foreground: 0 0% 95%;
 
     /* Muted */
-    --muted: 20 10% 12%;
-    --muted-foreground: 25 10% 48%;
+    --muted: 0 0% 11%;
+    --muted-foreground: 0 0% 64%;
 
-    /* Accent: Solar Gold */
-    --accent: 42 100% 60%;
-    --accent-foreground: 20 15% 5%;
+    /* Accent: Amber (#F59E0B) */
+    --accent: 38 92% 50%;
+    --accent-foreground: 0 0% 0%;
+
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 100%;
 
     /* States */
     --destructive: 0 72% 55%;

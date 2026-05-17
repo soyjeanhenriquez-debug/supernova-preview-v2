@@ -1,6 +1,7 @@
 import { useCredits, CREDIT_COSTS, ACTION_LABEL } from "@/hooks/useCredits";
 import { Zap, Coins, Check } from "lucide-react";
 import { toast } from "sonner";
+import { CountUp } from "@/components/CountUp";
 
 const PLANS = [
   { name: "FREE",   price: "$0",   credits: 50,   features: ["50 créditos / mes", "Anuncios ganadores", "Chat IA básico"] },

@@ -4,20 +4,24 @@ import { toast } from "sonner";
 import { CountUp } from "@/components/CountUp";
 
 const PLANS = [
-  { name: "FREE",   price: "$0",   credits: 50,   features: ["50 créditos / mes", "Anuncios ganadores", "Chat IA básico"] },
-  { name: "PRO",    price: "$49",  credits: 300,  popular: true, features: ["300 créditos / mes", "Todos los modos SOFISTICAR", "Pain Discovery", "Soporte prioritario"] },
-  { name: "AGENCY", price: "$99",  credits: 1000, features: ["1000 créditos / mes", "Acceso multiusuario", "API privada", "Soporte dedicado"] },
+  { name: "FREE",   price: "$0",   credits: 500,   features: ["500 créditos / mes", "Anuncios ganadores", "Chat IA básico"] },
+  { name: "PRO",    price: "$49",  credits: 3000,  popular: true, features: ["3,000 créditos / mes", "Todos los modos SOFISTICAR", "Pain Discovery", "Soporte prioritario"] },
+  { name: "AGENCY", price: "$99",  credits: 10000, features: ["10,000 créditos / mes", "Acceso multiusuario", "API privada", "Soporte dedicado"] },
 ];
 
 export function CreditsPage() {
   const { balance, limit, history, refill } = useCredits();
   const pct = (balance / limit) * 100;
 
+  const renewDate = new Date();
+  renewDate.setDate(renewDate.getDate() + 30);
+  const renewFormatted = renewDate.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
+
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="font-display font-bold text-2xl text-foreground">TUS CRÉDITOS</h2>
-        <p className="text-sm text-muted-foreground mt-1">Energía SUPERNOVA para tu motor DR</p>
+        <h2 className="page-heading font-display text-2xl text-foreground">TUS CRÉDITOS</h2>
+        <p className="text-sm text-muted-foreground mt-3">Energía SUPERNOVA para tu motor DR</p>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -29,12 +33,13 @@ export function CreditsPage() {
                 strokeDasharray={`${(pct / 100) * 264} 264`} strokeLinecap="round" />
             </svg>
             <div>
-              <div className="text-5xl font-display font-extrabold text-primary">{balance}</div>
-              <div className="text-xs text-muted-foreground">/ {limit}</div>
+              <div className="text-4xl font-display font-extrabold text-primary"><CountUp value={balance} /></div>
+              <div className="text-xs text-muted-foreground">/ {limit.toLocaleString()}</div>
             </div>
           </div>
           <div className="text-sm text-foreground mt-3">Créditos disponibles</div>
-          <button onClick={() => { refill(50); toast.success("+50 créditos demo añadidos"); }} className="mt-4 text-xs text-primary hover:underline">+ Añadir 50 créditos demo</button>
+          <div className="text-xs text-primary mt-1">Se renuevan en 30 días ({renewFormatted})</div>
+          <button onClick={() => { refill(500); toast.success("+500 créditos demo añadidos"); }} className="mt-4 text-xs text-primary hover:underline">+ Añadir 500 créditos demo</button>
         </div>
 
         <div className="card-surface rounded-xl p-6 lg:col-span-2">

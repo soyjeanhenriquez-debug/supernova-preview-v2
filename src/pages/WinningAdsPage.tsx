@@ -254,7 +254,7 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
     "bg-neutral-700 text-neutral-300";
 
   return (
-    <div className="card-surface rounded-xl p-5 flex flex-col gap-3 hover:border-primary/40 transition-all">
+    <div className="card-surface rounded-xl p-5 flex flex-col gap-3 ad-card-hover">
       <div className="flex items-start justify-between">
         <span className={`text-[11px] font-bold px-2.5 py-1 rounded ${tier.cls}`}>{tier.icon} {tier.label}</span>
         <div className="flex items-center gap-2">

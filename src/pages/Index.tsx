@@ -2,30 +2,29 @@ import { useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
 import { DashboardPage } from "@/pages/DashboardPage";
-import { RealCampaignsPage } from "@/pages/RealCampaignsPage";
 import { WinningAdsPage } from "@/pages/WinningAdsPage";
-import { SpyPage } from "@/pages/SpyPage";
 import { ChatPage } from "@/pages/ChatPage";
 import { GeneradoresPage } from "@/pages/GeneradoresPage";
 import { AgentsPage } from "@/pages/AgentsPage";
-import { TemplatesPage } from "@/pages/TemplatesPage";
-import { LibraryPage } from "@/pages/LibraryPage";
+import { BrainPage } from "@/pages/BrainPage";
+import { CreditsPage } from "@/pages/CreditsPage";
+import { CrearPage } from "@/pages/CrearPage";
 
 const Index = () => {
   const [activePage, setActivePage] = useState("Dashboard");
 
   const renderPage = () => {
     switch (activePage) {
-      case "Dashboard": return <DashboardPage />;
-      case "Campañas": return <RealCampaignsPage />;
+      case "Dashboard": return <DashboardPage onNavigate={setActivePage} />;
       case "Anuncios Ganadores": return <WinningAdsPage />;
-      case "Espía": return <SpyPage />;
-      case "Generadores": return <GeneradoresPage />;
+      case "Agentes DR": return <AgentsPage />;
       case "Chat IA": return <ChatPage />;
-      case "Agentes": return <AgentsPage />;
-      case "Plantillas": return <TemplatesPage />;
-      case "Biblioteca": return <LibraryPage />;
-      default: return <DashboardPage />;
+      case "Generadores": return <GeneradoresPage />;
+      case "Proyectos": return <BrainPage />;
+      case "Créditos": return <CreditsPage />;
+      case "Crear": return <CrearPage />;
+      case "Admin": return <div className="card-surface rounded-xl p-10 text-center"><h3 className="font-display font-bold text-xl">🛡️ Admin Panel</h3><p className="text-sm text-muted-foreground mt-2">Panel administrativo (en construcción)</p></div>;
+      default: return <DashboardPage onNavigate={setActivePage} />;
     }
   };
 

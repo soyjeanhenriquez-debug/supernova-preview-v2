@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Brain, Trash2, ArrowRight, Sparkles, Plus as PlusIcon, CheckCircle2, Circle } from "lucide-react";
 import { useProjects, PILLARS, type BrainProject } from "@/hooks/useProjects";
+import { ProjectThumb } from "@/components/ProjectThumb";
 
 export function BrainPage() {
   const { projects, remove, togglePillar, setNote } = useProjects();

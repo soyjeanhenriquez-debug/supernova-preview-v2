@@ -238,49 +238,97 @@ export type Database = {
       }
       winning_ads: {
         Row: {
+          ad_body: string | null
           ad_description: string | null
           ad_format: string | null
           ad_title: string | null
           ad_url: string | null
           advertiser: string | null
+          days_active: number | null
+          delivery_start_time: string | null
+          delivery_stop_time: string | null
+          duplicate_count: number | null
           engagement_score: number | null
           id: string
           impressions_estimate: string | null
+          impressions_lower: number | null
+          impressions_upper: number | null
+          is_confirmed_winner: boolean | null
           is_featured: boolean
           keyword: string
+          market: string | null
+          offer_type: string | null
+          page_id: string | null
+          page_name: string | null
           platform: string
+          publisher_platforms: Json | null
           raw_data: Json | null
           scraped_at: string
+          signals: Json | null
+          tier: string | null
+          winner_score: number | null
         }
         Insert: {
+          ad_body?: string | null
           ad_description?: string | null
           ad_format?: string | null
           ad_title?: string | null
           ad_url?: string | null
           advertiser?: string | null
+          days_active?: number | null
+          delivery_start_time?: string | null
+          delivery_stop_time?: string | null
+          duplicate_count?: number | null
           engagement_score?: number | null
           id?: string
           impressions_estimate?: string | null
+          impressions_lower?: number | null
+          impressions_upper?: number | null
+          is_confirmed_winner?: boolean | null
           is_featured?: boolean
           keyword: string
+          market?: string | null
+          offer_type?: string | null
+          page_id?: string | null
+          page_name?: string | null
           platform?: string
+          publisher_platforms?: Json | null
           raw_data?: Json | null
           scraped_at?: string
+          signals?: Json | null
+          tier?: string | null
+          winner_score?: number | null
         }
         Update: {
+          ad_body?: string | null
           ad_description?: string | null
           ad_format?: string | null
           ad_title?: string | null
           ad_url?: string | null
           advertiser?: string | null
+          days_active?: number | null
+          delivery_start_time?: string | null
+          delivery_stop_time?: string | null
+          duplicate_count?: number | null
           engagement_score?: number | null
           id?: string
           impressions_estimate?: string | null
+          impressions_lower?: number | null
+          impressions_upper?: number | null
+          is_confirmed_winner?: boolean | null
           is_featured?: boolean
           keyword?: string
+          market?: string | null
+          offer_type?: string | null
+          page_id?: string | null
+          page_name?: string | null
           platform?: string
+          publisher_platforms?: Json | null
           raw_data?: Json | null
           scraped_at?: string
+          signals?: Json | null
+          tier?: string | null
+          winner_score?: number | null
         }
         Relationships: []
       }

@@ -772,10 +772,43 @@ export function WinningAdsPage() {
       </div>
 
       {/* Quality filters — hairline Apple style */}
-      <div className="rounded-2xl p-5 sticky top-[80px] z-10 border border-border bg-card/80 backdrop-blur-xl">
-        <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.18em] mb-4">
-          <Filter className="w-3.5 h-3.5" /> Filtros de calidad
+      <div className="rounded-2xl p-5 sticky top-[80px] z-10 border border-border bg-card/80 backdrop-blur-xl space-y-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.18em]">
+            <Filter className="w-3.5 h-3.5" /> Filtros de calidad
+          </div>
+          {/* Toggle vista grid/list */}
+          <div className="inline-flex bg-secondary/60 rounded-full p-1 border border-border/60">
+            <button onClick={() => setViewMode("grid")} aria-label="Vista grid" className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${viewMode === "grid" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
+              <LayoutGrid className="w-3 h-3" /> Grid
+            </button>
+            <button onClick={() => setViewMode("list")} aria-label="Vista lista" className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${viewMode === "list" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
+              <List className="w-3 h-3" /> Lista
+            </button>
+          </div>
         </div>
+
+        {/* Chips por vertical */}
+        <div className="flex flex-wrap gap-1.5">
+          {(["Todas", "infoproducto", "ecommerce", "app_saas", "servicio", "salud", "crypto", "otro"] as const).map((v) => {
+            const active = verticalFilter === v;
+            const label = v === "Todas" ? "Todas" : (CATEGORY_LABEL as Record<string, string>)[v] ?? v;
+            return (
+              <button
+                key={v}
+                onClick={() => setVerticalFilter(v)}
+                className={`px-3 py-1 rounded-full text-[11px] font-semibold border transition-all ${
+                  active
+                    ? "bg-primary text-primary-foreground border-primary shadow shadow-primary/20"
+                    : "bg-secondary/40 text-muted-foreground border-border/60 hover:text-foreground hover:border-primary/40"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="flex flex-wrap gap-2">
           <PillSelect label="Idioma" value={market} onChange={setMarket} options={MARKETS.map((m) => ({ value: m.id, label: `${m.flag} ${m.label}` }))} />
           <PillSelect label="Días mínimos" value={String(minDays)} onChange={(v) => setMinDays(Number(v))} options={DAY_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
@@ -786,6 +819,7 @@ export function WinningAdsPage() {
           <PillSelect label="Ordenar" value={sort} onChange={setSort} options={SORT_OPTIONS.map((o) => ({ value: o, label: o }))} />
         </div>
       </div>
+
 
       {/* Ofertas escalando */}
       <div>

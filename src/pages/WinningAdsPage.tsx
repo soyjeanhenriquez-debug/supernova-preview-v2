@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { IntelligenceAnalyzer } from "@/components/IntelligenceAnalyzer";
+import { getAutoSearchKeywords, TOTAL_DR_KEYWORDS } from "@/lib/dr-keywords";
 
 const COUNTRY_OPTIONS: { code: string; label: string; flag: string }[] = [
   { code: "ES", label: "España", flag: "🇪🇸" },

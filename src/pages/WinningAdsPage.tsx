@@ -165,7 +165,7 @@ export function WinningAdsPage() {
           tier: days >= 60 || dups >= 10 ? "mega" : days >= 14 || dups >= 3 ? "rising" : "solid",
           offerType: "infoproducto",
           market: adMarket,
-          marketLabel: country,
+          marketLabel: searchCountry,
           flag: "🌐",
           lang: marketTyped,
           adUrl,

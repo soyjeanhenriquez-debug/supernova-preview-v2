@@ -178,6 +178,23 @@ export function WinningAdsPage() {
     return list;
   }, [allAds, market, minDays, minDups, typeFilter, regionFilter, minScore, sort, keyword]);
 
+  // Default filter values (used for "active count" + reset)
+  const FILTER_DEFAULTS = { market: "all", minDays: 7, minDups: 3, typeFilter: "Todos", regionFilter: "Todos", minScore: 0, sort: "Mayor Score" };
+  const activeFilterCount =
+    (market !== FILTER_DEFAULTS.market ? 1 : 0) +
+    (minDays !== FILTER_DEFAULTS.minDays ? 1 : 0) +
+    (minDups !== FILTER_DEFAULTS.minDups ? 1 : 0) +
+    (typeFilter !== FILTER_DEFAULTS.typeFilter ? 1 : 0) +
+    (regionFilter !== FILTER_DEFAULTS.regionFilter ? 1 : 0) +
+    (minScore !== FILTER_DEFAULTS.minScore ? 1 : 0) +
+    (sort !== FILTER_DEFAULTS.sort ? 1 : 0);
+  const resetFilters = () => {
+    setMarket(FILTER_DEFAULTS.market); setMinDays(FILTER_DEFAULTS.minDays); setMinDups(FILTER_DEFAULTS.minDups);
+    setTypeFilter(FILTER_DEFAULTS.typeFilter); setRegionFilter(FILTER_DEFAULTS.regionFilter);
+    setMinScore(FILTER_DEFAULTS.minScore); setSort(FILTER_DEFAULTS.sort);
+    toast.success("Filtros reiniciados");
+  };
+
   const handleSearch = async () => {
     if (!canAfford("search_ads")) { toast.error("Sin créditos suficientes"); return; }
     consume("search_ads", keyword || market);

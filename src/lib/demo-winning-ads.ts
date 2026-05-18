@@ -25,6 +25,18 @@ export interface DemoAd {
   activeCount?: number;
   /** Total histórico de anuncios del anunciante (si lo devuelve la API) */
   historicalCount?: number;
+  /** Plataformas donde corre el anuncio (facebook, instagram, messenger, audience_network) */
+  platforms?: string[];
+  /** Códigos ISO de países donde corre */
+  countries?: string[];
+  /** Texto del botón CTA real del anuncio */
+  ctaText?: string;
+  /** URL de la landing del anuncio */
+  landingUrl?: string;
+  /** Snapshot URL del Ads Library (ver creatividad en HD) */
+  snapshotUrl?: string;
+  /** Vertical/categoría detectada automáticamente */
+  vertical?: AdCategory;
 }
 
 function calcScore(days: number, dups: number, impHint: number) {

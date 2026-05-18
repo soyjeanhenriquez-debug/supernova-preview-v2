@@ -88,6 +88,30 @@ export function WinningAdsPage() {
   const [searchCountry, setSearchCountry] = useState("ES");
   const [searchLimit, setSearchLimit] = useState(25);
   const [searchStatus, setSearchStatus] = useState<"ACTIVE" | "INACTIVE" | "ALL">("ACTIVE");
+  // Presets de filtros (País/Estado/Límite) — persistidos en localStorage
+  type FilterPreset = { id: string; name: string; country: string; status: "ACTIVE" | "INACTIVE" | "ALL"; limit: number };
+  const PRESETS_KEY = "supernova:fb-filter-presets";
+  const [presets, setPresets] = useState<FilterPreset[]>(() => {
+    try { return JSON.parse(localStorage.getItem(PRESETS_KEY) ?? "[]"); } catch { return []; }
+  });
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
+  const [savingPreset, setSavingPreset] = useState(false);
+  const [presetName, setPresetName] = useState("");
+  useEffect(() => { localStorage.setItem(PRESETS_KEY, JSON.stringify(presets)); }, [presets]);
+  const applyPreset = (p: FilterPreset) => {
+    setSearchCountry(p.country); setSearchStatus(p.status); setSearchLimit(p.limit);
+    setActivePresetId(p.id); toast.success(`Preset "${p.name}" aplicado`);
+  };
+  const savePreset = () => {
+    const name = presetName.trim(); if (!name) { toast.error("Dale un nombre al preset"); return; }
+    const p: FilterPreset = { id: crypto.randomUUID(), name, country: searchCountry, status: searchStatus, limit: searchLimit };
+    setPresets((prev) => [...prev, p]); setActivePresetId(p.id); setPresetName(""); setSavingPreset(false);
+    toast.success(`✓ Preset "${name}" guardado`);
+  };
+  const deletePreset = (id: string) => {
+    setPresets((prev) => prev.filter((p) => p.id !== id));
+    if (activePresetId === id) setActivePresetId(null);
+  };
   const [debugOpen, setDebugOpen] = useState(false);
   const [debugLoading, setDebugLoading] = useState(false);
   const [debugResult, setDebugResult] = useState<{

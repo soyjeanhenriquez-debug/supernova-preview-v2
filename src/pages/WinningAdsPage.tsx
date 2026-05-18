@@ -231,10 +231,12 @@ export function WinningAdsPage() {
           adUrl,
         };
       });
+      // Agrupar por anunciante (1 tarjeta por page_id, el de mayor score)
+      const groupedMapped = groupByAdvertiser(mapped, allWithCountry.map((x) => x.it));
       // Prepend nuevos, dedupe por id, mantener historial
       setRealAds((prev) => {
         const seen = new Set(prev.map((a) => a.id));
-        const fresh = mapped.filter((a) => !seen.has(a.id));
+        const fresh = groupedMapped.filter((a) => !seen.has(a.id));
         return [...fresh, ...prev];
       });
       setLastAutoRun(new Date());

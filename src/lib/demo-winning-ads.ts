@@ -71,7 +71,30 @@ const ADS: Omit<DemoAd, "score" | "tier">[] = [
 
   // App MX solid
   { id: "mx2-1", pageId: "app_mx_fin", pageName: "Finanzas Pro App", title: "La app que está ayudando a millones a ahorrar", body: "Descubre la app de finanzas personales que está cambiando vidas en México. Más de 500.000 descargas. Gratis los primeros 30 días.", daysActive: 9, duplicates: 3, offerType: "app", market: "MX", marketLabel: "México", flag: "🇲🇽", lang: "es", adUrl: "https://facebook.com/ads/library/?id=demo_mx2_1" },
+
+  // ===== ClickBank checkouts =====
+  { id: "cb1-1", pageId: "cb_keto_us", pageName: "Keto Bliss Official", title: "The 7-second ritual that melts belly fat", body: "Doctors are stunned: this odd 7-second morning ritual is helping thousands drop 30+ lbs. 60-day money back guarantee via ClickBank. Watch the free presentation today.", daysActive: 88, duplicates: 34, offerType: "infoproducto", market: "US", marketLabel: "USA", flag: "🇺🇸", lang: "en", checkoutPlatform: "Clickbank", adUrl: "" },
+  { id: "cb1-2", pageId: "cb_keto_us", pageName: "Keto Bliss Official", title: "Lose 30 lbs with this morning trick", body: "The 7-second ritual that's going viral. Backed by 60-day ClickBank guarantee. Free video reveals all.", daysActive: 80, duplicates: 34, offerType: "infoproducto", market: "US", marketLabel: "USA", flag: "🇺🇸", lang: "en", checkoutPlatform: "Clickbank", adUrl: "" },
+  { id: "cb2-1", pageId: "cb_manifest_la", pageName: "Manifiesta tu Abundancia", title: "El audio de 60 segundos que activa tu abundancia", body: "Investigación de Harvard confirma: este audio de 60 segundos reprograma tu mente para atraer dinero. Acceso instantáneo vía ClickBank. Garantía 60 días.", daysActive: 55, duplicates: 22, offerType: "infoproducto", market: "LATAM", marketLabel: "LATAM", flag: "🌎", lang: "es", checkoutPlatform: "Clickbank", adUrl: "" },
+  { id: "cb3-1", pageId: "cb_prostate_us", pageName: "Prostate Plus Health", title: "Urologist reveals the prostate fix big pharma hides", body: "73,000 men over 50 have used this natural protocol. ClickBank-verified, 60-day refund. Watch the free video before it's taken down.", daysActive: 120, duplicates: 47, offerType: "infoproducto", market: "US", marketLabel: "USA", flag: "🇺🇸", lang: "en", checkoutPlatform: "Clickbank", adUrl: "" },
 ];
+
+// Valida que una URL de Ads Library tenga los parámetros mínimos.
+export function isValidAdsLibraryUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    if (!u.hostname.endsWith("facebook.com")) return false;
+    if (!u.pathname.startsWith("/ads/library")) return false;
+    return u.searchParams.has("view_all_page_id") || u.searchParams.has("q") || u.searchParams.has("id");
+  } catch {
+    return false;
+  }
+}
+
+export function normalizeAdsLibraryUrl(url: string, fallbackQuery = "", fallbackMarket: AdMarket = "LATAM"): string {
+  if (isValidAdsLibraryUrl(url)) return url;
+  return buildAdsLibrarySearchUrl(fallbackQuery || "ads", fallbackMarket);
+}
 
 const COUNTRY_MAP: Record<AdMarket, string> = { BR: "BR", US: "US", ES: "ES", MX: "MX", RU: "RU", LATAM: "ALL" };
 
@@ -105,8 +128,7 @@ export function getDemoAds(): DemoAd[] {
   return ADS.map((a) => {
     const impHint = Math.min(20, Math.floor(a.duplicates * 0.4));
     const score = calcScore(a.daysActive, a.duplicates, impHint);
-    // Demos no tienen page_id real → búsqueda por nombre de página.
-    const adUrl = buildAdsLibrarySearchUrl(a.pageName, a.market);
+    const adUrl = normalizeAdsLibraryUrl(a.adUrl, a.pageName, a.market);
     return { ...a, score, tier: tierFromScore(score), adUrl };
   });
 }

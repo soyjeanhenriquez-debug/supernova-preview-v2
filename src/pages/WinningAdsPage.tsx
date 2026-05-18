@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2 } from "lucide-react";
-import { getDemoAds, MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, GLOBAL_STATS, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
+import { getDemoAds, MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, GLOBAL_STATS, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, normalizeAdsLibraryUrl, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
 import { useElapsedMinutes } from "@/hooks/useElapsedMinutes";
 import { useCredits } from "@/hooks/useCredits";
 import { SofisticarModal } from "@/components/SofisticarModal";
@@ -53,28 +53,44 @@ export function WinningAdsPage() {
   const [sofisticarAd, setSofisticarAd] = useState<DemoAd | null>(null);
   const [realAds, setRealAds] = useState<DemoAd[]>([]);
   const [loadingReal, setLoadingReal] = useState(false);
+  // Selectores para la edge function
+  const [searchCountry, setSearchCountry] = useState("ES");
+  const [searchLimit, setSearchLimit] = useState(25);
+  const [searchStatus, setSearchStatus] = useState<"ACTIVE" | "INACTIVE" | "ALL">("ACTIVE");
   const [debugOpen, setDebugOpen] = useState(false);
   const [debugLoading, setDebugLoading] = useState(false);
-  const [debugResult, setDebugResult] = useState<{ ok: boolean; status?: number; payload: unknown } | null>(null);
+  const [debugResult, setDebugResult] = useState<{
+    ok: boolean;
+    status?: number;
+    summary?: { count: number; uniquePages: number; sampleNames: string[]; errorMessage?: string };
+    payload: unknown;
+  } | null>(null);
 
   const runDebugTest = async () => {
     setDebugLoading(true);
     setDebugResult(null);
     setDebugOpen(true);
+    const requestBody = {
+      search_terms: keyword || "ver más",
+      country: searchCountry,
+      limit: searchLimit,
+      ad_active_status: searchStatus,
+    };
     try {
-      const { data, error } = await supabase.functions.invoke<FacebookAdsResponse & { error?: unknown; detail?: unknown }>("facebook-ads", {
-        body: { search_terms: keyword || "ver más", country: "ES", limit: 3, ad_active_status: "ACTIVE" },
-      });
+      const { data, error } = await supabase.functions.invoke<FacebookAdsResponse & { error?: string; detail?: unknown }>("facebook-ads", { body: requestBody });
       if (error) {
-        setDebugResult({ ok: false, payload: { invokeError: error.message, context: error } });
+        setDebugResult({ ok: false, summary: { count: 0, uniquePages: 0, sampleNames: [], errorMessage: error.message }, payload: { request: requestBody, invokeError: error.message } });
         toast.error(`Edge function error: ${error.message}`);
       } else {
-        const count = data?.data?.length ?? 0;
-        setDebugResult({ ok: true, status: 200, payload: data });
-        toast.success(`✓ ${count} anuncios recibidos del API`);
+        const items = data?.data ?? [];
+        const uniquePages = new Set(items.map((i) => i.page_id ?? i.page_name)).size;
+        const sampleNames = items.slice(0, 5).map((i) => i.page_name ?? "—");
+        setDebugResult({ ok: true, status: 200, summary: { count: items.length, uniquePages, sampleNames }, payload: { request: requestBody, response: data } });
+        toast.success(`✓ ${items.length} anuncios · ${uniquePages} anunciantes únicos`);
       }
     } catch (e: unknown) {
-      setDebugResult({ ok: false, payload: { exception: e instanceof Error ? e.message : String(e) } });
+      const msg = e instanceof Error ? e.message : String(e);
+      setDebugResult({ ok: false, summary: { count: 0, uniquePages: 0, sampleNames: [], errorMessage: msg }, payload: { request: requestBody, exception: msg } });
       toast.error("Excepción al invocar edge function");
     } finally {
       setDebugLoading(false);
@@ -110,13 +126,11 @@ export function WinningAdsPage() {
   const handleSearch = async () => {
     if (!canAfford("search_ads")) { toast.error("Sin créditos suficientes"); return; }
     consume("search_ads", keyword || market);
-    const countryMap: Record<string, string> = { es: "ES", pt: "BR", en: "US", ru: "RU", all: "US" };
-    const country = countryMap[market] ?? "US";
     setLoadingReal(true);
-    toast.info(`Buscando "${keyword || "todos"}" en Facebook Ad Library...`);
+    toast.info(`Buscando "${keyword || "todos"}" en ${searchCountry} (${searchStatus}, límite ${searchLimit})...`);
     try {
       const { data, error } = await supabase.functions.invoke<FacebookAdsResponse>("facebook-ads", {
-        body: { search_terms: keyword || "ad", country, limit: 25, ad_active_status: "ACTIVE" },
+        body: { search_terms: keyword || "ad", country: searchCountry, limit: searchLimit, ad_active_status: searchStatus },
       });
       if (error) throw error;
       const items = data?.data ?? [];
@@ -127,7 +141,7 @@ export function WinningAdsPage() {
         if (k) dupByPage.set(k, (dupByPage.get(k) ?? 0) + 1);
       });
       const marketTyped = (market === "all" ? "en" : market) as AdLang;
-      const adMarket = (country as AdMarket);
+      const adMarket = (searchCountry as AdMarket);
       const mapped: DemoAd[] = items.map((it, i) => {
         const body = (it.ad_creative_bodies?.[0] ?? "").toString();
         const title = (it.ad_creative_link_titles?.[0] ?? it.page_name ?? "Anuncio").toString();
@@ -135,11 +149,10 @@ export function WinningAdsPage() {
         const days = Math.max(1, Math.floor((Date.now() - start.getTime()) / 86400000));
         const pageKey = (it.page_id ?? it.page_name ?? "").toString();
         const dups = dupByPage.get(pageKey) ?? 1;
-        // Enlace canónico: todos los anuncios de la página por page_id.
-        // Fallback: búsqueda por nombre si no hay page_id.
-        const adUrl = it.page_id
+        const rawUrl = it.page_id
           ? buildAdsLibraryPageUrl(String(it.page_id), adMarket)
           : buildAdsLibrarySearchUrl(it.page_name ?? title, adMarket);
+        const adUrl = normalizeAdsLibraryUrl(rawUrl, it.page_name ?? title, adMarket);
         return {
           id: `fb-${it.id ?? i}`,
           pageId: it.page_id ?? "",
@@ -152,7 +165,7 @@ export function WinningAdsPage() {
           tier: days >= 60 || dups >= 10 ? "mega" : days >= 14 || dups >= 3 ? "rising" : "solid",
           offerType: "infoproducto",
           market: adMarket,
-          marketLabel: country,
+          marketLabel: searchCountry,
           flag: "🌐",
           lang: marketTyped,
           adUrl,
@@ -193,45 +206,93 @@ export function WinningAdsPage() {
           <h2 className="page-heading font-display text-2xl text-foreground">BUSCAR OFERTAS WINNER</h2>
           <p className="text-sm text-muted-foreground mt-3">Anuncios validados con datos reales. Encuentra, analiza, clona.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={runDebugTest}
-            disabled={debugLoading}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
-          >
-            {debugLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-            {debugLoading ? "Probando..." : "Probar Edge Function"}
-          </button>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 pulse-hot">
-            <span className="live-dot" />
-            <span className="text-[11px] font-bold text-primary tracking-widest">ACTUALIZADO HACE {elapsed} MIN</span>
-          </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 pulse-hot">
+          <span className="live-dot" />
+          <span className="text-[11px] font-bold text-primary tracking-widest">ACTUALIZADO HACE {elapsed} MIN</span>
         </div>
       </div>
 
-      {/* Debug panel */}
-      {debugOpen && (
-        <div className={`card-surface rounded-xl p-4 border ${debugResult?.ok ? "border-success/40" : "border-destructive/40"}`}>
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
-              <span className={debugResult?.ok ? "text-success" : "text-destructive"}>
-                {debugLoading ? "⏳ Llamando facebook-ads..." : debugResult?.ok ? "✓ Respuesta OK" : "✗ Error"}
-              </span>
-              {debugResult?.ok && Array.isArray((debugResult.payload as FacebookAdsResponse)?.data) && (
-                <span className="text-muted-foreground">
-                  · {(debugResult.payload as FacebookAdsResponse).data?.length ?? 0} anuncios
-                </span>
-              )}
-            </div>
-            <button onClick={() => setDebugOpen(false)} className="text-xs text-muted-foreground hover:text-foreground">✕ Cerrar</button>
+      {/* Selectores Edge Function + Debug panel */}
+      <div className="card-surface rounded-xl p-4 space-y-3 border border-border/60">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
+            <Zap className="w-3.5 h-3.5" /> Parámetros de búsqueda real
           </div>
-          {debugResult && (
-            <pre className="text-[10px] leading-relaxed bg-background/60 border border-border rounded p-3 overflow-auto max-h-80 text-muted-foreground font-mono">
-{JSON.stringify(debugResult.payload, null, 2)}
-            </pre>
-          )}
+          <div className="text-[10px] text-muted-foreground">Se aplican a "Buscar Anuncios" y "Probar Edge Function"</div>
         </div>
-      )}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">País</span>
+            <select value={searchCountry} onChange={(e) => setSearchCountry(e.target.value)} className="bg-secondary border border-border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
+              {["ES","US","BR","MX","AR","CO","PE","CL","PT","FR","DE","IT","GB","RU","ALL"].map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Estado</span>
+            <select value={searchStatus} onChange={(e) => setSearchStatus(e.target.value as "ACTIVE" | "INACTIVE" | "ALL")} className="bg-secondary border border-border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="INACTIVE">INACTIVE (pausados)</option>
+              <option value="ALL">ALL</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Límite ({searchLimit})</span>
+            <input type="range" min={5} max={100} step={5} value={searchLimit} onChange={(e) => setSearchLimit(Number(e.target.value))} className="accent-primary" />
+          </label>
+          <div className="flex flex-col gap-1 justify-end">
+            <button onClick={runDebugTest} disabled={debugLoading} className="px-3 py-1.5 rounded-md text-xs font-semibold border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50">
+              {debugLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+              {debugLoading ? "Probando..." : "Probar Edge Function"}
+            </button>
+          </div>
+        </div>
+
+        {debugOpen && (
+          <div className={`rounded-lg p-3 border ${debugResult?.ok ? "border-success/40 bg-success/5" : "border-destructive/40 bg-destructive/5"}`}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
+                <span className={debugResult?.ok ? "text-success" : "text-destructive"}>
+                  {debugLoading ? "⏳ Llamando facebook-ads..." : debugResult?.ok ? "✓ Respuesta OK" : "✗ Error"}
+                </span>
+              </div>
+              <button onClick={() => setDebugOpen(false)} className="text-xs text-muted-foreground hover:text-foreground">✕ Cerrar</button>
+            </div>
+
+            {/* Resumen legible */}
+            {debugResult?.summary && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3 text-xs">
+                <Stat label="Anuncios" value={String(debugResult.summary.count)} />
+                <Stat label="Anunciantes únicos" value={String(debugResult.summary.uniquePages)} />
+                <Stat label="Status HTTP" value={String(debugResult.status ?? "—")} />
+                <Stat label="OK" value={debugResult.ok ? "Sí" : "No"} />
+                {debugResult.summary.errorMessage && (
+                  <div className="col-span-full text-[11px] text-destructive font-mono break-all bg-destructive/10 border border-destructive/30 rounded p-2">
+                    ⚠ {debugResult.summary.errorMessage}
+                  </div>
+                )}
+                {debugResult.summary.sampleNames.length > 0 && (
+                  <div className="col-span-full">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Primeros anunciantes</div>
+                    <div className="flex flex-wrap gap-1">
+                      {debugResult.summary.sampleNames.map((n, i) => (
+                        <span key={i} className="px-2 py-0.5 rounded bg-secondary text-foreground text-[10px]">{n}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Payload completo */}
+            <details className="text-[10px]">
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-semibold mb-1">Ver payload completo (request + response)</summary>
+              <pre className="leading-relaxed bg-background/60 border border-border rounded p-3 overflow-auto max-h-96 text-muted-foreground font-mono mt-2">
+{JSON.stringify(debugResult?.payload, null, 2)}
+              </pre>
+            </details>
+          </div>
+        )}
+      </div>
 
       {/* Global stats bar */}
       <div className="card-surface rounded-xl p-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
@@ -373,6 +434,16 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
       }`}>{children}</button>
   );
 }
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2">
+      <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-sm font-bold text-foreground">{value}</div>
+    </div>
+  );
+}
+
 
 function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolean; onSave: () => void; onSofisticar: () => void }) {
   const tier = TIERS[ad.tier];

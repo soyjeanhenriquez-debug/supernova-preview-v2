@@ -458,18 +458,8 @@ export function WinningAdsPage() {
         <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-solid))" }} /> <strong>{GLOBAL_STATS.solid.toLocaleString()}</strong> solid</span>
       </div>
 
-      {/* URL input */}
-      <div className="card-surface rounded-xl p-5 flex flex-col md:flex-row gap-3 items-stretch md:items-center">
-        <LinkIcon className="w-5 h-5 text-primary shrink-0 hidden md:block" />
-        <input
-          value={urlInput} onChange={(e) => setUrlInput(e.target.value)}
-          placeholder="¿Ya tienes un anuncio? Pega la URL del Ads Library y analízalo"
-          className="flex-1 bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-        <button onClick={handleAnalyzeUrl} className="btn-primary-nova px-5 py-2.5 rounded-lg text-sm whitespace-nowrap flex items-center gap-2">
-          → Analizar Oferta <span className="opacity-70">· 1 crédito</span>
-        </button>
-      </div>
+      {/* Intelligence Analyzer */}
+      <IntelligenceAnalyzer />
 
       {/* Keyword search */}
       <div className="card-surface rounded-xl p-5 space-y-4">

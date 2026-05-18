@@ -100,11 +100,26 @@ export function WinningAdsPage() {
       });
       if (error) throw error;
       const items = data?.data ?? [];
+      // Agrupar por page_id para contar duplicados reales por anunciante
+      const dupByPage = new Map<string, number>();
+      items.forEach((it) => {
+        const k = (it.page_id ?? it.page_name ?? "").toString();
+        if (k) dupByPage.set(k, (dupByPage.get(k) ?? 0) + 1);
+      });
+      const marketTyped = (market === "all" ? "en" : market) as AdLang;
+      const adMarket = (country as AdMarket);
       const mapped: DemoAd[] = items.map((it, i) => {
         const body = (it.ad_creative_bodies?.[0] ?? "").toString();
         const title = (it.ad_creative_link_titles?.[0] ?? it.page_name ?? "Anuncio").toString();
         const start = it.ad_delivery_start_time ? new Date(it.ad_delivery_start_time) : new Date();
         const days = Math.max(1, Math.floor((Date.now() - start.getTime()) / 86400000));
+        const pageKey = (it.page_id ?? it.page_name ?? "").toString();
+        const dups = dupByPage.get(pageKey) ?? 1;
+        // Enlace canónico: todos los anuncios de la página por page_id.
+        // Fallback: búsqueda por nombre si no hay page_id.
+        const adUrl = it.page_id
+          ? buildAdsLibraryPageUrl(String(it.page_id), adMarket)
+          : buildAdsLibrarySearchUrl(it.page_name ?? title, adMarket);
         return {
           id: `fb-${it.id ?? i}`,
           pageId: it.page_id ?? "",
@@ -112,15 +127,15 @@ export function WinningAdsPage() {
           title,
           body: body || title,
           daysActive: days,
-          duplicates: 1,
-          score: Math.min(100, 40 + Math.floor(days / 2)),
-          tier: days >= 60 ? "mega" : days >= 14 ? "rising" : "solid",
+          duplicates: dups,
+          score: Math.min(100, 40 + Math.floor(days / 2) + dups * 2),
+          tier: days >= 60 || dups >= 10 ? "mega" : days >= 14 || dups >= 3 ? "rising" : "solid",
           offerType: "infoproducto",
-          market: country as AdMarket,
+          market: adMarket,
           marketLabel: country,
           flag: "🌐",
-          lang: (market === "all" ? "en" : market) as AdLang,
-          adUrl: it.id ? `https://www.facebook.com/ads/library/?id=${it.id}` : "https://www.facebook.com/ads/library/",
+          lang: marketTyped,
+          adUrl,
         };
       });
       setRealAds(mapped);

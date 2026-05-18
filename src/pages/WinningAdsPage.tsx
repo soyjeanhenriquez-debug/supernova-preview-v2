@@ -58,10 +58,43 @@ interface FacebookAdLibraryItem {
   ad_creative_bodies?: string[];
   ad_creative_link_titles?: string[];
   ad_delivery_start_time?: string;
+  total_count?: number | string;
 }
 
 interface FacebookAdsResponse {
   data?: FacebookAdLibraryItem[];
+}
+
+// Agrupa anuncios por page_id quedándose con el de mejor score por anunciante.
+// Añade activeCount (anuncios activos en esta búsqueda) e historicalCount
+// (total_count de la API si está disponible).
+function groupByAdvertiser(ads: DemoAd[], items: FacebookAdLibraryItem[]): DemoAd[] {
+  // Mapear historicalCount máximo por page_id desde la respuesta cruda
+  const historicalByPage = new Map<string, number>();
+  items.forEach((it) => {
+    const k = (it.page_id ?? it.page_name ?? "").toString();
+    if (!k) return;
+    const tc = typeof it.total_count === "string" ? parseInt(it.total_count) : it.total_count;
+    if (typeof tc === "number" && !isNaN(tc)) {
+      historicalByPage.set(k, Math.max(historicalByPage.get(k) ?? 0, tc));
+    }
+  });
+  const byPage = new Map<string, DemoAd[]>();
+  ads.forEach((a) => {
+    const k = (a.pageId || a.pageName || a.id).toString();
+    if (!byPage.has(k)) byPage.set(k, []);
+    byPage.get(k)!.push(a);
+  });
+  const grouped: DemoAd[] = [];
+  byPage.forEach((group, key) => {
+    const top = group.slice().sort((x, y) => y.score - x.score)[0];
+    grouped.push({
+      ...top,
+      activeCount: group.length,
+      historicalCount: historicalByPage.get(key),
+    });
+  });
+  return grouped;
 }
 
 // Nota: usamos <a target="_blank" rel="noopener noreferrer"> en vez de window.open()

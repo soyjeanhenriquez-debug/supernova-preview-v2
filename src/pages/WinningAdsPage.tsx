@@ -410,6 +410,8 @@ export function WinningAdsPage() {
           ? buildAdsLibraryPageUrl(String(it.page_id), adMarket)
           : buildAdsLibrarySearchUrl(it.page_name ?? title, adMarket);
         const adUrl = normalizeAdsLibraryUrl(rawUrl, it.page_name ?? title, adMarket);
+        const landingCaption = it.ad_creative_link_captions?.[0];
+        const landingUrl = landingCaption?.startsWith("http") ? landingCaption : undefined;
         return {
           id: `fb-${it.id ?? i}`,
           pageId: it.page_id ?? "",
@@ -423,9 +425,14 @@ export function WinningAdsPage() {
           offerType: "infoproducto",
           market: adMarket,
           marketLabel: searchCountry,
-          flag: "🌐",
+          flag: flagEmoji(searchCountry),
           lang: marketTyped,
           adUrl,
+          platforms: it.publisher_platforms,
+          countries: [searchCountry],
+          landingUrl,
+          snapshotUrl: it.ad_snapshot_url,
+          vertical: classifyOffer(`${title} ${body}`),
         };
       });
       const grouped = groupByAdvertiser(mapped, items);

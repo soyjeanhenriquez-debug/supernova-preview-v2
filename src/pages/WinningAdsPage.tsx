@@ -442,6 +442,8 @@ function Stat({ label, value }: { label: string; value: string }) {
       <div className="text-sm font-bold text-foreground">{value}</div>
     </div>
   );
+}
+
 
 function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolean; onSave: () => void; onSofisticar: () => void }) {
   const tier = TIERS[ad.tier];

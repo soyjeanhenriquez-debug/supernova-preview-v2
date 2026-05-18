@@ -960,11 +960,34 @@ function AdCard({ ad, saved, onSave, onSofisticar, compact = false }: { ad: Demo
     ad.duplicates >= 3  ? "bg-orange-500 text-black" :
     "bg-neutral-700 text-neutral-300";
 
+  const [previewOpen, setPreviewOpen] = useState(false);
   const copyToClipboard = () => {
     navigator.clipboard.writeText(ad.body).then(() => toast.success("Copy copiado")).catch(() => toast.error("No se pudo copiar"));
   };
   const translateUrl = `https://translate.google.com/?sl=auto&tl=es&text=${encodeURIComponent(ad.body)}&op=translate`;
   const landingDomain = ad.landingUrl ? extractDomain(ad.landingUrl) : "";
+
+  // Razones por las que es ganador — derivadas de métricas reales
+  const winnerReasons: { icon: string; title: string; detail: string }[] = [];
+  if (ad.daysActive >= 90) winnerReasons.push({ icon: "🔥", title: "Always-on +90 días", detail: "Lleva más de 3 meses corriendo sin parar. Si no rentara, lo habrían pausado hace semanas." });
+  else if (ad.daysActive >= 30) winnerReasons.push({ icon: "📅", title: `Evergreen ${ad.daysActive}d`, detail: "Más de 30 días activos = el anunciante validó CPA rentable y está escalando." });
+  else if (ad.daysActive >= 14) winnerReasons.push({ icon: "✅", title: `Validado ${ad.daysActive}d`, detail: "Pasó el periodo de aprendizaje de Meta y sigue activo." });
+
+  if ((ad.activeCount ?? 1) >= 20) winnerReasons.push({ icon: "🧪", title: `Split-test ×${ad.activeCount}`, detail: "Tantas variantes activas indican presupuesto serio y proceso de optimización agresivo." });
+  else if ((ad.activeCount ?? 1) >= 5) winnerReasons.push({ icon: "🔬", title: `${ad.activeCount} variantes A/B`, detail: "Está testeando ángulos en paralelo — señal de equipo profesional buscando winner." });
+
+  if (ad.duplicates >= 10) winnerReasons.push({ icon: "♻️", title: `${ad.duplicates} duplicados`, detail: "Duplica el creativo para escalar presupuesto sin reiniciar el aprendizaje. Clásico de escala." });
+  else if (ad.duplicates >= 3) winnerReasons.push({ icon: "📈", title: `${ad.duplicates}× duplicado`, detail: "Empezó a duplicarse — early signal de que está rindiendo." });
+
+  if ((ad.historicalCount ?? 0) >= 1000) winnerReasons.push({ icon: "🏆", title: `Anunciante veterano ${Math.floor((ad.historicalCount ?? 0) / 1000)}K+ ads`, detail: "Página con historial masivo — saben lo que hacen y este ad sobrevivió a su filtro interno." });
+  else if ((ad.historicalCount ?? 0) >= 100) winnerReasons.push({ icon: "👤", title: `${ad.historicalCount}+ ads históricos`, detail: "Anunciante experimentado, no es su primer rodeo." });
+
+  if ((ad.platforms?.length ?? 0) >= 3) winnerReasons.push({ icon: "📡", title: `${ad.platforms!.length} plataformas`, detail: "Corre en FB + IG + más → Meta está distribuyendo bien y el ROAS lo aguanta." });
+  if ((ad.countries?.length ?? 0) >= 3) winnerReasons.push({ icon: "🌍", title: `${ad.countries!.length} países`, detail: "Escalando geo — oferta validada en múltiples mercados." });
+  if (ad.checkoutPlatform) winnerReasons.push({ icon: "💳", title: `Checkout: ${ad.checkoutPlatform}`, detail: "Plataforma de venta detectada — confirma que es oferta real, no branding." });
+  if (ad.score >= 80) winnerReasons.push({ icon: "⭐", title: `Score ${ad.score}/100 — MEGA`, detail: "Combinación de antigüedad + duplicados + plataformas en el top de detección." });
+
+  if (winnerReasons.length === 0) winnerReasons.push({ icon: "👀", title: "En observación", detail: "Aún pocos datos. Vuelve a revisar en 24-48h para ver si despega." });
 
   return (
     <div className="card-surface rounded-xl p-5 flex flex-col gap-3 ad-card-hover">

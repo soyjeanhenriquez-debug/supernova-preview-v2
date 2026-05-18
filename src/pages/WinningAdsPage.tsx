@@ -941,7 +941,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 
-function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolean; onSave: () => void; onSofisticar: () => void }) {
+function AdCard({ ad, saved, onSave, onSofisticar, compact = false }: { ad: DemoAd; saved: boolean; onSave: () => void; onSofisticar: () => void; compact?: boolean }) {
   const tier = TIERS[ad.tier];
   const desp = despeguePercent(ad.daysActive, ad.duplicates);
 
@@ -958,10 +958,25 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
     ad.duplicates >= 3  ? "bg-orange-500 text-black" :
     "bg-neutral-700 text-neutral-300";
 
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(ad.body).then(() => toast.success("Copy copiado")).catch(() => toast.error("No se pudo copiar"));
+  };
+  const translateUrl = `https://translate.google.com/?sl=auto&tl=es&text=${encodeURIComponent(ad.body)}&op=translate`;
+  const landingDomain = ad.landingUrl ? extractDomain(ad.landingUrl) : "";
+
   return (
-    <div className="card-surface rounded-xl p-5 flex flex-col gap-3 ad-card-hover">
-      <div className="flex items-start justify-between">
-        <span className={`text-[11px] font-bold px-2.5 py-1 rounded ${tier.cls}`}>{tier.icon} {tier.label}</span>
+    <div className={`card-surface rounded-xl p-5 flex flex-col gap-3 ad-card-hover ${compact ? "md:flex-row md:items-stretch md:gap-5" : ""}`}>
+      <div className={compact ? "flex-1 flex flex-col gap-3 min-w-0" : "contents"}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className={`text-[11px] font-bold px-2.5 py-1 rounded ${tier.cls}`}>{tier.icon} {tier.label}</span>
+          {/* Plataformas reales */}
+          {ad.platforms?.slice(0, 4).map((p) => {
+            const meta = PLATFORM_META[p.toLowerCase()];
+            if (!meta) return null;
+            return <span key={p} className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${meta.cls}`}>{meta.label}</span>;
+          })}
+        </div>
         <div className="flex items-center gap-2">
           <button onClick={onSave} className="text-muted-foreground hover:text-primary transition-colors">
             <Heart className={`w-4 h-4 ${saved ? "fill-primary text-primary" : ""}`} />
@@ -971,13 +986,28 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
       </div>
 
       <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider flex-wrap">
-        <span className="text-primary font-bold">{CATEGORY_LABEL[classifyOffer(`${ad.title} ${ad.body}`)]}</span>
-        <span className="text-muted-foreground">· {ad.flag} {ad.marketLabel}</span>
+        <span className="text-primary font-bold">{CATEGORY_LABEL[ad.vertical ?? classifyOffer(`${ad.title} ${ad.body}`)]}</span>
+        {/* Banderas de países */}
+        {ad.countries && ad.countries.length > 0 ? (
+          <span className="text-muted-foreground">
+            · {ad.countries.slice(0, 4).map(flagEmoji).join(" ")} {ad.countries.length > 4 && `+${ad.countries.length - 4}`}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">· {ad.flag} {ad.marketLabel}</span>
+        )}
         <span className="text-muted-foreground">· {ad.lang.toUpperCase()}</span>
         {ad.checkoutPlatform && <span className="text-muted-foreground">· via {ad.checkoutPlatform}</span>}
       </div>
 
       <p className="text-sm text-foreground/90 line-clamp-4 italic leading-relaxed">"{ad.body}"</p>
+
+      {/* Landing URL */}
+      {landingDomain && (
+        <a href={ad.landingUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary hover:underline flex items-center gap-1 truncate">
+          <LinkIcon className="w-3 h-3 flex-shrink-0" /> <span className="truncate">{landingDomain}</span>
+        </a>
+      )}
+
 
       <div className="flex flex-wrap gap-1.5">
         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${daysBadgeCls}`}>

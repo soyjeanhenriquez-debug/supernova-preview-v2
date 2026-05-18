@@ -16,6 +16,7 @@ const Index = () => {
   const renderPage = () => {
     switch (activePage) {
       case "Dashboard": return <DashboardPage onNavigate={setActivePage} />;
+      case "Buscar Ofertas Winner": return <WinningAdsPage />;
       case "Anuncios Ganadores": return <WinningAdsPage />;
       case "Agentes DR": return <AgentsPage />;
       case "Chat IA": return <ChatPage />;

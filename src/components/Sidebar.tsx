@@ -10,7 +10,7 @@ interface SidebarProps {
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", emoji: "⚡" },
-  { icon: Trophy, label: "Anuncios Ganadores", emoji: "🏆" },
+  { icon: Trophy, label: "Buscar Ofertas Winner", emoji: "🏆" },
   { icon: Bot, label: "Agentes DR", emoji: "🤖" },
   { icon: MessageSquare, label: "Chat IA", emoji: "💬" },
   { icon: FileText, label: "Generadores", emoji: "📋" },

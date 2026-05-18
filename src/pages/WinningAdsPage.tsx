@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2, Bookmark, Plus, X, Check, Copy, Languages, Eye, LayoutGrid, List, Star } from "lucide-react";
+import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2, Bookmark, Plus, X, Check, Copy, Languages, Eye, LayoutGrid, List, Star, Info, PlayCircle } from "lucide-react";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, normalizeAdsLibraryUrl, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
 import { useElapsedMinutes } from "@/hooks/useElapsedMinutes";
 import { useCredits } from "@/hooks/useCredits";
@@ -958,11 +960,34 @@ function AdCard({ ad, saved, onSave, onSofisticar, compact = false }: { ad: Demo
     ad.duplicates >= 3  ? "bg-orange-500 text-black" :
     "bg-neutral-700 text-neutral-300";
 
+  const [previewOpen, setPreviewOpen] = useState(false);
   const copyToClipboard = () => {
     navigator.clipboard.writeText(ad.body).then(() => toast.success("Copy copiado")).catch(() => toast.error("No se pudo copiar"));
   };
   const translateUrl = `https://translate.google.com/?sl=auto&tl=es&text=${encodeURIComponent(ad.body)}&op=translate`;
   const landingDomain = ad.landingUrl ? extractDomain(ad.landingUrl) : "";
+
+  // Razones por las que es ganador — derivadas de métricas reales
+  const winnerReasons: { icon: string; title: string; detail: string }[] = [];
+  if (ad.daysActive >= 90) winnerReasons.push({ icon: "🔥", title: "Always-on +90 días", detail: "Lleva más de 3 meses corriendo sin parar. Si no rentara, lo habrían pausado hace semanas." });
+  else if (ad.daysActive >= 30) winnerReasons.push({ icon: "📅", title: `Evergreen ${ad.daysActive}d`, detail: "Más de 30 días activos = el anunciante validó CPA rentable y está escalando." });
+  else if (ad.daysActive >= 14) winnerReasons.push({ icon: "✅", title: `Validado ${ad.daysActive}d`, detail: "Pasó el periodo de aprendizaje de Meta y sigue activo." });
+
+  if ((ad.activeCount ?? 1) >= 20) winnerReasons.push({ icon: "🧪", title: `Split-test ×${ad.activeCount}`, detail: "Tantas variantes activas indican presupuesto serio y proceso de optimización agresivo." });
+  else if ((ad.activeCount ?? 1) >= 5) winnerReasons.push({ icon: "🔬", title: `${ad.activeCount} variantes A/B`, detail: "Está testeando ángulos en paralelo — señal de equipo profesional buscando winner." });
+
+  if (ad.duplicates >= 10) winnerReasons.push({ icon: "♻️", title: `${ad.duplicates} duplicados`, detail: "Duplica el creativo para escalar presupuesto sin reiniciar el aprendizaje. Clásico de escala." });
+  else if (ad.duplicates >= 3) winnerReasons.push({ icon: "📈", title: `${ad.duplicates}× duplicado`, detail: "Empezó a duplicarse — early signal de que está rindiendo." });
+
+  if ((ad.historicalCount ?? 0) >= 1000) winnerReasons.push({ icon: "🏆", title: `Anunciante veterano ${Math.floor((ad.historicalCount ?? 0) / 1000)}K+ ads`, detail: "Página con historial masivo — saben lo que hacen y este ad sobrevivió a su filtro interno." });
+  else if ((ad.historicalCount ?? 0) >= 100) winnerReasons.push({ icon: "👤", title: `${ad.historicalCount}+ ads históricos`, detail: "Anunciante experimentado, no es su primer rodeo." });
+
+  if ((ad.platforms?.length ?? 0) >= 3) winnerReasons.push({ icon: "📡", title: `${ad.platforms!.length} plataformas`, detail: "Corre en FB + IG + más → Meta está distribuyendo bien y el ROAS lo aguanta." });
+  if ((ad.countries?.length ?? 0) >= 3) winnerReasons.push({ icon: "🌍", title: `${ad.countries!.length} países`, detail: "Escalando geo — oferta validada en múltiples mercados." });
+  if (ad.checkoutPlatform) winnerReasons.push({ icon: "💳", title: `Checkout: ${ad.checkoutPlatform}`, detail: "Plataforma de venta detectada — confirma que es oferta real, no branding." });
+  if (ad.score >= 80) winnerReasons.push({ icon: "⭐", title: `Score ${ad.score}/100 — MEGA`, detail: "Combinación de antigüedad + duplicados + plataformas en el top de detección." });
+
+  if (winnerReasons.length === 0) winnerReasons.push({ icon: "👀", title: "En observación", detail: "Aún pocos datos. Vuelve a revisar en 24-48h para ver si despega." });
 
   return (
     <div className="card-surface rounded-xl p-5 flex flex-col gap-3 ad-card-hover">
@@ -1108,9 +1133,85 @@ function AdCard({ ad, saved, onSave, onSofisticar, compact = false }: { ad: Demo
       </div>
 
 
+      <div className="grid grid-cols-2 gap-2 mt-1">
+        <button
+          onClick={() => setPreviewOpen(true)}
+          className="py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border border-border bg-secondary/40 hover:bg-secondary hover:border-primary/40 text-foreground transition-all"
+        >
+          <PlayCircle className="w-3.5 h-3.5" /> Ver creativo
+        </button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              className="py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary transition-all"
+            >
+              <Info className="w-3.5 h-3.5" /> ¿Por qué gana?
+            </button>
+          </PopoverTrigger>
+          <PopoverContent side="top" align="end" className="w-80 p-0 border-border bg-popover/95 backdrop-blur-xl">
+            <div className="p-3 border-b border-border/60 flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-primary" />
+              <div>
+                <div className="text-xs font-display font-bold text-foreground">Diagnóstico ganador</div>
+                <div className="text-[10px] text-muted-foreground">Score {ad.score}/100 · {winnerReasons.length} señales detectadas</div>
+              </div>
+            </div>
+            <div className="max-h-80 overflow-y-auto p-2 space-y-1.5">
+              {winnerReasons.map((r) => (
+                <div key={r.title} className="flex gap-2 p-2 rounded-md hover:bg-secondary/40 transition-colors">
+                  <span className="text-base leading-none mt-0.5">{r.icon}</span>
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-bold text-foreground">{r.title}</div>
+                    <div className="text-[10px] text-muted-foreground leading-snug">{r.detail}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+
       <button onClick={onSofisticar} className="btn-primary-nova w-full py-2.5 rounded-lg text-sm flex items-center justify-center gap-2 mt-1">
         <Sparkles className="w-4 h-4" /> SOFISTICAR → <span className="opacity-70 text-xs">· 1 crédito</span>
       </button>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden bg-background border-border">
+          <DialogHeader className="px-5 pt-5">
+            <DialogTitle className="font-display text-base flex items-center gap-2">
+              <PlayCircle className="w-4 h-4 text-primary" /> Creativo de {ad.pageName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="px-5 pb-2 text-xs text-muted-foreground italic line-clamp-3">"{ad.body}"</div>
+          <div className="bg-secondary/30 border-t border-border/60 aspect-[16/10] w-full">
+            {ad.snapshotUrl ? (
+              <iframe
+                src={ad.snapshotUrl}
+                title={`Creativo ${ad.pageName}`}
+                className="w-full h-full bg-white"
+                sandbox="allow-scripts allow-same-origin"
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-center p-6">
+                <Eye className="w-10 h-10 text-muted-foreground/60" />
+                <div className="text-sm text-muted-foreground max-w-sm">
+                  Meta no expone el snapshot directo para este anuncio. Ábrelo en Ads Library para ver el creativo en HD.
+                </div>
+                <a href={ad.adUrl} target="_blank" rel="noopener noreferrer" className="btn-primary-nova px-4 py-2 rounded-lg text-xs inline-flex items-center gap-2">
+                  <ExternalLink className="w-3.5 h-3.5" /> Abrir en Ads Library
+                </a>
+              </div>
+            )}
+          </div>
+          {ad.snapshotUrl && (
+            <div className="px-5 py-3 border-t border-border/60 flex justify-end">
+              <a href={ad.snapshotUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+                <ExternalLink className="w-3 h-3" /> Abrir snapshot en nueva pestaña
+              </a>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <a href={ad.adUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-muted-foreground hover:text-primary flex items-center gap-1 justify-center group">
         <ExternalLink className="w-3 h-3" /> Ver todos los anuncios de <span className="font-semibold text-foreground group-hover:text-primary truncate max-w-[200px]">{ad.pageName}</span>

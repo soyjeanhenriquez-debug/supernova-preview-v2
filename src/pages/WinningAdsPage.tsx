@@ -95,11 +95,11 @@ export function WinningAdsPage() {
     setLoadingReal(true);
     toast.info(`Buscando "${keyword || "todos"}" en Facebook Ad Library...`);
     try {
-      const { data, error } = await supabase.functions.invoke("facebook-ads", {
+      const { data, error } = await supabase.functions.invoke<FacebookAdsResponse>("facebook-ads", {
         body: { search_terms: keyword || "ad", country, limit: 25, ad_active_status: "ACTIVE" },
       });
       if (error) throw error;
-      const items: any[] = data?.data ?? [];
+      const items = data?.data ?? [];
       const mapped: DemoAd[] = items.map((it, i) => {
         const body = (it.ad_creative_bodies?.[0] ?? "").toString();
         const title = (it.ad_creative_link_titles?.[0] ?? it.page_name ?? "Anuncio").toString();
@@ -116,18 +116,18 @@ export function WinningAdsPage() {
           score: Math.min(100, 40 + Math.floor(days / 2)),
           tier: days >= 60 ? "mega" : days >= 14 ? "rising" : "solid",
           offerType: "infoproducto",
-          market: country as any,
+          market: country as AdMarket,
           marketLabel: country,
           flag: "🌐",
-          lang: market === "all" ? "en" : (market as any),
+          lang: (market === "all" ? "en" : market) as AdLang,
           adUrl: it.id ? `https://www.facebook.com/ads/library/?id=${it.id}` : "https://www.facebook.com/ads/library/",
         };
       });
       setRealAds(mapped);
       toast.success(`✓ ${mapped.length} anuncios reales encontrados`);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      toast.error(`Error Facebook: ${e?.message ?? "desconocido"}`);
+      toast.error(`Error Facebook: ${e instanceof Error ? e.message : "desconocido"}`);
     } finally {
       setLoadingReal(false);
     }
@@ -143,7 +143,10 @@ export function WinningAdsPage() {
 
   const toggleSave = (id: string) => {
     setSaved((s) => {
-      const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
     });
   };
 

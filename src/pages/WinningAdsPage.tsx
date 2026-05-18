@@ -965,8 +965,8 @@ function AdCard({ ad, saved, onSave, onSofisticar, compact = false }: { ad: Demo
   const landingDomain = ad.landingUrl ? extractDomain(ad.landingUrl) : "";
 
   return (
-    <div className={`card-surface rounded-xl p-5 flex flex-col gap-3 ad-card-hover ${compact ? "md:flex-row md:items-stretch md:gap-5" : ""}`}>
-      <div className={compact ? "flex-1 flex flex-col gap-3 min-w-0" : "contents"}>
+    <div className="card-surface rounded-xl p-5 flex flex-col gap-3 ad-card-hover">
+      {compact && null}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className={`text-[11px] font-bold px-2.5 py-1 rounded ${tier.cls}`}>{tier.icon} {tier.label}</span>

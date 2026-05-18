@@ -1024,6 +1024,27 @@ function AdCard({ ad, saved, onSave, onSofisticar, compact = false }: { ad: Demo
         {ad.checkoutPlatform && <span className="text-muted-foreground">· via {ad.checkoutPlatform}</span>}
       </div>
 
+      {/* Preview inline del creativo — estilo Adheart. En dev/preview Meta puede bloquear el iframe con X-Frame-Options; en producción autenticado renderiza. */}
+      {ad.snapshotUrl && (
+        <div className="relative w-full rounded-lg overflow-hidden border border-border/60 bg-secondary/30 aspect-[4/5] group">
+          <iframe
+            src={ad.snapshotUrl}
+            title={`Creativo ${ad.pageName}`}
+            loading="lazy"
+            className="absolute inset-0 w-full h-full bg-white"
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+          />
+          <a
+            href={ad.snapshotUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute top-2 right-2 px-2 py-1 rounded-md bg-background/80 backdrop-blur text-[10px] font-semibold border border-border opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1"
+          >
+            <ExternalLink className="w-3 h-3" /> HD
+          </a>
+        </div>
+      )}
+
       <p className="text-sm text-foreground/90 line-clamp-4 italic leading-relaxed">"{ad.body}"</p>
 
       {/* Landing URL */}

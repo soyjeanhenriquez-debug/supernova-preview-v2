@@ -725,10 +725,35 @@ export function WinningAdsPage() {
               className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-3 text-base focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
+          <button onClick={saveCurrentSearch} className="px-4 py-3 rounded-lg text-sm flex items-center gap-2 whitespace-nowrap border border-border bg-secondary/60 text-foreground hover:border-primary/40 hover:text-primary transition-colors" title="Guardar esta búsqueda">
+            <Star className="w-4 h-4" />
+          </button>
           <button onClick={handleSearch} disabled={loadingReal} className="btn-primary-nova px-6 py-3 rounded-lg text-sm flex items-center gap-2 whitespace-nowrap disabled:opacity-60">
             {loadingReal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} {loadingReal ? "Buscando..." : "Buscar Anuncios"} <span className="opacity-70">· 1 crédito</span>
           </button>
         </div>
+
+        {/* Búsquedas guardadas del usuario */}
+        {userSearches.length > 0 && (
+          <div className="space-y-1.5 pt-1">
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold flex items-center gap-1.5">
+              <Star className="w-3 h-3" /> Tus búsquedas guardadas
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {userSearches.map((s) => (
+                <div key={s.id} className="group/search inline-flex items-center gap-1 rounded-full pl-3 pr-1 py-1 text-xs font-medium bg-secondary/60 border border-border/60 hover:border-primary/40 transition-all">
+                  <button onClick={() => applyUserSearch(s)} className="flex items-center gap-1.5">
+                    <span className="text-foreground">{s.name}</span>
+                    <span className="text-[9px] text-muted-foreground">{s.country}·{s.status[0]}</span>
+                  </button>
+                  <button onClick={() => setUserSearches((p) => p.filter((x) => x.id !== s.id))} className="opacity-0 group-hover/search:opacity-100 transition-opacity rounded-full p-0.5 hover:bg-destructive/30" aria-label="Eliminar">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Keyword chips · solo admin (uso interno) */}
         {isAdmin && (

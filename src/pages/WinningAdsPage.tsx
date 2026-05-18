@@ -473,20 +473,6 @@ export function WinningAdsPage() {
 
       {/* Keyword search */}
       <div className="card-surface rounded-xl p-5 space-y-4">
-        {/* Market tabs */}
-        <div className="flex flex-wrap gap-2">
-          {MARKETS.map((m) => (
-            <button
-              key={m.id} onClick={() => setMarket(m.id)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
-                market === m.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <span>{m.flag}</span> {m.label}
-            </button>
-          ))}
-        </div>
-
         <div className="flex gap-3 flex-col md:flex-row">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -517,14 +503,13 @@ export function WinningAdsPage() {
         )}
       </div>
 
-      {/* Quality filters — pill-style dropdowns sobre gradiente espacial */}
-      <div className="relative rounded-2xl p-5 sticky top-[80px] z-10 overflow-hidden border border-border/40 backdrop-blur-xl shadow-xl bg-gradient-to-br from-[hsl(265_60%_15%/0.9)] via-[hsl(260_50%_10%/0.95)] to-[hsl(250_45%_8%/0.95)]">
-        <div className="absolute -top-20 -left-20 w-72 h-72 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-20 -right-20 w-72 h-72 rounded-full bg-accent/10 blur-3xl pointer-events-none" />
-        <div className="relative flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-[0.18em] mb-3">
+      {/* Quality filters — hairline Apple style */}
+      <div className="rounded-2xl p-5 sticky top-[80px] z-10 border border-border bg-card/80 backdrop-blur-xl">
+        <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.18em] mb-4">
           <Filter className="w-3.5 h-3.5" /> Filtros de calidad
         </div>
-        <div className="relative flex flex-wrap gap-2.5">
+        <div className="flex flex-wrap gap-2">
+          <PillSelect label="Idioma" value={market} onChange={setMarket} options={MARKETS.map((m) => ({ value: m.id, label: `${m.flag} ${m.label}` }))} />
           <PillSelect label="Días mínimos" value={String(minDays)} onChange={(v) => setMinDays(Number(v))} options={DAY_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
           <PillSelect label="Repeticiones" value={String(minDups)} onChange={(v) => setMinDups(Number(v))} options={DUP_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
           <PillSelect label="Tipo" value={typeFilter} onChange={setTypeFilter} options={TYPE_OPTIONS.map((o) => ({ value: o, label: o }))} />
@@ -591,13 +576,13 @@ function PillSelect({ label, value, onChange, options }: { label: string; value:
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger
         aria-label={label}
-        className={`group h-10 w-auto min-w-[150px] gap-2 rounded-full border px-4 text-xs font-semibold backdrop-blur-md transition-all duration-200 hover:scale-[1.02] hover:border-primary/60 hover:shadow-lg hover:shadow-primary/10 focus:ring-2 focus:ring-primary/50 focus:ring-offset-0 data-[state=open]:scale-[1.02] data-[state=open]:border-primary data-[state=open]:shadow-lg data-[state=open]:shadow-primary/20 ${
+        className={`group h-9 w-auto min-w-[140px] gap-2 rounded-full border px-3.5 text-xs font-medium transition-all duration-200 hover:border-foreground/30 focus:ring-2 focus:ring-primary/40 focus:ring-offset-0 data-[state=open]:border-foreground/40 ${
           isDefault
-            ? "bg-white/5 border-white/10 text-foreground/90"
-            : "bg-primary/15 border-primary/40 text-primary"
+            ? "bg-transparent border-border text-foreground/85"
+            : "bg-primary/10 border-primary/40 text-primary"
         }`}
       >
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mr-1">{label}:</span>
+        <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mr-1">{label}</span>
         <SelectValue>{current}</SelectValue>
       </SelectTrigger>
       <SelectContent className="rounded-2xl border-border/60 bg-popover/95 backdrop-blur-xl shadow-2xl animate-in fade-in-0 zoom-in-95">

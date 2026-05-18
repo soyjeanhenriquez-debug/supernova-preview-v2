@@ -352,6 +352,7 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
       <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider flex-wrap">
         <span className="text-primary font-bold">{CATEGORY_LABEL[classifyOffer(`${ad.title} ${ad.body}`)]}</span>
         <span className="text-muted-foreground">· {ad.flag} {ad.marketLabel}</span>
+        <span className="text-muted-foreground">· {ad.lang.toUpperCase()}</span>
         {ad.checkoutPlatform && <span className="text-muted-foreground">· via {ad.checkoutPlatform}</span>}
       </div>
 

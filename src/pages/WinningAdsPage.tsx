@@ -255,17 +255,18 @@ export function WinningAdsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="page-heading font-display text-2xl text-foreground">BUSCAR OFERTAS WINNER</h2>
-          <p className="text-sm text-muted-foreground mt-3">Anuncios validados con datos reales. Encuentra, analiza, clona.</p>
+      {/* Header — Apple hairline */}
+      <header className="flex items-end justify-between gap-4 flex-wrap pb-2">
+        <div className="space-y-2">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium">Discover</div>
+          <h2 className="page-heading font-display text-[32px] leading-[1.1] text-foreground tracking-tight">Buscar ofertas winner</h2>
+          <p className="text-sm text-muted-foreground max-w-xl">Anuncios validados con datos reales. Encuentra, analiza, clona.</p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 pulse-hot">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-card/60 backdrop-blur-sm">
           <span className="live-dot" />
-          <span className="text-[11px] font-bold text-primary tracking-widest">ACTUALIZADO HACE {elapsed} MIN</span>
+          <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium">Actualizado hace {elapsed} min</span>
         </div>
-      </div>
+      </header>
 
       {/* Selectores Edge Function + Debug panel (solo admin) */}
       {isAdmin && (

@@ -1,97 +1,59 @@
-## SUPERNOVA — Transformación Maestra
+# Landing Page Intelligence Analyzer
 
-Voy a transformar SUPERNOVA en la plataforma definitiva de inteligencia para Direct Response Marketing. Implementación en 9 fases secuenciales, sin romper lo existente.
+Nueva feature dentro de **Buscar Ofertas Winner** (`/winning-ads`). Pegar una URL → SUPERNOVA hace fetch de la landing, busca anuncios activos del anunciante en Facebook Ads Library, y genera un Informe de Inteligencia completo con IA. Resultado se guarda en historial.
 
-### Fase 1 — Sistema de diseño (colores naranja/negro intensos)
-Actualizar `src/index.css` y `tailwind.config.ts`:
-- Background más negro: `--bg-void: #000`, `--bg-deep: #0A0A0A`, `--bg-card: #181818`
-- Primario naranja saturado: `#F97316` (orange) + `#F59E0B` (amber)
-- Bordes sutiles `rgba(255,255,255,0.08)` con variantes naranja
-- Sidebar activo: fondo naranja oscuro + borde izquierdo 3px
+## Alcance
+Solo se toca el módulo Winning Ads. No se modifican otras páginas.
 
-### Fase 2 — Sidebar limpio
-Reordenar `src/components/Sidebar.tsx`:
-```
-⚡ Dashboard
-🏆 Anuncios Ganadores
-🤖 Agentes DR
-💬 Chat IA
-📋 Generadores
-🗂️ Proyectos
-💰 Créditos
-🛡️ Admin (solo admin)
-```
-Eliminar: Campañas, Espía, Biblioteca, Plantillas. Añadir bloque inferior **SUPERNOVA BRAIN** con contadores de proyectos por modo.
+## Decisión técnica importante
+El spec menciona Claude + `ANTHROPIC_API_KEY`. **Usaré Lovable AI Gateway con `google/gemini-2.5-pro`** (sin API key del usuario, alta calidad para razonamiento). Si prefieres Claude explícitamente, lo cambio y pediré la key.
 
-### Fase 3 — Dashboard refocused (`DashboardPage.tsx`)
-- 4 stats: anuncios analizados hoy, búsquedas, proyectos BRAIN, créditos restantes
-- 2 acciones rápidas grandes (Buscar / Sofisticar)
-- 3 proyectos recientes con progreso por pilar
-- Barra de créditos con renovación
+## Cambios
 
-### Fase 4 — Anuncios Ganadores (módulo estrella)
-Reescritura completa de `WinningAdsPage.tsx`:
-- Header con badge "ACTUALIZADO HACE X min" (timer en vivo)
-- Stats bar global (47,832 total, 8,241 únicos, 312 mega, etc.)
-- Input "Analizar URL del Ads Library" (1 crédito)
-- **Selector de mercado** con tabs de banderas (Todos/EN/ES/PT/RU)
-- Input de búsqueda con placeholder dinámico
-- **Chips de keywords** por mercado (cambian al cambiar idioma)
-- Filtros sticky: días, repeticiones, tipo, mercado, score, orden
-- Sección "OFERTAS ESCALANDO"
-- **Tarjetas rediseñadas**: tier dorado/azul/verde, tipo, mercado con bandera, plataforma checkout, badges de días/duplicados con animación pulsante en altos valores, barra "Despegando" con label dinámico, botón SOFISTICAR
-- 12+ ads demo realistas (BR salud, US make money, ES fitness, RU educación, LATAM crypto…) con grupos de duplicados
+### 1. Base de datos
+Tabla `landing_analyses`:
+- `user_id`, `url`, `domain`, `brand_name`, `analysis_text` (markdown), `ads_found` (jsonb con los 5 mejores ads), `created_at`
+- RLS: cada usuario ve solo los suyos (ALL own).
 
-### Fase 5 — Modal SOFISTICAR (3 modos)
-Nuevo componente `SofisticarModal.tsx`:
-- Paso 1: contexto del anuncio
-- Paso 2: elegir modo (Sofisticar / Adaptar / Blueprint)
-- **Sofisticar** (2 créditos): inputs (mercado, producto propio, presupuesto) + stream IA con formato exacto especificado
-- **Adaptar** (1 crédito): recreación cultural ES/EN
-- **Blueprint** (3 créditos): análisis profundo
+### 2. Edge Functions (nuevas)
+- **`fetch-landing`** — recibe `{ url }`, hace fetch server-side con User-Agent realista, extrae `title`, `metaDescription`, `ogTitle`, `ogDescription`, `ogImage`, `bodyText` (primeros 4000 chars limpios). Maneja errores devolviendo `success: false` para que el cliente muestre fallback manual (textarea).
+- **`analyze-landing`** — recibe `{ landingUrl, landingContent, activeAds, domain, brandName }`, llama a Lovable AI Gateway (`google/gemini-2.5-pro`) con el system prompt de analista DR y el prompt estructurado de 9 secciones del spec. Maneja 429/402. Devuelve `{ analysis: string }`.
 
-Edge function `sofisticar-ad/index.ts` usando Lovable AI Gateway (google/gemini-3-flash-preview) con streaming.
+Ambas con CORS estándar.
 
-### Fase 6 — SUPERNOVA BRAIN
-- Bloque en sidebar (parte inferior)
-- Nueva página `BrainPage.tsx` con los **6 Pilares** (Detectar → Analizar → Diseñar → Producir → Lanzar → Escalar)
-- Lista de proyectos con pilar actual, barra de progreso, fecha
-- Click en proyecto → detalles + marcar pilares + notas
-- **Persistencia en localStorage** (sin Supabase)
-- Hook `useProjects.ts` para CRUD local
+### 3. UI nueva en `WinningAdsPage.tsx`
+- **`IntelligenceAnalyzerCard`** (arriba de la lista de ads): input URL grande estilo Apple + botón ⚡ ANALIZAR + texto de ejemplos. Antes de ejecutar muestra modal "Cuesta 5 créditos ¿continuar?".
+- **`AnalyzerProgress`**: panel inline que muestra los 6 pasos con ✅/⏳ en tiempo real (paso 1 validar URL → paso 6 generar blueprint).
+- **`IntelligenceReportModal`** (Dialog fullscreen): header con dominio + fecha + botones Guardar/Copiar, fila scroll horizontal con tarjetas compactas de los anuncios encontrados, informe markdown renderizado con React-Markdown en `Accordion` (9 secciones colapsables), y barra de "Acciones rápidas" con 4 botones que enlazan al pipeline existente (Sofisticar, Blueprint, Generar landing, Funnel completo).
+- **`SavedAnalysesList`**: sección colapsable al final de la página con historial desde `landing_analyses`, acciones Ver/Eliminar.
+- **Fallback manual**: si `fetch-landing` devuelve `success:false`, mostrar textarea para pegar copy y reintentar con ese texto.
 
-### Fase 7 — Modo Crear / Pain Discovery
-Nueva página `CrearPage.tsx`:
-- Input de nicho + fuentes (Reddit/Google/Product Hunt)
-- Llamada real a Google Autocomplete (con fallback demo si CORS)
-- Edge function `pain-discovery/index.ts` que pasa señales a IA
-- Output formateado: dolores con intensidad, ideas de producto
-- Botón "Crear Proyecto desde este Dolor" → guarda en BRAIN
+### 4. Hook `useLandingAnalyzer`
+Orquesta los 6 pasos en paralelo donde se pueda:
+1. validar URL y extraer dominio
+2. `fetch-landing`
+3. en paralelo: `facebook-ads` por dominio + por brandName extraído (combina y deduplica por `id`)
+4. `analyze-landing`
+5. persistir en `landing_analyses`
+6. retornar `{ analysis, ads, savedId }`
 
-### Fase 8 — Página Créditos
-Nueva `CreditsPage.tsx`:
-- Círculo grande con balance
-- Tabla de costos por acción
-- 3 planes (Free/Pro/Agency) con Pro destacado
-- Historial de últimas 20 acciones (localStorage)
+Expone `status` por paso para el progress UI. Consume 5 créditos con `useCredits.consume('analyze_url', ...)` (extiendo `CREDIT_COSTS.analyze_url` de 1 → 5 únicamente para esta acción nueva, o añado nuevo action `landing_intelligence: 5` para no romper otros usos — usaré **nuevo action `landing_intelligence`**).
 
-### Fase 9 — Sistema de créditos
-- Hook `useCredits.ts` con localStorage (balance + historial)
-- Decrementar en cada acción (buscar, analizar, sofisticar, etc.)
-- Mostrar badge de crédito en cada botón
-- Bloquear acciones si balance < costo + toast
+### 5. Créditos
+Añadir `landing_intelligence: 5` a `CREDIT_COSTS` y `ACTION_LABEL` en `useCredits.ts`.
 
-### Lo que NO se toca
-- Rutas del router (solo añadir nuevas)
-- Autenticación
-- Chat IA y Generadores existentes
-- Agentes DR existentes
+## Orden de implementación
+1. Migración tabla `landing_analyses` + RLS
+2. Edge function `fetch-landing`
+3. Edge function `analyze-landing`
+4. Hook `useLandingAnalyzer`
+5. Componentes UI (Analyzer card, Progress, Report modal, Saved list)
+6. Integrar en `WinningAdsPage.tsx`
 
-### Detalles técnicos
-- **Edge functions nuevas**: `sofisticar-ad`, `pain-discovery` (Lovable AI Gateway, modelo Gemini Flash, streaming markdown)
-- **Hooks nuevos**: `useProjects`, `useCredits`, `useUpdatedSince` (timer del badge)
-- **Componentes nuevos**: `SofisticarModal`, `MarketTabs`, `KeywordChips`, `QualityFilters`, `AdCard` (refactor), `BrainSidebarBlock`, `PillarTracker`
-- **Persistencia**: localStorage para proyectos/créditos/historial (evitar consumo de migraciones DB)
-- **No mock data en producción real** — los demos solo cuando Firecrawl/datos reales no devuelven nada
+## Detalles técnicos
+- Markdown: ya existe `react-markdown` en el proyecto (memoria del tema).
+- Estilo: hairline Apple Space Black, amber `#f7a93d` reservado solo para CTA ANALIZAR y badges de "winner". Sin glows.
+- No mock data — todo real desde Supabase + edge functions.
+- Idiomas: análisis siempre en español (system prompt lo fuerza).
 
-Implementaré fase por fase, confirmando progreso al final de cada bloque mayor.
+¿Apruebas y procedo? (Confirma también si OK usar Gemini 2.5 Pro vía Lovable AI en lugar de Claude — evita pedirte una API key).

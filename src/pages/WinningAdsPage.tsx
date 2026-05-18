@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2 } from "lucide-react";
+import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2, Bookmark, Plus, X, Check } from "lucide-react";
 import { getDemoAds, MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, GLOBAL_STATS, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, normalizeAdsLibraryUrl, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
 import { useElapsedMinutes } from "@/hooks/useElapsedMinutes";
 import { useCredits } from "@/hooks/useCredits";
@@ -88,6 +88,30 @@ export function WinningAdsPage() {
   const [searchCountry, setSearchCountry] = useState("ES");
   const [searchLimit, setSearchLimit] = useState(25);
   const [searchStatus, setSearchStatus] = useState<"ACTIVE" | "INACTIVE" | "ALL">("ACTIVE");
+  // Presets de filtros (País/Estado/Límite) — persistidos en localStorage
+  type FilterPreset = { id: string; name: string; country: string; status: "ACTIVE" | "INACTIVE" | "ALL"; limit: number };
+  const PRESETS_KEY = "supernova:fb-filter-presets";
+  const [presets, setPresets] = useState<FilterPreset[]>(() => {
+    try { return JSON.parse(localStorage.getItem(PRESETS_KEY) ?? "[]"); } catch { return []; }
+  });
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
+  const [savingPreset, setSavingPreset] = useState(false);
+  const [presetName, setPresetName] = useState("");
+  useEffect(() => { localStorage.setItem(PRESETS_KEY, JSON.stringify(presets)); }, [presets]);
+  const applyPreset = (p: FilterPreset) => {
+    setSearchCountry(p.country); setSearchStatus(p.status); setSearchLimit(p.limit);
+    setActivePresetId(p.id); toast.success(`Preset "${p.name}" aplicado`);
+  };
+  const savePreset = () => {
+    const name = presetName.trim(); if (!name) { toast.error("Dale un nombre al preset"); return; }
+    const p: FilterPreset = { id: crypto.randomUUID(), name, country: searchCountry, status: searchStatus, limit: searchLimit };
+    setPresets((prev) => [...prev, p]); setActivePresetId(p.id); setPresetName(""); setSavingPreset(false);
+    toast.success(`✓ Preset "${name}" guardado`);
+  };
+  const deletePreset = (id: string) => {
+    setPresets((prev) => prev.filter((p) => p.id !== id));
+    if (activePresetId === id) setActivePresetId(null);
+  };
   const [debugOpen, setDebugOpen] = useState(false);
   const [debugLoading, setDebugLoading] = useState(false);
   const [debugResult, setDebugResult] = useState<{
@@ -253,17 +277,60 @@ export function WinningAdsPage() {
           </div>
           <div className="text-[10px] text-muted-foreground">Se aplican a "Buscar Anuncios" y "Probar Edge Function"</div>
         </div>
+        {/* Presets bar */}
+        <div className="flex items-center gap-2 flex-wrap p-2 rounded-xl bg-background/30 border border-border/40">
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold pl-1">
+            <Bookmark className="w-3 h-3" /> Presets
+          </div>
+          {presets.length === 0 && !savingPreset && (
+            <span className="text-[11px] text-muted-foreground/60 italic">Sin presets guardados</span>
+          )}
+          {presets.map((p) => {
+            const active = activePresetId === p.id;
+            return (
+              <div key={p.id} className={`group/preset inline-flex items-center gap-1 rounded-full pl-3 pr-1 py-1 text-xs font-semibold border transition-all animate-in fade-in slide-in-from-left-1 ${active ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/30" : "bg-secondary/60 text-foreground border-border/60 hover:border-primary/40 hover:bg-secondary"}`}>
+                <button onClick={() => applyPreset(p)} className="flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-full px-1">
+                  {active && <Check className="w-3 h-3" />}
+                  {p.name}
+                  <span className={`text-[9px] font-normal ${active ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{p.country}·{p.status[0]}·{p.limit}</span>
+                </button>
+                <button onClick={() => deletePreset(p.id)} className="opacity-0 group-hover/preset:opacity-100 transition-opacity rounded-full p-0.5 hover:bg-destructive/30" aria-label={`Eliminar preset ${p.name}`}>
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            );
+          })}
+          {savingPreset ? (
+            <div className="inline-flex items-center gap-1 animate-in fade-in zoom-in-95">
+              <input
+                autoFocus
+                value={presetName}
+                onChange={(e) => setPresetName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") savePreset(); if (e.key === "Escape") { setSavingPreset(false); setPresetName(""); } }}
+                placeholder="Nombre del preset…"
+                className="h-7 px-3 rounded-full bg-background/60 border border-primary/40 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50 w-44"
+              />
+              <button onClick={savePreset} className="rounded-full p-1.5 bg-primary text-primary-foreground hover:scale-110 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60" aria-label="Confirmar"><Check className="w-3 h-3" /></button>
+              <button onClick={() => { setSavingPreset(false); setPresetName(""); }} className="rounded-full p-1.5 bg-secondary text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Cancelar"><X className="w-3 h-3" /></button>
+            </div>
+          ) : (
+            <button onClick={() => setSavingPreset(true)} className="ml-auto inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider border border-dashed border-primary/40 text-primary hover:bg-primary/10 hover:border-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+              <Plus className="w-3 h-3" /> Guardar actual
+            </button>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           {/* País */}
-          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 transition-all">
+          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/60">
             <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5 font-semibold">País</div>
-            <Select value={searchCountry} onValueChange={setSearchCountry}>
-              <SelectTrigger className="h-9 bg-background/40 border-border/40 rounded-xl text-sm font-medium hover:bg-background/70 transition-all">
+            <Select value={searchCountry} onValueChange={(v) => { setSearchCountry(v); setActivePresetId(null); }}>
+              <SelectTrigger className="h-9 bg-background/40 border-border/40 rounded-xl text-sm font-medium hover:bg-background/70 focus:ring-2 focus:ring-primary/50 focus:ring-offset-0 transition-all">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="rounded-xl border-border/60 bg-popover/95 backdrop-blur-xl">
                 {COUNTRY_OPTIONS.map((c) => (
-                  <SelectItem key={c.code} value={c.code} className="rounded-lg my-0.5 cursor-pointer">
+                  <SelectItem key={c.code} value={c.code} className="rounded-lg my-0.5 cursor-pointer focus:bg-primary/15">
                     <span className="flex items-center gap-2"><span className="text-base">{c.flag}</span><span className="font-medium">{c.label}</span><span className="text-[10px] text-muted-foreground ml-1">{c.code}</span></span>
                   </SelectItem>
                 ))}
@@ -272,34 +339,47 @@ export function WinningAdsPage() {
           </div>
 
           {/* Estado */}
-          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 transition-all">
+          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/60">
             <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5 font-semibold">Estado</div>
-            <div className="flex gap-1 bg-background/40 p-1 rounded-xl border border-border/40">
-              {STATUS_OPTIONS.map((s) => (
-                <button
-                  key={s.value}
-                  onClick={() => setSearchStatus(s.value)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
-                    searchStatus === s.value
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
-                  }`}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${searchStatus === s.value ? "bg-primary-foreground" : s.dot}`} />
-                  {s.label}
-                </button>
-              ))}
+            <div role="radiogroup" aria-label="Estado del anuncio" className="flex gap-1 bg-background/40 p-1 rounded-xl border border-border/40">
+              {STATUS_OPTIONS.map((s) => {
+                const isActive = searchStatus === s.value;
+                return (
+                  <button
+                    key={s.value}
+                    role="radio"
+                    aria-checked={isActive}
+                    onClick={() => { setSearchStatus(s.value); setActivePresetId(null); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+                        e.preventDefault();
+                        const idx = STATUS_OPTIONS.findIndex((o) => o.value === searchStatus);
+                        const next = e.key === "ArrowRight" ? (idx + 1) % STATUS_OPTIONS.length : (idx - 1 + STATUS_OPTIONS.length) % STATUS_OPTIONS.length;
+                        setSearchStatus(STATUS_OPTIONS[next].value); setActivePresetId(null);
+                      }
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/40 active:scale-95"
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full transition-all ${isActive ? "bg-primary-foreground animate-pulse" : s.dot}`} />
+                    {s.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* Límite */}
-          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 transition-all">
+          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/60">
             <div className="flex items-center justify-between mb-1.5">
               <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">Límite</div>
-              <div className="text-sm font-bold tabular-nums text-primary">{searchLimit}</div>
+              <div className="text-sm font-bold tabular-nums text-primary transition-all duration-200" key={searchLimit}>{searchLimit}</div>
             </div>
             <div className="px-1 pt-2">
-              <Slider value={[searchLimit]} onValueChange={(v) => setSearchLimit(v[0])} min={5} max={100} step={5} />
+              <Slider aria-label="Límite de anuncios" value={[searchLimit]} onValueChange={(v) => { setSearchLimit(v[0]); setActivePresetId(null); }} min={5} max={100} step={5} />
             </div>
             <div className="flex justify-between text-[9px] text-muted-foreground/60 mt-1 px-0.5 font-medium">
               <span>5</span><span>50</span><span>100</span>
@@ -310,10 +390,12 @@ export function WinningAdsPage() {
           <button
             onClick={runDebugTest}
             disabled={debugLoading}
-            className="group relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary to-primary/70 hover:from-primary hover:to-primary text-primary-foreground p-3 flex flex-col items-center justify-center gap-1 font-bold transition-all disabled:opacity-60 shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98]"
+            aria-busy={debugLoading}
+            className="group relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary to-primary/70 hover:from-primary hover:to-primary text-primary-foreground p-3 flex flex-col items-center justify-center gap-1 font-bold transition-all disabled:opacity-60 shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
+            {debugLoading && <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent" />}
             <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity" />
-            {debugLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />}
+            {debugLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5 group-hover:rotate-12 transition-transform" />}
             <span className="text-[11px] uppercase tracking-wider">{debugLoading ? "Probando..." : "Probar Edge"}</span>
           </button>
         </div>
@@ -435,30 +517,20 @@ export function WinningAdsPage() {
         )}
       </div>
 
-      {/* Quality filters (sticky) */}
-      <div className="card-surface rounded-xl p-4 sticky top-[80px] z-10 space-y-3">
-        <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider">
+      {/* Quality filters — pill-style dropdowns sobre gradiente espacial */}
+      <div className="relative rounded-2xl p-5 sticky top-[80px] z-10 overflow-hidden border border-border/40 backdrop-blur-xl shadow-xl bg-gradient-to-br from-[hsl(265_60%_15%/0.9)] via-[hsl(260_50%_10%/0.95)] to-[hsl(250_45%_8%/0.95)]">
+        <div className="absolute -top-20 -left-20 w-72 h-72 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 -right-20 w-72 h-72 rounded-full bg-accent/10 blur-3xl pointer-events-none" />
+        <div className="relative flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-[0.18em] mb-3">
           <Filter className="w-3.5 h-3.5" /> Filtros de calidad
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-6 gap-3 text-xs">
-          <FilterGroup label="Días mínimos">
-            {DAY_OPTIONS.map((o) => <Chip key={o.v} active={minDays === o.v} onClick={() => setMinDays(o.v)}>{o.l}</Chip>)}
-          </FilterGroup>
-          <FilterGroup label="Repeticiones">
-            {DUP_OPTIONS.map((o) => <Chip key={o.v} active={minDups === o.v} onClick={() => setMinDups(o.v)}>{o.l}</Chip>)}
-          </FilterGroup>
-          <FilterGroup label="Tipo">
-            {TYPE_OPTIONS.map((o) => <Chip key={o} active={typeFilter === o} onClick={() => setTypeFilter(o)}>{o}</Chip>)}
-          </FilterGroup>
-          <FilterGroup label="Mercado">
-            {REGION_OPTIONS.map((o) => <Chip key={o} active={regionFilter === o} onClick={() => setRegionFilter(o)}>{o}</Chip>)}
-          </FilterGroup>
-          <FilterGroup label="Score">
-            {SCORE_OPTIONS.map((o) => <Chip key={o.v} active={minScore === o.v} onClick={() => setMinScore(o.v)}>{o.l}</Chip>)}
-          </FilterGroup>
-          <FilterGroup label="Ordenar">
-            {SORT_OPTIONS.map((o) => <Chip key={o} active={sort === o} onClick={() => setSort(o)}>{o}</Chip>)}
-          </FilterGroup>
+        <div className="relative flex flex-wrap gap-2.5">
+          <PillSelect label="Días mínimos" value={String(minDays)} onChange={(v) => setMinDays(Number(v))} options={DAY_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
+          <PillSelect label="Repeticiones" value={String(minDups)} onChange={(v) => setMinDups(Number(v))} options={DUP_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
+          <PillSelect label="Tipo" value={typeFilter} onChange={setTypeFilter} options={TYPE_OPTIONS.map((o) => ({ value: o, label: o }))} />
+          <PillSelect label="Mercado" value={regionFilter} onChange={setRegionFilter} options={REGION_OPTIONS.map((o) => ({ value: o, label: o }))} />
+          <PillSelect label="Score mínimo" value={String(minScore)} onChange={(v) => setMinScore(Number(v))} options={SCORE_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
+          <PillSelect label="Ordenar" value={sort} onChange={setSort} options={SORT_OPTIONS.map((o) => ({ value: o, label: o }))} />
         </div>
       </div>
 
@@ -509,6 +581,33 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
       className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-all ${
         active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
       }`}>{children}</button>
+  );
+}
+
+function PillSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+  const current = options.find((o) => o.value === value)?.label ?? value;
+  const isDefault = options[0]?.value === value;
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger
+        aria-label={label}
+        className={`group h-10 w-auto min-w-[150px] gap-2 rounded-full border px-4 text-xs font-semibold backdrop-blur-md transition-all duration-200 hover:scale-[1.02] hover:border-primary/60 hover:shadow-lg hover:shadow-primary/10 focus:ring-2 focus:ring-primary/50 focus:ring-offset-0 data-[state=open]:scale-[1.02] data-[state=open]:border-primary data-[state=open]:shadow-lg data-[state=open]:shadow-primary/20 ${
+          isDefault
+            ? "bg-white/5 border-white/10 text-foreground/90"
+            : "bg-primary/15 border-primary/40 text-primary"
+        }`}
+      >
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mr-1">{label}:</span>
+        <SelectValue>{current}</SelectValue>
+      </SelectTrigger>
+      <SelectContent className="rounded-2xl border-border/60 bg-popover/95 backdrop-blur-xl shadow-2xl animate-in fade-in-0 zoom-in-95">
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value} className="rounded-lg my-0.5 cursor-pointer focus:bg-primary/15 transition-colors">
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 

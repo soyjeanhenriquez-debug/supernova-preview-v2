@@ -1024,24 +1024,48 @@ function AdCard({ ad, saved, onSave, onSofisticar, compact = false }: { ad: Demo
       </div>
 
       {/* Preview inline del creativo — estilo Adheart. En dev/preview Meta puede bloquear el iframe con X-Frame-Options; en producción autenticado renderiza. */}
-      {ad.snapshotUrl && (
-        <div className="relative w-full rounded-lg overflow-hidden border border-border/60 bg-secondary/30 aspect-[4/5] group">
-          <iframe
-            src={ad.snapshotUrl}
-            title={`Creativo ${ad.pageName}`}
-            loading="lazy"
-            className="absolute inset-0 w-full h-full bg-white"
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-          />
-          <a
-            href={ad.snapshotUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="absolute top-2 right-2 px-2 py-1 rounded-md bg-background/80 backdrop-blur text-[10px] font-semibold border border-border opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1"
-          >
-            <ExternalLink className="w-3 h-3" /> HD
-          </a>
-        </div>
+      {/* Preview del creativo — Meta bloquea el embebido directo con X-Frame-Options:DENY,
+          así que mostramos un poster clickeable que abre el snapshot oficial en nueva pestaña. */}
+      {(ad.snapshotUrl || ad.adUrl) && (
+        <a
+          href={ad.snapshotUrl || ad.adUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="relative block w-full rounded-lg overflow-hidden border border-border/60 bg-gradient-to-br from-secondary/60 via-secondary/30 to-secondary/60 aspect-[4/5] group cursor-pointer hover:border-primary/40 transition-all"
+        >
+          {ad.pageId && (
+            <img
+              src={`https://graph.facebook.com/${ad.pageId}/picture?type=large&width=320&height=320`}
+              alt=""
+              aria-hidden
+              className="absolute inset-0 w-full h-full object-cover opacity-20 blur-xl scale-110"
+              onError={(e) => { e.currentTarget.style.display = "none"; }}
+            />
+          )}
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4 text-center">
+            {ad.pageId ? (
+              <img
+                src={`https://graph.facebook.com/${ad.pageId}/picture?type=large`}
+                alt={ad.pageName}
+                className="w-16 h-16 rounded-full border-2 border-border shadow-lg"
+                onError={(e) => { e.currentTarget.style.display = "none"; }}
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-primary/20 border-2 border-primary/40 flex items-center justify-center text-xl font-bold text-primary">
+                {ad.pageName.charAt(0)}
+              </div>
+            )}
+            <div className="text-xs font-semibold text-foreground/90 line-clamp-2 max-w-[80%]">
+              {ad.title || ad.pageName}
+            </div>
+            <div className="px-3 py-1.5 rounded-full bg-primary/90 text-primary-foreground text-[10px] font-bold inline-flex items-center gap-1.5 shadow-lg group-hover:bg-primary transition-colors">
+              <ExternalLink className="w-3 h-3" /> Ver creativo en Ads Library
+            </div>
+            <div className="text-[9px] text-muted-foreground uppercase tracking-wider">
+              Meta no permite embeber · clic para abrir
+            </div>
+          </div>
+        </a>
       )}
 
       <p className="text-sm text-foreground/90 line-clamp-4 italic leading-relaxed">"{ad.body}"</p>

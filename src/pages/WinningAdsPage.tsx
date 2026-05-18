@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2 } from "lucide-react";
-import { getDemoAds, MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, GLOBAL_STATS, despeguePercent, classifyOffer, CATEGORY_LABEL, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
+import { getDemoAds, MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, GLOBAL_STATS, despeguePercent, classifyOffer, CATEGORY_LABEL, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
 import { useElapsedMinutes } from "@/hooks/useElapsedMinutes";
 import { useCredits } from "@/hooks/useCredits";
 import { SofisticarModal } from "@/components/SofisticarModal";
@@ -19,6 +19,29 @@ const TYPE_OPTIONS = ["Todos", "Infoproducto", "Ecommerce", "App", "Saas", "Serv
 const REGION_OPTIONS = ["Todos", "LATAM", "USA", "Brasil", "España"];
 const SCORE_OPTIONS = [{ v: 0, l: "Todos" }, { v: 40, l: "40+" }, { v: 60, l: "60+" }, { v: 80, l: "80+" }];
 const SORT_OPTIONS = ["Mayor Score", "Más Recientes", "Más Duplicados", "Más Días"];
+
+interface FacebookAdLibraryItem {
+  id?: string | number;
+  page_id?: string;
+  page_name?: string;
+  ad_creative_bodies?: string[];
+  ad_creative_link_titles?: string[];
+  ad_delivery_start_time?: string;
+}
+
+interface FacebookAdsResponse {
+  data?: FacebookAdLibraryItem[];
+}
+
+const openExternalUrl = async (url: string) => {
+  const newWindow = window.open(url, "_blank", "noopener,noreferrer");
+  if (newWindow && !newWindow.closed) {
+    newWindow.opener = null;
+    return;
+  }
+  await navigator.clipboard?.writeText(url);
+  toast.info("Facebook bloqueó la apertura automática; copié la URL para abrirla fuera del preview.");
+};
 
 export function WinningAdsPage() {
   const elapsed = useElapsedMinutes();
@@ -72,11 +95,11 @@ export function WinningAdsPage() {
     setLoadingReal(true);
     toast.info(`Buscando "${keyword || "todos"}" en Facebook Ad Library...`);
     try {
-      const { data, error } = await supabase.functions.invoke("facebook-ads", {
+      const { data, error } = await supabase.functions.invoke<FacebookAdsResponse>("facebook-ads", {
         body: { search_terms: keyword || "ad", country, limit: 25, ad_active_status: "ACTIVE" },
       });
       if (error) throw error;
-      const items: any[] = data?.data ?? [];
+      const items = data?.data ?? [];
       const mapped: DemoAd[] = items.map((it, i) => {
         const body = (it.ad_creative_bodies?.[0] ?? "").toString();
         const title = (it.ad_creative_link_titles?.[0] ?? it.page_name ?? "Anuncio").toString();
@@ -93,18 +116,18 @@ export function WinningAdsPage() {
           score: Math.min(100, 40 + Math.floor(days / 2)),
           tier: days >= 60 ? "mega" : days >= 14 ? "rising" : "solid",
           offerType: "infoproducto",
-          market: country as any,
+          market: country as AdMarket,
           marketLabel: country,
           flag: "🌐",
-          lang: market === "all" ? "en" : (market as any),
+          lang: (market === "all" ? "en" : market) as AdLang,
           adUrl: it.id ? `https://www.facebook.com/ads/library/?id=${it.id}` : "https://www.facebook.com/ads/library/",
         };
       });
       setRealAds(mapped);
       toast.success(`✓ ${mapped.length} anuncios reales encontrados`);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      toast.error(`Error Facebook: ${e?.message ?? "desconocido"}`);
+      toast.error(`Error Facebook: ${e instanceof Error ? e.message : "desconocido"}`);
     } finally {
       setLoadingReal(false);
     }
@@ -120,7 +143,10 @@ export function WinningAdsPage() {
 
   const toggleSave = (id: string) => {
     setSaved((s) => {
-      const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
     });
   };
 
@@ -349,9 +375,9 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
         <Sparkles className="w-4 h-4" /> SOFISTICAR → <span className="opacity-70 text-xs">· 1 crédito</span>
       </button>
 
-      <a href={ad.adUrl} target="_blank" rel="noreferrer" className="text-[11px] text-muted-foreground hover:text-primary flex items-center gap-1 justify-center">
+      <button type="button" onClick={() => openExternalUrl(ad.adUrl)} className="text-[11px] text-muted-foreground hover:text-primary flex items-center gap-1 justify-center">
         <ExternalLink className="w-3 h-3" /> Ver en Ads Library
-      </a>
+      </button>
     </div>
   );
 }

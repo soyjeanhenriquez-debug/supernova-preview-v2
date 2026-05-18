@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2 } from "lucide-react";
-import { getDemoAds, MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, GLOBAL_STATS, despeguePercent, classifyOffer, CATEGORY_LABEL, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
+import { getDemoAds, MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, GLOBAL_STATS, despeguePercent, classifyOffer, CATEGORY_LABEL, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
 import { useElapsedMinutes } from "@/hooks/useElapsedMinutes";
 import { useCredits } from "@/hooks/useCredits";
 import { SofisticarModal } from "@/components/SofisticarModal";
@@ -20,14 +20,27 @@ const REGION_OPTIONS = ["Todos", "LATAM", "USA", "Brasil", "España"];
 const SCORE_OPTIONS = [{ v: 0, l: "Todos" }, { v: 40, l: "40+" }, { v: 60, l: "60+" }, { v: 80, l: "80+" }];
 const SORT_OPTIONS = ["Mayor Score", "Más Recientes", "Más Duplicados", "Más Días"];
 
-const openExternalUrl = (url: string) => {
-  const newWindow = window.open("about:blank", "_blank", "noopener,noreferrer");
-  if (newWindow) {
+interface FacebookAdLibraryItem {
+  id?: string | number;
+  page_id?: string;
+  page_name?: string;
+  ad_creative_bodies?: string[];
+  ad_creative_link_titles?: string[];
+  ad_delivery_start_time?: string;
+}
+
+interface FacebookAdsResponse {
+  data?: FacebookAdLibraryItem[];
+}
+
+const openExternalUrl = async (url: string) => {
+  const newWindow = window.open(url, "_blank", "noopener,noreferrer");
+  if (newWindow && !newWindow.closed) {
     newWindow.opener = null;
-    newWindow.location.href = url;
     return;
   }
-  window.top?.location.assign(url);
+  await navigator.clipboard?.writeText(url);
+  toast.info("Facebook bloqueó la apertura automática; copié la URL para abrirla fuera del preview.");
 };
 
 export function WinningAdsPage() {

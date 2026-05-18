@@ -389,6 +389,12 @@ export function WinningAdsPage() {
       list = list.filter((a) => map[regionFilter]?.includes(a.market));
     }
     if (minScore > 0) list = list.filter((a) => a.score >= minScore);
+    if (verticalFilter !== "Todas") {
+      list = list.filter((a) => {
+        const v = a.vertical ?? classifyOffer(`${a.title} ${a.body}`);
+        return v === verticalFilter;
+      });
+    }
     if (keyword.trim()) {
       const q = keyword.toLowerCase();
       list = list.filter((a) => a.title.toLowerCase().includes(q) || a.body.toLowerCase().includes(q));
@@ -400,7 +406,7 @@ export function WinningAdsPage() {
       default: list.sort((a, b) => b.score - a.score);
     }
     return list;
-  }, [allAds, market, minDays, minDups, typeFilter, regionFilter, minScore, sort, keyword]);
+  }, [allAds, market, minDays, minDups, typeFilter, regionFilter, minScore, verticalFilter, sort, keyword]);
 
   const handleSearch = async () => {
     if (!canAfford("search_ads")) { toast.error("Sin créditos suficientes"); return; }

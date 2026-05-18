@@ -42,6 +42,8 @@ interface FacebookAdsResponse {
 export function WinningAdsPage() {
   const elapsed = useElapsedMinutes();
   const { consume, canAfford } = useCredits();
+  const { user } = useAuth();
+  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
 
   const [market, setMarket] = useState<string>("all");
   const [keyword, setKeyword] = useState("");

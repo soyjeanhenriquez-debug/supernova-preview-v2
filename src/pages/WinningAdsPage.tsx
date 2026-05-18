@@ -848,7 +848,20 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
       </div>
 
       <div className="flex items-center gap-2 pt-1 border-t border-border/50">
-        <div className="w-7 h-7 rounded-full btn-primary-nova flex items-center justify-center text-[11px] font-bold">
+        {ad.pageId ? (
+          <img
+            src={`https://graph.facebook.com/${ad.pageId}/picture?type=square`}
+            alt={ad.pageName}
+            loading="lazy"
+            onError={(e) => {
+              const target = e.currentTarget;
+              target.style.display = "none";
+              target.nextElementSibling?.classList.remove("hidden");
+            }}
+            className="w-7 h-7 rounded-full object-cover border border-border bg-secondary flex-shrink-0"
+          />
+        ) : null}
+        <div className={`w-7 h-7 rounded-full btn-primary-nova flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${ad.pageId ? "hidden" : ""}`}>
           {ad.pageName.charAt(0)}
         </div>
         <div className="min-w-0">

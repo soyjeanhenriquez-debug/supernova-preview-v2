@@ -217,8 +217,10 @@ export function WinningAdsPage() {
         </div>
       </div>
 
-      {/* Selectores Edge Function + Debug panel */}
-      <div className="card-surface rounded-xl p-4 space-y-3 border border-border/60">
+      {/* Selectores Edge Function + Debug panel (solo admin) */}
+      {isAdmin && (
+      <div className="card-surface rounded-xl p-4 space-y-3 border border-primary/30">
+        <div className="text-[10px] uppercase tracking-widest text-primary/80 font-bold">🔒 Panel Admin · {user?.email}</div>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
             <Zap className="w-3.5 h-3.5" /> Parámetros de búsqueda real

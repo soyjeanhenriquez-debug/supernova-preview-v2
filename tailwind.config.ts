@@ -12,8 +12,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "sans-serif"],
-        display: ["Outfit", "sans-serif"],
+        sans: ["Manrope", "-apple-system", "BlinkMacSystemFont", "SF Pro Text", "sans-serif"],
+        display: ["Sora", "-apple-system", "BlinkMacSystemFont", "SF Pro Display", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",

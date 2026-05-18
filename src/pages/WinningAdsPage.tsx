@@ -76,8 +76,8 @@ export function WinningAdsPage() {
   const [market, setMarket] = useState<string>("all");
   const [keyword, setKeyword] = useState("");
   const [urlInput, setUrlInput] = useState("");
-  const [minDays, setMinDays] = useState(7);
-  const [minDups, setMinDups] = useState(3);
+  const [minDays, setMinDays] = useState(0);
+  const [minDups, setMinDups] = useState(0);
   const [typeFilter, setTypeFilter] = useState("Todos");
   const [regionFilter, setRegionFilter] = useState("Todos");
   const [minScore, setMinScore] = useState(0);

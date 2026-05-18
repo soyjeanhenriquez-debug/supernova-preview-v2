@@ -435,6 +435,14 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   );
 }
 
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2">
+      <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-sm font-bold text-foreground">{value}</div>
+    </div>
+  );
+
 function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolean; onSave: () => void; onSofisticar: () => void }) {
   const tier = TIERS[ad.tier];
   const desp = despeguePercent(ad.daysActive, ad.duplicates);

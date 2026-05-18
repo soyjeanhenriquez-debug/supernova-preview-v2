@@ -20,6 +20,16 @@ const REGION_OPTIONS = ["Todos", "LATAM", "USA", "Brasil", "España"];
 const SCORE_OPTIONS = [{ v: 0, l: "Todos" }, { v: 40, l: "40+" }, { v: 60, l: "60+" }, { v: 80, l: "80+" }];
 const SORT_OPTIONS = ["Mayor Score", "Más Recientes", "Más Duplicados", "Más Días"];
 
+const openExternalUrl = (url: string) => {
+  const newWindow = window.open("about:blank", "_blank", "noopener,noreferrer");
+  if (newWindow) {
+    newWindow.opener = null;
+    newWindow.location.href = url;
+    return;
+  }
+  window.top?.location.assign(url);
+};
+
 export function WinningAdsPage() {
   const elapsed = useElapsedMinutes();
   const { consume, canAfford } = useCredits();
@@ -349,9 +359,9 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
         <Sparkles className="w-4 h-4" /> SOFISTICAR → <span className="opacity-70 text-xs">· 1 crédito</span>
       </button>
 
-      <a href={ad.adUrl} target="_blank" rel="noreferrer" className="text-[11px] text-muted-foreground hover:text-primary flex items-center gap-1 justify-center">
+      <button type="button" onClick={() => openExternalUrl(ad.adUrl)} className="text-[11px] text-muted-foreground hover:text-primary flex items-center gap-1 justify-center">
         <ExternalLink className="w-3 h-3" /> Ver en Ads Library
-      </a>
+      </button>
     </div>
   );
 }

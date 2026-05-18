@@ -48,8 +48,8 @@ export function DashboardPage({ onNavigate }: Props) {
 
       {/* Quick actions */}
       <div className="grid md:grid-cols-2 gap-4">
-        <ActionCard title="🏆 Buscar Anuncios Ganadores" subtitle="Encuentra lo que está escalando ahora mismo" onClick={() => onNavigate("Anuncios Ganadores")} />
-        <ActionCard title="⚡ Iniciar SOFISTICAR" subtitle="Convierte una oferta ganadora en tu producto" onClick={() => onNavigate("Anuncios Ganadores")} />
+        <ActionCard title="🏆 Buscar Ofertas Winner" subtitle="Encuentra lo que está escalando ahora mismo" onClick={() => onNavigate("Buscar Ofertas Winner")} />
+        <ActionCard title="⚡ Iniciar SOFISTICAR" subtitle="Convierte una oferta ganadora en tu producto" onClick={() => onNavigate("Buscar Ofertas Winner")} />
       </div>
 
       {/* Recent projects */}
@@ -62,7 +62,7 @@ export function DashboardPage({ onNavigate }: Props) {
           <div className="card-surface rounded-xl py-12 text-center">
             <div className="empty-icon mb-4"><Brain className="w-8 h-8" /></div>
             <div className="font-display font-semibold mb-1">Tu primer proyecto está a un click</div>
-            <div className="text-sm text-muted-foreground">Crea uno desde Anuncios Ganadores y empieza a escalar</div>
+            <div className="text-sm text-muted-foreground">Crea uno desde Buscar Ofertas Winner y empieza a escalar</div>
           </div>
         ) : (
           <div className="grid md:grid-cols-3 gap-3">

@@ -37,7 +37,7 @@ export function BrainPage() {
           <div className="card-surface rounded-xl py-16 text-center">
             <div className="empty-icon mb-4"><Brain className="w-9 h-9" /></div>
             <div className="font-display font-bold text-lg mb-1">Tu cerebro está listo para encender</div>
-            <div className="text-sm text-muted-foreground max-w-sm mx-auto">Cada proyecto que crees alimenta tu motor SUPERNOVA. Empieza por Anuncios Ganadores o Modo Crear.</div>
+            <div className="text-sm text-muted-foreground max-w-sm mx-auto">Cada proyecto que crees alimenta tu motor SUPERNOVA. Empieza por Buscar Ofertas Winner o Modo Crear.</div>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">

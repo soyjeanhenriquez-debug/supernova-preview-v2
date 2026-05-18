@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter } from "lucide-react";
-import { getDemoAds, MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, GLOBAL_STATS, despeguePercent, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
+import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2 } from "lucide-react";
+import { getDemoAds, MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, GLOBAL_STATS, despeguePercent, classifyOffer, CATEGORY_LABEL, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
 import { useElapsedMinutes } from "@/hooks/useElapsedMinutes";
 import { useCredits } from "@/hooks/useCredits";
 import { SofisticarModal } from "@/components/SofisticarModal";
+import { supabase } from "@/integrations/supabase/client";
 
 const TIERS: Record<Tier, { label: string; cls: string; icon: string }> = {
   mega:   { label: "MEGA WINNER",  cls: "tier-mega",  icon: "🏆" },
@@ -34,8 +35,10 @@ export function WinningAdsPage() {
   const [sort, setSort] = useState("Mayor Score");
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [sofisticarAd, setSofisticarAd] = useState<DemoAd | null>(null);
+  const [realAds, setRealAds] = useState<DemoAd[]>([]);
+  const [loadingReal, setLoadingReal] = useState(false);
 
-  const allAds = useMemo(() => getDemoAds(), []);
+  const allAds = useMemo(() => [...realAds, ...getDemoAds()], [realAds]);
 
   const filtered = useMemo(() => {
     let list = allAds.slice();
@@ -61,10 +64,50 @@ export function WinningAdsPage() {
     return list;
   }, [allAds, market, minDays, minDups, typeFilter, regionFilter, minScore, sort, keyword]);
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!canAfford("search_ads")) { toast.error("Sin créditos suficientes"); return; }
     consume("search_ads", keyword || market);
-    toast.success(`✓ Buscando "${keyword || "todos"}" en ${MARKETS.find((m) => m.id === market)?.label}`);
+    const countryMap: Record<string, string> = { es: "ES", pt: "BR", en: "US", ru: "RU", all: "US" };
+    const country = countryMap[market] ?? "US";
+    setLoadingReal(true);
+    toast.info(`Buscando "${keyword || "todos"}" en Facebook Ad Library...`);
+    try {
+      const { data, error } = await supabase.functions.invoke("facebook-ads", {
+        body: { search_terms: keyword || "ad", country, limit: 25, ad_active_status: "ACTIVE" },
+      });
+      if (error) throw error;
+      const items: any[] = data?.data ?? [];
+      const mapped: DemoAd[] = items.map((it, i) => {
+        const body = (it.ad_creative_bodies?.[0] ?? "").toString();
+        const title = (it.ad_creative_link_titles?.[0] ?? it.page_name ?? "Anuncio").toString();
+        const start = it.ad_delivery_start_time ? new Date(it.ad_delivery_start_time) : new Date();
+        const days = Math.max(1, Math.floor((Date.now() - start.getTime()) / 86400000));
+        return {
+          id: `fb-${it.id ?? i}`,
+          pageId: it.page_id ?? "",
+          pageName: it.page_name ?? "Facebook Ad",
+          title,
+          body: body || title,
+          daysActive: days,
+          duplicates: 1,
+          score: Math.min(100, 40 + Math.floor(days / 2)),
+          tier: days >= 60 ? "mega" : days >= 14 ? "rising" : "solid",
+          offerType: "infoproducto",
+          market: country as any,
+          marketLabel: country,
+          flag: "🌐",
+          lang: market === "all" ? "en" : (market as any),
+          adUrl: it.ad_snapshot_url ?? "https://facebook.com/ads/library",
+        };
+      });
+      setRealAds(mapped);
+      toast.success(`✓ ${mapped.length} anuncios reales encontrados`);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(`Error Facebook: ${e?.message ?? "desconocido"}`);
+    } finally {
+      setLoadingReal(false);
+    }
   };
 
   const handleAnalyzeUrl = () => {
@@ -86,7 +129,7 @@ export function WinningAdsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="page-heading font-display text-2xl text-foreground">ANUNCIOS GANADORES</h2>
+          <h2 className="page-heading font-display text-2xl text-foreground">BUSCAR OFERTAS WINNER</h2>
           <p className="text-sm text-muted-foreground mt-3">Anuncios validados con datos reales. Encuentra, analiza, clona.</p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 pulse-hot">
@@ -143,8 +186,8 @@ export function WinningAdsPage() {
               className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-3 text-base focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
-          <button onClick={handleSearch} className="btn-primary-nova px-6 py-3 rounded-lg text-sm flex items-center gap-2 whitespace-nowrap">
-            <Search className="w-4 h-4" /> Buscar Anuncios <span className="opacity-70">· 1 crédito</span>
+          <button onClick={handleSearch} disabled={loadingReal} className="btn-primary-nova px-6 py-3 rounded-lg text-sm flex items-center gap-2 whitespace-nowrap disabled:opacity-60">
+            {loadingReal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} {loadingReal ? "Buscando..." : "Buscar Anuncios"} <span className="opacity-70">· 1 crédito</span>
           </button>
         </div>
 
@@ -266,7 +309,7 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
       </div>
 
       <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider flex-wrap">
-        <span className="text-primary font-bold">{OFFER_TYPE_LABEL[ad.offerType]}</span>
+        <span className="text-primary font-bold">{CATEGORY_LABEL[classifyOffer(`${ad.title} ${ad.body}`)]}</span>
         <span className="text-muted-foreground">· {ad.flag} {ad.marketLabel}</span>
         {ad.checkoutPlatform && <span className="text-muted-foreground">· via {ad.checkoutPlatform}</span>}
       </div>

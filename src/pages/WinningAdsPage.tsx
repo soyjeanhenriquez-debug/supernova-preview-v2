@@ -100,6 +100,23 @@ export function WinningAdsPage() {
   const [savingPreset, setSavingPreset] = useState(false);
   const [presetName, setPresetName] = useState("");
   useEffect(() => { localStorage.setItem(PRESETS_KEY, JSON.stringify(presets)); }, [presets]);
+
+  // Cargar estadísticas reales desde la tabla `winning_ads` (sin datos demo)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("winning_ads")
+        .select("page_id, page_name, tier", { count: "exact" });
+      if (cancelled || error || !data) return;
+      const unique = new Set(data.map((r) => r.page_id ?? r.page_name ?? "").filter(Boolean)).size;
+      const mega = data.filter((r) => r.tier === "mega").length;
+      const rising = data.filter((r) => r.tier === "rising").length;
+      const solid = data.filter((r) => r.tier === "solid").length;
+      setLiveStats({ total: data.length, unique, mega, rising, solid });
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const applyPreset = (p: FilterPreset) => {
     setSearchCountry(p.country); setSearchStatus(p.status); setSearchLimit(p.limit);
     setActivePresetId(p.id); toast.success(`Preset "${p.name}" aplicado`);

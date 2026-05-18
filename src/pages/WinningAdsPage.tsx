@@ -206,19 +206,9 @@ export function WinningAdsPage() {
           <h2 className="page-heading font-display text-2xl text-foreground">BUSCAR OFERTAS WINNER</h2>
           <p className="text-sm text-muted-foreground mt-3">Anuncios validados con datos reales. Encuentra, analiza, clona.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={runDebugTest}
-            disabled={debugLoading}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
-          >
-            {debugLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-            {debugLoading ? "Probando..." : "Probar Edge Function"}
-          </button>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 pulse-hot">
-            <span className="live-dot" />
-            <span className="text-[11px] font-bold text-primary tracking-widest">ACTUALIZADO HACE {elapsed} MIN</span>
-          </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 pulse-hot">
+          <span className="live-dot" />
+          <span className="text-[11px] font-bold text-primary tracking-widest">ACTUALIZADO HACE {elapsed} MIN</span>
         </div>
       </div>
 

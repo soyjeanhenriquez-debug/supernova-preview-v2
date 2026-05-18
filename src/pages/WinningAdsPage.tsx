@@ -648,75 +648,66 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
   const tier = TIERS[ad.tier];
   const desp = despeguePercent(ad.daysActive, ad.duplicates);
 
-  const daysBadgeCls =
-    ad.daysActive >= 60 ? "bg-amber-500/90 text-black pulse-hot" :
-    ad.daysActive >= 30 ? "bg-amber-500 text-black" :
-    ad.daysActive >= 15 ? "bg-orange-500/90 text-black" :
-    ad.daysActive >= 7  ? "bg-blue-500 text-white" :
-    "bg-neutral-700 text-neutral-300";
-
-  const dupsBadgeCls =
-    ad.duplicates >= 50 ? "bg-red-500 text-white pulse-hot" :
-    ad.duplicates >= 10 ? "bg-red-500/90 text-white" :
-    ad.duplicates >= 3  ? "bg-orange-500 text-black" :
-    "bg-neutral-700 text-neutral-300";
+  // Hairline badges — accent only on the most extreme tier
+  const daysAccent = ad.daysActive >= 30;
+  const dupsAccent = ad.duplicates >= 10;
 
   return (
-    <div className="card-surface rounded-xl p-5 flex flex-col gap-3 ad-card-hover">
+    <div className="card-surface rounded-2xl p-5 flex flex-col gap-3.5 ad-card-hover">
       <div className="flex items-start justify-between">
-        <span className={`text-[11px] font-bold px-2.5 py-1 rounded ${tier.cls}`}>{tier.icon} {tier.label}</span>
-        <div className="flex items-center gap-2">
-          <button onClick={onSave} className="text-muted-foreground hover:text-primary transition-colors">
-            <Heart className={`w-4 h-4 ${saved ? "fill-primary text-primary" : ""}`} />
+        <span className={`text-[10px] font-medium uppercase tracking-[0.14em] px-2.5 py-1 rounded-full ${tier.cls}`}>{tier.icon} {tier.label}</span>
+        <div className="flex items-center gap-3">
+          <button onClick={onSave} aria-label={saved ? "Quitar de guardados" : "Guardar"} className="text-muted-foreground hover:text-primary transition-colors">
+            <Heart className={`w-4 h-4 ${saved ? "fill-primary text-primary" : ""}`} strokeWidth={1.6} />
           </button>
-          <span className="text-2xl font-display font-extrabold text-foreground">{ad.score}</span>
+          <span className="text-2xl font-display font-semibold text-foreground tabular-nums">{ad.score}</span>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider flex-wrap">
-        <span className="text-primary font-bold">{CATEGORY_LABEL[classifyOffer(`${ad.title} ${ad.body}`)]}</span>
-        <span className="text-muted-foreground">· {ad.flag} {ad.marketLabel}</span>
-        <span className="text-muted-foreground">· {ad.lang.toUpperCase()}</span>
-        {ad.checkoutPlatform && <span className="text-muted-foreground">· via {ad.checkoutPlatform}</span>}
+      <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.14em] flex-wrap text-muted-foreground">
+        <span className="text-foreground/85 font-medium">{CATEGORY_LABEL[classifyOffer(`${ad.title} ${ad.body}`)]}</span>
+        <span>· {ad.flag} {ad.marketLabel}</span>
+        <span>· {ad.lang.toUpperCase()}</span>
+        {ad.checkoutPlatform && <span>· via {ad.checkoutPlatform}</span>}
       </div>
 
       <p className="text-sm text-foreground/90 line-clamp-4 italic leading-relaxed">"{ad.body}"</p>
 
       <div className="flex flex-wrap gap-1.5">
-        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${daysBadgeCls}`}>
-          <Flame className="w-3 h-3" /> {ad.daysActive} Días Activo
+        <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-full border tabular-nums ${daysAccent ? "border-primary/40 text-primary bg-primary/5" : "border-border text-muted-foreground"}`}>
+          <Flame className="w-3 h-3" strokeWidth={1.8} /> {ad.daysActive}d activo
         </span>
-        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${dupsBadgeCls}`}>
-          <Zap className="w-3 h-3" /> {ad.duplicates} Duplicados
+        <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-full border tabular-nums ${dupsAccent ? "border-primary/40 text-primary bg-primary/5" : "border-border text-muted-foreground"}`}>
+          <Zap className="w-3 h-3" strokeWidth={1.8} /> {ad.duplicates} duplicados
         </span>
       </div>
 
       <div>
-        <div className="flex items-center justify-between text-[10px] mb-1">
-          <span className="font-bold uppercase tracking-wider" style={{ color: desp.color }}>→ {desp.label}</span>
-          <span className="text-muted-foreground">{desp.value}%</span>
+        <div className="flex items-center justify-between text-[10px] mb-1.5">
+          <span className="font-medium uppercase tracking-[0.14em] text-muted-foreground">{desp.label}</span>
+          <span className="text-muted-foreground tabular-nums">{desp.value}%</span>
         </div>
-        <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
-          <div className="h-full transition-all" style={{ width: `${desp.value}%`, background: desp.color }} />
+        <div className="w-full h-[3px] bg-secondary rounded-full overflow-hidden">
+          <div className="h-full bg-primary transition-all" style={{ width: `${desp.value}%` }} />
         </div>
       </div>
 
-      <div className="flex items-center gap-2 pt-1 border-t border-border/50">
-        <div className="w-7 h-7 rounded-full btn-primary-nova flex items-center justify-center text-[11px] font-bold">
+      <div className="flex items-center gap-2 pt-3 border-t border-border/60">
+        <div className="w-7 h-7 rounded-full bg-secondary border border-border flex items-center justify-center text-[11px] font-semibold text-foreground">
           {ad.pageName.charAt(0)}
         </div>
         <div className="min-w-0">
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Anunciante</div>
-          <div className="text-xs font-semibold text-foreground truncate">{ad.pageName}</div>
+          <div className="text-[9px] text-muted-foreground uppercase tracking-[0.18em]">Anunciante</div>
+          <div className="text-[12px] font-medium text-foreground truncate">{ad.pageName}</div>
         </div>
       </div>
 
       <button onClick={onSofisticar} className="btn-primary-nova w-full py-2.5 rounded-lg text-sm flex items-center justify-center gap-2 mt-1">
-        <Sparkles className="w-4 h-4" /> SOFISTICAR → <span className="opacity-70 text-xs">· 1 crédito</span>
+        <Sparkles className="w-4 h-4" strokeWidth={1.8} /> Sofisticar <span className="opacity-70 text-xs">· 1 crédito</span>
       </button>
 
-      <a href={ad.adUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-muted-foreground hover:text-primary flex items-center gap-1 justify-center group">
-        <ExternalLink className="w-3 h-3" /> Ver todos los anuncios de <span className="font-semibold text-foreground group-hover:text-primary truncate max-w-[160px]">{ad.pageName}</span> en Ads Library
+      <a href={ad.adUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 justify-center group transition-colors">
+        <ExternalLink className="w-3 h-3" strokeWidth={1.8} /> Ver anuncios de <span className="font-medium text-foreground truncate max-w-[160px]">{ad.pageName}</span>
       </a>
     </div>
   );

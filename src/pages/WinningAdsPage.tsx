@@ -178,6 +178,23 @@ export function WinningAdsPage() {
     return list;
   }, [allAds, market, minDays, minDups, typeFilter, regionFilter, minScore, sort, keyword]);
 
+  // Default filter values (used for "active count" + reset)
+  const FILTER_DEFAULTS = { market: "all", minDays: 7, minDups: 3, typeFilter: "Todos", regionFilter: "Todos", minScore: 0, sort: "Mayor Score" };
+  const activeFilterCount =
+    (market !== FILTER_DEFAULTS.market ? 1 : 0) +
+    (minDays !== FILTER_DEFAULTS.minDays ? 1 : 0) +
+    (minDups !== FILTER_DEFAULTS.minDups ? 1 : 0) +
+    (typeFilter !== FILTER_DEFAULTS.typeFilter ? 1 : 0) +
+    (regionFilter !== FILTER_DEFAULTS.regionFilter ? 1 : 0) +
+    (minScore !== FILTER_DEFAULTS.minScore ? 1 : 0) +
+    (sort !== FILTER_DEFAULTS.sort ? 1 : 0);
+  const resetFilters = () => {
+    setMarket(FILTER_DEFAULTS.market); setMinDays(FILTER_DEFAULTS.minDays); setMinDups(FILTER_DEFAULTS.minDups);
+    setTypeFilter(FILTER_DEFAULTS.typeFilter); setRegionFilter(FILTER_DEFAULTS.regionFilter);
+    setMinScore(FILTER_DEFAULTS.minScore); setSort(FILTER_DEFAULTS.sort);
+    toast.success("Filtros reiniciados");
+  };
+
   const handleSearch = async () => {
     if (!canAfford("search_ads")) { toast.error("Sin créditos suficientes"); return; }
     consume("search_ads", keyword || market);
@@ -255,17 +272,18 @@ export function WinningAdsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="page-heading font-display text-2xl text-foreground">BUSCAR OFERTAS WINNER</h2>
-          <p className="text-sm text-muted-foreground mt-3">Anuncios validados con datos reales. Encuentra, analiza, clona.</p>
+      {/* Header — Apple hairline */}
+      <header className="flex items-end justify-between gap-4 flex-wrap pb-2">
+        <div className="space-y-2">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium">Discover</div>
+          <h2 className="page-heading font-display text-[32px] leading-[1.1] text-foreground tracking-tight">Buscar ofertas winner</h2>
+          <p className="text-sm text-muted-foreground max-w-xl">Anuncios validados con datos reales. Encuentra, analiza, clona.</p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 pulse-hot">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-card/60 backdrop-blur-sm">
           <span className="live-dot" />
-          <span className="text-[11px] font-bold text-primary tracking-widest">ACTUALIZADO HACE {elapsed} MIN</span>
+          <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium">Actualizado hace {elapsed} min</span>
         </div>
-      </div>
+      </header>
 
       {/* Selectores Edge Function + Debug panel (solo admin) */}
       {isAdmin && (
@@ -322,7 +340,7 @@ export function WinningAdsPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           {/* País */}
-          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/60">
+          <div className="group relative rounded-2xl bg-card border border-border p-3 hover:border-foreground/20 transition-colors duration-200 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/60">
             <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5 font-semibold">País</div>
             <Select value={searchCountry} onValueChange={(v) => { setSearchCountry(v); setActivePresetId(null); }}>
               <SelectTrigger className="h-9 bg-background/40 border-border/40 rounded-xl text-sm font-medium hover:bg-background/70 focus:ring-2 focus:ring-primary/50 focus:ring-offset-0 transition-all">
@@ -339,7 +357,7 @@ export function WinningAdsPage() {
           </div>
 
           {/* Estado */}
-          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/60">
+          <div className="group relative rounded-2xl bg-card border border-border p-3 hover:border-foreground/20 transition-colors duration-200 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/60">
             <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5 font-semibold">Estado</div>
             <div role="radiogroup" aria-label="Estado del anuncio" className="flex gap-1 bg-background/40 p-1 rounded-xl border border-border/40">
               {STATUS_OPTIONS.map((s) => {
@@ -373,7 +391,7 @@ export function WinningAdsPage() {
           </div>
 
           {/* Límite */}
-          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/60">
+          <div className="group relative rounded-2xl bg-card border border-border p-3 hover:border-foreground/20 transition-colors duration-200 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/60">
             <div className="flex items-center justify-between mb-1.5">
               <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">Límite</div>
               <div className="text-sm font-bold tabular-nums text-primary transition-all duration-200" key={searchLimit}>{searchLimit}</div>
@@ -391,12 +409,11 @@ export function WinningAdsPage() {
             onClick={runDebugTest}
             disabled={debugLoading}
             aria-busy={debugLoading}
-            className="group relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary to-primary/70 hover:from-primary hover:to-primary text-primary-foreground p-3 flex flex-col items-center justify-center gap-1 font-bold transition-all disabled:opacity-60 shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="group relative rounded-2xl overflow-hidden border border-border bg-card hover:border-primary/40 text-foreground p-3 flex flex-col items-center justify-center gap-1 font-medium transition-all disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
-            {debugLoading && <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent" />}
-            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity" />
-            {debugLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5 group-hover:rotate-12 transition-transform" />}
-            <span className="text-[11px] uppercase tracking-wider">{debugLoading ? "Probando..." : "Probar Edge"}</span>
+            {debugLoading && <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-foreground/5 to-transparent" />}
+            {debugLoading ? <Loader2 className="w-4 h-4 animate-spin text-primary" strokeWidth={1.6} /> : <Zap className="w-4 h-4 text-primary" strokeWidth={1.6} />}
+            <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{debugLoading ? "Probando…" : "Probar edge"}</span>
           </button>
         </div>
 
@@ -448,53 +465,53 @@ export function WinningAdsPage() {
       </div>
       )}
 
-      {/* Global stats bar */}
-      <div className="card-surface rounded-xl p-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-        <span className="flex items-center gap-2 text-success font-semibold"><span className="live-dot" /> MINER ACTIVO</span>
-        <span className="text-muted-foreground"><strong className="text-foreground">{GLOBAL_STATS.total.toLocaleString()}</strong> anuncios</span>
-        <span className="text-muted-foreground"><strong className="text-foreground">{GLOBAL_STATS.unique.toLocaleString()}</strong> únicos</span>
-        <span className="flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-mega))" }} /> <strong>{GLOBAL_STATS.mega}</strong> mega</span>
-        <span className="flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-rising))" }} /> <strong>{GLOBAL_STATS.rising.toLocaleString()}</strong> rising</span>
-        <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-solid))" }} /> <strong>{GLOBAL_STATS.solid.toLocaleString()}</strong> solid</span>
+      {/* Global stats bar — hairline */}
+      <div className="rounded-2xl border border-border bg-card/60 backdrop-blur-sm px-5 py-3 flex flex-wrap items-center gap-x-7 gap-y-2 text-[12px]">
+        <span className="flex items-center gap-2 text-muted-foreground"><span className="live-dot" /><span className="uppercase tracking-[0.16em] text-foreground font-medium">Miner activo</span></span>
+        <span className="text-muted-foreground"><strong className="text-foreground tabular-nums">{GLOBAL_STATS.total.toLocaleString()}</strong> anuncios</span>
+        <span className="text-muted-foreground"><strong className="text-foreground tabular-nums">{GLOBAL_STATS.unique.toLocaleString()}</strong> únicos</span>
+        <span className="flex items-center gap-1.5 text-muted-foreground"><Trophy className="w-3.5 h-3.5" strokeWidth={1.6} /> <strong className="text-foreground tabular-nums">{GLOBAL_STATS.mega}</strong> mega</span>
+        <span className="flex items-center gap-1.5 text-muted-foreground"><TrendingUp className="w-3.5 h-3.5" strokeWidth={1.6} /> <strong className="text-foreground tabular-nums">{GLOBAL_STATS.rising.toLocaleString()}</strong> rising</span>
+        <span className="flex items-center gap-1.5 text-muted-foreground"><CheckCircle2 className="w-3.5 h-3.5" strokeWidth={1.6} /> <strong className="text-foreground tabular-nums">{GLOBAL_STATS.solid.toLocaleString()}</strong> solid</span>
       </div>
 
       {/* URL input */}
-      <div className="card-surface rounded-xl p-5 flex flex-col md:flex-row gap-3 items-stretch md:items-center">
-        <LinkIcon className="w-5 h-5 text-primary shrink-0 hidden md:block" />
+      <div className="card-surface rounded-2xl p-5 flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+        <LinkIcon className="w-4 h-4 text-muted-foreground shrink-0 hidden md:block" strokeWidth={1.6} />
         <input
           value={urlInput} onChange={(e) => setUrlInput(e.target.value)}
           placeholder="¿Ya tienes un anuncio? Pega la URL del Ads Library y analízalo"
-          className="flex-1 bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+          className="flex-1 bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary"
         />
         <button onClick={handleAnalyzeUrl} className="btn-primary-nova px-5 py-2.5 rounded-lg text-sm whitespace-nowrap flex items-center gap-2">
-          → Analizar Oferta <span className="opacity-70">· 1 crédito</span>
+          Analizar oferta <span className="opacity-70">· 1 crédito</span>
         </button>
       </div>
 
       {/* Keyword search */}
-      <div className="card-surface rounded-xl p-5 space-y-4">
+      <div className="card-surface rounded-2xl p-5 space-y-4">
         <div className="flex gap-3 flex-col md:flex-row">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" strokeWidth={1.6} />
             <input
               value={keyword} onChange={(e) => setKeyword(e.target.value)}
               placeholder={PLACEHOLDERS[market]}
-              className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-3 text-base focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-3 text-base placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
           <button onClick={handleSearch} disabled={loadingReal} className="btn-primary-nova px-6 py-3 rounded-lg text-sm flex items-center gap-2 whitespace-nowrap disabled:opacity-60">
-            {loadingReal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} {loadingReal ? "Buscando..." : "Buscar Anuncios"} <span className="opacity-70">· 1 crédito</span>
+            {loadingReal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" strokeWidth={1.8} />} {loadingReal ? "Buscando…" : "Buscar anuncios"} <span className="opacity-70">· 1 crédito</span>
           </button>
         </div>
 
         {/* Keyword chips · solo admin (uso interno) */}
         {isAdmin && (
-          <div className="space-y-1.5 pt-1">
-            <div className="text-[10px] uppercase tracking-widest text-primary/80 font-bold">🔒 Keywords sugeridas (admin)</div>
-            <div className="flex flex-wrap gap-2">
+          <div className="space-y-2 pt-1">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium">Keywords sugeridas · admin</div>
+            <div className="flex flex-wrap gap-1.5">
               {KEYWORD_CHIPS[market].map((k) => (
                 <button key={k} onClick={() => setKeyword(k)}
-                  className="px-2.5 py-1 rounded-full text-xs bg-secondary border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-all">
+                  className="px-2.5 py-1 rounded-full text-[11px] bg-transparent border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
                   {k}
                 </button>
               ))}
@@ -504,9 +521,24 @@ export function WinningAdsPage() {
       </div>
 
       {/* Quality filters — hairline Apple style */}
-      <div className="rounded-2xl p-5 sticky top-[80px] z-10 border border-border bg-card/80 backdrop-blur-xl">
-        <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.18em] mb-4">
-          <Filter className="w-3.5 h-3.5" /> Filtros de calidad
+      <div className="rounded-2xl p-5 sticky top-[80px] z-10 border border-border bg-card/85 backdrop-blur-xl">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.18em]">
+            <Filter className="w-3.5 h-3.5" strokeWidth={1.6} /> Filtros de calidad
+            {activeFilterCount > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold tabular-nums">
+                {activeFilterCount}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+            <span className="tabular-nums">{filtered.length} resultados</span>
+            {activeFilterCount > 0 && (
+              <button onClick={resetFilters} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded">
+                <X className="w-3 h-3" strokeWidth={1.8} /> Limpiar
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <PillSelect label="Idioma" value={market} onChange={setMarket} options={MARKETS.map((m) => ({ value: m.id, label: `${m.flag} ${m.label}` }))} />
@@ -521,19 +553,25 @@ export function WinningAdsPage() {
 
       {/* Ofertas escalando */}
       <div>
-        <div className="flex items-end justify-between mb-4">
-          <div>
-            <h3 className="font-display font-bold text-xl text-foreground">OFERTAS ESCALANDO</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Productos validados matemáticamente. Cero opiniones, pura data.</p>
+        <div className="flex items-end justify-between mb-5">
+          <div className="space-y-1.5">
+            <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium">Resultados</div>
+            <h3 className="font-display font-semibold text-xl text-foreground tracking-tight">Ofertas escalando</h3>
+            <p className="text-[12px] text-muted-foreground">Productos validados matemáticamente. Cero opiniones, pura data.</p>
           </div>
-          <span className="text-[10px] font-bold tracking-widest text-primary border border-primary/30 bg-primary/10 px-2 py-1 rounded">ACTUALIZADO HOY</span>
+          <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground border border-border px-2.5 py-1 rounded-full">Actualizado hoy</span>
         </div>
 
         {filtered.length === 0 ? (
-          <div className="card-surface rounded-xl py-16 text-center">
-            <div className="empty-icon mb-4"><Trophy className="w-9 h-9" /></div>
-            <div className="font-display font-bold text-lg mb-1">Aún no hay ganadores en este filtro</div>
+          <div className="card-surface rounded-2xl py-20 text-center">
+            <div className="empty-icon mb-5"><Trophy className="w-7 h-7" strokeWidth={1.4} /></div>
+            <div className="font-display font-semibold text-base mb-1">Aún no hay ganadores en este filtro</div>
             <div className="text-sm text-muted-foreground max-w-sm mx-auto">Ajusta días, repeticiones o cambia de mercado para descubrir más oportunidades</div>
+            {activeFilterCount > 0 && (
+              <button onClick={resetFilters} className="mt-5 inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors">
+                <X className="w-3 h-3" strokeWidth={1.8} /> Limpiar filtros
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -610,75 +648,66 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
   const tier = TIERS[ad.tier];
   const desp = despeguePercent(ad.daysActive, ad.duplicates);
 
-  const daysBadgeCls =
-    ad.daysActive >= 60 ? "bg-amber-500/90 text-black pulse-hot" :
-    ad.daysActive >= 30 ? "bg-amber-500 text-black" :
-    ad.daysActive >= 15 ? "bg-orange-500/90 text-black" :
-    ad.daysActive >= 7  ? "bg-blue-500 text-white" :
-    "bg-neutral-700 text-neutral-300";
-
-  const dupsBadgeCls =
-    ad.duplicates >= 50 ? "bg-red-500 text-white pulse-hot" :
-    ad.duplicates >= 10 ? "bg-red-500/90 text-white" :
-    ad.duplicates >= 3  ? "bg-orange-500 text-black" :
-    "bg-neutral-700 text-neutral-300";
+  // Hairline badges — accent only on the most extreme tier
+  const daysAccent = ad.daysActive >= 30;
+  const dupsAccent = ad.duplicates >= 10;
 
   return (
-    <div className="card-surface rounded-xl p-5 flex flex-col gap-3 ad-card-hover">
+    <div className="card-surface rounded-2xl p-5 flex flex-col gap-3.5 ad-card-hover">
       <div className="flex items-start justify-between">
-        <span className={`text-[11px] font-bold px-2.5 py-1 rounded ${tier.cls}`}>{tier.icon} {tier.label}</span>
-        <div className="flex items-center gap-2">
-          <button onClick={onSave} className="text-muted-foreground hover:text-primary transition-colors">
-            <Heart className={`w-4 h-4 ${saved ? "fill-primary text-primary" : ""}`} />
+        <span className={`text-[10px] font-medium uppercase tracking-[0.14em] px-2.5 py-1 rounded-full ${tier.cls}`}>{tier.icon} {tier.label}</span>
+        <div className="flex items-center gap-3">
+          <button onClick={onSave} aria-label={saved ? "Quitar de guardados" : "Guardar"} className="text-muted-foreground hover:text-primary transition-colors">
+            <Heart className={`w-4 h-4 ${saved ? "fill-primary text-primary" : ""}`} strokeWidth={1.6} />
           </button>
-          <span className="text-2xl font-display font-extrabold text-foreground">{ad.score}</span>
+          <span className="text-2xl font-display font-semibold text-foreground tabular-nums">{ad.score}</span>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider flex-wrap">
-        <span className="text-primary font-bold">{CATEGORY_LABEL[classifyOffer(`${ad.title} ${ad.body}`)]}</span>
-        <span className="text-muted-foreground">· {ad.flag} {ad.marketLabel}</span>
-        <span className="text-muted-foreground">· {ad.lang.toUpperCase()}</span>
-        {ad.checkoutPlatform && <span className="text-muted-foreground">· via {ad.checkoutPlatform}</span>}
+      <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.14em] flex-wrap text-muted-foreground">
+        <span className="text-foreground/85 font-medium">{CATEGORY_LABEL[classifyOffer(`${ad.title} ${ad.body}`)]}</span>
+        <span>· {ad.flag} {ad.marketLabel}</span>
+        <span>· {ad.lang.toUpperCase()}</span>
+        {ad.checkoutPlatform && <span>· via {ad.checkoutPlatform}</span>}
       </div>
 
       <p className="text-sm text-foreground/90 line-clamp-4 italic leading-relaxed">"{ad.body}"</p>
 
       <div className="flex flex-wrap gap-1.5">
-        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${daysBadgeCls}`}>
-          <Flame className="w-3 h-3" /> {ad.daysActive} Días Activo
+        <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-full border tabular-nums ${daysAccent ? "border-primary/40 text-primary bg-primary/5" : "border-border text-muted-foreground"}`}>
+          <Flame className="w-3 h-3" strokeWidth={1.8} /> {ad.daysActive}d activo
         </span>
-        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${dupsBadgeCls}`}>
-          <Zap className="w-3 h-3" /> {ad.duplicates} Duplicados
+        <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-full border tabular-nums ${dupsAccent ? "border-primary/40 text-primary bg-primary/5" : "border-border text-muted-foreground"}`}>
+          <Zap className="w-3 h-3" strokeWidth={1.8} /> {ad.duplicates} duplicados
         </span>
       </div>
 
       <div>
-        <div className="flex items-center justify-between text-[10px] mb-1">
-          <span className="font-bold uppercase tracking-wider" style={{ color: desp.color }}>→ {desp.label}</span>
-          <span className="text-muted-foreground">{desp.value}%</span>
+        <div className="flex items-center justify-between text-[10px] mb-1.5">
+          <span className="font-medium uppercase tracking-[0.14em] text-muted-foreground">{desp.label}</span>
+          <span className="text-muted-foreground tabular-nums">{desp.value}%</span>
         </div>
-        <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
-          <div className="h-full transition-all" style={{ width: `${desp.value}%`, background: desp.color }} />
+        <div className="w-full h-[3px] bg-secondary rounded-full overflow-hidden">
+          <div className="h-full bg-primary transition-all" style={{ width: `${desp.value}%` }} />
         </div>
       </div>
 
-      <div className="flex items-center gap-2 pt-1 border-t border-border/50">
-        <div className="w-7 h-7 rounded-full btn-primary-nova flex items-center justify-center text-[11px] font-bold">
+      <div className="flex items-center gap-2 pt-3 border-t border-border/60">
+        <div className="w-7 h-7 rounded-full bg-secondary border border-border flex items-center justify-center text-[11px] font-semibold text-foreground">
           {ad.pageName.charAt(0)}
         </div>
         <div className="min-w-0">
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Anunciante</div>
-          <div className="text-xs font-semibold text-foreground truncate">{ad.pageName}</div>
+          <div className="text-[9px] text-muted-foreground uppercase tracking-[0.18em]">Anunciante</div>
+          <div className="text-[12px] font-medium text-foreground truncate">{ad.pageName}</div>
         </div>
       </div>
 
       <button onClick={onSofisticar} className="btn-primary-nova w-full py-2.5 rounded-lg text-sm flex items-center justify-center gap-2 mt-1">
-        <Sparkles className="w-4 h-4" /> SOFISTICAR → <span className="opacity-70 text-xs">· 1 crédito</span>
+        <Sparkles className="w-4 h-4" strokeWidth={1.8} /> Sofisticar <span className="opacity-70 text-xs">· 1 crédito</span>
       </button>
 
-      <a href={ad.adUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-muted-foreground hover:text-primary flex items-center gap-1 justify-center group">
-        <ExternalLink className="w-3 h-3" /> Ver todos los anuncios de <span className="font-semibold text-foreground group-hover:text-primary truncate max-w-[160px]">{ad.pageName}</span> en Ads Library
+      <a href={ad.adUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 justify-center group transition-colors">
+        <ExternalLink className="w-3 h-3" strokeWidth={1.8} /> Ver anuncios de <span className="font-medium text-foreground truncate max-w-[160px]">{ad.pageName}</span>
       </a>
     </div>
   );

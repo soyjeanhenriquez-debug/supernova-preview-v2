@@ -57,7 +57,12 @@ interface FacebookAdLibraryItem {
   page_name?: string;
   ad_creative_bodies?: string[];
   ad_creative_link_titles?: string[];
+  ad_creative_link_descriptions?: string[];
+  ad_creative_link_captions?: string[];
+  ad_snapshot_url?: string;
   ad_delivery_start_time?: string;
+  publisher_platforms?: string[];
+  languages?: string[];
   total_count?: number | string;
 }
 
@@ -65,10 +70,40 @@ interface FacebookAdsResponse {
   data?: FacebookAdLibraryItem[];
 }
 
+// Extrae el dominio limpio (sin "www.") de una URL.
+function extractDomain(url: string): string {
+  try {
+    const u = new URL(url.startsWith("http") ? url : `https://${url}`);
+    return u.hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+// Convierte código ISO de país (US, ES, BR...) a emoji bandera.
+function flagEmoji(code: string): string {
+  if (!code || code.length !== 2) return "🌐";
+  const cc = code.toUpperCase();
+  return String.fromCodePoint(...cc.split("").map((c) => 127397 + c.charCodeAt(0)));
+}
+
+// Mapea cada plataforma a su icono Lucide y color.
+const PLATFORM_META: Record<string, { label: string; cls: string }> = {
+  facebook: { label: "FB", cls: "bg-[#1877F2] text-white" },
+  instagram: { label: "IG", cls: "bg-gradient-to-br from-[#feda75] via-[#fa7e1e] to-[#d62976] text-white" },
+  messenger: { label: "MSG", cls: "bg-[#0084FF] text-white" },
+  audience_network: { label: "AN", cls: "bg-neutral-700 text-neutral-200" },
+  threads: { label: "TH", cls: "bg-black text-white border border-neutral-700" },
+};
+
 // Agrupa anuncios por page_id quedándose con el de mejor score por anunciante.
-// Añade activeCount (anuncios activos en esta búsqueda) e historicalCount
-// (total_count de la API si está disponible).
-function groupByAdvertiser(ads: DemoAd[], items: FacebookAdLibraryItem[]): DemoAd[] {
+// Añade activeCount (anuncios activos en esta búsqueda), historicalCount
+// (total_count de la API si está disponible) y countries (unión de países donde corre).
+function groupByAdvertiser(
+  ads: DemoAd[],
+  items: FacebookAdLibraryItem[],
+  countriesByPage?: Map<string, Set<string>>,
+): DemoAd[] {
   // Mapear historicalCount máximo por page_id desde la respuesta cruda
   const historicalByPage = new Map<string, number>();
   items.forEach((it) => {
@@ -88,10 +123,12 @@ function groupByAdvertiser(ads: DemoAd[], items: FacebookAdLibraryItem[]): DemoA
   const grouped: DemoAd[] = [];
   byPage.forEach((group, key) => {
     const top = group.slice().sort((x, y) => y.score - x.score)[0];
+    const countries = countriesByPage?.get(key);
     grouped.push({
       ...top,
       activeCount: group.length,
       historicalCount: historicalByPage.get(key),
+      countries: countries ? Array.from(countries) : top.countries,
     });
   });
   return grouped;

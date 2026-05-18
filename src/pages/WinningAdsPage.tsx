@@ -122,32 +122,39 @@ export function WinningAdsPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // === Auto-discovery: rota keywords DR y busca en background ===
+  // === Auto-discovery: rota keywords DR y busca en background (multi-país) ===
   const runAutoDiscovery = async () => {
     if (autoLoading) return;
-    const kws = getAutoSearchKeywords(3);
+    const kws = getAutoSearchKeywords(4);
     setAutoKeywords(kws);
     setAutoLoading(true);
     try {
+      // Multi-país para conseguir MÁS volumen y duplicados reales
+      const countries = ["US", "ES", "BR", "MX"];
+      const jobs: { kw: string; country: string }[] = [];
+      kws.forEach((kw, idx) => jobs.push({ kw, country: countries[idx % countries.length] }));
       const results = await Promise.all(
-        kws.map((kw) =>
+        jobs.map(({ kw, country }) =>
           supabase.functions
             .invoke<FacebookAdsResponse>("facebook-ads", {
-              body: { search_terms: kw, country: searchCountry, limit: 15, ad_active_status: "ACTIVE" },
+              body: { search_terms: kw, country, limit: 25, ad_active_status: "ACTIVE" },
             })
-            .then((r) => ({ kw, items: r.data?.data ?? [] }))
-            .catch(() => ({ kw, items: [] as FacebookAdLibraryItem[] })),
+            .then((r) => ({ kw, country, items: r.data?.data ?? [] }))
+            .catch(() => ({ kw, country, items: [] as FacebookAdLibraryItem[] })),
         ),
       );
-      const adMarket = searchCountry as AdMarket;
       const marketTyped = (market === "all" ? "en" : market) as AdLang;
-      const all: FacebookAdLibraryItem[] = results.flatMap((r) => r.items);
+      const allWithCountry = results.flatMap((r) =>
+        r.items.map((it) => ({ it, country: r.country })),
+      );
+      // Duplicados por page_id a través de TODAS las búsquedas (señal real de escala)
       const dupByPage = new Map<string, number>();
-      all.forEach((it) => {
+      allWithCountry.forEach(({ it }) => {
         const k = (it.page_id ?? it.page_name ?? "").toString();
         if (k) dupByPage.set(k, (dupByPage.get(k) ?? 0) + 1);
       });
-      const mapped: DemoAd[] = all.map((it, i) => {
+      const mapped: DemoAd[] = allWithCountry.map(({ it, country }, i) => {
+        const adMarket = country as AdMarket;
         const body = (it.ad_creative_bodies?.[0] ?? "").toString();
         const title = (it.ad_creative_link_titles?.[0] ?? it.page_name ?? "Anuncio").toString();
         const start = it.ad_delivery_start_time ? new Date(it.ad_delivery_start_time) : new Date();
@@ -158,6 +165,21 @@ export function WinningAdsPage() {
           ? buildAdsLibraryPageUrl(String(it.page_id), adMarket)
           : buildAdsLibrarySearchUrl(it.page_name ?? title, adMarket);
         const adUrl = normalizeAdsLibraryUrl(rawUrl, it.page_name ?? title, adMarket);
+        // Scoring: días activo + duplicados + bonus por copy largo (señal de VSL/lead magnet)
+        const copyBonus = body.length > 500 ? 10 : body.length > 200 ? 5 : 0;
+        const score = Math.min(100, 30 + Math.min(days, 90) / 2 + dups * 5 + copyBonus);
+        const tier: Tier =
+          score >= 75 || dups >= 5 || days >= 60 ? "mega"
+          : score >= 55 || dups >= 2 || days >= 14 ? "rising"
+          : "solid";
+        // Detección de tipo de oferta básica
+        const lower = (title + " " + body).toLowerCase();
+        const offerType: DemoAd["offerType"] =
+          /webinar|masterclass|curso|método|secret|training|treinamento/.test(lower) ? "infoproducto"
+          : /\b(ai|app|saas|software|tool|platform|crm|automation)\b/.test(lower) ? "saas"
+          : /\b(agency|agencia|consulting|consultoría|service|servicio)\b/.test(lower) ? "servicio"
+          : /shipping|envío|frete|free \+ shipping/.test(lower) ? "ecommerce"
+          : "infoproducto";
         return {
           id: `auto-${it.id ?? `${pageKey}-${i}`}`,
           pageId: it.page_id ?? "",
@@ -166,11 +188,11 @@ export function WinningAdsPage() {
           body: body || title,
           daysActive: days,
           duplicates: dups,
-          score: Math.min(100, 40 + Math.floor(days / 2) + dups * 2),
-          tier: days >= 60 || dups >= 10 ? "mega" : days >= 14 || dups >= 3 ? "rising" : "solid",
-          offerType: "infoproducto",
+          score: Math.round(score),
+          tier,
+          offerType,
           market: adMarket,
-          marketLabel: searchCountry,
+          marketLabel: country,
           flag: "🌐",
           lang: marketTyped,
           adUrl,

@@ -517,30 +517,20 @@ export function WinningAdsPage() {
         )}
       </div>
 
-      {/* Quality filters (sticky) */}
-      <div className="card-surface rounded-xl p-4 sticky top-[80px] z-10 space-y-3">
-        <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider">
+      {/* Quality filters — pill-style dropdowns sobre gradiente espacial */}
+      <div className="relative rounded-2xl p-5 sticky top-[80px] z-10 overflow-hidden border border-border/40 backdrop-blur-xl shadow-xl bg-gradient-to-br from-[hsl(265_60%_15%/0.9)] via-[hsl(260_50%_10%/0.95)] to-[hsl(250_45%_8%/0.95)]">
+        <div className="absolute -top-20 -left-20 w-72 h-72 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 -right-20 w-72 h-72 rounded-full bg-accent/10 blur-3xl pointer-events-none" />
+        <div className="relative flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-[0.18em] mb-3">
           <Filter className="w-3.5 h-3.5" /> Filtros de calidad
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-6 gap-3 text-xs">
-          <FilterGroup label="Días mínimos">
-            {DAY_OPTIONS.map((o) => <Chip key={o.v} active={minDays === o.v} onClick={() => setMinDays(o.v)}>{o.l}</Chip>)}
-          </FilterGroup>
-          <FilterGroup label="Repeticiones">
-            {DUP_OPTIONS.map((o) => <Chip key={o.v} active={minDups === o.v} onClick={() => setMinDups(o.v)}>{o.l}</Chip>)}
-          </FilterGroup>
-          <FilterGroup label="Tipo">
-            {TYPE_OPTIONS.map((o) => <Chip key={o} active={typeFilter === o} onClick={() => setTypeFilter(o)}>{o}</Chip>)}
-          </FilterGroup>
-          <FilterGroup label="Mercado">
-            {REGION_OPTIONS.map((o) => <Chip key={o} active={regionFilter === o} onClick={() => setRegionFilter(o)}>{o}</Chip>)}
-          </FilterGroup>
-          <FilterGroup label="Score">
-            {SCORE_OPTIONS.map((o) => <Chip key={o.v} active={minScore === o.v} onClick={() => setMinScore(o.v)}>{o.l}</Chip>)}
-          </FilterGroup>
-          <FilterGroup label="Ordenar">
-            {SORT_OPTIONS.map((o) => <Chip key={o} active={sort === o} onClick={() => setSort(o)}>{o}</Chip>)}
-          </FilterGroup>
+        <div className="relative flex flex-wrap gap-2.5">
+          <PillSelect label="Días mínimos" value={String(minDays)} onChange={(v) => setMinDays(Number(v))} options={DAY_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
+          <PillSelect label="Repeticiones" value={String(minDups)} onChange={(v) => setMinDups(Number(v))} options={DUP_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
+          <PillSelect label="Tipo" value={typeFilter} onChange={setTypeFilter} options={TYPE_OPTIONS.map((o) => ({ value: o, label: o }))} />
+          <PillSelect label="Mercado" value={regionFilter} onChange={setRegionFilter} options={REGION_OPTIONS.map((o) => ({ value: o, label: o }))} />
+          <PillSelect label="Score mínimo" value={String(minScore)} onChange={(v) => setMinScore(Number(v))} options={SCORE_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
+          <PillSelect label="Ordenar" value={sort} onChange={setSort} options={SORT_OPTIONS.map((o) => ({ value: o, label: o }))} />
         </div>
       </div>
 

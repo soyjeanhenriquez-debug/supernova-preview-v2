@@ -392,12 +392,11 @@ export function WinningAdsPage() {
             onClick={runDebugTest}
             disabled={debugLoading}
             aria-busy={debugLoading}
-            className="group relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary to-primary/70 hover:from-primary hover:to-primary text-primary-foreground p-3 flex flex-col items-center justify-center gap-1 font-bold transition-all disabled:opacity-60 shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="group relative rounded-2xl overflow-hidden border border-border bg-card hover:border-primary/40 text-foreground p-3 flex flex-col items-center justify-center gap-1 font-medium transition-all disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
-            {debugLoading && <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent" />}
-            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity" />
-            {debugLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5 group-hover:rotate-12 transition-transform" />}
-            <span className="text-[11px] uppercase tracking-wider">{debugLoading ? "Probando..." : "Probar Edge"}</span>
+            {debugLoading && <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-foreground/5 to-transparent" />}
+            {debugLoading ? <Loader2 className="w-4 h-4 animate-spin text-primary" strokeWidth={1.6} /> : <Zap className="w-4 h-4 text-primary" strokeWidth={1.6} />}
+            <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{debugLoading ? "Probando…" : "Probar edge"}</span>
           </button>
         </div>
 

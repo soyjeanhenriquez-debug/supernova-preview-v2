@@ -300,6 +300,7 @@ export function WinningAdsPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Global stats bar */}
       <div className="card-surface rounded-xl p-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">

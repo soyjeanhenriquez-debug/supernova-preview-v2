@@ -135,18 +135,34 @@ function sample<T>(arr: T[], n: number): T[] {
   return copy.slice(0, n);
 }
 
+// Keywords con MÁXIMA densidad de winners reales en infoproductos / SaaS / servicios.
+// Estas devuelven mucho volumen en Ads Library y casi siempre traen ofertas escalando.
+export const HIGH_YIELD_KEYWORDS = [
+  // Infoproductos (lo que más escala)
+  "masterclass", "webinar gratis", "free training", "free webinar",
+  "curso gratis", "treinamento gratuito", "método", "método infalible",
+  "el secreto", "the secret", "o segredo",
+  "hotmart", "clickbank", "kiwify", "digistore24",
+  "como ganhar", "cómo ganar", "make money online", "ganar dinero",
+  "passive income", "renda passiva", "ingresos pasivos",
+  "side hustle", "work from home", "trabaja desde casa",
+  "affiliate marketing", "marketing de afiliados", "dropshipping",
+  // SaaS / Apps / Servicios
+  "ai tool", "ai app", "ai software", "best ai", "chatgpt alternative",
+  "try free", "start free trial", "free trial", "prueba gratis",
+  "automation tool", "no code", "saas", "crm software",
+  "agency", "agencia digital", "consultoria", "consultoría",
+  "lead generation", "scale your business", "escala tu negocio",
+  // Hooks universales DR
+  "results not typical", "individual results may vary",
+  "doctors don't want", "weird trick", "discovered",
+  "limited time", "join now", "claim your spot",
+];
+
 /**
- * Devuelve 3 keywords aleatorias: 1 del Tier 1 (disclaimer GOLD) + 2 mezcladas
- * de los demás tiers para máxima cobertura DR.
+ * Devuelve `count` keywords de ALTÍSIMO yield para descubrir winners reales.
+ * Sesgado a infoproductos + SaaS + servicios (donde hay más escala).
  */
 export function getAutoSearchKeywords(count = 3): string[] {
-  const tier1 = sample(DR_KEYWORDS.tier1_disclaimers, 1);
-  const pool = [
-    ...DR_KEYWORDS.tier2_platforms,
-    ...DR_KEYWORDS.tier3_ctas,
-    ...DR_KEYWORDS.tier4_hooks,
-    ...DR_KEYWORDS.tier5_niches,
-  ];
-  const rest = sample(pool, Math.max(0, count - 1));
-  return [...tier1, ...rest];
+  return sample(HIGH_YIELD_KEYWORDS, count);
 }

@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { IntelligenceAnalyzer } from "@/components/IntelligenceAnalyzer";
+import { getAutoSearchKeywords, TOTAL_DR_KEYWORDS } from "@/lib/dr-keywords";
 
 const COUNTRY_OPTIONS: { code: string; label: string; flag: string }[] = [
   { code: "ES", label: "España", flag: "🇪🇸" },
@@ -86,6 +87,9 @@ export function WinningAdsPage() {
   const [realAds, setRealAds] = useState<DemoAd[]>([]);
   const [loadingReal, setLoadingReal] = useState(false);
   const [liveStats, setLiveStats] = useState({ total: 0, unique: 0, mega: 0, rising: 0, solid: 0 });
+  const [autoKeywords, setAutoKeywords] = useState<string[]>([]);
+  const [autoLoading, setAutoLoading] = useState(false);
+  const [lastAutoRun, setLastAutoRun] = useState<Date | null>(null);
   // Selectores para la edge function
   const [searchCountry, setSearchCountry] = useState("ES");
   const [searchLimit, setSearchLimit] = useState(25);
@@ -117,6 +121,81 @@ export function WinningAdsPage() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // === Auto-discovery: rota keywords DR y busca en background ===
+  const runAutoDiscovery = async () => {
+    if (autoLoading) return;
+    const kws = getAutoSearchKeywords(3);
+    setAutoKeywords(kws);
+    setAutoLoading(true);
+    try {
+      const results = await Promise.all(
+        kws.map((kw) =>
+          supabase.functions
+            .invoke<FacebookAdsResponse>("facebook-ads", {
+              body: { search_terms: kw, country: searchCountry, limit: 15, ad_active_status: "ACTIVE" },
+            })
+            .then((r) => ({ kw, items: r.data?.data ?? [] }))
+            .catch(() => ({ kw, items: [] as FacebookAdLibraryItem[] })),
+        ),
+      );
+      const adMarket = searchCountry as AdMarket;
+      const marketTyped = (market === "all" ? "en" : market) as AdLang;
+      const all: FacebookAdLibraryItem[] = results.flatMap((r) => r.items);
+      const dupByPage = new Map<string, number>();
+      all.forEach((it) => {
+        const k = (it.page_id ?? it.page_name ?? "").toString();
+        if (k) dupByPage.set(k, (dupByPage.get(k) ?? 0) + 1);
+      });
+      const mapped: DemoAd[] = all.map((it, i) => {
+        const body = (it.ad_creative_bodies?.[0] ?? "").toString();
+        const title = (it.ad_creative_link_titles?.[0] ?? it.page_name ?? "Anuncio").toString();
+        const start = it.ad_delivery_start_time ? new Date(it.ad_delivery_start_time) : new Date();
+        const days = Math.max(1, Math.floor((Date.now() - start.getTime()) / 86400000));
+        const pageKey = (it.page_id ?? it.page_name ?? "").toString();
+        const dups = dupByPage.get(pageKey) ?? 1;
+        const rawUrl = it.page_id
+          ? buildAdsLibraryPageUrl(String(it.page_id), adMarket)
+          : buildAdsLibrarySearchUrl(it.page_name ?? title, adMarket);
+        const adUrl = normalizeAdsLibraryUrl(rawUrl, it.page_name ?? title, adMarket);
+        return {
+          id: `auto-${it.id ?? `${pageKey}-${i}`}`,
+          pageId: it.page_id ?? "",
+          pageName: it.page_name ?? "Facebook Ad",
+          title,
+          body: body || title,
+          daysActive: days,
+          duplicates: dups,
+          score: Math.min(100, 40 + Math.floor(days / 2) + dups * 2),
+          tier: days >= 60 || dups >= 10 ? "mega" : days >= 14 || dups >= 3 ? "rising" : "solid",
+          offerType: "infoproducto",
+          market: adMarket,
+          marketLabel: searchCountry,
+          flag: "🌐",
+          lang: marketTyped,
+          adUrl,
+        };
+      });
+      // Prepend nuevos, dedupe por id, mantener historial
+      setRealAds((prev) => {
+        const seen = new Set(prev.map((a) => a.id));
+        const fresh = mapped.filter((a) => !seen.has(a.id));
+        return [...fresh, ...prev];
+      });
+      setLastAutoRun(new Date());
+    } finally {
+      setAutoLoading(false);
+    }
+  };
+
+  // Dispara al montar (si no hay ads) + cada 5 min
+  useEffect(() => {
+    if (realAds.length === 0) runAutoDiscovery();
+    const t = setInterval(runAutoDiscovery, 5 * 60_000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const applyPreset = (p: FilterPreset) => {
     setSearchCountry(p.country); setSearchStatus(p.status); setSearchLimit(p.limit);
     setActivePresetId(p.id); toast.success(`Preset "${p.name}" aplicado`);
@@ -530,13 +609,39 @@ export function WinningAdsPage() {
 
       {/* Ofertas escalando */}
       <div>
-        <div className="flex items-end justify-between mb-4">
+        <div className="flex items-end justify-between mb-3 flex-wrap gap-2">
           <div>
-            <h3 className="font-display font-bold text-xl text-foreground">OFERTAS ESCALANDO</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Productos validados matemáticamente. Cero opiniones, pura data.</p>
+            <h3 className="font-display font-bold text-xl text-foreground">OFERTAS ESCALANDO AHORA</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Detectadas automáticamente con {TOTAL_DR_KEYWORDS} keywords de DR activas. Cero opiniones, pura data.
+            </p>
           </div>
-          <span className="text-[10px] font-bold tracking-widest text-primary border border-primary/30 bg-primary/10 px-2 py-1 rounded">ACTUALIZADO HOY</span>
+          <div className="flex items-center gap-2">
+            {autoLoading && (
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-widest text-muted-foreground">
+                <Loader2 className="w-3 h-3 animate-spin" /> ESCANEANDO…
+              </span>
+            )}
+            <span className="text-[10px] font-bold tracking-widest text-primary border border-primary/30 bg-primary/10 px-2 py-1 rounded">
+              {lastAutoRun
+                ? `ACTUALIZADO HACE ${Math.max(0, Math.floor((Date.now() - lastAutoRun.getTime()) / 60_000))} MIN`
+                : "INICIANDO…"}
+            </span>
+          </div>
         </div>
+
+        {autoKeywords.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap mb-4 text-[11px]">
+            <span className="text-muted-foreground">Detectados con:</span>
+            {autoKeywords.map((k) => (
+              <span key={k} className="px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-primary font-mono text-[10px]">
+                {k}
+              </span>
+            ))}
+            <span className="text-muted-foreground/60">+{TOTAL_DR_KEYWORDS - autoKeywords.length} más rotando</span>
+          </div>
+        )}
+
 
         {filtered.length === 0 ? (
           <div className="card-surface rounded-xl py-16 text-center">

@@ -959,7 +959,7 @@ function AdCard({ ad, saved, onSave, onSofisticar, compact = false }: { ad: Demo
     ad.duplicates >= 3  ? "bg-orange-500 text-black" :
     "bg-neutral-700 text-neutral-300";
 
-  const [previewOpen, setPreviewOpen] = useState(false);
+  // (preview ahora va inline en la card; no necesita estado de dialog)
   const copyToClipboard = () => {
     navigator.clipboard.writeText(ad.body).then(() => toast.success("Copy copiado")).catch(() => toast.error("No se pudo copiar"));
   };

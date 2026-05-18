@@ -128,8 +128,7 @@ export function getDemoAds(): DemoAd[] {
   return ADS.map((a) => {
     const impHint = Math.min(20, Math.floor(a.duplicates * 0.4));
     const score = calcScore(a.daysActive, a.duplicates, impHint);
-    // Demos no tienen page_id real → búsqueda por nombre de página.
-    const adUrl = buildAdsLibrarySearchUrl(a.pageName, a.market);
+    const adUrl = normalizeAdsLibraryUrl(a.adUrl, a.pageName, a.market);
     return { ...a, score, tier: tierFromScore(score), adUrl };
   });
 }

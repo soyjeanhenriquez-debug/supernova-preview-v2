@@ -493,6 +493,20 @@ export function WinningAdsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Release banner */}
+      {!bannerDismissed && (
+        <div className="rounded-xl border border-primary/40 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-4 py-2.5 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-base">🚀</span>
+            <span className="font-semibold text-foreground">Nuevo:</span>
+            <span className="text-muted-foreground">filtros por vertical, búsquedas guardadas y vista lista. <span className="text-primary font-semibold">TikTok Ads</span> próximamente.</span>
+          </div>
+          <button onClick={dismissBanner} className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-secondary transition-colors" aria-label="Cerrar">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
@@ -504,6 +518,7 @@ export function WinningAdsPage() {
           <span className="text-[11px] font-bold text-primary tracking-widest">ACTUALIZADO HACE {elapsed} MIN</span>
         </div>
       </div>
+
 
       {/* Selectores Edge Function + Debug panel (solo admin) */}
       {isAdmin && (

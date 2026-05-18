@@ -159,14 +159,14 @@ export function useLandingAnalyzer() {
       if (user?.id) {
         const { data: saved, error: saveErr } = await supabase
           .from("landing_analyses")
-          .insert({
+          .insert([{
             user_id: user.id,
             url: parsed.toString(),
             domain,
             brand_name: brandName,
             analysis_text: analysis,
             ads_found: ads.slice(0, 6) as unknown as object[],
-          })
+          }])
           .select("id")
           .single();
         if (saveErr) {

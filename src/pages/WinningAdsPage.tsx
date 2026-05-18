@@ -97,7 +97,7 @@ export function WinningAdsPage() {
           marketLabel: country,
           flag: "🌐",
           lang: market === "all" ? "en" : (market as any),
-          adUrl: it.ad_snapshot_url ?? "https://facebook.com/ads/library",
+          adUrl: it.id ? `https://www.facebook.com/ads/library/?id=${it.id}` : "https://www.facebook.com/ads/library/",
         };
       });
       setRealAds(mapped);

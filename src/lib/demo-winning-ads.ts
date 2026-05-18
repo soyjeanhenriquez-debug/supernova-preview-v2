@@ -73,11 +73,27 @@ const ADS: Omit<DemoAd, "score" | "tier">[] = [
   { id: "mx2-1", pageId: "app_mx_fin", pageName: "Finanzas Pro App", title: "La app que está ayudando a millones a ahorrar", body: "Descubre la app de finanzas personales que está cambiando vidas en México. Más de 500.000 descargas. Gratis los primeros 30 días.", daysActive: 9, duplicates: 3, offerType: "app", market: "MX", marketLabel: "México", flag: "🇲🇽", lang: "es", adUrl: "https://facebook.com/ads/library/?id=demo_mx2_1" },
 ];
 
+const COUNTRY_MAP: Record<AdMarket, string> = { BR: "BR", US: "US", ES: "ES", MX: "MX", RU: "RU", LATAM: "ALL" };
+
+export function buildAdsLibrarySearchUrl(query: string, market: AdMarket) {
+  const params = new URLSearchParams({
+    active_status: "active",
+    ad_type: "all",
+    country: COUNTRY_MAP[market] ?? "ALL",
+    q: query,
+    search_type: "keyword_unordered",
+    media_type: "all",
+  });
+  return `https://www.facebook.com/ads/library/?${params.toString()}`;
+}
+
 export function getDemoAds(): DemoAd[] {
   return ADS.map((a) => {
     const impHint = Math.min(20, Math.floor(a.duplicates * 0.4));
     const score = calcScore(a.daysActive, a.duplicates, impHint);
-    return { ...a, score, tier: tierFromScore(score) };
+    // Override adUrl with a real Ads Library search (fake IDs don't resolve)
+    const adUrl = buildAdsLibrarySearchUrl(a.pageName, a.market);
+    return { ...a, score, tier: tierFromScore(score), adUrl };
   });
 }
 

@@ -391,8 +391,8 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
         <Sparkles className="w-4 h-4" /> SOFISTICAR → <span className="opacity-70 text-xs">· 1 crédito</span>
       </button>
 
-      <button type="button" onClick={() => openExternalUrl(ad.adUrl)} className="text-[11px] text-muted-foreground hover:text-primary flex items-center gap-1 justify-center">
-        <ExternalLink className="w-3 h-3" /> Ver en Ads Library
+      <button type="button" onClick={() => openExternalUrl(ad.adUrl)} className="text-[11px] text-muted-foreground hover:text-primary flex items-center gap-1 justify-center group">
+        <ExternalLink className="w-3 h-3" /> Ver todos los anuncios de <span className="font-semibold text-foreground group-hover:text-primary truncate max-w-[160px]">{ad.pageName}</span> en Ads Library
       </button>
     </div>
   );

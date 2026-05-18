@@ -126,13 +126,11 @@ export function WinningAdsPage() {
   const handleSearch = async () => {
     if (!canAfford("search_ads")) { toast.error("Sin créditos suficientes"); return; }
     consume("search_ads", keyword || market);
-    const countryMap: Record<string, string> = { es: "ES", pt: "BR", en: "US", ru: "RU", all: "US" };
-    const country = countryMap[market] ?? "US";
     setLoadingReal(true);
-    toast.info(`Buscando "${keyword || "todos"}" en Facebook Ad Library...`);
+    toast.info(`Buscando "${keyword || "todos"}" en ${searchCountry} (${searchStatus}, límite ${searchLimit})...`);
     try {
       const { data, error } = await supabase.functions.invoke<FacebookAdsResponse>("facebook-ads", {
-        body: { search_terms: keyword || "ad", country, limit: 25, ad_active_status: "ACTIVE" },
+        body: { search_terms: keyword || "ad", country: searchCountry, limit: searchLimit, ad_active_status: searchStatus },
       });
       if (error) throw error;
       const items = data?.data ?? [];
@@ -143,7 +141,7 @@ export function WinningAdsPage() {
         if (k) dupByPage.set(k, (dupByPage.get(k) ?? 0) + 1);
       });
       const marketTyped = (market === "all" ? "en" : market) as AdLang;
-      const adMarket = (country as AdMarket);
+      const adMarket = (searchCountry as AdMarket);
       const mapped: DemoAd[] = items.map((it, i) => {
         const body = (it.ad_creative_bodies?.[0] ?? "").toString();
         const title = (it.ad_creative_link_titles?.[0] ?? it.page_name ?? "Anuncio").toString();
@@ -151,11 +149,10 @@ export function WinningAdsPage() {
         const days = Math.max(1, Math.floor((Date.now() - start.getTime()) / 86400000));
         const pageKey = (it.page_id ?? it.page_name ?? "").toString();
         const dups = dupByPage.get(pageKey) ?? 1;
-        // Enlace canónico: todos los anuncios de la página por page_id.
-        // Fallback: búsqueda por nombre si no hay page_id.
-        const adUrl = it.page_id
+        const rawUrl = it.page_id
           ? buildAdsLibraryPageUrl(String(it.page_id), adMarket)
           : buildAdsLibrarySearchUrl(it.page_name ?? title, adMarket);
+        const adUrl = normalizeAdsLibraryUrl(rawUrl, it.page_name ?? title, adMarket);
         return {
           id: `fb-${it.id ?? i}`,
           pageId: it.page_id ?? "",

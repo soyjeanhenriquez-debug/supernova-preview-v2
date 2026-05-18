@@ -76,13 +76,27 @@ const ADS: Omit<DemoAd, "score" | "tier">[] = [
 const COUNTRY_MAP: Record<AdMarket, string> = { BR: "BR", US: "US", ES: "ES", MX: "MX", RU: "RU", LATAM: "ALL" };
 
 export function buildAdsLibrarySearchUrl(query: string, market: AdMarket) {
+  // Búsqueda por nombre de anunciante — más fiable que keyword_unordered.
+  // country=ALL evita que anuncios de otros mercados no aparezcan.
   const params = new URLSearchParams({
-    active_status: "active",
+    active_status: "all",
     ad_type: "all",
     country: COUNTRY_MAP[market] ?? "ALL",
     q: query,
-    search_type: "keyword_unordered",
+    search_type: "page",
     media_type: "all",
+  });
+  return `https://www.facebook.com/ads/library/?${params.toString()}`;
+}
+
+// Enlace directo a TODOS los anuncios de una página por su page_id real.
+// Es el formato canónico de Ads Library y siempre resuelve.
+export function buildAdsLibraryPageUrl(pageId: string, market: AdMarket = "LATAM") {
+  const params = new URLSearchParams({
+    active_status: "all",
+    ad_type: "all",
+    country: COUNTRY_MAP[market] ?? "ALL",
+    view_all_page_id: pageId,
   });
   return `https://www.facebook.com/ads/library/?${params.toString()}`;
 }
@@ -91,7 +105,7 @@ export function getDemoAds(): DemoAd[] {
   return ADS.map((a) => {
     const impHint = Math.min(20, Math.floor(a.duplicates * 0.4));
     const score = calcScore(a.daysActive, a.duplicates, impHint);
-    // Override adUrl with a real Ads Library search (fake IDs don't resolve)
+    // Demos no tienen page_id real → búsqueda por nombre de página.
     const adUrl = buildAdsLibrarySearchUrl(a.pageName, a.market);
     return { ...a, score, tier: tierFromScore(score), adUrl };
   });

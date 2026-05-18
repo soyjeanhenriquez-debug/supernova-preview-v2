@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2 } from "lucide-react";
-import { getDemoAds, MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, GLOBAL_STATS, despeguePercent, classifyOffer, CATEGORY_LABEL, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
+import { getDemoAds, MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, GLOBAL_STATS, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
 import { useElapsedMinutes } from "@/hooks/useElapsedMinutes";
 import { useCredits } from "@/hooks/useCredits";
 import { SofisticarModal } from "@/components/SofisticarModal";
@@ -100,11 +100,26 @@ export function WinningAdsPage() {
       });
       if (error) throw error;
       const items = data?.data ?? [];
+      // Agrupar por page_id para contar duplicados reales por anunciante
+      const dupByPage = new Map<string, number>();
+      items.forEach((it) => {
+        const k = (it.page_id ?? it.page_name ?? "").toString();
+        if (k) dupByPage.set(k, (dupByPage.get(k) ?? 0) + 1);
+      });
+      const marketTyped = (market === "all" ? "en" : market) as AdLang;
+      const adMarket = (country as AdMarket);
       const mapped: DemoAd[] = items.map((it, i) => {
         const body = (it.ad_creative_bodies?.[0] ?? "").toString();
         const title = (it.ad_creative_link_titles?.[0] ?? it.page_name ?? "Anuncio").toString();
         const start = it.ad_delivery_start_time ? new Date(it.ad_delivery_start_time) : new Date();
         const days = Math.max(1, Math.floor((Date.now() - start.getTime()) / 86400000));
+        const pageKey = (it.page_id ?? it.page_name ?? "").toString();
+        const dups = dupByPage.get(pageKey) ?? 1;
+        // Enlace canónico: todos los anuncios de la página por page_id.
+        // Fallback: búsqueda por nombre si no hay page_id.
+        const adUrl = it.page_id
+          ? buildAdsLibraryPageUrl(String(it.page_id), adMarket)
+          : buildAdsLibrarySearchUrl(it.page_name ?? title, adMarket);
         return {
           id: `fb-${it.id ?? i}`,
           pageId: it.page_id ?? "",
@@ -112,15 +127,15 @@ export function WinningAdsPage() {
           title,
           body: body || title,
           daysActive: days,
-          duplicates: 1,
-          score: Math.min(100, 40 + Math.floor(days / 2)),
-          tier: days >= 60 ? "mega" : days >= 14 ? "rising" : "solid",
+          duplicates: dups,
+          score: Math.min(100, 40 + Math.floor(days / 2) + dups * 2),
+          tier: days >= 60 || dups >= 10 ? "mega" : days >= 14 || dups >= 3 ? "rising" : "solid",
           offerType: "infoproducto",
-          market: country as AdMarket,
+          market: adMarket,
           marketLabel: country,
           flag: "🌐",
-          lang: (market === "all" ? "en" : market) as AdLang,
-          adUrl: it.id ? `https://www.facebook.com/ads/library/?id=${it.id}` : "https://www.facebook.com/ads/library/",
+          lang: marketTyped,
+          adUrl,
         };
       });
       setRealAds(mapped);
@@ -337,6 +352,7 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
       <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider flex-wrap">
         <span className="text-primary font-bold">{CATEGORY_LABEL[classifyOffer(`${ad.title} ${ad.body}`)]}</span>
         <span className="text-muted-foreground">· {ad.flag} {ad.marketLabel}</span>
+        <span className="text-muted-foreground">· {ad.lang.toUpperCase()}</span>
         {ad.checkoutPlatform && <span className="text-muted-foreground">· via {ad.checkoutPlatform}</span>}
       </div>
 
@@ -375,8 +391,8 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
         <Sparkles className="w-4 h-4" /> SOFISTICAR → <span className="opacity-70 text-xs">· 1 crédito</span>
       </button>
 
-      <button type="button" onClick={() => openExternalUrl(ad.adUrl)} className="text-[11px] text-muted-foreground hover:text-primary flex items-center gap-1 justify-center">
-        <ExternalLink className="w-3 h-3" /> Ver en Ads Library
+      <button type="button" onClick={() => openExternalUrl(ad.adUrl)} className="text-[11px] text-muted-foreground hover:text-primary flex items-center gap-1 justify-center group">
+        <ExternalLink className="w-3 h-3" /> Ver todos los anuncios de <span className="font-semibold text-foreground group-hover:text-primary truncate max-w-[160px]">{ad.pageName}</span> en Ads Library
       </button>
     </div>
   );

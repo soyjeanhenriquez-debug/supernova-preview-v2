@@ -165,7 +165,7 @@ export function useLandingAnalyzer() {
             domain,
             brand_name: brandName,
             analysis_text: analysis,
-            ads_found: ads.slice(0, 6) as unknown as object[],
+            ads_found: JSON.parse(JSON.stringify(ads.slice(0, 6))),
           }])
           .select("id")
           .single();

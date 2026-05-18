@@ -60,6 +60,33 @@ export function WinningAdsPage() {
   const [sofisticarAd, setSofisticarAd] = useState<DemoAd | null>(null);
   const [realAds, setRealAds] = useState<DemoAd[]>([]);
   const [loadingReal, setLoadingReal] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(false);
+  const [debugLoading, setDebugLoading] = useState(false);
+  const [debugResult, setDebugResult] = useState<{ ok: boolean; status?: number; payload: unknown } | null>(null);
+
+  const runDebugTest = async () => {
+    setDebugLoading(true);
+    setDebugResult(null);
+    setDebugOpen(true);
+    try {
+      const { data, error } = await supabase.functions.invoke<FacebookAdsResponse & { error?: unknown; detail?: unknown }>("facebook-ads", {
+        body: { search_terms: keyword || "ver más", country: "ES", limit: 3, ad_active_status: "ACTIVE" },
+      });
+      if (error) {
+        setDebugResult({ ok: false, payload: { invokeError: error.message, context: error } });
+        toast.error(`Edge function error: ${error.message}`);
+      } else {
+        const count = data?.data?.length ?? 0;
+        setDebugResult({ ok: true, status: 200, payload: data });
+        toast.success(`✓ ${count} anuncios recibidos del API`);
+      }
+    } catch (e: unknown) {
+      setDebugResult({ ok: false, payload: { exception: e instanceof Error ? e.message : String(e) } });
+      toast.error("Excepción al invocar edge function");
+    } finally {
+      setDebugLoading(false);
+    }
+  };
 
   const allAds = useMemo(() => [...realAds, ...getDemoAds()], [realAds]);
 
@@ -173,11 +200,45 @@ export function WinningAdsPage() {
           <h2 className="page-heading font-display text-2xl text-foreground">BUSCAR OFERTAS WINNER</h2>
           <p className="text-sm text-muted-foreground mt-3">Anuncios validados con datos reales. Encuentra, analiza, clona.</p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 pulse-hot">
-          <span className="live-dot" />
-          <span className="text-[11px] font-bold text-primary tracking-widest">ACTUALIZADO HACE {elapsed} MIN</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={runDebugTest}
+            disabled={debugLoading}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
+          >
+            {debugLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+            {debugLoading ? "Probando..." : "Probar Edge Function"}
+          </button>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 pulse-hot">
+            <span className="live-dot" />
+            <span className="text-[11px] font-bold text-primary tracking-widest">ACTUALIZADO HACE {elapsed} MIN</span>
+          </div>
         </div>
       </div>
+
+      {/* Debug panel */}
+      {debugOpen && (
+        <div className={`card-surface rounded-xl p-4 border ${debugResult?.ok ? "border-success/40" : "border-destructive/40"}`}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
+              <span className={debugResult?.ok ? "text-success" : "text-destructive"}>
+                {debugLoading ? "⏳ Llamando facebook-ads..." : debugResult?.ok ? "✓ Respuesta OK" : "✗ Error"}
+              </span>
+              {debugResult?.ok && Array.isArray((debugResult.payload as FacebookAdsResponse)?.data) && (
+                <span className="text-muted-foreground">
+                  · {(debugResult.payload as FacebookAdsResponse).data?.length ?? 0} anuncios
+                </span>
+              )}
+            </div>
+            <button onClick={() => setDebugOpen(false)} className="text-xs text-muted-foreground hover:text-foreground">✕ Cerrar</button>
+          </div>
+          {debugResult && (
+            <pre className="text-[10px] leading-relaxed bg-background/60 border border-border rounded p-3 overflow-auto max-h-80 text-muted-foreground font-mono">
+{JSON.stringify(debugResult.payload, null, 2)}
+            </pre>
+          )}
+        </div>
+      )}
 
       {/* Global stats bar */}
       <div className="card-surface rounded-xl p-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">

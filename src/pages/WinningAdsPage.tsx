@@ -609,13 +609,39 @@ export function WinningAdsPage() {
 
       {/* Ofertas escalando */}
       <div>
-        <div className="flex items-end justify-between mb-4">
+        <div className="flex items-end justify-between mb-3 flex-wrap gap-2">
           <div>
-            <h3 className="font-display font-bold text-xl text-foreground">OFERTAS ESCALANDO</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Productos validados matemáticamente. Cero opiniones, pura data.</p>
+            <h3 className="font-display font-bold text-xl text-foreground">OFERTAS ESCALANDO AHORA</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Detectadas automáticamente con {TOTAL_DR_KEYWORDS} keywords de DR activas. Cero opiniones, pura data.
+            </p>
           </div>
-          <span className="text-[10px] font-bold tracking-widest text-primary border border-primary/30 bg-primary/10 px-2 py-1 rounded">ACTUALIZADO HOY</span>
+          <div className="flex items-center gap-2">
+            {autoLoading && (
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-widest text-muted-foreground">
+                <Loader2 className="w-3 h-3 animate-spin" /> ESCANEANDO…
+              </span>
+            )}
+            <span className="text-[10px] font-bold tracking-widest text-primary border border-primary/30 bg-primary/10 px-2 py-1 rounded">
+              {lastAutoRun
+                ? `ACTUALIZADO HACE ${Math.max(0, Math.floor((Date.now() - lastAutoRun.getTime()) / 60_000))} MIN`
+                : "INICIANDO…"}
+            </span>
+          </div>
         </div>
+
+        {autoKeywords.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap mb-4 text-[11px]">
+            <span className="text-muted-foreground">Detectados con:</span>
+            {autoKeywords.map((k) => (
+              <span key={k} className="px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-primary font-mono text-[10px]">
+                {k}
+              </span>
+            ))}
+            <span className="text-muted-foreground/60">+{TOTAL_DR_KEYWORDS - autoKeywords.length} más rotando</span>
+          </div>
+        )}
+
 
         {filtered.length === 0 ? (
           <div className="card-surface rounded-xl py-16 text-center">

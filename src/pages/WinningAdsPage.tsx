@@ -576,13 +576,13 @@ function PillSelect({ label, value, onChange, options }: { label: string; value:
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger
         aria-label={label}
-        className={`group h-10 w-auto min-w-[150px] gap-2 rounded-full border px-4 text-xs font-semibold backdrop-blur-md transition-all duration-200 hover:scale-[1.02] hover:border-primary/60 hover:shadow-lg hover:shadow-primary/10 focus:ring-2 focus:ring-primary/50 focus:ring-offset-0 data-[state=open]:scale-[1.02] data-[state=open]:border-primary data-[state=open]:shadow-lg data-[state=open]:shadow-primary/20 ${
+        className={`group h-9 w-auto min-w-[140px] gap-2 rounded-full border px-3.5 text-xs font-medium transition-all duration-200 hover:border-foreground/30 focus:ring-2 focus:ring-primary/40 focus:ring-offset-0 data-[state=open]:border-foreground/40 ${
           isDefault
-            ? "bg-white/5 border-white/10 text-foreground/90"
-            : "bg-primary/15 border-primary/40 text-primary"
+            ? "bg-transparent border-border text-foreground/85"
+            : "bg-primary/10 border-primary/40 text-primary"
         }`}
       >
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mr-1">{label}:</span>
+        <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mr-1">{label}</span>
         <SelectValue>{current}</SelectValue>
       </SelectTrigger>
       <SelectContent className="rounded-2xl border-border/60 bg-popover/95 backdrop-blur-xl shadow-2xl animate-in fade-in-0 zoom-in-95">

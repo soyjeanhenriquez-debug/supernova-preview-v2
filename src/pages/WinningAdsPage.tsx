@@ -355,15 +355,20 @@ export function WinningAdsPage() {
           </button>
         </div>
 
-        {/* Keyword chips */}
-        <div className="flex flex-wrap gap-2 pt-1">
-          {KEYWORD_CHIPS[market].map((k) => (
-            <button key={k} onClick={() => setKeyword(k)}
-              className="px-2.5 py-1 rounded-full text-xs bg-secondary border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-all">
-              {k}
-            </button>
-          ))}
-        </div>
+        {/* Keyword chips · solo admin (uso interno) */}
+        {isAdmin && (
+          <div className="space-y-1.5 pt-1">
+            <div className="text-[10px] uppercase tracking-widest text-primary/80 font-bold">🔒 Keywords sugeridas (admin)</div>
+            <div className="flex flex-wrap gap-2">
+              {KEYWORD_CHIPS[market].map((k) => (
+                <button key={k} onClick={() => setKeyword(k)}
+                  className="px-2.5 py-1 rounded-full text-xs bg-secondary border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-all">
+                  {k}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Quality filters (sticky) */}

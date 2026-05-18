@@ -253,31 +253,69 @@ export function WinningAdsPage() {
           </div>
           <div className="text-[10px] text-muted-foreground">Se aplican a "Buscar Anuncios" y "Probar Edge Function"</div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-          <label className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">País</span>
-            <select value={searchCountry} onChange={(e) => setSearchCountry(e.target.value)} className="bg-secondary border border-border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
-              {["ES","US","BR","MX","AR","CO","PE","CL","PT","FR","DE","IT","GB","RU","ALL"].map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Estado</span>
-            <select value={searchStatus} onChange={(e) => setSearchStatus(e.target.value as "ACTIVE" | "INACTIVE" | "ALL")} className="bg-secondary border border-border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="INACTIVE">INACTIVE (pausados)</option>
-              <option value="ALL">ALL</option>
-            </select>
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Límite ({searchLimit})</span>
-            <input type="range" min={5} max={100} step={5} value={searchLimit} onChange={(e) => setSearchLimit(Number(e.target.value))} className="accent-primary" />
-          </label>
-          <div className="flex flex-col gap-1 justify-end">
-            <button onClick={runDebugTest} disabled={debugLoading} className="px-3 py-1.5 rounded-md text-xs font-semibold border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50">
-              {debugLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-              {debugLoading ? "Probando..." : "Probar Edge Function"}
-            </button>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          {/* País */}
+          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 transition-all">
+            <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5 font-semibold">País</div>
+            <Select value={searchCountry} onValueChange={setSearchCountry}>
+              <SelectTrigger className="h-9 bg-background/40 border-border/40 rounded-xl text-sm font-medium hover:bg-background/70 transition-all">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-border/60 bg-popover/95 backdrop-blur-xl">
+                {COUNTRY_OPTIONS.map((c) => (
+                  <SelectItem key={c.code} value={c.code} className="rounded-lg my-0.5 cursor-pointer">
+                    <span className="flex items-center gap-2"><span className="text-base">{c.flag}</span><span className="font-medium">{c.label}</span><span className="text-[10px] text-muted-foreground ml-1">{c.code}</span></span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+
+          {/* Estado */}
+          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 transition-all">
+            <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5 font-semibold">Estado</div>
+            <div className="flex gap-1 bg-background/40 p-1 rounded-xl border border-border/40">
+              {STATUS_OPTIONS.map((s) => (
+                <button
+                  key={s.value}
+                  onClick={() => setSearchStatus(s.value)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
+                    searchStatus === s.value
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${searchStatus === s.value ? "bg-primary-foreground" : s.dot}`} />
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Límite */}
+          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 transition-all">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">Límite</div>
+              <div className="text-sm font-bold tabular-nums text-primary">{searchLimit}</div>
+            </div>
+            <div className="px-1 pt-2">
+              <Slider value={[searchLimit]} onValueChange={(v) => setSearchLimit(v[0])} min={5} max={100} step={5} />
+            </div>
+            <div className="flex justify-between text-[9px] text-muted-foreground/60 mt-1 px-0.5 font-medium">
+              <span>5</span><span>50</span><span>100</span>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <button
+            onClick={runDebugTest}
+            disabled={debugLoading}
+            className="group relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary to-primary/70 hover:from-primary hover:to-primary text-primary-foreground p-3 flex flex-col items-center justify-center gap-1 font-bold transition-all disabled:opacity-60 shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity" />
+            {debugLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />}
+            <span className="text-[11px] uppercase tracking-wider">{debugLoading ? "Probando..." : "Probar Edge"}</span>
+          </button>
         </div>
 
         {debugOpen && (

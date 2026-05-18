@@ -121,6 +121,81 @@ export function WinningAdsPage() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // === Auto-discovery: rota keywords DR y busca en background ===
+  const runAutoDiscovery = async () => {
+    if (autoLoading) return;
+    const kws = getAutoSearchKeywords(3);
+    setAutoKeywords(kws);
+    setAutoLoading(true);
+    try {
+      const results = await Promise.all(
+        kws.map((kw) =>
+          supabase.functions
+            .invoke<FacebookAdsResponse>("facebook-ads", {
+              body: { search_terms: kw, country: searchCountry, limit: 15, ad_active_status: "ACTIVE" },
+            })
+            .then((r) => ({ kw, items: r.data?.data ?? [] }))
+            .catch(() => ({ kw, items: [] as FacebookAdLibraryItem[] })),
+        ),
+      );
+      const adMarket = searchCountry as AdMarket;
+      const marketTyped = (market === "all" ? "en" : market) as AdLang;
+      const all: FacebookAdLibraryItem[] = results.flatMap((r) => r.items);
+      const dupByPage = new Map<string, number>();
+      all.forEach((it) => {
+        const k = (it.page_id ?? it.page_name ?? "").toString();
+        if (k) dupByPage.set(k, (dupByPage.get(k) ?? 0) + 1);
+      });
+      const mapped: DemoAd[] = all.map((it, i) => {
+        const body = (it.ad_creative_bodies?.[0] ?? "").toString();
+        const title = (it.ad_creative_link_titles?.[0] ?? it.page_name ?? "Anuncio").toString();
+        const start = it.ad_delivery_start_time ? new Date(it.ad_delivery_start_time) : new Date();
+        const days = Math.max(1, Math.floor((Date.now() - start.getTime()) / 86400000));
+        const pageKey = (it.page_id ?? it.page_name ?? "").toString();
+        const dups = dupByPage.get(pageKey) ?? 1;
+        const rawUrl = it.page_id
+          ? buildAdsLibraryPageUrl(String(it.page_id), adMarket)
+          : buildAdsLibrarySearchUrl(it.page_name ?? title, adMarket);
+        const adUrl = normalizeAdsLibraryUrl(rawUrl, it.page_name ?? title, adMarket);
+        return {
+          id: `auto-${it.id ?? `${pageKey}-${i}`}`,
+          pageId: it.page_id ?? "",
+          pageName: it.page_name ?? "Facebook Ad",
+          title,
+          body: body || title,
+          daysActive: days,
+          duplicates: dups,
+          score: Math.min(100, 40 + Math.floor(days / 2) + dups * 2),
+          tier: days >= 60 || dups >= 10 ? "mega" : days >= 14 || dups >= 3 ? "rising" : "solid",
+          offerType: "infoproducto",
+          market: adMarket,
+          marketLabel: searchCountry,
+          flag: "🌐",
+          lang: marketTyped,
+          adUrl,
+        };
+      });
+      // Prepend nuevos, dedupe por id, mantener historial
+      setRealAds((prev) => {
+        const seen = new Set(prev.map((a) => a.id));
+        const fresh = mapped.filter((a) => !seen.has(a.id));
+        return [...fresh, ...prev];
+      });
+      setLastAutoRun(new Date());
+    } finally {
+      setAutoLoading(false);
+    }
+  };
+
+  // Dispara al montar (si no hay ads) + cada 5 min
+  useEffect(() => {
+    if (realAds.length === 0) runAutoDiscovery();
+    const t = setInterval(runAutoDiscovery, 5 * 60_000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const applyPreset = (p: FilterPreset) => {
     setSearchCountry(p.country); setSearchStatus(p.status); setSearchLimit(p.limit);
     setActivePresetId(p.id); toast.success(`Preset "${p.name}" aplicado`);

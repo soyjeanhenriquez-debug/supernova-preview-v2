@@ -381,8 +381,9 @@ export function WinningAdsPage() {
           adUrl,
         };
       });
-      setRealAds(mapped);
-      toast.success(`✓ ${mapped.length} anuncios reales encontrados`);
+      const grouped = groupByAdvertiser(mapped, items);
+      setRealAds(grouped);
+      toast.success(`✓ ${grouped.length} anunciantes únicos (${mapped.length} anuncios)`);
     } catch (e: unknown) {
       console.error(e);
       toast.error(`Error Facebook: ${e instanceof Error ? e.message : "desconocido"}`);

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2, Bookmark, Plus, X, Check } from "lucide-react";
-import { getDemoAds, MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, GLOBAL_STATS, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, normalizeAdsLibraryUrl, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
+import { MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, normalizeAdsLibraryUrl, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
 import { useElapsedMinutes } from "@/hooks/useElapsedMinutes";
 import { useCredits } from "@/hooks/useCredits";
 import { SofisticarModal } from "@/components/SofisticarModal";
@@ -85,6 +85,7 @@ export function WinningAdsPage() {
   const [sofisticarAd, setSofisticarAd] = useState<DemoAd | null>(null);
   const [realAds, setRealAds] = useState<DemoAd[]>([]);
   const [loadingReal, setLoadingReal] = useState(false);
+  const [liveStats, setLiveStats] = useState({ total: 0, unique: 0, mega: 0, rising: 0, solid: 0 });
   // Selectores para la edge function
   const [searchCountry, setSearchCountry] = useState("ES");
   const [searchLimit, setSearchLimit] = useState(25);
@@ -99,6 +100,23 @@ export function WinningAdsPage() {
   const [savingPreset, setSavingPreset] = useState(false);
   const [presetName, setPresetName] = useState("");
   useEffect(() => { localStorage.setItem(PRESETS_KEY, JSON.stringify(presets)); }, [presets]);
+
+  // Cargar estadísticas reales desde la tabla `winning_ads` (sin datos demo)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("winning_ads")
+        .select("page_id, page_name, tier", { count: "exact" });
+      if (cancelled || error || !data) return;
+      const unique = new Set(data.map((r) => r.page_id ?? r.page_name ?? "").filter(Boolean)).size;
+      const mega = data.filter((r) => r.tier === "mega").length;
+      const rising = data.filter((r) => r.tier === "rising").length;
+      const solid = data.filter((r) => r.tier === "solid").length;
+      setLiveStats({ total: data.length, unique, mega, rising, solid });
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const applyPreset = (p: FilterPreset) => {
     setSearchCountry(p.country); setSearchStatus(p.status); setSearchLimit(p.limit);
     setActivePresetId(p.id); toast.success(`Preset "${p.name}" aplicado`);
@@ -153,7 +171,7 @@ export function WinningAdsPage() {
     }
   };
 
-  const allAds = useMemo(() => [...realAds, ...getDemoAds()], [realAds]);
+  const allAds = useMemo(() => realAds.slice(), [realAds]);
 
   const filtered = useMemo(() => {
     let list = allAds.slice();
@@ -452,11 +470,11 @@ export function WinningAdsPage() {
       {/* Global stats bar */}
       <div className="card-surface rounded-xl p-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
         <span className="flex items-center gap-2 text-success font-semibold"><span className="live-dot" /> MINER ACTIVO</span>
-        <span className="text-muted-foreground"><strong className="text-foreground">{GLOBAL_STATS.total.toLocaleString()}</strong> anuncios</span>
-        <span className="text-muted-foreground"><strong className="text-foreground">{GLOBAL_STATS.unique.toLocaleString()}</strong> únicos</span>
-        <span className="flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-mega))" }} /> <strong>{GLOBAL_STATS.mega}</strong> mega</span>
-        <span className="flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-rising))" }} /> <strong>{GLOBAL_STATS.rising.toLocaleString()}</strong> rising</span>
-        <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-solid))" }} /> <strong>{GLOBAL_STATS.solid.toLocaleString()}</strong> solid</span>
+        <span className="text-muted-foreground"><strong className="text-foreground">{liveStats.total.toLocaleString()}</strong> anuncios</span>
+        <span className="text-muted-foreground"><strong className="text-foreground">{liveStats.unique.toLocaleString()}</strong> únicos</span>
+        <span className="flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-mega))" }} /> <strong>{liveStats.mega}</strong> mega</span>
+        <span className="flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-rising))" }} /> <strong>{liveStats.rising.toLocaleString()}</strong> rising</span>
+        <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-solid))" }} /> <strong>{liveStats.solid.toLocaleString()}</strong> solid</span>
       </div>
 
       {/* Intelligence Analyzer */}

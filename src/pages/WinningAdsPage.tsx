@@ -35,8 +35,10 @@ export function WinningAdsPage() {
   const [sort, setSort] = useState("Mayor Score");
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [sofisticarAd, setSofisticarAd] = useState<DemoAd | null>(null);
+  const [realAds, setRealAds] = useState<DemoAd[]>([]);
+  const [loadingReal, setLoadingReal] = useState(false);
 
-  const allAds = useMemo(() => getDemoAds(), []);
+  const allAds = useMemo(() => [...realAds, ...getDemoAds()], [realAds]);
 
   const filtered = useMemo(() => {
     let list = allAds.slice();

@@ -53,28 +53,44 @@ export function WinningAdsPage() {
   const [sofisticarAd, setSofisticarAd] = useState<DemoAd | null>(null);
   const [realAds, setRealAds] = useState<DemoAd[]>([]);
   const [loadingReal, setLoadingReal] = useState(false);
+  // Selectores para la edge function
+  const [searchCountry, setSearchCountry] = useState("ES");
+  const [searchLimit, setSearchLimit] = useState(25);
+  const [searchStatus, setSearchStatus] = useState<"ACTIVE" | "INACTIVE" | "ALL">("ACTIVE");
   const [debugOpen, setDebugOpen] = useState(false);
   const [debugLoading, setDebugLoading] = useState(false);
-  const [debugResult, setDebugResult] = useState<{ ok: boolean; status?: number; payload: unknown } | null>(null);
+  const [debugResult, setDebugResult] = useState<{
+    ok: boolean;
+    status?: number;
+    summary?: { count: number; uniquePages: number; sampleNames: string[]; errorMessage?: string };
+    payload: unknown;
+  } | null>(null);
 
   const runDebugTest = async () => {
     setDebugLoading(true);
     setDebugResult(null);
     setDebugOpen(true);
+    const requestBody = {
+      search_terms: keyword || "ver más",
+      country: searchCountry,
+      limit: searchLimit,
+      ad_active_status: searchStatus,
+    };
     try {
-      const { data, error } = await supabase.functions.invoke<FacebookAdsResponse & { error?: unknown; detail?: unknown }>("facebook-ads", {
-        body: { search_terms: keyword || "ver más", country: "ES", limit: 3, ad_active_status: "ACTIVE" },
-      });
+      const { data, error } = await supabase.functions.invoke<FacebookAdsResponse & { error?: string; detail?: unknown }>("facebook-ads", { body: requestBody });
       if (error) {
-        setDebugResult({ ok: false, payload: { invokeError: error.message, context: error } });
+        setDebugResult({ ok: false, summary: { count: 0, uniquePages: 0, sampleNames: [], errorMessage: error.message }, payload: { request: requestBody, invokeError: error.message } });
         toast.error(`Edge function error: ${error.message}`);
       } else {
-        const count = data?.data?.length ?? 0;
-        setDebugResult({ ok: true, status: 200, payload: data });
-        toast.success(`✓ ${count} anuncios recibidos del API`);
+        const items = data?.data ?? [];
+        const uniquePages = new Set(items.map((i) => i.page_id ?? i.page_name)).size;
+        const sampleNames = items.slice(0, 5).map((i) => i.page_name ?? "—");
+        setDebugResult({ ok: true, status: 200, summary: { count: items.length, uniquePages, sampleNames }, payload: { request: requestBody, response: data } });
+        toast.success(`✓ ${items.length} anuncios · ${uniquePages} anunciantes únicos`);
       }
     } catch (e: unknown) {
-      setDebugResult({ ok: false, payload: { exception: e instanceof Error ? e.message : String(e) } });
+      const msg = e instanceof Error ? e.message : String(e);
+      setDebugResult({ ok: false, summary: { count: 0, uniquePages: 0, sampleNames: [], errorMessage: msg }, payload: { request: requestBody, exception: msg } });
       toast.error("Excepción al invocar edge function");
     } finally {
       setDebugLoading(false);

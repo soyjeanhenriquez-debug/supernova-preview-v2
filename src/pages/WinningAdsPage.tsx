@@ -60,6 +60,33 @@ export function WinningAdsPage() {
   const [sofisticarAd, setSofisticarAd] = useState<DemoAd | null>(null);
   const [realAds, setRealAds] = useState<DemoAd[]>([]);
   const [loadingReal, setLoadingReal] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(false);
+  const [debugLoading, setDebugLoading] = useState(false);
+  const [debugResult, setDebugResult] = useState<{ ok: boolean; status?: number; payload: unknown } | null>(null);
+
+  const runDebugTest = async () => {
+    setDebugLoading(true);
+    setDebugResult(null);
+    setDebugOpen(true);
+    try {
+      const { data, error } = await supabase.functions.invoke<FacebookAdsResponse & { error?: unknown; detail?: unknown }>("facebook-ads", {
+        body: { search_terms: keyword || "ver más", country: "ES", limit: 3, ad_active_status: "ACTIVE" },
+      });
+      if (error) {
+        setDebugResult({ ok: false, payload: { invokeError: error.message, context: error } });
+        toast.error(`Edge function error: ${error.message}`);
+      } else {
+        const count = data?.data?.length ?? 0;
+        setDebugResult({ ok: true, status: 200, payload: data });
+        toast.success(`✓ ${count} anuncios recibidos del API`);
+      }
+    } catch (e: unknown) {
+      setDebugResult({ ok: false, payload: { exception: e instanceof Error ? e.message : String(e) } });
+      toast.error("Excepción al invocar edge function");
+    } finally {
+      setDebugLoading(false);
+    }
+  };
 
   const allAds = useMemo(() => [...realAds, ...getDemoAds()], [realAds]);
 

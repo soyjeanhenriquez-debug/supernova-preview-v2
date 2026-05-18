@@ -6,6 +6,9 @@ import { useElapsedMinutes } from "@/hooks/useElapsedMinutes";
 import { useCredits } from "@/hooks/useCredits";
 import { SofisticarModal } from "@/components/SofisticarModal";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+
+const ADMIN_EMAIL = "soyjeanhenriquez@gmail.com";
 
 const TIERS: Record<Tier, { label: string; cls: string; icon: string }> = {
   mega:   { label: "MEGA WINNER",  cls: "tier-mega",  icon: "🏆" },
@@ -39,6 +42,8 @@ interface FacebookAdsResponse {
 export function WinningAdsPage() {
   const elapsed = useElapsedMinutes();
   const { consume, canAfford } = useCredits();
+  const { user } = useAuth();
+  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
 
   const [market, setMarket] = useState<string>("all");
   const [keyword, setKeyword] = useState("");
@@ -212,8 +217,10 @@ export function WinningAdsPage() {
         </div>
       </div>
 
-      {/* Selectores Edge Function + Debug panel */}
-      <div className="card-surface rounded-xl p-4 space-y-3 border border-border/60">
+      {/* Selectores Edge Function + Debug panel (solo admin) */}
+      {isAdmin && (
+      <div className="card-surface rounded-xl p-4 space-y-3 border border-primary/30">
+        <div className="text-[10px] uppercase tracking-widest text-primary/80 font-bold">🔒 Panel Admin · {user?.email}</div>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
             <Zap className="w-3.5 h-3.5" /> Parámetros de búsqueda real
@@ -293,6 +300,7 @@ export function WinningAdsPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Global stats bar */}
       <div className="card-surface rounded-xl p-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
@@ -347,15 +355,20 @@ export function WinningAdsPage() {
           </button>
         </div>
 
-        {/* Keyword chips */}
-        <div className="flex flex-wrap gap-2 pt-1">
-          {KEYWORD_CHIPS[market].map((k) => (
-            <button key={k} onClick={() => setKeyword(k)}
-              className="px-2.5 py-1 rounded-full text-xs bg-secondary border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-all">
-              {k}
-            </button>
-          ))}
-        </div>
+        {/* Keyword chips · solo admin (uso interno) */}
+        {isAdmin && (
+          <div className="space-y-1.5 pt-1">
+            <div className="text-[10px] uppercase tracking-widest text-primary/80 font-bold">🔒 Keywords sugeridas (admin)</div>
+            <div className="flex flex-wrap gap-2">
+              {KEYWORD_CHIPS[market].map((k) => (
+                <button key={k} onClick={() => setKeyword(k)}
+                  className="px-2.5 py-1 rounded-full text-xs bg-secondary border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-all">
+                  {k}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Quality filters (sticky) */}

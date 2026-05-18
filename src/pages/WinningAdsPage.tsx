@@ -33,15 +33,8 @@ interface FacebookAdsResponse {
   data?: FacebookAdLibraryItem[];
 }
 
-const openExternalUrl = async (url: string) => {
-  const newWindow = window.open(url, "_blank", "noopener,noreferrer");
-  if (newWindow && !newWindow.closed) {
-    newWindow.opener = null;
-    return;
-  }
-  await navigator.clipboard?.writeText(url);
-  toast.info("Facebook bloqueó la apertura automática; copié la URL para abrirla fuera del preview.");
-};
+// Nota: usamos <a target="_blank" rel="noopener noreferrer"> en vez de window.open()
+// porque el preview de Lovable corre dentro de un iframe sandbox que bloquea popups programáticos.
 
 export function WinningAdsPage() {
   const elapsed = useElapsedMinutes();

@@ -847,6 +847,14 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
         <div className="min-w-0">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Anunciante</div>
           <div className="text-xs font-semibold text-foreground truncate">{ad.pageName}</div>
+          {(typeof ad.activeCount === "number" || typeof ad.historicalCount === "number") && (
+            <div className="text-[10px] text-muted-foreground mt-0.5">
+              {(ad.activeCount ?? 1).toLocaleString()} activos
+              {typeof ad.historicalCount === "number" && ad.historicalCount > 0 && (
+                <> · {ad.historicalCount.toLocaleString()}+ históricos</>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

@@ -164,6 +164,28 @@ export function WinningAdsPage() {
   const [searchCountry, setSearchCountry] = useState("ES");
   const [searchLimit, setSearchLimit] = useState(25);
   const [searchStatus, setSearchStatus] = useState<"ACTIVE" | "INACTIVE" | "ALL">("ACTIVE");
+  const [verticalFilter, setVerticalFilter] = useState<string>("Todas");
+  const [viewMode, setViewMode] = useState<"grid" | "list">(() => (localStorage.getItem("supernova:ads-view") as "grid" | "list") ?? "grid");
+  useEffect(() => { localStorage.setItem("supernova:ads-view", viewMode); }, [viewMode]);
+  const [bannerDismissed, setBannerDismissed] = useState(() => localStorage.getItem("supernova:winner-banner-v1") === "1");
+  const dismissBanner = () => { setBannerDismissed(true); localStorage.setItem("supernova:winner-banner-v1", "1"); };
+  // Búsquedas guardadas por usuario (keyword + país + estado)
+  type UserSearch = { id: string; name: string; keyword: string; country: string; status: "ACTIVE" | "INACTIVE" | "ALL" };
+  const USER_SEARCHES_KEY = "supernova:user-saved-searches";
+  const [userSearches, setUserSearches] = useState<UserSearch[]>(() => {
+    try { return JSON.parse(localStorage.getItem(USER_SEARCHES_KEY) ?? "[]"); } catch { return []; }
+  });
+  useEffect(() => { localStorage.setItem(USER_SEARCHES_KEY, JSON.stringify(userSearches)); }, [userSearches]);
+  const saveCurrentSearch = () => {
+    const name = (keyword.trim() || "Búsqueda sin nombre").slice(0, 40);
+    const s: UserSearch = { id: crypto.randomUUID(), name, keyword: keyword.trim(), country: searchCountry, status: searchStatus };
+    setUserSearches((p) => [s, ...p].slice(0, 20));
+    toast.success(`Guardado: ${name}`);
+  };
+  const applyUserSearch = (s: UserSearch) => {
+    setKeyword(s.keyword); setSearchCountry(s.country); setSearchStatus(s.status);
+    toast.success(`Aplicado: ${s.name}`);
+  };
   // Presets de filtros (País/Estado/Límite) — persistidos en localStorage
   type FilterPreset = { id: string; name: string; country: string; status: "ACTIVE" | "INACTIVE" | "ALL"; limit: number };
   const PRESETS_KEY = "supernova:fb-filter-presets";

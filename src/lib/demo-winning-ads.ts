@@ -21,6 +21,10 @@ export interface DemoAd {
   lang: AdLang;
   checkoutPlatform?: string;
   adUrl: string;
+  /** Total de anuncios activos del mismo anunciante en esta búsqueda */
+  activeCount?: number;
+  /** Total histórico de anuncios del anunciante (si lo devuelve la API) */
+  historicalCount?: number;
 }
 
 function calcScore(days: number, dups: number, impHint: number) {

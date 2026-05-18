@@ -453,11 +453,11 @@ export function WinningAdsPage() {
       {/* Global stats bar */}
       <div className="card-surface rounded-xl p-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
         <span className="flex items-center gap-2 text-success font-semibold"><span className="live-dot" /> MINER ACTIVO</span>
-        <span className="text-muted-foreground"><strong className="text-foreground">{GLOBAL_STATS.total.toLocaleString()}</strong> anuncios</span>
-        <span className="text-muted-foreground"><strong className="text-foreground">{GLOBAL_STATS.unique.toLocaleString()}</strong> únicos</span>
-        <span className="flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-mega))" }} /> <strong>{GLOBAL_STATS.mega}</strong> mega</span>
-        <span className="flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-rising))" }} /> <strong>{GLOBAL_STATS.rising.toLocaleString()}</strong> rising</span>
-        <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-solid))" }} /> <strong>{GLOBAL_STATS.solid.toLocaleString()}</strong> solid</span>
+        <span className="text-muted-foreground"><strong className="text-foreground">{liveStats.total.toLocaleString()}</strong> anuncios</span>
+        <span className="text-muted-foreground"><strong className="text-foreground">{liveStats.unique.toLocaleString()}</strong> únicos</span>
+        <span className="flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-mega))" }} /> <strong>{liveStats.mega}</strong> mega</span>
+        <span className="flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-rising))" }} /> <strong>{liveStats.rising.toLocaleString()}</strong> rising</span>
+        <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-solid))" }} /> <strong>{liveStats.solid.toLocaleString()}</strong> solid</span>
       </div>
 
       {/* Intelligence Analyzer */}

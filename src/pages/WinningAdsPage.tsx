@@ -222,29 +222,87 @@ export function WinningAdsPage() {
         </div>
       </div>
 
-      {/* Debug panel */}
-      {debugOpen && (
-        <div className={`card-surface rounded-xl p-4 border ${debugResult?.ok ? "border-success/40" : "border-destructive/40"}`}>
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
-              <span className={debugResult?.ok ? "text-success" : "text-destructive"}>
-                {debugLoading ? "⏳ Llamando facebook-ads..." : debugResult?.ok ? "✓ Respuesta OK" : "✗ Error"}
-              </span>
-              {debugResult?.ok && Array.isArray((debugResult.payload as FacebookAdsResponse)?.data) && (
-                <span className="text-muted-foreground">
-                  · {(debugResult.payload as FacebookAdsResponse).data?.length ?? 0} anuncios
-                </span>
-              )}
-            </div>
-            <button onClick={() => setDebugOpen(false)} className="text-xs text-muted-foreground hover:text-foreground">✕ Cerrar</button>
+      {/* Selectores Edge Function + Debug panel */}
+      <div className="card-surface rounded-xl p-4 space-y-3 border border-border/60">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
+            <Zap className="w-3.5 h-3.5" /> Parámetros de búsqueda real
           </div>
-          {debugResult && (
-            <pre className="text-[10px] leading-relaxed bg-background/60 border border-border rounded p-3 overflow-auto max-h-80 text-muted-foreground font-mono">
-{JSON.stringify(debugResult.payload, null, 2)}
-            </pre>
-          )}
+          <div className="text-[10px] text-muted-foreground">Se aplican a "Buscar Anuncios" y "Probar Edge Function"</div>
         </div>
-      )}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">País</span>
+            <select value={searchCountry} onChange={(e) => setSearchCountry(e.target.value)} className="bg-secondary border border-border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
+              {["ES","US","BR","MX","AR","CO","PE","CL","PT","FR","DE","IT","GB","RU","ALL"].map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Estado</span>
+            <select value={searchStatus} onChange={(e) => setSearchStatus(e.target.value as "ACTIVE" | "INACTIVE" | "ALL")} className="bg-secondary border border-border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="INACTIVE">INACTIVE (pausados)</option>
+              <option value="ALL">ALL</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Límite ({searchLimit})</span>
+            <input type="range" min={5} max={100} step={5} value={searchLimit} onChange={(e) => setSearchLimit(Number(e.target.value))} className="accent-primary" />
+          </label>
+          <div className="flex flex-col gap-1 justify-end">
+            <button onClick={runDebugTest} disabled={debugLoading} className="px-3 py-1.5 rounded-md text-xs font-semibold border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50">
+              {debugLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+              {debugLoading ? "Probando..." : "Probar Edge Function"}
+            </button>
+          </div>
+        </div>
+
+        {debugOpen && (
+          <div className={`rounded-lg p-3 border ${debugResult?.ok ? "border-success/40 bg-success/5" : "border-destructive/40 bg-destructive/5"}`}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
+                <span className={debugResult?.ok ? "text-success" : "text-destructive"}>
+                  {debugLoading ? "⏳ Llamando facebook-ads..." : debugResult?.ok ? "✓ Respuesta OK" : "✗ Error"}
+                </span>
+              </div>
+              <button onClick={() => setDebugOpen(false)} className="text-xs text-muted-foreground hover:text-foreground">✕ Cerrar</button>
+            </div>
+
+            {/* Resumen legible */}
+            {debugResult?.summary && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3 text-xs">
+                <Stat label="Anuncios" value={String(debugResult.summary.count)} />
+                <Stat label="Anunciantes únicos" value={String(debugResult.summary.uniquePages)} />
+                <Stat label="Status HTTP" value={String(debugResult.status ?? "—")} />
+                <Stat label="OK" value={debugResult.ok ? "Sí" : "No"} />
+                {debugResult.summary.errorMessage && (
+                  <div className="col-span-full text-[11px] text-destructive font-mono break-all bg-destructive/10 border border-destructive/30 rounded p-2">
+                    ⚠ {debugResult.summary.errorMessage}
+                  </div>
+                )}
+                {debugResult.summary.sampleNames.length > 0 && (
+                  <div className="col-span-full">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Primeros anunciantes</div>
+                    <div className="flex flex-wrap gap-1">
+                      {debugResult.summary.sampleNames.map((n, i) => (
+                        <span key={i} className="px-2 py-0.5 rounded bg-secondary text-foreground text-[10px]">{n}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Payload completo */}
+            <details className="text-[10px]">
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-semibold mb-1">Ver payload completo (request + response)</summary>
+              <pre className="leading-relaxed bg-background/60 border border-border rounded p-3 overflow-auto max-h-96 text-muted-foreground font-mono mt-2">
+{JSON.stringify(debugResult?.payload, null, 2)}
+              </pre>
+            </details>
+          </div>
+        )}
+      </div>
 
       {/* Global stats bar */}
       <div className="card-surface rounded-xl p-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">

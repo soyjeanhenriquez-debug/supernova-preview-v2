@@ -847,7 +847,7 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
         </div>
       </div>
 
-      <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+      <div className="flex items-start gap-2 pt-1 border-t border-border/50">
         {ad.pageId ? (
           <img
             src={`https://graph.facebook.com/${ad.pageId}/picture?type=square`}
@@ -858,25 +858,69 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
               target.style.display = "none";
               target.nextElementSibling?.classList.remove("hidden");
             }}
-            className="w-7 h-7 rounded-full object-cover border border-border bg-secondary flex-shrink-0"
+            className="w-9 h-9 rounded-full object-cover border border-border bg-secondary flex-shrink-0"
           />
         ) : null}
-        <div className={`w-7 h-7 rounded-full btn-primary-nova flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${ad.pageId ? "hidden" : ""}`}>
+        <div className={`w-9 h-9 rounded-full btn-primary-nova flex items-center justify-center text-sm font-bold flex-shrink-0 ${ad.pageId ? "hidden" : ""}`}>
           {ad.pageName.charAt(0)}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Anunciante</div>
           <div className="text-xs font-semibold text-foreground truncate">{ad.pageName}</div>
-          {(typeof ad.activeCount === "number" || typeof ad.historicalCount === "number") && (
-            <div className="text-[10px] text-muted-foreground mt-0.5">
-              {(ad.activeCount ?? 1).toLocaleString()} activos
-              {typeof ad.historicalCount === "number" && ad.historicalCount > 0 && (
-                <> · {ad.historicalCount.toLocaleString()}+ históricos</>
-              )}
-            </div>
-          )}
+          {(() => {
+            const active = ad.activeCount ?? 1;
+            const historical = ad.historicalCount ?? 0;
+            const days = Math.max(ad.daysActive, 1);
+            const adsPerWeek = (active / days) * 7;
+            const iterationRatio = active > 0 && historical > 0 ? historical / active : 0;
+
+            const intel: { label: string; tone: "amber" | "neutral" | "danger" }[] = [];
+
+            if (ad.daysActive >= 90) intel.push({ label: "Always-on 90d+", tone: "amber" });
+            else if (ad.daysActive >= 30) intel.push({ label: "Evergreen 30d+", tone: "amber" });
+
+            if (active >= 20) intel.push({ label: `Split-test ×${active}`, tone: "danger" });
+            else if (active >= 5) intel.push({ label: `${active} variantes A/B`, tone: "neutral" });
+
+            if (adsPerWeek >= 3) intel.push({ label: `${adsPerWeek.toFixed(1)} ads/sem`, tone: "amber" });
+
+            if (historical >= 1000) intel.push({ label: `Veterano ${Math.floor(historical / 1000)}K+ ads`, tone: "danger" });
+            else if (historical >= 100) intel.push({ label: `${historical}+ ads históricos`, tone: "neutral" });
+
+            if (iterationRatio >= 20) intel.push({ label: `Itera ×${Math.round(iterationRatio)}`, tone: "amber" });
+
+            if (ad.checkoutPlatform) intel.push({ label: `Checkout: ${ad.checkoutPlatform}`, tone: "neutral" });
+
+            const toneCls = {
+              amber: "bg-primary/15 text-primary border-primary/30",
+              danger: "bg-red-500/15 text-red-400 border-red-500/30",
+              neutral: "bg-secondary text-muted-foreground border-border",
+            } as const;
+
+            return (
+              <>
+                <div className="text-[10px] text-muted-foreground mt-0.5 tabular-nums">
+                  {active.toLocaleString()} activos
+                  {historical > 0 && <> · {historical.toLocaleString()}+ históricos</>}
+                </div>
+                {intel.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {intel.slice(0, 4).map((chip) => (
+                      <span
+                        key={chip.label}
+                        className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${toneCls[chip.tone]}`}
+                      >
+                        {chip.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
+
 
       <button onClick={onSofisticar} className="btn-primary-nova w-full py-2.5 rounded-lg text-sm flex items-center justify-center gap-2 mt-1">
         <Sparkles className="w-4 h-4" /> SOFISTICAR → <span className="opacity-70 text-xs">· 1 crédito</span>

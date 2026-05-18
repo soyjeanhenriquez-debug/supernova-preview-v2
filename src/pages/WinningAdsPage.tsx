@@ -323,7 +323,7 @@ export function WinningAdsPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           {/* País */}
-          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/60">
+          <div className="group relative rounded-2xl bg-card border border-border p-3 hover:border-foreground/20 transition-colors duration-200 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/60">
             <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5 font-semibold">País</div>
             <Select value={searchCountry} onValueChange={(v) => { setSearchCountry(v); setActivePresetId(null); }}>
               <SelectTrigger className="h-9 bg-background/40 border-border/40 rounded-xl text-sm font-medium hover:bg-background/70 focus:ring-2 focus:ring-primary/50 focus:ring-offset-0 transition-all">
@@ -340,7 +340,7 @@ export function WinningAdsPage() {
           </div>
 
           {/* Estado */}
-          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/60">
+          <div className="group relative rounded-2xl bg-card border border-border p-3 hover:border-foreground/20 transition-colors duration-200 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/60">
             <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5 font-semibold">Estado</div>
             <div role="radiogroup" aria-label="Estado del anuncio" className="flex gap-1 bg-background/40 p-1 rounded-xl border border-border/40">
               {STATUS_OPTIONS.map((s) => {
@@ -374,7 +374,7 @@ export function WinningAdsPage() {
           </div>
 
           {/* Límite */}
-          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/60">
+          <div className="group relative rounded-2xl bg-card border border-border p-3 hover:border-foreground/20 transition-colors duration-200 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/60">
             <div className="flex items-center justify-between mb-1.5">
               <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">Límite</div>
               <div className="text-sm font-bold tabular-nums text-primary transition-all duration-200" key={searchLimit}>{searchLimit}</div>

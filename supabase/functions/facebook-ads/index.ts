@@ -27,24 +27,36 @@ Deno.serve(async (req) => {
       });
     }
 
-    const fields = [
+    const baseFields = [
       "id", "ad_creation_time", "ad_delivery_start_time", "ad_delivery_stop_time",
       "ad_creative_bodies", "ad_creative_link_titles", "ad_creative_link_descriptions",
       "ad_creative_link_captions", "ad_snapshot_url", "page_id", "page_name",
       "publisher_platforms", "impressions", "spend", "currency", "languages",
-    ].join(",");
+    ];
+    // Pedimos también total_count (algunos endpoints lo soportan); si la API
+    // rechaza el campo, reintentamos sin él.
+    const fieldsWithTotal = [...baseFields, "total_count"].join(",");
+    const fieldsBase = baseFields.join(",");
 
-    const fbUrl = new URL("https://graph.facebook.com/v21.0/ads_archive");
-    fbUrl.searchParams.set("access_token", token);
-    fbUrl.searchParams.set("search_terms", q);
-    fbUrl.searchParams.set("ad_reached_countries", JSON.stringify([country]));
-    fbUrl.searchParams.set("ad_type", adType);
-    fbUrl.searchParams.set("ad_active_status", adActiveStatus);
-    fbUrl.searchParams.set("limit", String(Math.min(Math.max(limit, 1), 100)));
-    fbUrl.searchParams.set("fields", fields);
+    const buildUrl = (fields: string) => {
+      const u = new URL("https://graph.facebook.com/v21.0/ads_archive");
+      u.searchParams.set("access_token", token);
+      u.searchParams.set("search_terms", q);
+      u.searchParams.set("ad_reached_countries", JSON.stringify([country]));
+      u.searchParams.set("ad_type", adType);
+      u.searchParams.set("ad_active_status", adActiveStatus);
+      u.searchParams.set("limit", String(Math.min(Math.max(limit, 1), 100)));
+      u.searchParams.set("fields", fields);
+      return u;
+    };
 
-    const r = await fetch(fbUrl.toString());
-    const data = await r.json();
+    let r = await fetch(buildUrl(fieldsWithTotal).toString());
+    let data = await r.json();
+    if (!r.ok) {
+      // Fallback: reintentar sin total_count si la API lo rechaza
+      r = await fetch(buildUrl(fieldsBase).toString());
+      data = await r.json();
+    }
 
     if (!r.ok) {
       console.error("FB error:", data);

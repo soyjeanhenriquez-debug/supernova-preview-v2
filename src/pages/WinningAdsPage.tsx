@@ -64,10 +64,50 @@ export function WinningAdsPage() {
     return list;
   }, [allAds, market, minDays, minDups, typeFilter, regionFilter, minScore, sort, keyword]);
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!canAfford("search_ads")) { toast.error("Sin créditos suficientes"); return; }
     consume("search_ads", keyword || market);
-    toast.success(`✓ Buscando "${keyword || "todos"}" en ${MARKETS.find((m) => m.id === market)?.label}`);
+    const countryMap: Record<string, string> = { es: "ES", pt: "BR", en: "US", ru: "RU", all: "US" };
+    const country = countryMap[market] ?? "US";
+    setLoadingReal(true);
+    toast.info(`Buscando "${keyword || "todos"}" en Facebook Ad Library...`);
+    try {
+      const { data, error } = await supabase.functions.invoke("facebook-ads", {
+        body: { search_terms: keyword || "ad", country, limit: 25, ad_active_status: "ACTIVE" },
+      });
+      if (error) throw error;
+      const items: any[] = data?.data ?? [];
+      const mapped: DemoAd[] = items.map((it, i) => {
+        const body = (it.ad_creative_bodies?.[0] ?? "").toString();
+        const title = (it.ad_creative_link_titles?.[0] ?? it.page_name ?? "Anuncio").toString();
+        const start = it.ad_delivery_start_time ? new Date(it.ad_delivery_start_time) : new Date();
+        const days = Math.max(1, Math.floor((Date.now() - start.getTime()) / 86400000));
+        return {
+          id: `fb-${it.id ?? i}`,
+          pageId: it.page_id ?? "",
+          pageName: it.page_name ?? "Facebook Ad",
+          title,
+          body: body || title,
+          daysActive: days,
+          duplicates: 1,
+          score: Math.min(100, 40 + Math.floor(days / 2)),
+          tier: days >= 60 ? "mega" : days >= 14 ? "rising" : "solid",
+          offerType: "infoproducto",
+          market: country as any,
+          marketLabel: country,
+          flag: "🌐",
+          lang: market === "all" ? "en" : (market as any),
+          adUrl: it.ad_snapshot_url ?? "https://facebook.com/ads/library",
+        };
+      });
+      setRealAds(mapped);
+      toast.success(`✓ ${mapped.length} anuncios reales encontrados`);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(`Error Facebook: ${e?.message ?? "desconocido"}`);
+    } finally {
+      setLoadingReal(false);
+    }
   };
 
   const handleAnalyzeUrl = () => {

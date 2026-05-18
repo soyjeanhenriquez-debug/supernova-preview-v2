@@ -823,6 +823,11 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${dupsBadgeCls}`}>
           <Zap className="w-3 h-3" /> {ad.duplicates} Duplicados
         </span>
+        {typeof ad.activeCount === "number" && ad.activeCount > 1 && (
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 bg-primary/15 text-primary border border-primary/30">
+            {ad.activeCount} anuncios activos
+          </span>
+        )}
       </div>
 
       <div>

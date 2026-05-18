@@ -6,6 +6,9 @@ import { useElapsedMinutes } from "@/hooks/useElapsedMinutes";
 import { useCredits } from "@/hooks/useCredits";
 import { SofisticarModal } from "@/components/SofisticarModal";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+
+const ADMIN_EMAIL = "soyjeanhenriquez@gmail.com";
 
 const TIERS: Record<Tier, { label: string; cls: string; icon: string }> = {
   mega:   { label: "MEGA WINNER",  cls: "tier-mega",  icon: "🏆" },

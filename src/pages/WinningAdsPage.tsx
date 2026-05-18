@@ -58,10 +58,43 @@ interface FacebookAdLibraryItem {
   ad_creative_bodies?: string[];
   ad_creative_link_titles?: string[];
   ad_delivery_start_time?: string;
+  total_count?: number | string;
 }
 
 interface FacebookAdsResponse {
   data?: FacebookAdLibraryItem[];
+}
+
+// Agrupa anuncios por page_id quedándose con el de mejor score por anunciante.
+// Añade activeCount (anuncios activos en esta búsqueda) e historicalCount
+// (total_count de la API si está disponible).
+function groupByAdvertiser(ads: DemoAd[], items: FacebookAdLibraryItem[]): DemoAd[] {
+  // Mapear historicalCount máximo por page_id desde la respuesta cruda
+  const historicalByPage = new Map<string, number>();
+  items.forEach((it) => {
+    const k = (it.page_id ?? it.page_name ?? "").toString();
+    if (!k) return;
+    const tc = typeof it.total_count === "string" ? parseInt(it.total_count) : it.total_count;
+    if (typeof tc === "number" && !isNaN(tc)) {
+      historicalByPage.set(k, Math.max(historicalByPage.get(k) ?? 0, tc));
+    }
+  });
+  const byPage = new Map<string, DemoAd[]>();
+  ads.forEach((a) => {
+    const k = (a.pageId || a.pageName || a.id).toString();
+    if (!byPage.has(k)) byPage.set(k, []);
+    byPage.get(k)!.push(a);
+  });
+  const grouped: DemoAd[] = [];
+  byPage.forEach((group, key) => {
+    const top = group.slice().sort((x, y) => y.score - x.score)[0];
+    grouped.push({
+      ...top,
+      activeCount: group.length,
+      historicalCount: historicalByPage.get(key),
+    });
+  });
+  return grouped;
 }
 
 // Nota: usamos <a target="_blank" rel="noopener noreferrer"> en vez de window.open()
@@ -198,10 +231,12 @@ export function WinningAdsPage() {
           adUrl,
         };
       });
+      // Agrupar por anunciante (1 tarjeta por page_id, el de mayor score)
+      const groupedMapped = groupByAdvertiser(mapped, allWithCountry.map((x) => x.it));
       // Prepend nuevos, dedupe por id, mantener historial
       setRealAds((prev) => {
         const seen = new Set(prev.map((a) => a.id));
-        const fresh = mapped.filter((a) => !seen.has(a.id));
+        const fresh = groupedMapped.filter((a) => !seen.has(a.id));
         return [...fresh, ...prev];
       });
       setLastAutoRun(new Date());
@@ -346,8 +381,9 @@ export function WinningAdsPage() {
           adUrl,
         };
       });
-      setRealAds(mapped);
-      toast.success(`✓ ${mapped.length} anuncios reales encontrados`);
+      const grouped = groupByAdvertiser(mapped, items);
+      setRealAds(grouped);
+      toast.success(`✓ ${grouped.length} anunciantes únicos (${mapped.length} anuncios)`);
     } catch (e: unknown) {
       console.error(e);
       toast.error(`Error Facebook: ${e instanceof Error ? e.message : "desconocido"}`);
@@ -787,6 +823,11 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${dupsBadgeCls}`}>
           <Zap className="w-3 h-3" /> {ad.duplicates} Duplicados
         </span>
+        {typeof ad.activeCount === "number" && ad.activeCount > 1 && (
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 bg-primary/15 text-primary border border-primary/30">
+            {ad.activeCount} anuncios activos
+          </span>
+        )}
       </div>
 
       <div>
@@ -806,6 +847,14 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
         <div className="min-w-0">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Anunciante</div>
           <div className="text-xs font-semibold text-foreground truncate">{ad.pageName}</div>
+          {(typeof ad.activeCount === "number" || typeof ad.historicalCount === "number") && (
+            <div className="text-[10px] text-muted-foreground mt-0.5">
+              {(ad.activeCount ?? 1).toLocaleString()} activos
+              {typeof ad.historicalCount === "number" && ad.historicalCount > 0 && (
+                <> · {ad.historicalCount.toLocaleString()}+ históricos</>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

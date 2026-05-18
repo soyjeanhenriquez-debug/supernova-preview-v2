@@ -85,6 +85,7 @@ export function WinningAdsPage() {
   const [sofisticarAd, setSofisticarAd] = useState<DemoAd | null>(null);
   const [realAds, setRealAds] = useState<DemoAd[]>([]);
   const [loadingReal, setLoadingReal] = useState(false);
+  const [liveStats, setLiveStats] = useState({ total: 0, unique: 0, mega: 0, rising: 0, solid: 0 });
   // Selectores para la edge function
   const [searchCountry, setSearchCountry] = useState("ES");
   const [searchLimit, setSearchLimit] = useState(25);

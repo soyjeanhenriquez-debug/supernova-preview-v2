@@ -33,15 +33,8 @@ interface FacebookAdsResponse {
   data?: FacebookAdLibraryItem[];
 }
 
-const openExternalUrl = async (url: string) => {
-  const newWindow = window.open(url, "_blank", "noopener,noreferrer");
-  if (newWindow && !newWindow.closed) {
-    newWindow.opener = null;
-    return;
-  }
-  await navigator.clipboard?.writeText(url);
-  toast.info("Facebook bloqueó la apertura automática; copié la URL para abrirla fuera del preview.");
-};
+// Nota: usamos <a target="_blank" rel="noopener noreferrer"> en vez de window.open()
+// porque el preview de Lovable corre dentro de un iframe sandbox que bloquea popups programáticos.
 
 export function WinningAdsPage() {
   const elapsed = useElapsedMinutes();
@@ -452,9 +445,9 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
         <Sparkles className="w-4 h-4" /> SOFISTICAR → <span className="opacity-70 text-xs">· 1 crédito</span>
       </button>
 
-      <button type="button" onClick={() => openExternalUrl(ad.adUrl)} className="text-[11px] text-muted-foreground hover:text-primary flex items-center gap-1 justify-center group">
+      <a href={ad.adUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-muted-foreground hover:text-primary flex items-center gap-1 justify-center group">
         <ExternalLink className="w-3 h-3" /> Ver todos los anuncios de <span className="font-semibold text-foreground group-hover:text-primary truncate max-w-[160px]">{ad.pageName}</span> en Ads Library
-      </button>
+      </a>
     </div>
   );
 }

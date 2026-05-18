@@ -90,12 +90,42 @@ export const MARKETS = [
 ] as const;
 
 export const KEYWORD_CHIPS: Record<string, string[]> = {
-  all: ["Learn more", "El secreto", "O segredo", "Free shipping", "Envío gratis", "Só hoje", "Секрет", "The secret", "Más información", "Saiba mais", "Only today", "Solo hoy"],
-  en:  ["Learn more", "Free shipping", "Limited time", "The secret", "Just pay shipping", "Claim your", "Risk free", "Discovered", "Order now", "Act now", "What they don't want", "Get yours"],
-  es:  ["El secreto", "Más información", "Envío gratis", "Solo hoy", "Lo que nadie te dice", "¿Cansado de", "Método probado", "Garantizado", "Accede ahora", "Webinar gratuito", "Por fin", "¿Sigues luchando"],
-  pt:  ["O segredo", "Saiba mais", "Frete grátis", "Só hoje", "O que ninguém te conta", "Você sabia", "Método comprovado", "Garantido", "Acesse agora", "Webinar gratuito", "Hotmart", "Kiwify"],
+  all: ["Learn more", "El secreto", "O segredo", "Free shipping", "Envío gratis", "Só hoje", "Solo hoy", "Shop now", "Comprar ahora", "Секрет", "Claim your", "Just pay shipping"],
+  en:  ["Learn more", "Free shipping", "Shop now", "Limited time", "Just pay shipping", "The secret", "Claim your", "Order now", "Act now", "Are you tired of", "Finally revealed", "Free trial", "No credit card", "Back in stock", "Free masterclass", "Clickbank", "Shopify"],
+  es:  ["El secreto", "Más información", "Envío gratis", "Solo hoy", "Lo que nadie te dice", "¿Cansado de", "Método probado", "Garantizado", "Accede ahora", "Webinar gratuito", "Por fin", "Cupos limitados", "Acceso inmediato", "Sin tarjeta", "Hotmart", "Masterclass gratuita"],
+  pt:  ["O segredo", "Saiba mais", "Frete grátis", "Só hoje", "O que ninguém te conta", "Você sabia que", "Método comprovado", "Garantido", "Acesse agora", "Webinar gratuito", "Vagas limitadas", "Acesso imediato", "Hotmart", "Kiwify", "Eduzz"],
   ru:  ["Секрет", "Узнать больше", "Бесплатно", "Только сегодня", "Метод", "Гарантировано", "Получить доступ", "Мастер-класс", "Никто не говорит", "Узнайте как"],
 };
+
+// Auto-classify ad based on creative text keywords
+export type AdCategory = "ecommerce" | "infoproducto" | "app_saas" | "servicio" | "crypto" | "salud" | "otro";
+
+export const CATEGORY_LABEL: Record<AdCategory, string> = {
+  ecommerce: "ECOMMERCE",
+  infoproducto: "INFOPRODUCTO",
+  app_saas: "APP / SAAS",
+  servicio: "SERVICIO",
+  crypto: "CRYPTO / TRADING",
+  salud: "SALUD",
+  otro: "OTRO",
+};
+
+const CATEGORY_KEYWORDS: { cat: AdCategory; words: string[] }[] = [
+  { cat: "salud",        words: ["perder peso", "adelgazar", "emagrecer", "suplemento", "dieta", "keto", "salud", "saúde", "weight loss"] },
+  { cat: "crypto",       words: ["trading", "forex", "crypto", "cripto", "bitcoin", "binance", "inversión", "señales", "signals", "trader"] },
+  { cat: "app_saas",     words: ["app", "software", "plataforma", "tool", "herramienta", "dashboard", "prueba gratis", "free trial", "suscripción", "assinatura", "no credit card", "sin tarjeta"] },
+  { cat: "infoproducto", words: ["webinar", "masterclass", "curso", "course", "método", "metodo", "secreto", "ebook", "aula", "clase", "acceso inmediato", "cupos", "vagas", "hotmart", "kiwify", "eduzz", "clickbank"] },
+  { cat: "ecommerce",    words: ["shipping", "envío", "envio", "frete", "tienda", "store", "compra", "buy", "stock", "unidades", "deliver", "talla", "back in stock", "sold out", "edición limitada"] },
+  { cat: "servicio",     words: ["agencia", "consultoría", "consultoria", "coaching", "servicio", "gestión", "sesión", "consulting"] },
+];
+
+export function classifyOffer(text: string): AdCategory {
+  const t = (text || "").toLowerCase();
+  for (const { cat, words } of CATEGORY_KEYWORDS) {
+    if (words.some((w) => t.includes(w))) return cat;
+  }
+  return "otro";
+}
 
 export const PLACEHOLDERS: Record<string, string> = {
   all: "Busca en todos los mercados...",

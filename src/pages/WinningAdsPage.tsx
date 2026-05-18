@@ -7,6 +7,32 @@ import { useCredits } from "@/hooks/useCredits";
 import { SofisticarModal } from "@/components/SofisticarModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+
+const COUNTRY_OPTIONS: { code: string; label: string; flag: string }[] = [
+  { code: "ES", label: "España", flag: "🇪🇸" },
+  { code: "US", label: "Estados Unidos", flag: "🇺🇸" },
+  { code: "BR", label: "Brasil", flag: "🇧🇷" },
+  { code: "MX", label: "México", flag: "🇲🇽" },
+  { code: "AR", label: "Argentina", flag: "🇦🇷" },
+  { code: "CO", label: "Colombia", flag: "🇨🇴" },
+  { code: "PE", label: "Perú", flag: "🇵🇪" },
+  { code: "CL", label: "Chile", flag: "🇨🇱" },
+  { code: "PT", label: "Portugal", flag: "🇵🇹" },
+  { code: "FR", label: "Francia", flag: "🇫🇷" },
+  { code: "DE", label: "Alemania", flag: "🇩🇪" },
+  { code: "IT", label: "Italia", flag: "🇮🇹" },
+  { code: "GB", label: "Reino Unido", flag: "🇬🇧" },
+  { code: "RU", label: "Rusia", flag: "🇷🇺" },
+  { code: "ALL", label: "Global", flag: "🌍" },
+];
+
+const STATUS_OPTIONS: { value: "ACTIVE" | "INACTIVE" | "ALL"; label: string; dot: string }[] = [
+  { value: "ACTIVE", label: "Activos", dot: "bg-success" },
+  { value: "INACTIVE", label: "Pausados", dot: "bg-warning" },
+  { value: "ALL", label: "Todos", dot: "bg-muted-foreground" },
+];
 
 const ADMIN_EMAIL = "soyjeanhenriquez@gmail.com";
 

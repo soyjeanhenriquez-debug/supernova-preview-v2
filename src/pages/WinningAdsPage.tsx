@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2, Bookmark, Plus, X, Check } from "lucide-react";
+import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2, Bookmark, Plus, X, Check, Copy, Languages, Eye, LayoutGrid, List, Star } from "lucide-react";
 import { MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, normalizeAdsLibraryUrl, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
 import { useElapsedMinutes } from "@/hooks/useElapsedMinutes";
 import { useCredits } from "@/hooks/useCredits";
@@ -57,7 +57,12 @@ interface FacebookAdLibraryItem {
   page_name?: string;
   ad_creative_bodies?: string[];
   ad_creative_link_titles?: string[];
+  ad_creative_link_descriptions?: string[];
+  ad_creative_link_captions?: string[];
+  ad_snapshot_url?: string;
   ad_delivery_start_time?: string;
+  publisher_platforms?: string[];
+  languages?: string[];
   total_count?: number | string;
 }
 
@@ -65,10 +70,40 @@ interface FacebookAdsResponse {
   data?: FacebookAdLibraryItem[];
 }
 
+// Extrae el dominio limpio (sin "www.") de una URL.
+function extractDomain(url: string): string {
+  try {
+    const u = new URL(url.startsWith("http") ? url : `https://${url}`);
+    return u.hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+// Convierte código ISO de país (US, ES, BR...) a emoji bandera.
+function flagEmoji(code: string): string {
+  if (!code || code.length !== 2) return "🌐";
+  const cc = code.toUpperCase();
+  return String.fromCodePoint(...cc.split("").map((c) => 127397 + c.charCodeAt(0)));
+}
+
+// Mapea cada plataforma a su icono Lucide y color.
+const PLATFORM_META: Record<string, { label: string; cls: string }> = {
+  facebook: { label: "FB", cls: "bg-[#1877F2] text-white" },
+  instagram: { label: "IG", cls: "bg-gradient-to-br from-[#feda75] via-[#fa7e1e] to-[#d62976] text-white" },
+  messenger: { label: "MSG", cls: "bg-[#0084FF] text-white" },
+  audience_network: { label: "AN", cls: "bg-neutral-700 text-neutral-200" },
+  threads: { label: "TH", cls: "bg-black text-white border border-neutral-700" },
+};
+
 // Agrupa anuncios por page_id quedándose con el de mejor score por anunciante.
-// Añade activeCount (anuncios activos en esta búsqueda) e historicalCount
-// (total_count de la API si está disponible).
-function groupByAdvertiser(ads: DemoAd[], items: FacebookAdLibraryItem[]): DemoAd[] {
+// Añade activeCount (anuncios activos en esta búsqueda), historicalCount
+// (total_count de la API si está disponible) y countries (unión de países donde corre).
+function groupByAdvertiser(
+  ads: DemoAd[],
+  items: FacebookAdLibraryItem[],
+  countriesByPage?: Map<string, Set<string>>,
+): DemoAd[] {
   // Mapear historicalCount máximo por page_id desde la respuesta cruda
   const historicalByPage = new Map<string, number>();
   items.forEach((it) => {
@@ -88,10 +123,12 @@ function groupByAdvertiser(ads: DemoAd[], items: FacebookAdLibraryItem[]): DemoA
   const grouped: DemoAd[] = [];
   byPage.forEach((group, key) => {
     const top = group.slice().sort((x, y) => y.score - x.score)[0];
+    const countries = countriesByPage?.get(key);
     grouped.push({
       ...top,
       activeCount: group.length,
       historicalCount: historicalByPage.get(key),
+      countries: countries ? Array.from(countries) : top.countries,
     });
   });
   return grouped;
@@ -127,6 +164,28 @@ export function WinningAdsPage() {
   const [searchCountry, setSearchCountry] = useState("ES");
   const [searchLimit, setSearchLimit] = useState(25);
   const [searchStatus, setSearchStatus] = useState<"ACTIVE" | "INACTIVE" | "ALL">("ACTIVE");
+  const [verticalFilter, setVerticalFilter] = useState<string>("Todas");
+  const [viewMode, setViewMode] = useState<"grid" | "list">(() => (localStorage.getItem("supernova:ads-view") as "grid" | "list") ?? "grid");
+  useEffect(() => { localStorage.setItem("supernova:ads-view", viewMode); }, [viewMode]);
+  const [bannerDismissed, setBannerDismissed] = useState(() => localStorage.getItem("supernova:winner-banner-v1") === "1");
+  const dismissBanner = () => { setBannerDismissed(true); localStorage.setItem("supernova:winner-banner-v1", "1"); };
+  // Búsquedas guardadas por usuario (keyword + país + estado)
+  type UserSearch = { id: string; name: string; keyword: string; country: string; status: "ACTIVE" | "INACTIVE" | "ALL" };
+  const USER_SEARCHES_KEY = "supernova:user-saved-searches";
+  const [userSearches, setUserSearches] = useState<UserSearch[]>(() => {
+    try { return JSON.parse(localStorage.getItem(USER_SEARCHES_KEY) ?? "[]"); } catch { return []; }
+  });
+  useEffect(() => { localStorage.setItem(USER_SEARCHES_KEY, JSON.stringify(userSearches)); }, [userSearches]);
+  const saveCurrentSearch = () => {
+    const name = (keyword.trim() || "Búsqueda sin nombre").slice(0, 40);
+    const s: UserSearch = { id: crypto.randomUUID(), name, keyword: keyword.trim(), country: searchCountry, status: searchStatus };
+    setUserSearches((p) => [s, ...p].slice(0, 20));
+    toast.success(`Guardado: ${name}`);
+  };
+  const applyUserSearch = (s: UserSearch) => {
+    setKeyword(s.keyword); setSearchCountry(s.country); setSearchStatus(s.status);
+    toast.success(`Aplicado: ${s.name}`);
+  };
   // Presets de filtros (País/Estado/Límite) — persistidos en localStorage
   type FilterPreset = { id: string; name: string; country: string; status: "ACTIVE" | "INACTIVE" | "ALL"; limit: number };
   const PRESETS_KEY = "supernova:fb-filter-presets";
@@ -182,9 +241,13 @@ export function WinningAdsPage() {
       );
       // Duplicados por page_id a través de TODAS las búsquedas (señal real de escala)
       const dupByPage = new Map<string, number>();
-      allWithCountry.forEach(({ it }) => {
+      const countriesByPage = new Map<string, Set<string>>();
+      allWithCountry.forEach(({ it, country }) => {
         const k = (it.page_id ?? it.page_name ?? "").toString();
-        if (k) dupByPage.set(k, (dupByPage.get(k) ?? 0) + 1);
+        if (!k) return;
+        dupByPage.set(k, (dupByPage.get(k) ?? 0) + 1);
+        if (!countriesByPage.has(k)) countriesByPage.set(k, new Set());
+        countriesByPage.get(k)!.add(country);
       });
       const mapped: DemoAd[] = allWithCountry.map(({ it, country }, i) => {
         const adMarket = country as AdMarket;
@@ -198,14 +261,12 @@ export function WinningAdsPage() {
           ? buildAdsLibraryPageUrl(String(it.page_id), adMarket)
           : buildAdsLibrarySearchUrl(it.page_name ?? title, adMarket);
         const adUrl = normalizeAdsLibraryUrl(rawUrl, it.page_name ?? title, adMarket);
-        // Scoring: días activo + duplicados + bonus por copy largo (señal de VSL/lead magnet)
         const copyBonus = body.length > 500 ? 10 : body.length > 200 ? 5 : 0;
         const score = Math.min(100, 30 + Math.min(days, 90) / 2 + dups * 5 + copyBonus);
         const tier: Tier =
           score >= 75 || dups >= 5 || days >= 60 ? "mega"
           : score >= 55 || dups >= 2 || days >= 14 ? "rising"
           : "solid";
-        // Detección de tipo de oferta básica
         const lower = (title + " " + body).toLowerCase();
         const offerType: DemoAd["offerType"] =
           /webinar|masterclass|curso|método|secret|training|treinamento/.test(lower) ? "infoproducto"
@@ -213,6 +274,8 @@ export function WinningAdsPage() {
           : /\b(agency|agencia|consulting|consultoría|service|servicio)\b/.test(lower) ? "servicio"
           : /shipping|envío|frete|free \+ shipping/.test(lower) ? "ecommerce"
           : "infoproducto";
+        const landingCaption = it.ad_creative_link_captions?.[0];
+        const landingUrl = landingCaption?.startsWith("http") ? landingCaption : undefined;
         return {
           id: `auto-${it.id ?? `${pageKey}-${i}`}`,
           pageId: it.page_id ?? "",
@@ -226,13 +289,19 @@ export function WinningAdsPage() {
           offerType,
           market: adMarket,
           marketLabel: country,
-          flag: "🌐",
+          flag: flagEmoji(country),
           lang: marketTyped,
           adUrl,
+          platforms: it.publisher_platforms,
+          countries: [country],
+          ctaText: undefined,
+          landingUrl,
+          snapshotUrl: it.ad_snapshot_url,
+          vertical: classifyOffer(`${title} ${body}`),
         };
       });
       // Agrupar por anunciante (1 tarjeta por page_id, el de mayor score)
-      const groupedMapped = groupByAdvertiser(mapped, allWithCountry.map((x) => x.it));
+      const groupedMapped = groupByAdvertiser(mapped, allWithCountry.map((x) => x.it), countriesByPage);
       // Prepend nuevos, dedupe por id, mantener historial
       setRealAds((prev) => {
         const seen = new Set(prev.map((a) => a.id));
@@ -320,6 +389,12 @@ export function WinningAdsPage() {
       list = list.filter((a) => map[regionFilter]?.includes(a.market));
     }
     if (minScore > 0) list = list.filter((a) => a.score >= minScore);
+    if (verticalFilter !== "Todas") {
+      list = list.filter((a) => {
+        const v = a.vertical ?? classifyOffer(`${a.title} ${a.body}`);
+        return v === verticalFilter;
+      });
+    }
     if (keyword.trim()) {
       const q = keyword.toLowerCase();
       list = list.filter((a) => a.title.toLowerCase().includes(q) || a.body.toLowerCase().includes(q));
@@ -331,7 +406,7 @@ export function WinningAdsPage() {
       default: list.sort((a, b) => b.score - a.score);
     }
     return list;
-  }, [allAds, market, minDays, minDups, typeFilter, regionFilter, minScore, sort, keyword]);
+  }, [allAds, market, minDays, minDups, typeFilter, regionFilter, minScore, verticalFilter, sort, keyword]);
 
   const handleSearch = async () => {
     if (!canAfford("search_ads")) { toast.error("Sin créditos suficientes"); return; }
@@ -363,6 +438,8 @@ export function WinningAdsPage() {
           ? buildAdsLibraryPageUrl(String(it.page_id), adMarket)
           : buildAdsLibrarySearchUrl(it.page_name ?? title, adMarket);
         const adUrl = normalizeAdsLibraryUrl(rawUrl, it.page_name ?? title, adMarket);
+        const landingCaption = it.ad_creative_link_captions?.[0];
+        const landingUrl = landingCaption?.startsWith("http") ? landingCaption : undefined;
         return {
           id: `fb-${it.id ?? i}`,
           pageId: it.page_id ?? "",
@@ -376,9 +453,14 @@ export function WinningAdsPage() {
           offerType: "infoproducto",
           market: adMarket,
           marketLabel: searchCountry,
-          flag: "🌐",
+          flag: flagEmoji(searchCountry),
           lang: marketTyped,
           adUrl,
+          platforms: it.publisher_platforms,
+          countries: [searchCountry],
+          landingUrl,
+          snapshotUrl: it.ad_snapshot_url,
+          vertical: classifyOffer(`${title} ${body}`),
         };
       });
       const grouped = groupByAdvertiser(mapped, items);
@@ -411,6 +493,20 @@ export function WinningAdsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Release banner */}
+      {!bannerDismissed && (
+        <div className="rounded-xl border border-primary/40 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-4 py-2.5 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-base">🚀</span>
+            <span className="font-semibold text-foreground">Nuevo:</span>
+            <span className="text-muted-foreground">filtros por vertical, búsquedas guardadas y vista lista. <span className="text-primary font-semibold">TikTok Ads</span> próximamente.</span>
+          </div>
+          <button onClick={dismissBanner} className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-secondary transition-colors" aria-label="Cerrar">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
@@ -422,6 +518,7 @@ export function WinningAdsPage() {
           <span className="text-[11px] font-bold text-primary tracking-widest">ACTUALIZADO HACE {elapsed} MIN</span>
         </div>
       </div>
+
 
       {/* Selectores Edge Function + Debug panel (solo admin) */}
       {isAdmin && (
@@ -628,10 +725,35 @@ export function WinningAdsPage() {
               className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-3 text-base focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
+          <button onClick={saveCurrentSearch} className="px-4 py-3 rounded-lg text-sm flex items-center gap-2 whitespace-nowrap border border-border bg-secondary/60 text-foreground hover:border-primary/40 hover:text-primary transition-colors" title="Guardar esta búsqueda">
+            <Star className="w-4 h-4" />
+          </button>
           <button onClick={handleSearch} disabled={loadingReal} className="btn-primary-nova px-6 py-3 rounded-lg text-sm flex items-center gap-2 whitespace-nowrap disabled:opacity-60">
             {loadingReal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} {loadingReal ? "Buscando..." : "Buscar Anuncios"} <span className="opacity-70">· 1 crédito</span>
           </button>
         </div>
+
+        {/* Búsquedas guardadas del usuario */}
+        {userSearches.length > 0 && (
+          <div className="space-y-1.5 pt-1">
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold flex items-center gap-1.5">
+              <Star className="w-3 h-3" /> Tus búsquedas guardadas
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {userSearches.map((s) => (
+                <div key={s.id} className="group/search inline-flex items-center gap-1 rounded-full pl-3 pr-1 py-1 text-xs font-medium bg-secondary/60 border border-border/60 hover:border-primary/40 transition-all">
+                  <button onClick={() => applyUserSearch(s)} className="flex items-center gap-1.5">
+                    <span className="text-foreground">{s.name}</span>
+                    <span className="text-[9px] text-muted-foreground">{s.country}·{s.status[0]}</span>
+                  </button>
+                  <button onClick={() => setUserSearches((p) => p.filter((x) => x.id !== s.id))} className="opacity-0 group-hover/search:opacity-100 transition-opacity rounded-full p-0.5 hover:bg-destructive/30" aria-label="Eliminar">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Keyword chips · solo admin (uso interno) */}
         {isAdmin && (
@@ -650,10 +772,43 @@ export function WinningAdsPage() {
       </div>
 
       {/* Quality filters — hairline Apple style */}
-      <div className="rounded-2xl p-5 sticky top-[80px] z-10 border border-border bg-card/80 backdrop-blur-xl">
-        <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.18em] mb-4">
-          <Filter className="w-3.5 h-3.5" /> Filtros de calidad
+      <div className="rounded-2xl p-5 sticky top-[80px] z-10 border border-border bg-card/80 backdrop-blur-xl space-y-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.18em]">
+            <Filter className="w-3.5 h-3.5" /> Filtros de calidad
+          </div>
+          {/* Toggle vista grid/list */}
+          <div className="inline-flex bg-secondary/60 rounded-full p-1 border border-border/60">
+            <button onClick={() => setViewMode("grid")} aria-label="Vista grid" className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${viewMode === "grid" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
+              <LayoutGrid className="w-3 h-3" /> Grid
+            </button>
+            <button onClick={() => setViewMode("list")} aria-label="Vista lista" className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${viewMode === "list" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
+              <List className="w-3 h-3" /> Lista
+            </button>
+          </div>
         </div>
+
+        {/* Chips por vertical */}
+        <div className="flex flex-wrap gap-1.5">
+          {(["Todas", "infoproducto", "ecommerce", "app_saas", "servicio", "salud", "crypto", "otro"] as const).map((v) => {
+            const active = verticalFilter === v;
+            const label = v === "Todas" ? "Todas" : (CATEGORY_LABEL as Record<string, string>)[v] ?? v;
+            return (
+              <button
+                key={v}
+                onClick={() => setVerticalFilter(v)}
+                className={`px-3 py-1 rounded-full text-[11px] font-semibold border transition-all ${
+                  active
+                    ? "bg-primary text-primary-foreground border-primary shadow shadow-primary/20"
+                    : "bg-secondary/40 text-muted-foreground border-border/60 hover:text-foreground hover:border-primary/40"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="flex flex-wrap gap-2">
           <PillSelect label="Idioma" value={market} onChange={setMarket} options={MARKETS.map((m) => ({ value: m.id, label: `${m.flag} ${m.label}` }))} />
           <PillSelect label="Días mínimos" value={String(minDays)} onChange={(v) => setMinDays(Number(v))} options={DAY_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
@@ -664,6 +819,7 @@ export function WinningAdsPage() {
           <PillSelect label="Ordenar" value={sort} onChange={setSort} options={SORT_OPTIONS.map((o) => ({ value: o, label: o }))} />
         </div>
       </div>
+
 
       {/* Ofertas escalando */}
       <div>
@@ -715,9 +871,9 @@ export function WinningAdsPage() {
             <div className="text-sm text-muted-foreground max-w-sm mx-auto">Ajusta días, repeticiones o cambia de mercado para descubrir más oportunidades</div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" : "flex flex-col gap-3"}>
             {filtered.map((ad) => (
-              <AdCard key={ad.id} ad={ad} saved={saved.has(ad.id)} onSave={() => toggleSave(ad.id)} onSofisticar={() => setSofisticarAd(ad)} />
+              <AdCard key={ad.id} ad={ad} saved={saved.has(ad.id)} onSave={() => toggleSave(ad.id)} onSofisticar={() => setSofisticarAd(ad)} compact={viewMode === "list"} />
             ))}
           </div>
         )}
@@ -785,7 +941,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 
-function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolean; onSave: () => void; onSofisticar: () => void }) {
+function AdCard({ ad, saved, onSave, onSofisticar, compact = false }: { ad: DemoAd; saved: boolean; onSave: () => void; onSofisticar: () => void; compact?: boolean }) {
   const tier = TIERS[ad.tier];
   const desp = despeguePercent(ad.daysActive, ad.duplicates);
 
@@ -802,10 +958,25 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
     ad.duplicates >= 3  ? "bg-orange-500 text-black" :
     "bg-neutral-700 text-neutral-300";
 
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(ad.body).then(() => toast.success("Copy copiado")).catch(() => toast.error("No se pudo copiar"));
+  };
+  const translateUrl = `https://translate.google.com/?sl=auto&tl=es&text=${encodeURIComponent(ad.body)}&op=translate`;
+  const landingDomain = ad.landingUrl ? extractDomain(ad.landingUrl) : "";
+
   return (
     <div className="card-surface rounded-xl p-5 flex flex-col gap-3 ad-card-hover">
-      <div className="flex items-start justify-between">
-        <span className={`text-[11px] font-bold px-2.5 py-1 rounded ${tier.cls}`}>{tier.icon} {tier.label}</span>
+      {compact && null}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className={`text-[11px] font-bold px-2.5 py-1 rounded ${tier.cls}`}>{tier.icon} {tier.label}</span>
+          {/* Plataformas reales */}
+          {ad.platforms?.slice(0, 4).map((p) => {
+            const meta = PLATFORM_META[p.toLowerCase()];
+            if (!meta) return null;
+            return <span key={p} className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${meta.cls}`}>{meta.label}</span>;
+          })}
+        </div>
         <div className="flex items-center gap-2">
           <button onClick={onSave} className="text-muted-foreground hover:text-primary transition-colors">
             <Heart className={`w-4 h-4 ${saved ? "fill-primary text-primary" : ""}`} />
@@ -815,13 +986,28 @@ function AdCard({ ad, saved, onSave, onSofisticar }: { ad: DemoAd; saved: boolea
       </div>
 
       <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider flex-wrap">
-        <span className="text-primary font-bold">{CATEGORY_LABEL[classifyOffer(`${ad.title} ${ad.body}`)]}</span>
-        <span className="text-muted-foreground">· {ad.flag} {ad.marketLabel}</span>
+        <span className="text-primary font-bold">{CATEGORY_LABEL[ad.vertical ?? classifyOffer(`${ad.title} ${ad.body}`)]}</span>
+        {/* Banderas de países */}
+        {ad.countries && ad.countries.length > 0 ? (
+          <span className="text-muted-foreground">
+            · {ad.countries.slice(0, 4).map(flagEmoji).join(" ")} {ad.countries.length > 4 && `+${ad.countries.length - 4}`}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">· {ad.flag} {ad.marketLabel}</span>
+        )}
         <span className="text-muted-foreground">· {ad.lang.toUpperCase()}</span>
         {ad.checkoutPlatform && <span className="text-muted-foreground">· via {ad.checkoutPlatform}</span>}
       </div>
 
       <p className="text-sm text-foreground/90 line-clamp-4 italic leading-relaxed">"{ad.body}"</p>
+
+      {/* Landing URL */}
+      {landingDomain && (
+        <a href={ad.landingUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary hover:underline flex items-center gap-1 truncate">
+          <LinkIcon className="w-3 h-3 flex-shrink-0" /> <span className="truncate">{landingDomain}</span>
+        </a>
+      )}
+
 
       <div className="flex flex-wrap gap-1.5">
         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${daysBadgeCls}`}>

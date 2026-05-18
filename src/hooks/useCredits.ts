@@ -8,6 +8,7 @@ const DEFAULT_LIMIT = 3000;
 export type CreditAction =
   | "search_ads"
   | "analyze_url"
+  | "landing_intelligence"
   | "sofisticar"
   | "blueprint"
   | "adaptar"
@@ -17,6 +18,7 @@ export type CreditAction =
 export const CREDIT_COSTS: Record<CreditAction, number> = {
   search_ads: 1,
   analyze_url: 1,
+  landing_intelligence: 5,
   sofisticar: 2,
   blueprint: 3,
   adaptar: 1,
@@ -27,6 +29,7 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
 export const ACTION_LABEL: Record<CreditAction, string> = {
   search_ads: "Búsqueda de anuncios",
   analyze_url: "Analizar URL",
+  landing_intelligence: "Intelligence Analyzer (landing)",
   sofisticar: "Sofisticar oferta",
   blueprint: "Blueprint completo",
   adaptar: "Adaptar al mercado",

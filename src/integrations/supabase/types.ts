@@ -140,6 +140,39 @@ export type Database = {
         }
         Relationships: []
       }
+      landing_analyses: {
+        Row: {
+          ads_found: Json
+          analysis_text: string
+          brand_name: string | null
+          created_at: string
+          domain: string
+          id: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          ads_found?: Json
+          analysis_text: string
+          brand_name?: string | null
+          created_at?: string
+          domain: string
+          id?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          ads_found?: Json
+          analysis_text?: string
+          brand_name?: string | null
+          created_at?: string
+          domain?: string
+          id?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       library_items: {
         Row: {
           category: string

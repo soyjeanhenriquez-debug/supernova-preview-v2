@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Trophy, Sparkles, Brain, Coins, ArrowRight, ArrowUpRight } from "lucide-react";
+import { Brain, ArrowRight, ArrowUpRight } from "lucide-react";
 import { useCredits } from "@/hooks/useCredits";
 import { useProjects, PILLARS } from "@/hooks/useProjects";
 import { CountUp } from "@/components/CountUp";

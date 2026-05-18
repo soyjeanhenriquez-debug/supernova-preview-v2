@@ -153,7 +153,7 @@ export function WinningAdsPage() {
     }
   };
 
-  const allAds = useMemo(() => [...realAds, ...getDemoAds()], [realAds]);
+  const allAds = useMemo(() => realAds.slice(), [realAds]);
 
   const filtered = useMemo(() => {
     let list = allAds.slice();

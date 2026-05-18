@@ -277,17 +277,60 @@ export function WinningAdsPage() {
           </div>
           <div className="text-[10px] text-muted-foreground">Se aplican a "Buscar Anuncios" y "Probar Edge Function"</div>
         </div>
+        {/* Presets bar */}
+        <div className="flex items-center gap-2 flex-wrap p-2 rounded-xl bg-background/30 border border-border/40">
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold pl-1">
+            <Bookmark className="w-3 h-3" /> Presets
+          </div>
+          {presets.length === 0 && !savingPreset && (
+            <span className="text-[11px] text-muted-foreground/60 italic">Sin presets guardados</span>
+          )}
+          {presets.map((p) => {
+            const active = activePresetId === p.id;
+            return (
+              <div key={p.id} className={`group/preset inline-flex items-center gap-1 rounded-full pl-3 pr-1 py-1 text-xs font-semibold border transition-all animate-in fade-in slide-in-from-left-1 ${active ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/30" : "bg-secondary/60 text-foreground border-border/60 hover:border-primary/40 hover:bg-secondary"}`}>
+                <button onClick={() => applyPreset(p)} className="flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-full px-1">
+                  {active && <Check className="w-3 h-3" />}
+                  {p.name}
+                  <span className={`text-[9px] font-normal ${active ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{p.country}·{p.status[0]}·{p.limit}</span>
+                </button>
+                <button onClick={() => deletePreset(p.id)} className="opacity-0 group-hover/preset:opacity-100 transition-opacity rounded-full p-0.5 hover:bg-destructive/30" aria-label={`Eliminar preset ${p.name}`}>
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            );
+          })}
+          {savingPreset ? (
+            <div className="inline-flex items-center gap-1 animate-in fade-in zoom-in-95">
+              <input
+                autoFocus
+                value={presetName}
+                onChange={(e) => setPresetName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") savePreset(); if (e.key === "Escape") { setSavingPreset(false); setPresetName(""); } }}
+                placeholder="Nombre del preset…"
+                className="h-7 px-3 rounded-full bg-background/60 border border-primary/40 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50 w-44"
+              />
+              <button onClick={savePreset} className="rounded-full p-1.5 bg-primary text-primary-foreground hover:scale-110 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60" aria-label="Confirmar"><Check className="w-3 h-3" /></button>
+              <button onClick={() => { setSavingPreset(false); setPresetName(""); }} className="rounded-full p-1.5 bg-secondary text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Cancelar"><X className="w-3 h-3" /></button>
+            </div>
+          ) : (
+            <button onClick={() => setSavingPreset(true)} className="ml-auto inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider border border-dashed border-primary/40 text-primary hover:bg-primary/10 hover:border-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+              <Plus className="w-3 h-3" /> Guardar actual
+            </button>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           {/* País */}
-          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 transition-all">
+          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/60">
             <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5 font-semibold">País</div>
-            <Select value={searchCountry} onValueChange={setSearchCountry}>
-              <SelectTrigger className="h-9 bg-background/40 border-border/40 rounded-xl text-sm font-medium hover:bg-background/70 transition-all">
+            <Select value={searchCountry} onValueChange={(v) => { setSearchCountry(v); setActivePresetId(null); }}>
+              <SelectTrigger className="h-9 bg-background/40 border-border/40 rounded-xl text-sm font-medium hover:bg-background/70 focus:ring-2 focus:ring-primary/50 focus:ring-offset-0 transition-all">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="rounded-xl border-border/60 bg-popover/95 backdrop-blur-xl">
                 {COUNTRY_OPTIONS.map((c) => (
-                  <SelectItem key={c.code} value={c.code} className="rounded-lg my-0.5 cursor-pointer">
+                  <SelectItem key={c.code} value={c.code} className="rounded-lg my-0.5 cursor-pointer focus:bg-primary/15">
                     <span className="flex items-center gap-2"><span className="text-base">{c.flag}</span><span className="font-medium">{c.label}</span><span className="text-[10px] text-muted-foreground ml-1">{c.code}</span></span>
                   </SelectItem>
                 ))}
@@ -296,34 +339,47 @@ export function WinningAdsPage() {
           </div>
 
           {/* Estado */}
-          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 transition-all">
+          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/60">
             <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5 font-semibold">Estado</div>
-            <div className="flex gap-1 bg-background/40 p-1 rounded-xl border border-border/40">
-              {STATUS_OPTIONS.map((s) => (
-                <button
-                  key={s.value}
-                  onClick={() => setSearchStatus(s.value)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
-                    searchStatus === s.value
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
-                  }`}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${searchStatus === s.value ? "bg-primary-foreground" : s.dot}`} />
-                  {s.label}
-                </button>
-              ))}
+            <div role="radiogroup" aria-label="Estado del anuncio" className="flex gap-1 bg-background/40 p-1 rounded-xl border border-border/40">
+              {STATUS_OPTIONS.map((s) => {
+                const isActive = searchStatus === s.value;
+                return (
+                  <button
+                    key={s.value}
+                    role="radio"
+                    aria-checked={isActive}
+                    onClick={() => { setSearchStatus(s.value); setActivePresetId(null); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+                        e.preventDefault();
+                        const idx = STATUS_OPTIONS.findIndex((o) => o.value === searchStatus);
+                        const next = e.key === "ArrowRight" ? (idx + 1) % STATUS_OPTIONS.length : (idx - 1 + STATUS_OPTIONS.length) % STATUS_OPTIONS.length;
+                        setSearchStatus(STATUS_OPTIONS[next].value); setActivePresetId(null);
+                      }
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/40 active:scale-95"
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full transition-all ${isActive ? "bg-primary-foreground animate-pulse" : s.dot}`} />
+                    {s.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* Límite */}
-          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 transition-all">
+          <div className="group relative rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/30 border border-border/60 backdrop-blur-xl p-3 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/60">
             <div className="flex items-center justify-between mb-1.5">
               <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">Límite</div>
-              <div className="text-sm font-bold tabular-nums text-primary">{searchLimit}</div>
+              <div className="text-sm font-bold tabular-nums text-primary transition-all duration-200" key={searchLimit}>{searchLimit}</div>
             </div>
             <div className="px-1 pt-2">
-              <Slider value={[searchLimit]} onValueChange={(v) => setSearchLimit(v[0])} min={5} max={100} step={5} />
+              <Slider aria-label="Límite de anuncios" value={[searchLimit]} onValueChange={(v) => { setSearchLimit(v[0]); setActivePresetId(null); }} min={5} max={100} step={5} />
             </div>
             <div className="flex justify-between text-[9px] text-muted-foreground/60 mt-1 px-0.5 font-medium">
               <span>5</span><span>50</span><span>100</span>
@@ -334,10 +390,12 @@ export function WinningAdsPage() {
           <button
             onClick={runDebugTest}
             disabled={debugLoading}
-            className="group relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary to-primary/70 hover:from-primary hover:to-primary text-primary-foreground p-3 flex flex-col items-center justify-center gap-1 font-bold transition-all disabled:opacity-60 shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98]"
+            aria-busy={debugLoading}
+            className="group relative rounded-2xl overflow-hidden bg-gradient-to-br from-primary to-primary/70 hover:from-primary hover:to-primary text-primary-foreground p-3 flex flex-col items-center justify-center gap-1 font-bold transition-all disabled:opacity-60 shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
+            {debugLoading && <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent" />}
             <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity" />
-            {debugLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />}
+            {debugLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5 group-hover:rotate-12 transition-transform" />}
             <span className="text-[11px] uppercase tracking-wider">{debugLoading ? "Probando..." : "Probar Edge"}</span>
           </button>
         </div>

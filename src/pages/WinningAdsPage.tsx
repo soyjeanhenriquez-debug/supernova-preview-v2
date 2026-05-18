@@ -448,53 +448,53 @@ export function WinningAdsPage() {
       </div>
       )}
 
-      {/* Global stats bar */}
-      <div className="card-surface rounded-xl p-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-        <span className="flex items-center gap-2 text-success font-semibold"><span className="live-dot" /> MINER ACTIVO</span>
-        <span className="text-muted-foreground"><strong className="text-foreground">{GLOBAL_STATS.total.toLocaleString()}</strong> anuncios</span>
-        <span className="text-muted-foreground"><strong className="text-foreground">{GLOBAL_STATS.unique.toLocaleString()}</strong> únicos</span>
-        <span className="flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-mega))" }} /> <strong>{GLOBAL_STATS.mega}</strong> mega</span>
-        <span className="flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-rising))" }} /> <strong>{GLOBAL_STATS.rising.toLocaleString()}</strong> rising</span>
-        <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-solid))" }} /> <strong>{GLOBAL_STATS.solid.toLocaleString()}</strong> solid</span>
+      {/* Global stats bar — hairline */}
+      <div className="rounded-2xl border border-border bg-card/60 backdrop-blur-sm px-5 py-3 flex flex-wrap items-center gap-x-7 gap-y-2 text-[12px]">
+        <span className="flex items-center gap-2 text-muted-foreground"><span className="live-dot" /><span className="uppercase tracking-[0.16em] text-foreground font-medium">Miner activo</span></span>
+        <span className="text-muted-foreground"><strong className="text-foreground tabular-nums">{GLOBAL_STATS.total.toLocaleString()}</strong> anuncios</span>
+        <span className="text-muted-foreground"><strong className="text-foreground tabular-nums">{GLOBAL_STATS.unique.toLocaleString()}</strong> únicos</span>
+        <span className="flex items-center gap-1.5 text-muted-foreground"><Trophy className="w-3.5 h-3.5" strokeWidth={1.6} /> <strong className="text-foreground tabular-nums">{GLOBAL_STATS.mega}</strong> mega</span>
+        <span className="flex items-center gap-1.5 text-muted-foreground"><TrendingUp className="w-3.5 h-3.5" strokeWidth={1.6} /> <strong className="text-foreground tabular-nums">{GLOBAL_STATS.rising.toLocaleString()}</strong> rising</span>
+        <span className="flex items-center gap-1.5 text-muted-foreground"><CheckCircle2 className="w-3.5 h-3.5" strokeWidth={1.6} /> <strong className="text-foreground tabular-nums">{GLOBAL_STATS.solid.toLocaleString()}</strong> solid</span>
       </div>
 
       {/* URL input */}
-      <div className="card-surface rounded-xl p-5 flex flex-col md:flex-row gap-3 items-stretch md:items-center">
-        <LinkIcon className="w-5 h-5 text-primary shrink-0 hidden md:block" />
+      <div className="card-surface rounded-2xl p-5 flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+        <LinkIcon className="w-4 h-4 text-muted-foreground shrink-0 hidden md:block" strokeWidth={1.6} />
         <input
           value={urlInput} onChange={(e) => setUrlInput(e.target.value)}
           placeholder="¿Ya tienes un anuncio? Pega la URL del Ads Library y analízalo"
-          className="flex-1 bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+          className="flex-1 bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary"
         />
         <button onClick={handleAnalyzeUrl} className="btn-primary-nova px-5 py-2.5 rounded-lg text-sm whitespace-nowrap flex items-center gap-2">
-          → Analizar Oferta <span className="opacity-70">· 1 crédito</span>
+          Analizar oferta <span className="opacity-70">· 1 crédito</span>
         </button>
       </div>
 
       {/* Keyword search */}
-      <div className="card-surface rounded-xl p-5 space-y-4">
+      <div className="card-surface rounded-2xl p-5 space-y-4">
         <div className="flex gap-3 flex-col md:flex-row">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" strokeWidth={1.6} />
             <input
               value={keyword} onChange={(e) => setKeyword(e.target.value)}
               placeholder={PLACEHOLDERS[market]}
-              className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-3 text-base focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-3 text-base placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
           <button onClick={handleSearch} disabled={loadingReal} className="btn-primary-nova px-6 py-3 rounded-lg text-sm flex items-center gap-2 whitespace-nowrap disabled:opacity-60">
-            {loadingReal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} {loadingReal ? "Buscando..." : "Buscar Anuncios"} <span className="opacity-70">· 1 crédito</span>
+            {loadingReal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" strokeWidth={1.8} />} {loadingReal ? "Buscando…" : "Buscar anuncios"} <span className="opacity-70">· 1 crédito</span>
           </button>
         </div>
 
         {/* Keyword chips · solo admin (uso interno) */}
         {isAdmin && (
-          <div className="space-y-1.5 pt-1">
-            <div className="text-[10px] uppercase tracking-widest text-primary/80 font-bold">🔒 Keywords sugeridas (admin)</div>
-            <div className="flex flex-wrap gap-2">
+          <div className="space-y-2 pt-1">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium">Keywords sugeridas · admin</div>
+            <div className="flex flex-wrap gap-1.5">
               {KEYWORD_CHIPS[market].map((k) => (
                 <button key={k} onClick={() => setKeyword(k)}
-                  className="px-2.5 py-1 rounded-full text-xs bg-secondary border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-all">
+                  className="px-2.5 py-1 rounded-full text-[11px] bg-transparent border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
                   {k}
                 </button>
               ))}
@@ -504,9 +504,24 @@ export function WinningAdsPage() {
       </div>
 
       {/* Quality filters — hairline Apple style */}
-      <div className="rounded-2xl p-5 sticky top-[80px] z-10 border border-border bg-card/80 backdrop-blur-xl">
-        <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.18em] mb-4">
-          <Filter className="w-3.5 h-3.5" /> Filtros de calidad
+      <div className="rounded-2xl p-5 sticky top-[80px] z-10 border border-border bg-card/85 backdrop-blur-xl">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.18em]">
+            <Filter className="w-3.5 h-3.5" strokeWidth={1.6} /> Filtros de calidad
+            {activeFilterCount > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold tabular-nums">
+                {activeFilterCount}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+            <span className="tabular-nums">{filtered.length} resultados</span>
+            {activeFilterCount > 0 && (
+              <button onClick={resetFilters} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded">
+                <X className="w-3 h-3" strokeWidth={1.8} /> Limpiar
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <PillSelect label="Idioma" value={market} onChange={setMarket} options={MARKETS.map((m) => ({ value: m.id, label: `${m.flag} ${m.label}` }))} />
@@ -521,19 +536,25 @@ export function WinningAdsPage() {
 
       {/* Ofertas escalando */}
       <div>
-        <div className="flex items-end justify-between mb-4">
-          <div>
-            <h3 className="font-display font-bold text-xl text-foreground">OFERTAS ESCALANDO</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Productos validados matemáticamente. Cero opiniones, pura data.</p>
+        <div className="flex items-end justify-between mb-5">
+          <div className="space-y-1.5">
+            <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium">Resultados</div>
+            <h3 className="font-display font-semibold text-xl text-foreground tracking-tight">Ofertas escalando</h3>
+            <p className="text-[12px] text-muted-foreground">Productos validados matemáticamente. Cero opiniones, pura data.</p>
           </div>
-          <span className="text-[10px] font-bold tracking-widest text-primary border border-primary/30 bg-primary/10 px-2 py-1 rounded">ACTUALIZADO HOY</span>
+          <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground border border-border px-2.5 py-1 rounded-full">Actualizado hoy</span>
         </div>
 
         {filtered.length === 0 ? (
-          <div className="card-surface rounded-xl py-16 text-center">
-            <div className="empty-icon mb-4"><Trophy className="w-9 h-9" /></div>
-            <div className="font-display font-bold text-lg mb-1">Aún no hay ganadores en este filtro</div>
+          <div className="card-surface rounded-2xl py-20 text-center">
+            <div className="empty-icon mb-5"><Trophy className="w-7 h-7" strokeWidth={1.4} /></div>
+            <div className="font-display font-semibold text-base mb-1">Aún no hay ganadores en este filtro</div>
             <div className="text-sm text-muted-foreground max-w-sm mx-auto">Ajusta días, repeticiones o cambia de mercado para descubrir más oportunidades</div>
+            {activeFilterCount > 0 && (
+              <button onClick={resetFilters} className="mt-5 inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors">
+                <X className="w-3 h-3" strokeWidth={1.8} /> Limpiar filtros
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

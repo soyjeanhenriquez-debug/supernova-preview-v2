@@ -171,11 +171,12 @@ export function despeguePercent(daysActive: number, duplicates: number) {
   return { value: v, label, color };
 }
 
-// Global demo stats (always visible)
+// Stats globales — vacíos por defecto; el frontend rellena con datos reales
+// desde la tabla `winning_ads`.
 export const GLOBAL_STATS = {
-  total: 47832,
-  unique: 8241,
-  mega: 312,
-  rising: 1847,
-  solid: 6082,
+  total: 0,
+  unique: 0,
+  mega: 0,
+  rising: 0,
+  solid: 0,
 };

@@ -219,9 +219,13 @@ export function WinningAdsPage() {
       );
       // Duplicados por page_id a través de TODAS las búsquedas (señal real de escala)
       const dupByPage = new Map<string, number>();
-      allWithCountry.forEach(({ it }) => {
+      const countriesByPage = new Map<string, Set<string>>();
+      allWithCountry.forEach(({ it, country }) => {
         const k = (it.page_id ?? it.page_name ?? "").toString();
-        if (k) dupByPage.set(k, (dupByPage.get(k) ?? 0) + 1);
+        if (!k) return;
+        dupByPage.set(k, (dupByPage.get(k) ?? 0) + 1);
+        if (!countriesByPage.has(k)) countriesByPage.set(k, new Set());
+        countriesByPage.get(k)!.add(country);
       });
       const mapped: DemoAd[] = allWithCountry.map(({ it, country }, i) => {
         const adMarket = country as AdMarket;
@@ -235,14 +239,12 @@ export function WinningAdsPage() {
           ? buildAdsLibraryPageUrl(String(it.page_id), adMarket)
           : buildAdsLibrarySearchUrl(it.page_name ?? title, adMarket);
         const adUrl = normalizeAdsLibraryUrl(rawUrl, it.page_name ?? title, adMarket);
-        // Scoring: días activo + duplicados + bonus por copy largo (señal de VSL/lead magnet)
         const copyBonus = body.length > 500 ? 10 : body.length > 200 ? 5 : 0;
         const score = Math.min(100, 30 + Math.min(days, 90) / 2 + dups * 5 + copyBonus);
         const tier: Tier =
           score >= 75 || dups >= 5 || days >= 60 ? "mega"
           : score >= 55 || dups >= 2 || days >= 14 ? "rising"
           : "solid";
-        // Detección de tipo de oferta básica
         const lower = (title + " " + body).toLowerCase();
         const offerType: DemoAd["offerType"] =
           /webinar|masterclass|curso|método|secret|training|treinamento/.test(lower) ? "infoproducto"
@@ -250,6 +252,8 @@ export function WinningAdsPage() {
           : /\b(agency|agencia|consulting|consultoría|service|servicio)\b/.test(lower) ? "servicio"
           : /shipping|envío|frete|free \+ shipping/.test(lower) ? "ecommerce"
           : "infoproducto";
+        const landingCaption = it.ad_creative_link_captions?.[0];
+        const landingUrl = landingCaption?.startsWith("http") ? landingCaption : undefined;
         return {
           id: `auto-${it.id ?? `${pageKey}-${i}`}`,
           pageId: it.page_id ?? "",
@@ -263,13 +267,19 @@ export function WinningAdsPage() {
           offerType,
           market: adMarket,
           marketLabel: country,
-          flag: "🌐",
+          flag: flagEmoji(country),
           lang: marketTyped,
           adUrl,
+          platforms: it.publisher_platforms,
+          countries: [country],
+          ctaText: undefined,
+          landingUrl,
+          snapshotUrl: it.ad_snapshot_url,
+          vertical: classifyOffer(`${title} ${body}`),
         };
       });
       // Agrupar por anunciante (1 tarjeta por page_id, el de mayor score)
-      const groupedMapped = groupByAdvertiser(mapped, allWithCountry.map((x) => x.it));
+      const groupedMapped = groupByAdvertiser(mapped, allWithCountry.map((x) => x.it), countriesByPage);
       // Prepend nuevos, dedupe por id, mantener historial
       setRealAds((prev) => {
         const seen = new Set(prev.map((a) => a.id));

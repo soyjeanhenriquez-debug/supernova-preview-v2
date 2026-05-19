@@ -543,9 +543,9 @@ function AdCard({ item }: { item: Omit<AdHistoryItem, "visitedAt"> }) {
   const [burst, setBurst] = useState(false);
 
   const onClick = () => markVisited(item);
-  const onFav = (e: React.MouseEvent) => {
+  const onFav = async (e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation();
-    const now = toggleFavorite(item);
+    const now = await toggleFavorite(item);
     setFav(now);
     if (now) { setBurst(true); setTimeout(() => setBurst(false), 600); }
   };

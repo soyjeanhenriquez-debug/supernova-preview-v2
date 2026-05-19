@@ -11,21 +11,20 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     let target = url.searchParams.get("url");
-    const id = url.searchParams.get("id");
+    let id = url.searchParams.get("id");
+    const token = Deno.env.get("FACEBOOK_ACCESS_TOKEN");
 
-    // Si no llega url completa, construirla con el id + token del entorno
-    if (!target && id) {
-      const token = Deno.env.get("FACEBOOK_ACCESS_TOKEN");
-      if (!token) {
-        return new Response("Missing FACEBOOK_ACCESS_TOKEN", {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "text/plain" },
-        });
-      }
-      target = `https://www.facebook.com/ads/archive/render_ad/?id=${encodeURIComponent(id)}&access_token=${token}`;
+    // Si llega url, extraer el id para reinyectar SIEMPRE nuestro token válido
+    if (target && !id) {
+      try {
+        const tu = new URL(target);
+        id = tu.searchParams.get("id");
+      } catch { /* ignore */ }
     }
 
-    if (!target) {
+    if (id && token) {
+      target = `https://www.facebook.com/ads/archive/render_ad/?id=${encodeURIComponent(id)}&access_token=${token}`;
+    } else if (!target) {
       return new Response("Missing url or id", {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "text/plain" },

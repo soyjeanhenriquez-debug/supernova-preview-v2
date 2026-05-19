@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
     let totalErrors = 0;
 
     // Run in batches of 8 in parallel to be polite with FB API
-    const CONCURRENCY = 8;
+    const CONCURRENCY = 25;
     for (let i = 0; i < slice.length; i += CONCURRENCY) {
       const batch = slice.slice(i, i + CONCURRENCY);
       const results = await Promise.all(batch.map(async ({ kw, country }) => {

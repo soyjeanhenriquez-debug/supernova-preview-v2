@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
   Search, Plus, Trash2, Sparkles, Play, TrendingUp, Activity,
-  Globe, Flame, RefreshCw, Check, Languages,
+  Globe, Flame, RefreshCw, Check, Languages, Users, Crown, Brain, Loader2,
 } from "lucide-react";
 import { DR_KEYWORDS, HIGH_YIELD_KEYWORDS } from "@/lib/dr-keywords";
 import { formatDistanceToNow } from "date-fns";
@@ -23,6 +23,17 @@ type KW = {
   winners_count: number;
   last_scraped_at: string | null;
 };
+type TopRow = {
+  keyword: string;
+  user_count: number;
+  total_uses: number;
+  active_count: number;
+  last_used_at: string | null;
+  first_seen_at: string;
+};
+
+type EliteSug = { keyword: string; reason: string; category: string };
+
 
 const LANGS = [
   { code: "all", label: "Todos", icon: "🌐" },
@@ -95,6 +106,12 @@ export default function AdminKeywords() {
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive" | "winners" | "dead">("all");
   const [newKw, setNewKw] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [topRows, setTopRows] = useState<TopRow[]>([]);
+  const [topLoading, setTopLoading] = useState(true);
+  const [elite, setElite] = useState<EliteSug[]>([]);
+  const [eliteLoading, setEliteLoading] = useState(false);
+  const [eliteLang, setEliteLang] = useState<"en" | "es" | "pt">("es");
+  const [eliteNiche, setEliteNiche] = useState("");
 
   const load = async () => {
     try {
@@ -107,7 +124,26 @@ export default function AdminKeywords() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadTop(); }, []);
+
+  const loadTop = async () => {
+    setTopLoading(true);
+    try {
+      const d: any = await invoke("user_top");
+      setTopRows(d.top || []);
+    } catch (e: any) { toast.error(e.message); }
+    finally { setTopLoading(false); }
+  };
+
+  const loadElite = async () => {
+    setEliteLoading(true);
+    try {
+      const d: any = await invoke("elite_suggestions", { lang: eliteLang, niche: eliteNiche });
+      setElite(d.suggestions || []);
+      if (!d.suggestions?.length) toast.warning("La IA no devolvió sugerencias. Reintenta.");
+    } catch (e: any) { toast.error(e.message); }
+    finally { setEliteLoading(false); }
+  };
 
   const existingSet = useMemo(() => new Set(keywords.map((k) => k.keyword.toLowerCase())), [keywords]);
   const suggestions = useMemo(() => dailySuggestions(existingSet), [existingSet]);
@@ -300,6 +336,162 @@ export default function AdminKeywords() {
             );
           })}
         </div>
+      </div>
+
+      {/* Top usuarios — qué buscan los usuarios reales */}
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-muted-foreground" strokeWidth={1.6} />
+            <div>
+              <h3 className="font-display text-base">Top búsquedas de usuarios</h3>
+              <p className="text-[11px] text-muted-foreground">Las keywords que más usuarios están añadiendo en la app</p>
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" onClick={loadTop}>
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refrescar
+          </Button>
+        </div>
+        {topLoading ? (
+          <div className="p-10 text-center text-sm text-muted-foreground">Cargando…</div>
+        ) : topRows.length === 0 ? (
+          <div className="p-10 text-center text-sm text-muted-foreground">Ningún usuario ha añadido keywords todavía.</div>
+        ) : (
+          <ul className="divide-y divide-border max-h-[460px] overflow-auto">
+            {topRows.slice(0, 50).map((r, i) => {
+              const l = detectLang(r.keyword);
+              const langMeta = LANGS.find((x) => x.code === l)!;
+              const alreadyMine = existingSet.has(r.keyword.toLowerCase());
+              return (
+                <li key={r.keyword + i} className="group px-5 py-3 flex items-center gap-4 hover:bg-foreground/[0.02] transition">
+                  <div className="w-6 text-[11px] text-muted-foreground tabular-nums">#{i + 1}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium truncate">{r.keyword}</span>
+                      <span className="text-[10px]">{langMeta.icon}</span>
+                      {alreadyMine && (
+                        <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">en mi panel</Badge>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                      {r.last_used_at
+                        ? `Último uso ${formatDistanceToNow(new Date(r.last_used_at), { addSuffix: true, locale: es })}`
+                        : "Aún no buscada"}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-6 text-center">
+                    <div className="w-16">
+                      <div className="font-display text-base">{r.user_count}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Usuarios</div>
+                    </div>
+                    <div className="w-16">
+                      <div className="font-display text-base">{r.total_uses}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Veces</div>
+                    </div>
+                  </div>
+                  {!alreadyMine && (
+                    <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100" onClick={() => handleAdd(r.keyword)}>
+                      <Plus className="w-3.5 h-3.5 mr-1" /> Añadir
+                    </Button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      {/* Sugerencias Elite — IA pensando como un media buyer de 9 cifras */}
+      <div className="rounded-2xl border border-[#f7a93d]/30 bg-gradient-to-br from-[#f7a93d]/[0.06] via-card to-card p-5">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#f7a93d]/15 flex items-center justify-center shrink-0">
+              <Crown className="w-4 h-4 text-[#f7a93d]" strokeWidth={1.8} />
+            </div>
+            <div>
+              <h3 className="font-display text-base flex items-center gap-2">
+                Sugerencias Elite <Brain className="w-3.5 h-3.5 text-[#f7a93d]" />
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5 max-w-xl">
+                IA pensando como media buyer de 9 cifras en Facebook & TikTok Ads. Ángulos, hooks y frases que un copywriter normal jamás se le ocurrirían.
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={loadElite}
+            disabled={eliteLoading}
+            className="bg-[#f7a93d] hover:bg-[#f7a93d]/90 text-black"
+            size="sm"
+          >
+            {eliteLoading ? (
+              <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Pensando…</>
+            ) : (
+              <><Sparkles className="w-3.5 h-3.5 mr-1.5" /> Generar</>
+            )}
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <div className="flex items-center gap-1 rounded-xl border border-border bg-background p-1">
+            {(["en", "es", "pt"] as const).map((l) => {
+              const meta = LANGS.find((x) => x.code === l)!;
+              return (
+                <button
+                  key={l}
+                  onClick={() => setEliteLang(l)}
+                  className={`px-3 h-7 rounded-lg text-xs font-medium transition ${
+                    eliteLang === l ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {meta.icon} {meta.label}
+                </button>
+              );
+            })}
+          </div>
+          <Input
+            value={eliteNiche}
+            onChange={(e) => setEliteNiche(e.target.value)}
+            placeholder="Nicho opcional (ej: ED, manifestación, AI tools, diabetes)…"
+            className="h-8 max-w-sm rounded-xl text-xs"
+          />
+        </div>
+
+        {elite.length === 0 && !eliteLoading ? (
+          <div className="text-center py-10 text-xs text-muted-foreground border border-dashed border-border rounded-xl">
+            Pulsa <span className="text-[#f7a93d] font-medium">Generar</span> para recibir 25 sugerencias de nivel millonario.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {elite.map((s, i) => {
+              const mine = existingSet.has(s.keyword.toLowerCase());
+              return (
+                <div
+                  key={s.keyword + i}
+                  className="group rounded-xl border border-border bg-background/60 p-3 flex items-start gap-3 hover:border-[#f7a93d]/50 transition"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm truncate">{s.keyword}</span>
+                      <Badge variant="outline" className="h-4 px-1.5 text-[9px] uppercase tracking-wider border-[#f7a93d]/30 text-[#f7a93d]">
+                        {s.category}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{s.reason}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={mine ? "ghost" : "secondary"}
+                    disabled={mine}
+                    onClick={() => handleAdd(s.keyword)}
+                    className="shrink-0"
+                  >
+                    {mine ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* List */}

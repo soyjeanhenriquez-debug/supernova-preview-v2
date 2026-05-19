@@ -6,7 +6,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLandingAnalyzer, STEP_ORDER, STEP_LABEL, type IntelligenceResult, type LandingAd } from "@/hooks/useLandingAnalyzer";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { Loader2, Zap, Link as LinkIcon, Copy, Trash2, ChevronDown, History, ExternalLink, CheckCircle2, Circle, AlertCircle, Sparkles } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Loader2, Zap, Link as LinkIcon, Copy, Trash2, ChevronDown, History, ExternalLink, CheckCircle2, Circle, AlertCircle, Sparkles, Download, FileText, X, ArrowRight } from "lucide-react";
 import { useCredits } from "@/hooks/useCredits";
 
 interface SavedRow {

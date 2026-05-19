@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { WinningAdsPage } from "@/pages/WinningAdsPage";
+import { OraculoPage } from "@/pages/OraculoPage";
 import { ChatPage } from "@/pages/ChatPage";
 import { GeneradoresPage } from "@/pages/GeneradoresPage";
 import { AgentsPage } from "@/pages/AgentsPage";
@@ -18,6 +19,7 @@ const Index = () => {
       case "Dashboard": return <DashboardPage onNavigate={setActivePage} />;
       case "Buscar Ofertas Winner": return <WinningAdsPage />;
       case "Anuncios Ganadores": return <WinningAdsPage />;
+      case "Oráculo": return <OraculoPage />;
       case "Agentes DR": return <AgentsPage />;
       case "Chat IA": return <ChatPage />;
       case "Generadores": return <GeneradoresPage />;

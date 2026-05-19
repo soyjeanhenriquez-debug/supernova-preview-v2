@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { IntelligenceAnalyzer } from "@/components/IntelligenceAnalyzer";
+
 import { AdMediaPreview } from "@/components/AdMediaPreview";
 import { getAutoSearchKeywords, TOTAL_DR_KEYWORDS } from "@/lib/dr-keywords";
 
@@ -713,8 +713,6 @@ export function WinningAdsPage() {
         <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-solid))" }} /> <strong>{liveStats.solid.toLocaleString()}</strong> solid</span>
       </div>
 
-      {/* Intelligence Analyzer */}
-      <IntelligenceAnalyzer />
 
       {/* Keyword search */}
       <div className="card-surface rounded-xl p-5 space-y-4">

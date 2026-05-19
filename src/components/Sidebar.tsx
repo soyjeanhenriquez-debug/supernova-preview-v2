@@ -1,4 +1,4 @@
-import { LayoutDashboard, Trophy, Bot, MessageSquare, FileText, FolderKanban, Coins, Shield, LogOut, Brain } from "lucide-react";
+import { LayoutDashboard, Trophy, Telescope, Bot, MessageSquare, FileText, FolderKanban, Coins, Shield, LogOut, Brain } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useProjects } from "@/hooks/useProjects";
@@ -11,6 +11,7 @@ interface SidebarProps {
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard" },
   { icon: Trophy, label: "Buscar Ofertas Winner" },
+  { icon: Telescope, label: "Oráculo" },
   { icon: Bot, label: "Agentes DR" },
   { icon: MessageSquare, label: "Chat IA" },
   { icon: FileText, label: "Generadores" },

@@ -13,7 +13,12 @@ export type CreditAction =
   | "blueprint"
   | "adaptar"
   | "pain_discovery"
-  | "chat_message";
+  | "chat_message"
+  | "ai_intel"
+  | "gen_landing"
+  | "gen_ad_copies"
+  | "gen_avatar"
+  | "gen_funnel";
 
 export const CREDIT_COSTS: Record<CreditAction, number> = {
   search_ads: 1,
@@ -24,6 +29,11 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   adaptar: 1,
   pain_discovery: 2,
   chat_message: 1,
+  ai_intel: 1,
+  gen_landing: 3,
+  gen_ad_copies: 2,
+  gen_avatar: 2,
+  gen_funnel: 5,
 };
 
 export const ACTION_LABEL: Record<CreditAction, string> = {
@@ -35,6 +45,11 @@ export const ACTION_LABEL: Record<CreditAction, string> = {
   adaptar: "Adaptar al mercado",
   pain_discovery: "Pain Discovery",
   chat_message: "Mensaje Chat IA",
+  ai_intel: "Análisis IA del ad",
+  gen_landing: "Generar landing page",
+  gen_ad_copies: "10 variaciones de ad copy",
+  gen_avatar: "Avatar del comprador",
+  gen_funnel: "Funnel completo (VSL+emails)",
 };
 
 export interface CreditHistoryEntry {

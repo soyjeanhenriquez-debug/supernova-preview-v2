@@ -118,13 +118,14 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title }: 
         />
       )}
 
-      {/* Screenshot del Ad Library renderizado con browser real */}
-      {state === "ready" && !videoUrl && screenshot && (
+      {/* Imagen real del creativo (fbcdn) */}
+      {state === "ready" && !videoUrl && imageUrl && (
         <img
-          src={screenshot}
+          src={imageUrl}
           alt={`Preview – ${pageName}`}
           loading="lazy"
-          className="absolute inset-0 w-full h-full object-cover object-top bg-black"
+          referrerPolicy="no-referrer"
+          className="absolute inset-0 w-full h-full object-cover bg-black"
         />
       )}
 

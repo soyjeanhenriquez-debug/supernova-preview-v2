@@ -314,6 +314,84 @@ export type Database = {
         }
         Relationships: []
       }
+      master_keyword_runs: {
+        Row: {
+          ads_found: number
+          error: string | null
+          finished_at: string | null
+          id: string
+          keywords_used: string[]
+          started_at: string
+          success: boolean
+          triggered_by: string
+          winners_found: number
+        }
+        Insert: {
+          ads_found?: number
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          keywords_used?: string[]
+          started_at?: string
+          success?: boolean
+          triggered_by?: string
+          winners_found?: number
+        }
+        Update: {
+          ads_found?: number
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          keywords_used?: string[]
+          started_at?: string
+          success?: boolean
+          triggered_by?: string
+          winners_found?: number
+        }
+        Relationships: []
+      }
+      master_keyword_state: {
+        Row: {
+          created_at: string
+          id: string
+          is_paused: boolean
+          keyword: string
+          last_found_count: number
+          last_run_at: string | null
+          source_tier: string | null
+          total_found: number
+          total_runs: number
+          total_winners: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_paused?: boolean
+          keyword: string
+          last_found_count?: number
+          last_run_at?: string | null
+          source_tier?: string | null
+          total_found?: number
+          total_runs?: number
+          total_winners?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_paused?: boolean
+          keyword?: string
+          last_found_count?: number
+          last_run_at?: string | null
+          source_tier?: string | null
+          total_found?: number
+          total_runs?: number
+          total_winners?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

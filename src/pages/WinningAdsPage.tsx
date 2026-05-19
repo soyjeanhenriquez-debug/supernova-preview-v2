@@ -713,8 +713,6 @@ export function WinningAdsPage() {
         <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-solid))" }} /> <strong>{liveStats.solid.toLocaleString()}</strong> solid</span>
       </div>
 
-      {/* Intelligence Analyzer */}
-      <IntelligenceAnalyzer />
 
       {/* Keyword search */}
       <div className="card-surface rounded-xl p-5 space-y-4">

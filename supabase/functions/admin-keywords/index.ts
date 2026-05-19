@@ -159,6 +159,58 @@ Return JSON ONLY in this exact shape:
       return json({ suggestions: parsed.suggestions || [], lang });
     }
 
+    if (action === "engine_status") {
+      const [{ data: states }, { data: runs }, { data: lastRun }] = await Promise.all([
+        admin.from("master_keyword_state").select("*").order("total_winners", { ascending: false }),
+        admin.from("master_keyword_runs").select("*").order("started_at", { ascending: false }).limit(20),
+        admin.from("master_keyword_runs").select("started_at").not("finished_at", "is", null).order("started_at", { ascending: false }).limit(1).maybeSingle(),
+      ]);
+      // Active "this hour" = the most recent run's keywords (or currently running)
+      const activeThisHour = runs?.[0]?.keywords_used || [];
+      // Aggregates
+      const totalIngested = (states || []).reduce((a: number, s: any) => a + (s.total_found || 0), 0);
+      const totalWinners = (states || []).reduce((a: number, s: any) => a + (s.total_winners || 0), 0);
+      const totalRuns = (states || []).reduce((a: number, s: any) => a + (s.total_runs || 0), 0);
+      const winnerPct = totalIngested > 0 ? Math.round((totalWinners / totalIngested) * 100) : 0;
+      const paused = (states || []).filter((s: any) => s.is_paused).length;
+      const total = (states || []).length;
+      // Next run = top of last_run_at NULLS FIRST ASC implies hourly schedule; we just say "in next hour"
+      return json({
+        states: states || [],
+        runs: runs || [],
+        kpis: {
+          total_keywords: total,
+          active_keywords: total - paused,
+          paused_keywords: paused,
+          total_ingested: totalIngested,
+          total_winners: totalWinners,
+          winner_pct: winnerPct,
+          total_runs: totalRuns,
+          last_run_at: lastRun?.started_at || null,
+          active_this_hour: activeThisHour,
+        },
+      });
+    }
+
+    if (action === "master_toggle") {
+      const id = String(body.id || "");
+      const pause = !!body.is_paused;
+      if (!id) return json({ error: "Missing id" }, 400);
+      const { error } = await admin.from("master_keyword_state").update({ is_paused: pause }).eq("id", id);
+      if (error) throw error;
+      return json({ ok: true });
+    }
+
+    if (action === "engine_run_now") {
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/master-rotate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_ROLE}` },
+        body: JSON.stringify({ triggered_by: `admin:${callerId}`, batch_size: body.batch_size || 5 }),
+      });
+      const d = await resp.json().catch(() => ({}));
+      return json({ ok: resp.ok, result: d });
+    }
+
     return json({ error: "Unknown action" }, 400);
   } catch (e: any) {
     console.error(e);

@@ -263,6 +263,9 @@ function ReportContent({ result, onClose }: { result: IntelligenceResult; onClos
       </div>
 
       <div className="px-7 pb-7 space-y-6">
+        {/* Historial de anuncios visitados + favoritos */}
+        <AdHistoryBar />
+
         {/* Ads strip */}
         {result.ads.length > 0 && (
           <div>
@@ -276,24 +279,16 @@ function ReportContent({ result, onClose }: { result: IntelligenceResult; onClos
                   : ad.page_id
                   ? `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=ALL&view_all_page_id=${ad.page_id}`
                   : `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=ALL&q=${encodeURIComponent(ad.page_name ?? result.brandName)}`;
-                return (
-                  <a
-                    key={i}
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="Abrir en Facebook Ads Library"
-                    className="group shrink-0 w-64 rounded-xl border border-border bg-background/60 p-3 hover:border-primary hover:bg-primary/5 transition-colors flex flex-col"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="text-[11px] font-semibold text-primary truncate">{ad.page_name ?? "Anunciante"}</div>
-                      <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-primary shrink-0 mt-0.5" />
-                    </div>
-                    <div className="text-xs text-foreground mt-1 line-clamp-3">{ad.ad_creative_link_titles?.[0] ?? ad.ad_creative_bodies?.[0] ?? "—"}</div>
-                    <div className="text-[10px] text-muted-foreground mt-2 line-clamp-3">{ad.ad_creative_bodies?.[0]}</div>
-                    <div className="text-[10px] text-muted-foreground/70 mt-2 pt-2 border-t border-border/50">Ver en Ads Library →</div>
-                  </a>
-                );
+                const item: Omit<AdHistoryItem, "visitedAt"> = {
+                  key: adKey({ id: ad.id, page_id: ad.page_id, title: ad.ad_creative_link_titles?.[0] ?? ad.ad_creative_bodies?.[0] }),
+                  id: ad.id,
+                  page_id: ad.page_id,
+                  page_name: ad.page_name,
+                  title: ad.ad_creative_link_titles?.[0] ?? ad.ad_creative_bodies?.[0],
+                  body: ad.ad_creative_bodies?.[0],
+                  href,
+                };
+                return <AdCard key={i} item={item} />;
               })}
             </div>
           </div>

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import {
   Search, Plus, Trash2, Sparkles, Play, TrendingUp, Activity,
   Globe, Flame, RefreshCw, Check, Languages, Users, Crown, Brain, Loader2,
+  Zap, Pause, PlayCircle, Clock, Target,
 } from "lucide-react";
 import { DR_KEYWORDS, HIGH_YIELD_KEYWORDS } from "@/lib/dr-keywords";
 import { formatDistanceToNow } from "date-fns";
@@ -33,6 +34,23 @@ type TopRow = {
 };
 
 type EliteSug = { keyword: string; reason: string; category: string };
+
+type MasterState = {
+  id: string; keyword: string; source_tier: string | null;
+  is_paused: boolean; last_run_at: string | null;
+  last_found_count: number; total_found: number; total_winners: number; total_runs: number;
+};
+type MasterRun = {
+  id: string; started_at: string; finished_at: string | null;
+  keywords_used: string[]; ads_found: number; winners_found: number;
+  success: boolean; triggered_by: string;
+};
+type EngineKpis = {
+  total_keywords: number; active_keywords: number; paused_keywords: number;
+  total_ingested: number; total_winners: number; winner_pct: number;
+  total_runs: number; last_run_at: string | null; active_this_hour: string[];
+};
+
 
 
 const LANGS = [
@@ -112,6 +130,15 @@ export default function AdminKeywords() {
   const [eliteLoading, setEliteLoading] = useState(false);
   const [eliteLang, setEliteLang] = useState<"en" | "es" | "pt">("es");
   const [eliteNiche, setEliteNiche] = useState("");
+  const [engineStates, setEngineStates] = useState<MasterState[]>([]);
+  const [engineRuns, setEngineRuns] = useState<MasterRun[]>([]);
+  const [engineKpis, setEngineKpis] = useState<EngineKpis | null>(null);
+  const [engineLoading, setEngineLoading] = useState(true);
+  const [engineRunning, setEngineRunning] = useState(false);
+  const [engineSearch, setEngineSearch] = useState("");
+  const [engineTier, setEngineTier] = useState<string>("all");
+  const [engineFilter, setEngineFilter] = useState<"all" | "paused" | "productive" | "dead">("all");
+  const [engineBusyId, setEngineBusyId] = useState<string | null>(null);
 
   const load = async () => {
     try {
@@ -124,7 +151,42 @@ export default function AdminKeywords() {
     }
   };
 
-  useEffect(() => { load(); loadTop(); }, []);
+  useEffect(() => {
+    load(); loadTop(); loadEngine();
+    const i = setInterval(loadEngine, 30000); // refresh engine status every 30s
+    return () => clearInterval(i);
+  }, []);
+
+  const loadEngine = async () => {
+    try {
+      const d: any = await invoke("engine_status");
+      setEngineStates(d.states || []);
+      setEngineRuns(d.runs || []);
+      setEngineKpis(d.kpis || null);
+    } catch (e: any) { toast.error(e.message); }
+    finally { setEngineLoading(false); }
+  };
+
+  const runEngineNow = async () => {
+    setEngineRunning(true);
+    toast.info("Disparando motor…");
+    try {
+      const r: any = await invoke("engine_run_now", { batch_size: 5 });
+      const res = r.result || {};
+      toast.success(`Motor: ${res.ads_found ?? 0} ads, ${res.winners_found ?? 0} winners`);
+      loadEngine();
+    } catch (e: any) { toast.error(e.message); }
+    finally { setEngineRunning(false); }
+  };
+
+  const toggleMaster = async (s: MasterState) => {
+    setEngineBusyId(s.id);
+    try {
+      await invoke("master_toggle", { id: s.id, is_paused: !s.is_paused });
+      setEngineStates((arr) => arr.map((x) => (x.id === s.id ? { ...x, is_paused: !s.is_paused } : x)));
+    } catch (e: any) { toast.error(e.message); }
+    finally { setEngineBusyId(null); }
+  };
 
   const loadTop = async () => {
     setTopLoading(true);
@@ -243,7 +305,235 @@ export default function AdminKeywords() {
         ))}
       </div>
 
+      {/* ⚡ Motor de fondo */}
+      <section className="rounded-2xl border border-border bg-gradient-to-br from-[#f7a93d]/[0.04] via-card to-card overflow-hidden">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#f7a93d]/15 flex items-center justify-center shrink-0">
+              <Zap className="w-4 h-4 text-[#f7a93d]" strokeWidth={1.8} fill="currentColor" />
+            </div>
+            <div>
+              <h3 className="font-display text-base flex items-center gap-2">
+                Motor de fondo
+                <Badge className="bg-emerald-500/15 text-emerald-400 border-0 text-[10px] h-4 px-1.5 uppercase tracking-wider">
+                  <Activity className="w-2.5 h-2.5 mr-0.5" /> Live
+                </Badge>
+              </h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Cron horario rotando keywords maestras DR → ingesta de anuncios sin que el usuario haga nada.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={loadEngine}>
+              <RefreshCw className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              size="sm"
+              onClick={runEngineNow}
+              disabled={engineRunning}
+              className="bg-[#f7a93d] hover:bg-[#f7a93d]/90 text-black"
+            >
+              {engineRunning ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Disparando…</>
+                : <><Play className="w-3.5 h-3.5 mr-1.5" /> Ejecutar ahora</>}
+            </Button>
+          </div>
+        </div>
+
+        {/* Engine KPIs */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-border">
+          {[
+            { label: "Keywords totales", value: engineKpis?.total_keywords ?? "—", icon: Target },
+            { label: "Activas", value: engineKpis?.active_keywords ?? "—", icon: Activity, accent: true },
+            { label: "Ingesta total", value: (engineKpis?.total_ingested ?? 0).toLocaleString(), icon: Flame },
+            { label: "Winners", value: (engineKpis?.total_winners ?? 0).toLocaleString(), icon: Crown },
+            { label: "% Winners", value: `${engineKpis?.winner_pct ?? 0}%`, icon: TrendingUp },
+          ].map((k) => (
+            <div key={k.label} className="bg-card p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{k.label}</span>
+                <k.icon className={`w-3 h-3 ${k.accent ? "text-[#f7a93d]" : "text-muted-foreground"}`} strokeWidth={1.5} />
+              </div>
+              <div className="font-display text-xl tracking-tight">{k.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Live status: this hour + next run */}
+        <div className="px-5 py-4 border-t border-border bg-card/40 flex items-start justify-between gap-6 flex-wrap">
+          <div className="flex-1 min-w-[280px]">
+            <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
+              <Activity className="w-3 h-3" /> Activas esta hora ({engineKpis?.active_this_hour?.length || 0})
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {(engineKpis?.active_this_hour || []).slice(0, 8).map((k) => (
+                <span key={k} className="px-2 h-6 inline-flex items-center rounded-md bg-[#f7a93d]/10 text-[#f7a93d] text-[11px] border border-[#f7a93d]/20">
+                  {k}
+                </span>
+              ))}
+              {(engineKpis?.active_this_hour?.length ?? 0) > 8 && (
+                <span className="px-2 h-6 inline-flex items-center rounded-md bg-secondary text-muted-foreground text-[11px]">
+                  +{(engineKpis!.active_this_hour.length - 8)} más
+                </span>
+              )}
+              {(!engineKpis || engineKpis.active_this_hour.length === 0) && (
+                <span className="text-[11px] text-muted-foreground">Esperando primera corrida…</span>
+              )}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1 justify-end">
+              <Clock className="w-3 h-3" /> Última corrida
+            </div>
+            <div className="text-sm mt-1">
+              {engineKpis?.last_run_at
+                ? formatDistanceToNow(new Date(engineKpis.last_run_at), { addSuffix: true, locale: es })
+                : "—"}
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-2">Próxima al minuto 7 de cada hora</div>
+          </div>
+        </div>
+
+        {/* Engine controls + table */}
+        <div className="px-5 py-3 border-t border-border bg-card flex items-center gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={engineSearch}
+              onChange={(e) => setEngineSearch(e.target.value)}
+              placeholder="Buscar en keywords maestras…"
+              className="pl-8 h-8 rounded-lg text-xs"
+            />
+          </div>
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
+            {["all","tier1_disclaimers","tier2_platforms","tier3_ctas","tier4_hooks","tier5_niches","tier6_funnels"].map((t) => (
+              <button
+                key={t}
+                onClick={() => setEngineTier(t)}
+                className={`px-2 h-6 rounded-md text-[10px] font-medium transition ${
+                  engineTier === t ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t === "all" ? "Todos" : t.replace("tier", "T").split("_")[0]}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
+            {[{v:"all",l:"Todas"},{v:"productive",l:"Productivas"},{v:"dead",l:"Sin resultados"},{v:"paused",l:"Pausadas"}].map((f) => (
+              <button
+                key={f.v}
+                onClick={() => setEngineFilter(f.v as any)}
+                className={`px-2 h-6 rounded-md text-[10px] font-medium transition ${
+                  engineFilter === f.v ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {f.l}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="max-h-[440px] overflow-auto">
+          {engineLoading ? (
+            <div className="p-10 text-center text-sm text-muted-foreground">Cargando motor…</div>
+          ) : engineStates.length === 0 ? (
+            <div className="p-10 text-center text-sm text-muted-foreground">
+              Motor sin sembrar todavía. Pulsa "Ejecutar ahora".
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-card border-b border-border z-10">
+                <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <th className="text-left px-5 py-2 font-medium">Keyword</th>
+                  <th className="text-left px-2 py-2 font-medium">Tier</th>
+                  <th className="text-right px-2 py-2 font-medium">Ads</th>
+                  <th className="text-right px-2 py-2 font-medium">Winners</th>
+                  <th className="text-right px-2 py-2 font-medium">Corridas</th>
+                  <th className="text-left px-2 py-2 font-medium">Última</th>
+                  <th className="text-right px-5 py-2 font-medium">Kill</th>
+                </tr>
+              </thead>
+              <tbody>
+                {engineStates
+                  .filter((s) => {
+                    if (engineSearch && !s.keyword.toLowerCase().includes(engineSearch.toLowerCase())) return false;
+                    if (engineTier !== "all" && s.source_tier !== engineTier) return false;
+                    if (engineFilter === "paused" && !s.is_paused) return false;
+                    if (engineFilter === "productive" && s.total_winners === 0) return false;
+                    if (engineFilter === "dead" && s.total_found > 0) return false;
+                    return true;
+                  })
+                  .map((s) => {
+                    const productive = s.total_winners > 0;
+                    return (
+                      <tr
+                        key={s.id}
+                        className={`border-b border-border/40 hover:bg-foreground/[0.02] transition ${s.is_paused ? "opacity-40" : ""}`}
+                      >
+                        <td className="px-5 py-2.5">
+                          <span className="font-medium">{s.keyword}</span>
+                        </td>
+                        <td className="px-2 py-2.5">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                            {s.source_tier?.replace("tier", "T").split("_")[0] || "—"}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2.5 text-right tabular-nums">{s.total_found}</td>
+                        <td className={`px-2 py-2.5 text-right tabular-nums ${productive ? "text-[#f7a93d] font-medium" : "text-muted-foreground"}`}>
+                          {s.total_winners}
+                        </td>
+                        <td className="px-2 py-2.5 text-right tabular-nums text-muted-foreground text-xs">{s.total_runs}</td>
+                        <td className="px-2 py-2.5 text-[11px] text-muted-foreground">
+                          {s.last_run_at ? formatDistanceToNow(new Date(s.last_run_at), { addSuffix: true, locale: es }) : "—"}
+                        </td>
+                        <td className="px-5 py-2.5 text-right">
+                          <button
+                            onClick={() => toggleMaster(s)}
+                            disabled={engineBusyId === s.id}
+                            className={`inline-flex items-center justify-center w-7 h-7 rounded-md transition ${
+                              s.is_paused
+                                ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                                : "bg-secondary text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            }`}
+                            title={s.is_paused ? "Reactivar" : "Pausar (kill-switch)"}
+                          >
+                            {s.is_paused ? <PlayCircle className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Recent runs */}
+        {engineRuns.length > 0 && (
+          <div className="px-5 py-3 border-t border-border bg-card/40">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Últimas corridas</div>
+            <div className="space-y-1">
+              {engineRuns.slice(0, 5).map((r) => (
+                <div key={r.id} className="flex items-center gap-3 text-[11px]">
+                  <span className={`w-1.5 h-1.5 rounded-full ${r.success ? "bg-emerald-500" : "bg-destructive"}`} />
+                  <span className="text-muted-foreground tabular-nums w-32">
+                    {formatDistanceToNow(new Date(r.started_at), { addSuffix: true, locale: es })}
+                  </span>
+                  <span className="text-muted-foreground">{r.triggered_by}</span>
+                  <span className="text-muted-foreground">·</span>
+                  <span>{r.keywords_used.length} keywords</span>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-foreground">{r.ads_found} ads</span>
+                  <span className="text-[#f7a93d]">{r.winners_found} winners</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
       {/* Add new */}
+
       <div className="rounded-2xl border border-border bg-card p-4 flex items-center gap-3">
         <Plus className="w-4 h-4 text-muted-foreground" />
         <Input

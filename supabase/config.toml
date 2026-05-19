@@ -1,1 +1,4 @@
 project_id = "quyjsihawxeghsptwltq"
+
+[functions.meta-ad-proxy]
+verify_jwt = false

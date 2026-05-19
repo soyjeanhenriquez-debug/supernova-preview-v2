@@ -10,6 +10,7 @@ import { AuthPage } from "./pages/AuthPage";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import AdminOverview from "@/pages/admin/AdminOverview";
 import { AdminStub } from "@/pages/admin/AdminStub";
+import AdminUsers from "@/pages/admin/AdminUsers";
 
 const queryClient = new QueryClient();
 
@@ -39,7 +40,7 @@ function AppRoutes() {
         <Route path="/" element={<Index />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminOverview />} />
-          <Route path="usuarios" element={<AdminStub title="Usuarios" description="Gestión completa de usuarios, créditos y planes." />} />
+          <Route path="usuarios" element={<AdminUsers />} />
           <Route path="keywords" element={<AdminStub title="Keywords & Fuentes" description="Control de keywords del sistema y plataformas monitoreadas." />} />
           <Route path="agente" element={<AdminStub title="Agente IA Admin" description="Chat con el agente del sistema y cola de aprendizaje." />} />
           <Route path="mensajes" element={<AdminStub title="Mensajes & Comunicación" description="Notificaciones, banners y emails a usuarios." />} />

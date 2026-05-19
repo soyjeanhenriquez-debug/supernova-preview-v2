@@ -151,7 +151,42 @@ export default function AdminKeywords() {
     }
   };
 
-  useEffect(() => { load(); loadTop(); }, []);
+  useEffect(() => {
+    load(); loadTop(); loadEngine();
+    const i = setInterval(loadEngine, 30000); // refresh engine status every 30s
+    return () => clearInterval(i);
+  }, []);
+
+  const loadEngine = async () => {
+    try {
+      const d: any = await invoke("engine_status");
+      setEngineStates(d.states || []);
+      setEngineRuns(d.runs || []);
+      setEngineKpis(d.kpis || null);
+    } catch (e: any) { toast.error(e.message); }
+    finally { setEngineLoading(false); }
+  };
+
+  const runEngineNow = async () => {
+    setEngineRunning(true);
+    toast.info("Disparando motor…");
+    try {
+      const r: any = await invoke("engine_run_now", { batch_size: 5 });
+      const res = r.result || {};
+      toast.success(`Motor: ${res.ads_found ?? 0} ads, ${res.winners_found ?? 0} winners`);
+      loadEngine();
+    } catch (e: any) { toast.error(e.message); }
+    finally { setEngineRunning(false); }
+  };
+
+  const toggleMaster = async (s: MasterState) => {
+    setEngineBusyId(s.id);
+    try {
+      await invoke("master_toggle", { id: s.id, is_paused: !s.is_paused });
+      setEngineStates((arr) => arr.map((x) => (x.id === s.id ? { ...x, is_paused: !s.is_paused } : x)));
+    } catch (e: any) { toast.error(e.message); }
+    finally { setEngineBusyId(null); }
+  };
 
   const loadTop = async () => {
     setTopLoading(true);

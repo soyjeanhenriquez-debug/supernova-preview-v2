@@ -1050,10 +1050,10 @@ function AdCard({ ad, saved, onSave, onSofisticar, compact = false }: { ad: Demo
             </div>
           </div>
 
-          {/* Iframe forzado al snapshot oficial de Meta */}
+          {/* Iframe vía proxy server-side (evita X-Frame-Options: DENY de Meta) */}
           {ad.snapshotUrl && (
             <iframe
-              src={ad.snapshotUrl}
+              src={`https://quyjsihawxeghsptwltq.supabase.co/functions/v1/meta-ad-proxy?url=${encodeURIComponent(ad.snapshotUrl)}`}
               title={`Ad preview – ${ad.pageName}`}
               loading="lazy"
               referrerPolicy="no-referrer"

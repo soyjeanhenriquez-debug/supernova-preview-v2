@@ -302,28 +302,146 @@ function ReportContent({ result, onClose }: { result: IntelligenceResult; onClos
           })}
         </Accordion>
 
-        {/* Quick actions */}
-        <div className="rounded-xl border border-border bg-background/40 p-4">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-3">Acciones rápidas</div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <ActionBtn label="⚡ Sofisticar oferta" onClick={() => { onClose(); toast.info("Abre una oferta concreta para sofisticar"); }} />
-            <ActionBtn label="📣 Generar mis anuncios" onClick={() => { onClose(); window.location.href = "/generadores"; }} />
-            <ActionBtn label="📄 Generar mi landing" onClick={() => { onClose(); window.location.href = "/crear"; }} />
-            <ActionBtn label="📦 Funnel completo" onClick={() => { onClose(); window.location.href = "/agentes"; }} />
-          </div>
-        </div>
+        {/* Generadores inline */}
+        <OraculoGenerators result={result} />
       </div>
     </div>
   );
 }
 
-function ActionBtn({ label, onClick }: { label: string; onClick: () => void }) {
+type GenKind = "creativos" | "landing" | "avatar" | "funnel";
+
+const GEN_META: Record<GenKind, { label: string; icon: string; cost: number; credit: "gen_ad_copies" | "gen_landing" | "gen_avatar" | "gen_funnel" }> = {
+  creativos: { label: "Generar mis Creativos", icon: "⚡", cost: 2, credit: "gen_ad_copies" },
+  landing:   { label: "Clonar esta Landing",  icon: "📄", cost: 3, credit: "gen_landing" },
+  avatar:    { label: "Avatar Profundo",      icon: "👤", cost: 2, credit: "gen_avatar" },
+  funnel:    { label: "Funnel Completo",      icon: "📦", cost: 5, credit: "gen_funnel" },
+};
+
+function OraculoGenerators({ result }: { result: IntelligenceResult }) {
+  const [loading, setLoading] = useState<GenKind | null>(null);
+  const [outputs, setOutputs] = useState<Partial<Record<GenKind, string>>>({});
+  const { consume, canAfford } = useCredits();
+
+  const run = async (kind: GenKind) => {
+    const meta = GEN_META[kind];
+    if (!canAfford(meta.credit)) { toast.error("Sin créditos suficientes"); return; }
+    setLoading(kind);
+    try {
+      const { data, error } = await supabase.functions.invoke<{ content?: string; error?: string }>("oraculo-generate", {
+        body: { kind, analysis: result.analysis, brand: result.brandName, url: result.url },
+      });
+      if (error || data?.error) {
+        toast.error(data?.error || error?.message || "Error generando");
+        return;
+      }
+      const content = data?.content ?? "";
+      if (!content.trim()) { toast.error("Respuesta vacía"); return; }
+      consume(meta.credit, kind);
+      setOutputs((p) => ({ ...p, [kind]: content }));
+      toast.success(`✓ ${meta.label} listo`);
+      // scroll al output
+      requestAnimationFrame(() => {
+        document.getElementById(`gen-output-${kind}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error inesperado");
+    } finally {
+      setLoading(null);
+    }
+  };
+
   return (
-    <button
-      onClick={onClick}
-      className="text-xs font-semibold px-3 py-2.5 rounded-lg border border-border bg-card hover:border-primary hover:text-primary transition-colors text-left"
-    >
-      {label}
-    </button>
+    <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent p-5 space-y-4">
+      <div>
+        <div className="text-[10px] uppercase tracking-[0.22em] text-primary font-bold flex items-center gap-1.5">
+          <Sparkles className="w-3 h-3" /> Acciones del Oráculo
+        </div>
+        <div className="text-sm text-foreground mt-1 font-display">
+          Continúa el informe con activos listos para usar
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        {(Object.keys(GEN_META) as GenKind[]).map((k) => {
+          const m = GEN_META[k];
+          const isLoading = loading === k;
+          const done = !!outputs[k];
+          return (
+            <button
+              key={k}
+              onClick={() => run(k)}
+              disabled={!!loading}
+              className={`group relative text-left px-3 py-3 rounded-xl border transition-all disabled:opacity-60 ${
+                done
+                  ? "border-success/40 bg-success/5 hover:border-success/60"
+                  : "border-border bg-card hover:border-primary hover:bg-primary/5"
+              }`}
+            >
+              <div className="text-lg leading-none mb-1.5">{m.icon}</div>
+              <div className="text-[12px] font-semibold leading-tight">{m.label}</div>
+              <div className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                {isLoading ? <><Loader2 className="w-3 h-3 animate-spin" /> Generando…</> :
+                 done ? <><CheckCircle2 className="w-3 h-3 text-success" /> Listo · regenerar</> :
+                 <>{m.cost} créditos</>}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Outputs */}
+      <div className="space-y-3">
+        {(Object.keys(GEN_META) as GenKind[]).map((k) => {
+          const content = outputs[k];
+          if (!content) return null;
+          const m = GEN_META[k];
+          return (
+            <GenOutput key={k} id={`gen-output-${k}`} kind={k} icon={m.icon} label={m.label} content={content} />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function GenOutput({ id, kind, icon, label, content }: { id: string; kind: GenKind; icon: string; label: string; content: string }) {
+  const copyAll = async () => {
+    await navigator.clipboard.writeText(content);
+    toast.success(`${label} copiado`);
+  };
+  // Para creativos partimos por "---" para mostrar bloques con copy individual.
+  const blocks = kind === "creativos"
+    ? content.split(/\n---\n/g).map((b) => b.trim()).filter(Boolean)
+    : [content];
+
+  return (
+    <div id={id} className="rounded-xl border border-border bg-background/40 overflow-hidden">
+      <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-border bg-secondary/30">
+        <div className="text-sm font-display flex items-center gap-2">
+          <span className="text-base">{icon}</span> {label}
+        </div>
+        <button onClick={copyAll} className="text-xs px-3 py-1.5 rounded-lg border border-border hover:border-primary hover:text-primary flex items-center gap-1.5 transition-colors">
+          <Copy className="w-3.5 h-3.5" /> Copiar todo
+        </button>
+      </div>
+      <div className="p-5 space-y-3">
+        {blocks.map((b, i) => (
+          <div key={i} className="rounded-lg border border-border/60 bg-card/40 px-4 py-3 relative group">
+            {blocks.length > 1 && (
+              <button
+                onClick={async () => { await navigator.clipboard.writeText(b); toast.success("Copiado"); }}
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] px-2 py-1 rounded-md border border-border bg-card hover:border-primary hover:text-primary flex items-center gap-1"
+              >
+                <Copy className="w-3 h-3" /> Copiar
+              </button>
+            )}
+            <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:mt-2 prose-headings:mb-2 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-strong:text-foreground prose-code:text-primary">
+              <ReactMarkdown>{b}</ReactMarkdown>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

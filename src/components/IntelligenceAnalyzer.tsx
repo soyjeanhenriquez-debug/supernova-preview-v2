@@ -46,10 +46,12 @@ export function IntelligenceAnalyzer() {
     setConfirmOpen(false);
     const res = await analyze(url, manualText);
     if (res) {
-      setReportOpen(true);
       setFallback({ open: false, text: "" });
       loadSaved();
       toast.success("✓ Informe listo");
+      requestAnimationFrame(() => {
+        document.getElementById("oraculo-report")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     } else if (error === "FETCH_FAILED") {
       setFallback({ open: true, text: "" });
     } else if (error) {
@@ -77,7 +79,9 @@ export function IntelligenceAnalyzer() {
       ads: Array.isArray(row.ads_found) ? (row.ads_found as LandingAd[]) : [],
       createdAt: row.created_at,
     });
-    setReportOpen(true);
+    requestAnimationFrame(() => {
+      document.getElementById("oraculo-report")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   };
 
   const deleteSaved = async (id: string) => {

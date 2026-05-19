@@ -130,6 +130,15 @@ export default function AdminKeywords() {
   const [eliteLoading, setEliteLoading] = useState(false);
   const [eliteLang, setEliteLang] = useState<"en" | "es" | "pt">("es");
   const [eliteNiche, setEliteNiche] = useState("");
+  const [engineStates, setEngineStates] = useState<MasterState[]>([]);
+  const [engineRuns, setEngineRuns] = useState<MasterRun[]>([]);
+  const [engineKpis, setEngineKpis] = useState<EngineKpis | null>(null);
+  const [engineLoading, setEngineLoading] = useState(true);
+  const [engineRunning, setEngineRunning] = useState(false);
+  const [engineSearch, setEngineSearch] = useState("");
+  const [engineTier, setEngineTier] = useState<string>("all");
+  const [engineFilter, setEngineFilter] = useState<"all" | "paused" | "productive" | "dead">("all");
+  const [engineBusyId, setEngineBusyId] = useState<string | null>(null);
 
   const load = async () => {
     try {

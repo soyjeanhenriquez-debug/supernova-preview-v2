@@ -1023,26 +1023,13 @@ function AdCard({ ad, saved, onSave, onSofisticar, compact = false }: { ad: Demo
         {ad.checkoutPlatform && <span className="text-muted-foreground">· via {ad.checkoutPlatform}</span>}
       </div>
 
-      {/* Preview inline del creativo — estilo Adheart. En dev/preview Meta puede bloquear el iframe con X-Frame-Options; en producción autenticado renderiza. */}
-      {/* Preview del creativo — Meta bloquea el embebido directo con X-Frame-Options:DENY,
-          así que mostramos un poster clickeable que abre el snapshot oficial en nueva pestaña. */}
+      {/* Preview inline forzado — estilo Adheart.
+          El `ad_snapshot_url` de Meta (render_ad) está pensado para embeberse.
+          Forzamos el iframe; si el navegador lo bloquea, el poster de atrás queda visible como fallback. */}
       {(ad.snapshotUrl || ad.adUrl) && (
-        <a
-          href={ad.snapshotUrl || ad.adUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="relative block w-full rounded-lg overflow-hidden border border-border/60 bg-gradient-to-br from-secondary/60 via-secondary/30 to-secondary/60 aspect-[4/5] group cursor-pointer hover:border-primary/40 transition-all"
-        >
-          {ad.pageId && (
-            <img
-              src={`https://graph.facebook.com/${ad.pageId}/picture?type=large&width=320&height=320`}
-              alt=""
-              aria-hidden
-              className="absolute inset-0 w-full h-full object-cover opacity-20 blur-xl scale-110"
-              onError={(e) => { e.currentTarget.style.display = "none"; }}
-            />
-          )}
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4 text-center">
+        <div className="relative w-full rounded-lg overflow-hidden border border-border/60 bg-secondary/40 aspect-[4/5] group">
+          {/* Fallback poster (detrás del iframe) */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4 text-center bg-gradient-to-br from-secondary/80 via-secondary/40 to-secondary/80">
             {ad.pageId ? (
               <img
                 src={`https://graph.facebook.com/${ad.pageId}/picture?type=large`}
@@ -1058,14 +1045,34 @@ function AdCard({ ad, saved, onSave, onSofisticar, compact = false }: { ad: Demo
             <div className="text-xs font-semibold text-foreground/90 line-clamp-2 max-w-[80%]">
               {ad.title || ad.pageName}
             </div>
-            <div className="px-3 py-1.5 rounded-full bg-primary/90 text-primary-foreground text-[10px] font-bold inline-flex items-center gap-1.5 shadow-lg group-hover:bg-primary transition-colors">
-              <ExternalLink className="w-3 h-3" /> Ver creativo en Ads Library
-            </div>
-            <div className="text-[9px] text-muted-foreground uppercase tracking-wider">
-              Meta no permite embeber · clic para abrir
+            <div className="text-[9px] text-muted-foreground uppercase tracking-wider px-2">
+              Cargando preview…
             </div>
           </div>
-        </a>
+
+          {/* Iframe forzado al snapshot oficial de Meta */}
+          {ad.snapshotUrl && (
+            <iframe
+              src={ad.snapshotUrl}
+              title={`Ad preview – ${ad.pageName}`}
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              className="absolute inset-0 w-full h-full border-0 bg-transparent"
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox"
+              allow="autoplay; encrypted-media; fullscreen"
+            />
+          )}
+
+          {/* Botón flotante HD por encima del iframe */}
+          <a
+            href={ad.snapshotUrl || ad.adUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute top-2 right-2 z-10 px-2.5 py-1 rounded-full bg-background/90 backdrop-blur text-foreground text-[10px] font-bold inline-flex items-center gap-1 shadow-lg border border-border/60 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary hover:text-primary-foreground"
+          >
+            <ExternalLink className="w-3 h-3" /> HD
+          </a>
+        </div>
       )}
 
       <p className="text-sm text-foreground/90 line-clamp-4 italic leading-relaxed">"{ad.body}"</p>

@@ -26,7 +26,7 @@ function extractAdId(url?: string): string | null {
 export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title }: AdMediaPreviewProps) {
   const adId = extractAdId(snapshotUrl) || extractAdId(adUrl);
   const [state, setState] = useState<"idle" | "loading" | "ready" | "failed">("idle");
-  const [screenshot, setScreenshot] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -47,7 +47,7 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title }: 
     const cached = cache.get(adId);
     if (cached) {
       if (cached.failed) { setState("failed"); return; }
-      setScreenshot(cached.screenshot || null);
+      setImageUrl(cached.imageUrl || null);
       setVideoUrl(cached.videoUrl || null);
       setState("ready");
       return;
@@ -57,13 +57,13 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title }: 
     fetch(`https://${projectId}.supabase.co/functions/v1/meta-ad-proxy?id=${adId}`)
       .then((r) => r.json())
       .then((data) => {
-        if (!data?.success || (!data.screenshot && !data.videoUrl)) {
+        if (!data?.success || (!data.imageUrl && !data.videoUrl)) {
           cache.set(adId, { failed: true });
           setState("failed");
           return;
         }
-        cache.set(adId, { screenshot: data.screenshot, videoUrl: data.videoUrl });
-        setScreenshot(data.screenshot || null);
+        cache.set(adId, { imageUrl: data.imageUrl, videoUrl: data.videoUrl });
+        setImageUrl(data.imageUrl || null);
         setVideoUrl(data.videoUrl || null);
         setState("ready");
       })

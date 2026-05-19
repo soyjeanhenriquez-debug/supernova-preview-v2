@@ -2,7 +2,7 @@
 // Toma el informe de inteligencia y produce contenido específico según `kind`.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
-type Kind = "creativos" | "landing" | "avatar" | "funnel";
+type Kind = "creativos" | "landing" | "avatar" | "funnel" | "master_prompt";
 
 interface Body {
   kind: Kind;
@@ -226,6 +226,97 @@ Ad → Landing → Thank you → Upsell 1 → Upsell 2 → Email Sequence
 **Producto:** […]
 **Precio:** $XX
 **Copy del checkbox:** "[microcopy persuasivo en 1 línea]"`,
+  },
+  master_prompt: {
+    system:
+      "Eres un prompt engineer senior especializado en direct response marketing y product strategy. Tu output será usado por otro LLM (Claude/GPT-5) para generar activos reales. Devuelve SOLO Markdown, sin preámbulos.",
+    user: (b) => `A partir del siguiente informe de inteligencia de la oferta de ${b.brand ?? b.url ?? "el competidor"}, construye un MEGA-PROMPT REPLICADOR: un prompt maestro, autosuficiente y portable, que cualquiera pueda pegar en Claude/GPT-5/Lovable para generar una versión MEJORADA y más rentable de esta oferta — tanto para escalar con anuncios como para construirla como app/SaaS con asesoramiento de la comunidad SUPERNOVA.
+
+INFORME ORIGINAL:
+${b.analysis}
+
+FORMATO EXACTO (respeta encabezados y bloques de código):
+
+## 🧬 Mega-Prompt Replicador
+
+### Resumen ejecutivo (3 líneas)
+[Qué hace la oferta original, su punto débil clave, y cuál es el ángulo mejorado que vamos a explotar]
+
+### Ángulo mejorado propuesto
+[1 párrafo: mecanismo único, big idea diferenciada, por qué es 10x más vendible]
+
+---
+
+## 🎯 PROMPT 1 — Para escalar con ANUNCIOS (pegar en Claude/GPT-5)
+
+\`\`\`
+Eres un copywriter senior de direct response. Vamos a crear una oferta SUPERIOR a la siguiente:
+
+[Inserta aquí un brief denso de 8-15 líneas con: nicho, avatar exacto, dolor central, deseo, mecanismo único mejorado, prueba, garantía, precio sugerido, oferta apilada, objeciones top 3, y palabras prohibidas]
+
+Tu tarea:
+1. 10 hooks distintos (dolor, curiosidad, prueba, autoridad, urgencia, contrarian, story, pregunta, dato, ruptura de patrón)
+2. 3 ad copies completos (corto 80p, medio 180p, largo 300p+) con headline + primary + description + CTA
+3. 3 ideas de creativo visual (UGC, talking head, slideshow) con guion segundo a segundo
+4. Plan de testing: 3 audiencias + 3 placements + KPI objetivo (CPA, ROAS)
+
+Tono: [tono]. Idioma: español latinoamericano. Sin emojis salvo donde sume conversión.
+\`\`\`
+
+---
+
+## 🛠 PROMPT 2 — Para construir la APP / OFERTA propia en Lovable
+
+\`\`\`
+Construye una app web (React + Tailwind + Lovable Cloud) que sea la versión SaaS/mejorada de esta oferta:
+
+CONTEXTO DEL MERCADO:
+[8-12 líneas: nicho, avatar, dolor que resolvemos mejor que el competidor, mecanismo único]
+
+FEATURES MÍNIMAS (MVP):
+- [Feature 1 — qué hace y por qué reemplaza al producto original]
+- [Feature 2]
+- [Feature 3]
+- [Feature 4]
+- [Feature 5]
+
+MODELO DE NEGOCIO:
+- Plan free: [límites]
+- Plan pro: $[precio]/mes — [qué incluye]
+- Upsell: [oferta de mayor ticket]
+
+DISEÑO:
+- Estilo: [moderno / Apple / brutalist / etc según la marca]
+- Tono de copy: [tono]
+- Páginas: landing, signup, dashboard, [otras]
+
+STACK: React + Vite + Tailwind + shadcn/ui + Supabase (auth + db + edge functions) + Stripe.
+
+Empieza por la landing con headline ganador, después auth, después el core feature. Cada paso debe ser shippeable.
+\`\`\`
+
+---
+
+## 🧠 PROMPT 3 — Para iterar con la comunidad SUPERNOVA
+
+\`\`\`
+Actúa como mentor de direct response. Tengo esta oferta/app: [pegar PROMPT 2]. 
+
+Dame:
+1. Las 5 razones por las que esta oferta puede fallar en los primeros 30 días
+2. Cómo blindar cada una con copy, oferta o producto
+3. Métricas semanales que debo trackear (con benchmark realista)
+4. Plan de contenido orgánico (TikTok/Reels/X) de 14 días que alimente al ad
+5. Qué pediría yo en SUPERNOVA a la comunidad para acelerar tracción
+\`\`\`
+
+---
+
+## ✅ Cómo usar estos prompts
+1. Copia PROMPT 1 → genera anuncios → testéalos con $50-$100
+2. Copia PROMPT 2 → pégalo en Lovable → construye el MVP en 1 día
+3. Copia PROMPT 3 → revisa con un LLM razonador antes de invertir más
+4. Vuelve a SUPERNOVA y pide feedback de la comunidad antes de escalar`,
   },
 };
 

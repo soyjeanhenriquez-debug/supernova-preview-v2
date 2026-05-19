@@ -246,25 +246,26 @@ function ReportContent({ result, onClose }: { result: IntelligenceResult; onClos
   })();
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col gap-6 rounded-2xl border border-border bg-card/60 backdrop-blur-xl overflow-hidden">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-xl border-b border-border p-5 flex items-center justify-between gap-3 flex-wrap">
+      <div className="px-7 pt-6 flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
           <div className="text-[10px] uppercase tracking-[0.22em] text-primary font-bold">Intelligence Report</div>
-          <div className="font-display text-lg truncate">{result.domain}</div>
-          <div className="text-[11px] text-muted-foreground">{new Date(result.createdAt).toLocaleString("es-ES")}</div>
+          <div className="font-display text-2xl truncate mt-0.5">{result.domain}</div>
+          <div className="text-[11px] text-muted-foreground mt-1">{new Date(result.createdAt).toLocaleString("es-ES")} · {wordCount(result.analysis).toLocaleString("es-ES")} palabras</div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <a href={result.url} target="_blank" rel="noopener noreferrer" className="text-xs px-3 py-1.5 rounded-lg border border-border hover:border-primary hover:text-primary flex items-center gap-1.5 transition-colors">
-            <ExternalLink className="w-3.5 h-3.5" /> Abrir
+            <ExternalLink className="w-3.5 h-3.5" /> Abrir URL
           </a>
-          <button onClick={copyAll} className="text-xs px-3 py-1.5 rounded-lg border border-border hover:border-primary hover:text-primary flex items-center gap-1.5 transition-colors">
-            <Copy className="w-3.5 h-3.5" /> Copiar
+          <ExportMenu result={result} />
+          <button onClick={onClose} aria-label="Cerrar informe" className="text-xs p-2 rounded-lg border border-border hover:border-destructive hover:text-destructive transition-colors">
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      <div className="p-6 space-y-6">
+      <div className="px-7 pb-7 space-y-6">
         {/* Ads strip */}
         {result.ads.length > 0 && (
           <div>
@@ -283,30 +284,35 @@ function ReportContent({ result, onClose }: { result: IntelligenceResult; onClos
           </div>
         )}
 
-        {/* Analysis sections */}
-        {sections.head && (
-          <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display">
-            <ReactMarkdown>{sections.head}</ReactMarkdown>
-          </div>
-        )}
-        <Accordion type="multiple" defaultValue={sections.items.map((_, i) => `s-${i}`)} className="space-y-2">
-          {sections.items.map((sec, i) => {
-            const title = sec.match(/^##\s+(.+)/)?.[1]?.trim() ?? `Sección ${i+1}`;
-            const body = sec.replace(/^##\s+.+\n?/, "");
-            return (
-              <AccordionItem key={i} value={`s-${i}`} className="border border-border rounded-xl px-4 bg-background/30">
-                <AccordionTrigger className="hover:no-underline py-3 text-sm font-display">
-                  {title}
-                </AccordionTrigger>
-                <AccordionContent className="pb-4">
-                  <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-p:text-muted-foreground prose-li:text-muted-foreground prose-strong:text-foreground">
-                    <ReactMarkdown>{body}</ReactMarkdown>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            );
-          })}
-        </Accordion>
+        {/* Analysis sections — centered reading column */}
+        <div className="mx-auto w-full">
+          {sections.head && (
+            <div className="prose prose-invert max-w-none prose-headings:font-display prose-p:leading-relaxed prose-li:leading-relaxed">
+              <ReactMarkdown>{sections.head}</ReactMarkdown>
+            </div>
+          )}
+          <Accordion type="multiple" defaultValue={sections.items.map((_, i) => `s-${i}`)} className="space-y-2 mt-4">
+            {sections.items.map((sec, i) => {
+              const title = sec.match(/^##\s+(.+)/)?.[1]?.trim() ?? `Sección ${i+1}`;
+              const body = sec.replace(/^##\s+.+\n?/, "");
+              return (
+                <AccordionItem key={i} value={`s-${i}`} className="border border-border rounded-xl px-5 bg-background/30">
+                  <AccordionTrigger className="hover:no-underline py-4 text-[15px] font-display">
+                    {title}
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-5">
+                    <div className="prose prose-invert max-w-none prose-headings:font-display prose-p:text-muted-foreground prose-p:leading-relaxed prose-li:text-muted-foreground prose-li:leading-relaxed prose-strong:text-foreground">
+                      <ReactMarkdown>{body}</ReactMarkdown>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+          </Accordion>
+        </div>
+
+        {/* Próximos pasos */}
+        <NextSteps />
 
         {/* Generadores inline */}
         <OraculoGenerators result={result} />
@@ -315,13 +321,78 @@ function ReportContent({ result, onClose }: { result: IntelligenceResult; onClos
   );
 }
 
-type GenKind = "creativos" | "landing" | "avatar" | "funnel";
+function wordCount(s: string) {
+  return s.trim().split(/\s+/).length;
+}
 
-const GEN_META: Record<GenKind, { label: string; icon: string; cost: number; credit: "gen_ad_copies" | "gen_landing" | "gen_avatar" | "gen_funnel" }> = {
-  creativos: { label: "Generar mis Creativos", icon: "⚡", cost: 2, credit: "gen_ad_copies" },
-  landing:   { label: "Clonar esta Landing",  icon: "📄", cost: 3, credit: "gen_landing" },
-  avatar:    { label: "Avatar Profundo",      icon: "👤", cost: 2, credit: "gen_avatar" },
-  funnel:    { label: "Funnel Completo",      icon: "📦", cost: 5, credit: "gen_funnel" },
+function ExportMenu({ result }: { result: IntelligenceResult }) {
+  const stamp = new Date(result.createdAt).toISOString().slice(0, 10);
+  const baseName = `oraculo-${result.domain.replace(/[^a-z0-9.-]/gi, "_")}-${stamp}`;
+  const md = `# Intelligence Report — ${result.domain}\n\n_Fuente: ${result.url}_\n_Generado: ${new Date(result.createdAt).toLocaleString("es-ES")}_\n\n---\n\n${result.analysis}\n`;
+  const plain = md.replace(/[#*_>`]/g, "").replace(/\n{3,}/g, "\n\n");
+
+  const copyMd = async () => { await navigator.clipboard.writeText(md); toast.success("Markdown copiado · pega en Notion"); };
+  const copyPlain = async () => { await navigator.clipboard.writeText(plain); toast.success("Texto copiado · pega en Word"); };
+  const downloadFile = (content: string, ext: string, mime: string) => {
+    const blob = new Blob([content], { type: mime });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${baseName}.${ext}`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="text-xs px-3 py-1.5 rounded-lg border border-border hover:border-primary hover:text-primary flex items-center gap-1.5 transition-colors">
+          <Download className="w-3.5 h-3.5" /> Exportar
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-60">
+        <DropdownMenuItem onClick={copyMd}><Copy className="w-3.5 h-3.5 mr-2" /> Copiar Markdown (Notion)</DropdownMenuItem>
+        <DropdownMenuItem onClick={copyPlain}><FileText className="w-3.5 h-3.5 mr-2" /> Copiar texto plano (Word)</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => downloadFile(md, "md", "text/markdown")}><Download className="w-3.5 h-3.5 mr-2" /> Descargar .md</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => downloadFile(plain, "txt", "text/plain")}><Download className="w-3.5 h-3.5 mr-2" /> Descargar .txt</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function NextSteps() {
+  const items = [
+    { icon: "🧬", title: "Genera tu Mega-Prompt Replicador", desc: "Convierte todo el informe en un prompt maestro para Claude/GPT-5 — listo para crear una versión MEJORADA, ya sea como campaña de ads o como app/SaaS." },
+    { icon: "⚡", title: "Lanza creativos en 24 h", desc: "Usa 'Generar mis Creativos' para sacar 5 hooks + 3 ad copies. Testea con $50-$100 antes de escalar." },
+    { icon: "👤", title: "Construye el avatar profundo", desc: "Saca demografía exacta, miedos, deseos y los 5 niveles de consciencia. Base de todo el copy serio." },
+    { icon: "📦", title: "Diseña el funnel completo", desc: "VSL + secuencia de 5 emails + upsell + order bump. Para cuando ya tengas el ángulo validado." },
+    { icon: "📄", title: "Clona la landing con un giro", desc: "Genera tu propia versión con ángulo sofisticado, sin copiar literal." },
+  ];
+  return (
+    <div className="rounded-xl border border-border bg-background/40 p-5 space-y-3">
+      <div className="text-[10px] uppercase tracking-[0.22em] text-primary font-bold flex items-center gap-1.5">
+        <ArrowRight className="w-3 h-3" /> Qué hacer con este informe
+      </div>
+      <div className="grid sm:grid-cols-2 gap-2">
+        {items.map((it) => (
+          <div key={it.title} className="rounded-lg border border-border/60 bg-card/40 p-3">
+            <div className="text-sm font-display flex items-center gap-2"><span>{it.icon}</span> {it.title}</div>
+            <div className="text-xs text-muted-foreground mt-1 leading-relaxed">{it.desc}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+type GenKind = "creativos" | "landing" | "avatar" | "funnel" | "master_prompt";
+
+const GEN_META: Record<GenKind, { label: string; icon: string; cost: number; credit: "gen_ad_copies" | "gen_landing" | "gen_avatar" | "gen_funnel" | "gen_master_prompt"; highlight?: boolean }> = {
+  master_prompt: { label: "Mega-Prompt Replicador", icon: "🧬", cost: 4, credit: "gen_master_prompt", highlight: true },
+  creativos:     { label: "Generar mis Creativos",  icon: "⚡", cost: 2, credit: "gen_ad_copies" },
+  landing:       { label: "Clonar esta Landing",    icon: "📄", cost: 3, credit: "gen_landing" },
+  avatar:        { label: "Avatar Profundo",        icon: "👤", cost: 2, credit: "gen_avatar" },
+  funnel:        { label: "Funnel Completo",        icon: "📦", cost: 5, credit: "gen_funnel" },
 };
 
 function OraculoGenerators({ result }: { result: IntelligenceResult }) {

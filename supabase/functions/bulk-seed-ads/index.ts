@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
       ? body.countries
       : SEED_COUNTRIES;
     const limit = Math.min(Number(body.limit ?? 100), 100);
-    const maxJobs = Math.min(Number(body.max_jobs ?? 200), 500);
+    const maxJobs = Math.min(Number(body.max_jobs ?? 400), 1500);
 
     // Build jobs (keyword × country) shuffled, truncated to maxJobs
     const jobs: { kw: string; country: string }[] = [];

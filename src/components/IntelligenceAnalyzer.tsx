@@ -233,10 +233,6 @@ export function IntelligenceAnalyzer() {
 }
 
 function ReportContent({ result, onClose }: { result: IntelligenceResult; onClose: () => void }) {
-  const copyAll = async () => {
-    await navigator.clipboard.writeText(result.analysis);
-    toast.success("Informe copiado");
-  };
 
   // Split analysis into sections by '## '
   const sections = (() => {

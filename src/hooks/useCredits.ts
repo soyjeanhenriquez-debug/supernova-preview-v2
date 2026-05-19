@@ -35,6 +35,7 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   gen_ad_copies: 2,
   gen_avatar: 2,
   gen_funnel: 5,
+  gen_master_prompt: 4,
 };
 
 export const ACTION_LABEL: Record<CreditAction, string> = {
@@ -51,6 +52,7 @@ export const ACTION_LABEL: Record<CreditAction, string> = {
   gen_ad_copies: "10 variaciones de ad copy",
   gen_avatar: "Avatar del comprador",
   gen_funnel: "Funnel completo (VSL+emails)",
+  gen_master_prompt: "Mega-Prompt Replicador",
 };
 
 export interface CreditHistoryEntry {

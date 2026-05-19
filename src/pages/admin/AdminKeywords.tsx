@@ -124,7 +124,26 @@ export default function AdminKeywords() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadTop(); }, []);
+
+  const loadTop = async () => {
+    setTopLoading(true);
+    try {
+      const d: any = await invoke("user_top");
+      setTopRows(d.top || []);
+    } catch (e: any) { toast.error(e.message); }
+    finally { setTopLoading(false); }
+  };
+
+  const loadElite = async () => {
+    setEliteLoading(true);
+    try {
+      const d: any = await invoke("elite_suggestions", { lang: eliteLang, niche: eliteNiche });
+      setElite(d.suggestions || []);
+      if (!d.suggestions?.length) toast.warning("La IA no devolvió sugerencias. Reintenta.");
+    } catch (e: any) { toast.error(e.message); }
+    finally { setEliteLoading(false); }
+  };
 
   const existingSet = useMemo(() => new Set(keywords.map((k) => k.keyword.toLowerCase())), [keywords]);
   const suggestions = useMemo(() => dailySuggestions(existingSet), [existingSet]);

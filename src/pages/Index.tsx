@@ -19,6 +19,7 @@ const Index = () => {
       case "Dashboard": return <DashboardPage onNavigate={setActivePage} />;
       case "Buscar Ofertas Winner": return <WinningAdsPage />;
       case "Anuncios Ganadores": return <WinningAdsPage />;
+      case "Oráculo": return <OraculoPage />;
       case "Agentes DR": return <AgentsPage />;
       case "Chat IA": return <ChatPage />;
       case "Generadores": return <GeneradoresPage />;

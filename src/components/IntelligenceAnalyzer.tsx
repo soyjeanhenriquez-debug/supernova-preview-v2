@@ -534,3 +534,149 @@ function GenOutput({ id, kind, icon, label, content }: { id: string; kind: GenKi
     </div>
   );
 }
+
+// ───────────────────────────── Ad history + favorites ─────────────────────────────
+
+function AdCard({ item }: { item: Omit<AdHistoryItem, "visitedAt"> }) {
+  const { markVisited, toggleFavorite, isFavorite } = useAdHistory();
+  const [fav, setFav] = useState(() => isFavorite(item.key));
+  const [burst, setBurst] = useState(false);
+
+  const onClick = () => markVisited(item);
+  const onFav = (e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    const now = toggleFavorite(item);
+    setFav(now);
+    if (now) { setBurst(true); setTimeout(() => setBurst(false), 600); }
+  };
+
+  return (
+    <a
+      href={item.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={onClick}
+      title="Abrir en Facebook Ads Library"
+      className="group shrink-0 w-64 rounded-xl border border-border bg-background/60 p-3 hover:border-primary hover:bg-primary/5 transition-colors flex flex-col relative"
+    >
+      <button
+        onClick={onFav}
+        aria-label={fav ? "Quitar de favoritos" : "Añadir a favoritos"}
+        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-background/80 backdrop-blur border border-border flex items-center justify-center hover:scale-110 active:scale-95 transition-transform z-10"
+      >
+        <Heart
+          className={`w-3.5 h-3.5 transition-all ${fav ? "fill-rose-500 text-rose-500" : "text-muted-foreground hover:text-rose-500"} ${burst ? "scale-125" : ""}`}
+          strokeWidth={2.2}
+        />
+        {burst && (
+          <span className="absolute inset-0 rounded-full animate-ping bg-rose-500/30 pointer-events-none" />
+        )}
+      </button>
+      <div className="flex items-start justify-between gap-2 pr-8">
+        <div className="text-[11px] font-semibold text-primary truncate">{item.page_name ?? "Anunciante"}</div>
+        <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-primary shrink-0 mt-0.5" />
+      </div>
+      <div className="text-xs text-foreground mt-1 line-clamp-3">{item.title ?? "—"}</div>
+      <div className="text-[10px] text-muted-foreground mt-2 line-clamp-3">{item.body}</div>
+      <div className="text-[10px] text-muted-foreground/70 mt-2 pt-2 border-t border-border/50">Ver en Ads Library →</div>
+    </a>
+  );
+}
+
+const PAGE_SIZE = 6;
+
+function AdHistoryBar() {
+  const { history, favorites, toggleFavorite, isFavorite, clearHistory } = useAdHistory();
+  const [tab, setTab] = useState<"history" | "favorites">("history");
+  const [page, setPage] = useState(0);
+
+  const list = tab === "history" ? history : favorites;
+  const pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  const safePage = Math.min(page, pages - 1);
+  const slice = list.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+
+  useEffect(() => { setPage(0); }, [tab, list.length]);
+
+  if (history.length === 0 && favorites.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-border bg-background/40 p-4 space-y-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setTab("history")}
+            className={`text-[11px] uppercase tracking-[0.18em] font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors ${tab === "history" ? "bg-primary/15 text-primary border border-primary/30" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Eye className="w-3 h-3" /> Visitados <span className="opacity-60">({history.length})</span>
+          </button>
+          <button
+            onClick={() => setTab("favorites")}
+            className={`text-[11px] uppercase tracking-[0.18em] font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors ${tab === "favorites" ? "bg-rose-500/15 text-rose-400 border border-rose-500/30" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Heart className={`w-3 h-3 ${tab === "favorites" ? "fill-rose-500 text-rose-500" : ""}`} /> Favoritos <span className="opacity-60">({favorites.length})</span>
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          {pages > 1 && (
+            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={safePage === 0} className="p-1 rounded hover:bg-secondary disabled:opacity-30">
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <span className="tabular-nums">{safePage + 1} / {pages}</span>
+              <button onClick={() => setPage((p) => Math.min(pages - 1, p + 1))} disabled={safePage >= pages - 1} className="p-1 rounded hover:bg-secondary disabled:opacity-30">
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+          {tab === "history" && history.length > 0 && (
+            <button onClick={clearHistory} className="text-[10px] text-muted-foreground hover:text-destructive flex items-center gap-1">
+              <Trash2 className="w-3 h-3" /> Limpiar
+            </button>
+          )}
+        </div>
+      </div>
+
+      {slice.length === 0 ? (
+        <div className="text-xs text-muted-foreground text-center py-3">
+          {tab === "favorites" ? "Aún no marcaste favoritos. Pulsa el ♥ en cualquier tarjeta." : "Aún no visitaste anuncios en esta sesión."}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          {slice.map((it) => {
+            const fav = isFavorite(it.key);
+            return (
+              <a
+                key={it.key}
+                href={it.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group relative rounded-lg border border-border/60 bg-card/40 px-3 py-2 hover:border-primary hover:bg-primary/5 transition-colors flex flex-col min-w-0"
+              >
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFavorite(it); }}
+                  aria-label={fav ? "Quitar favorito" : "Marcar favorito"}
+                  className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center hover:scale-110 active:scale-90 transition-transform"
+                >
+                  <Heart className={`w-3 h-3 transition-all ${fav ? "fill-rose-500 text-rose-500" : "text-muted-foreground hover:text-rose-500"}`} strokeWidth={2.2} />
+                </button>
+                <div className="text-[11px] font-semibold text-primary truncate pr-6">{it.page_name ?? "Anunciante"}</div>
+                <div className="text-[11px] text-foreground/90 truncate">{it.title ?? it.body ?? "Ver anuncio"}</div>
+                <div className="text-[9px] text-muted-foreground/70 mt-0.5">{relativeTime(it.visitedAt)}</div>
+              </a>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function relativeTime(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "ahora";
+  if (m < 60) return `hace ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `hace ${h} h`;
+  return new Date(iso).toLocaleDateString("es-ES");
+}

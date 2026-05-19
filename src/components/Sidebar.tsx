@@ -2,6 +2,8 @@ import { LayoutDashboard, Trophy, Telescope, Bot, MessageSquare, FileText, Folde
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useProjects } from "@/hooks/useProjects";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useNavigate } from "react-router-dom";
 
 interface SidebarProps {
   activePage: string;
@@ -22,11 +24,12 @@ const navItems = [
 export function Sidebar({ activePage, onNavigate }: SidebarProps) {
   const { user, signOut } = useAuth();
   const { projects } = useProjects();
+  const { isAdmin } = useIsAdmin();
+  const navigate = useNavigate();
 
   const handleSignOut = async () => { await signOut(); toast.success("Sesión cerrada"); };
   const displayName = user?.user_metadata?.display_name || user?.email?.split("@")[0] || "Usuario";
   const initials = displayName.charAt(0).toUpperCase();
-  const isAdmin = user?.email === "demo@supernova.test" || user?.user_metadata?.role === "admin";
 
   return (
     <aside className="flex flex-col w-[240px] min-h-screen border-r border-border bg-sidebar">
@@ -62,12 +65,10 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
 
         {isAdmin && (
           <button
-            onClick={() => onNavigate("Admin")}
-            className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg transition-colors text-left mt-1 ${
-              activePage === "Admin" ? "sidebar-active" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-            }`}
+            onClick={() => navigate("/admin")}
+            className="flex items-center gap-3 w-full px-3 py-2 rounded-lg transition-colors text-left mt-1 text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
           >
-            <Shield className="w-[15px] h-[15px]" strokeWidth={1.6} />
+            <Shield className="w-[15px] h-[15px] text-primary" strokeWidth={1.6} />
             <span className="text-[13px] font-medium tracking-tight">Admin</span>
           </button>
         )}

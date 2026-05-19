@@ -7,6 +7,9 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { AuthPage } from "./pages/AuthPage";
+import { AdminLayout } from "@/components/admin/AdminLayout";
+import AdminOverview from "@/pages/admin/AdminOverview";
+import { AdminStub } from "@/pages/admin/AdminStub";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +37,16 @@ function AppRoutes() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Index />} />
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminOverview />} />
+          <Route path="usuarios" element={<AdminStub title="Usuarios" description="Gestión completa de usuarios, créditos y planes." />} />
+          <Route path="keywords" element={<AdminStub title="Keywords & Fuentes" description="Control de keywords del sistema y plataformas monitoreadas." />} />
+          <Route path="agente" element={<AdminStub title="Agente IA Admin" description="Chat con el agente del sistema y cola de aprendizaje." />} />
+          <Route path="mensajes" element={<AdminStub title="Mensajes & Comunicación" description="Notificaciones, banners y emails a usuarios." />} />
+          <Route path="creditos" element={<AdminStub title="Créditos & Planes" description="Configuración de planes, costos y transacciones globales." />} />
+          <Route path="analytics" element={<AdminStub title="Analytics" description="Retención, conversión, funnel y comportamiento del producto." />} />
+          <Route path="config" element={<AdminStub title="Configuración del Sistema" description="Branding, APIs, búsqueda automática y mantenimiento." />} />
+        </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>

@@ -23,6 +23,17 @@ type KW = {
   winners_count: number;
   last_scraped_at: string | null;
 };
+type TopRow = {
+  keyword: string;
+  user_count: number;
+  total_uses: number;
+  active_count: number;
+  last_used_at: string | null;
+  first_seen_at: string;
+};
+
+type EliteSug = { keyword: string; reason: string; category: string };
+
 
 const LANGS = [
   { code: "all", label: "Todos", icon: "🌐" },

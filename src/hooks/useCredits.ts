@@ -18,7 +18,8 @@ export type CreditAction =
   | "gen_landing"
   | "gen_ad_copies"
   | "gen_avatar"
-  | "gen_funnel";
+  | "gen_funnel"
+  | "gen_master_prompt";
 
 export const CREDIT_COSTS: Record<CreditAction, number> = {
   search_ads: 1,

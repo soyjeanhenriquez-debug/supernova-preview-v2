@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import {
   Search, Plus, Trash2, Sparkles, Play, TrendingUp, Activity,
   Globe, Flame, RefreshCw, Check, Languages, Users, Crown, Brain, Loader2,
+  Zap, Pause, PlayCircle, Clock, Target,
 } from "lucide-react";
 import { DR_KEYWORDS, HIGH_YIELD_KEYWORDS } from "@/lib/dr-keywords";
 import { formatDistanceToNow } from "date-fns";

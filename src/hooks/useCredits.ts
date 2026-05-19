@@ -123,6 +123,8 @@ export function useCredits() {
       }).then(() => {});
     });
     return true;
+  }, []);
+
 
   const canAfford = (action: CreditAction) => state.balance >= CREDIT_COSTS[action];
 

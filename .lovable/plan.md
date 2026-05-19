@@ -1,59 +1,76 @@
-# Landing Page Intelligence Analyzer
+# Panel Admin SUPERNOVA — Plan de implementación
 
-Nueva feature dentro de **Buscar Ofertas Winner** (`/winning-ads`). Pegar una URL → SUPERNOVA hace fetch de la landing, busca anuncios activos del anunciante en Facebook Ads Library, y genera un Informe de Inteligencia completo con IA. Resultado se guarda en historial.
+Este es un proyecto muy grande (8 secciones, ~30 sub-features, nuevas tablas, edge functions, agente IA con aprendizaje). Lo entrego por **fases verificables** para no romper nada y poder iterar.
 
-## Alcance
-Solo se toca el módulo Winning Ads. No se modifican otras páginas.
+Antes de empezar necesito confirmar 3 puntos clave (ver "Decisiones pendientes" al final).
 
-## Decisión técnica importante
-El spec menciona Claude + `ANTHROPIC_API_KEY`. **Usaré Lovable AI Gateway con `google/gemini-2.5-pro`** (sin API key del usuario, alta calidad para razonamiento). Si prefieres Claude explícitamente, lo cambio y pediré la key.
+---
 
-## Cambios
+## Fase 0 — Fundación (rol admin + ruta protegida)
 
-### 1. Base de datos
-Tabla `landing_analyses`:
-- `user_id`, `url`, `domain`, `brand_name`, `analysis_text` (markdown), `ads_found` (jsonb con los 5 mejores ads), `created_at`
-- RLS: cada usuario ve solo los suyos (ALL own).
+- Migración: tabla `user_roles` + enum `app_role` (admin/moderator/user) + función `has_role()` security definer (patrón obligatorio en este stack).
+- Asignar rol `admin` a tu user_id actual (me lo pides o lo detecto por email).
+- Nueva ruta `/admin` en `App.tsx` (montar `BrowserRouter` siempre, hoy solo monta si hay user — ya está bien) con guard que verifica `has_role(uid,'admin')`. Redirige a `/` si no es admin.
+- Layout `AdminLayout` con sidebar secundario (8 items) usando el mismo design system (Apple Space Black + amber).
+- Nada de esto toca páginas existentes — solo añade.
 
-### 2. Edge Functions (nuevas)
-- **`fetch-landing`** — recibe `{ url }`, hace fetch server-side con User-Agent realista, extrae `title`, `metaDescription`, `ogTitle`, `ogDescription`, `ogImage`, `bodyText` (primeros 4000 chars limpios). Maneja errores devolviendo `success: false` para que el cliente muestre fallback manual (textarea).
-- **`analyze-landing`** — recibe `{ landingUrl, landingContent, activeAds, domain, brandName }`, llama a Lovable AI Gateway (`google/gemini-2.5-pro`) con el system prompt de analista DR y el prompt estructurado de 9 secciones del spec. Maneja 429/402. Devuelve `{ analysis: string }`.
+## Fase 1 — Overview
 
-Ambas con CORS estándar.
+- 4 KPIs reales desde Supabase: `auth.users` count, activos hoy (vía `ad_history.visited_at`), créditos hoy (nueva tabla `credit_transactions`), búsquedas hoy (`landing_analyses` + `ad_history`).
+- Feed live últimas 2h (unión de eventos de varias tablas, polling cada 30s).
+- 3 gráficos Recharts (línea/barras/pie).
+- Top performers (4 listas).
 
-### 3. UI nueva en `WinningAdsPage.tsx`
-- **`IntelligenceAnalyzerCard`** (arriba de la lista de ads): input URL grande estilo Apple + botón ⚡ ANALIZAR + texto de ejemplos. Antes de ejecutar muestra modal "Cuesta 5 créditos ¿continuar?".
-- **`AnalyzerProgress`**: panel inline que muestra los 6 pasos con ✅/⏳ en tiempo real (paso 1 validar URL → paso 6 generar blueprint).
-- **`IntelligenceReportModal`** (Dialog fullscreen): header con dominio + fecha + botones Guardar/Copiar, fila scroll horizontal con tarjetas compactas de los anuncios encontrados, informe markdown renderizado con React-Markdown en `Accordion` (9 secciones colapsables), y barra de "Acciones rápidas" con 4 botones que enlazan al pipeline existente (Sofisticar, Blueprint, Generar landing, Funnel completo).
-- **`SavedAnalysesList`**: sección colapsable al final de la página con historial desde `landing_analyses`, acciones Ver/Eliminar.
-- **Fallback manual**: si `fetch-landing` devuelve `success:false`, mostrar textarea para pegar copy y reintentar con ese texto.
+## Fase 2 — Usuarios
 
-### 4. Hook `useLandingAnalyzer`
-Orquesta los 6 pasos en paralelo donde se pueda:
-1. validar URL y extraer dominio
-2. `fetch-landing`
-3. en paralelo: `facebook-ads` por dominio + por brandName extraído (combina y deduplica por `id`)
-4. `analyze-landing`
-5. persistir en `landing_analyses`
-6. retornar `{ analysis, ads, savedId }`
+- Tabla con paginación, búsqueda, filtros.
+- Modal "perfil completo" con timeline.
+- Acciones: añadir/quitar créditos, cambiar plan, suspender, eliminar.
+- **No incluyo** "impersonar usuario" en esta fase — requiere arquitectura de auth especial (service-role + session swap) que merece su propia conversación.
 
-Expone `status` por paso para el progress UI. Consume 5 créditos con `useCredits.consume('analyze_url', ...)` (extiendo `CREDIT_COSTS.analyze_url` de 1 → 5 únicamente para esta acción nueva, o añado nuevo action `landing_intelligence: 5` para no romper otros usos — usaré **nuevo action `landing_intelligence`**).
+## Fase 3 — Keywords & Fuentes
 
-### 5. Créditos
-Añadir `landing_intelligence: 5` a `CREDIT_COSTS` y `ACTION_LABEL` en `useCredits.ts`.
+- CRUD sobre tabla `keywords` existente + nueva `platforms` + nueva `keyword_rotation_config`.
+- Botón "Probar ahora" que invoca `search-winning-ads`.
 
-## Orden de implementación
-1. Migración tabla `landing_analyses` + RLS
-2. Edge function `fetch-landing`
-3. Edge function `analyze-landing`
-4. Hook `useLandingAnalyzer`
-5. Componentes UI (Analyzer card, Progress, Report modal, Saved list)
-6. Integrar en `WinningAdsPage.tsx`
+## Fase 4 — Créditos & Planes
 
-## Detalles técnicos
-- Markdown: ya existe `react-markdown` en el proyecto (memoria del tema).
-- Estilo: hairline Apple Space Black, amber `#f7a93d` reservado solo para CTA ANALIZAR y badges de "winner". Sin glows.
-- No mock data — todo real desde Supabase + edge functions.
-- Idiomas: análisis siempre en español (system prompt lo fuerza).
+- Nueva tabla `plans` (editable) y `credit_costs` (editable, sustituye el hardcode actual en `useCredits.ts`).
+- Migrar `useCredits.ts` a leer costes desde DB y registrar transacciones en `credit_transactions`. **Esto sí toca código compartido** (necesario para que Overview muestre datos reales). Lo hago de forma retro-compatible.
+- Tabla de transacciones globales con export CSV.
+- Gestión masiva.
 
-¿Apruebas y procedo? (Confirma también si OK usar Gemini 2.5 Pro vía Lovable AI en lugar de Claude — evita pedirte una API key).
+## Fase 5 — Mensajes & Comunicación
+
+- Tablas `notifications`, `banners`, `feedback`, `email_templates`.
+- UI de creación + segmentación + programación.
+- Componente `<BannerHost>` que se monta en `Index.tsx` (única tocada fuera de /admin, mínima) para mostrar banners activos.
+
+## Fase 6 — Analytics
+
+- Vistas SQL + Recharts: retención, conversión, funnel, drop-off, keywords.
+- Export CSV.
+
+## Fase 7 — Agente IA Admin
+
+- Edge function `admin-agent` (reutiliza patrón de `ai-chat` pero con system prompt admin + acceso vía service-role a métricas anonimizadas).
+- Tabla `admin_agent_proposals` (observation, proposal, confidence, status, created_at, reviewed_at, approved_by).
+- Cron pg_cron diario que ejecuta análisis y genera propuestas.
+- UI: chat + cola de aprobación + instrucciones permanentes (`admin_agent_instructions`).
+
+## Fase 8 — Configuración del Sistema
+
+- Tabla `system_config` (key/value).
+- UI para nombre/logo/colores/mensajes/API keys (las API keys siguen como secrets reales, aquí solo botón "probar conexión").
+- Health check de edge functions.
+- Logs vía `supabase analytics_query`.
+
+---
+
+## Decisiones pendientes (responde antes de empezar)
+
+1. **Tu email/user_id de admin** — para asignarte el rol en Fase 0. ¿Cuál usas?
+2. **Sistema de planes** — actualmente `useCredits` es 100% localStorage con balance fijo 3000. ¿Migramos a planes reales en DB (free/pro/agency con precios) o solo dejo la configuración de costes editable y planes como cosmético por ahora?
+3. **Entrega** — ¿hago Fase 0→8 completas de seguido (será un cambio enorme en una sola tanda, alto consumo de créditos), o paro tras cada fase para que verifiques?
+
+Mi recomendación: **una fase por mensaje**, empezando por Fase 0+1 juntas. Confirma y arranco.

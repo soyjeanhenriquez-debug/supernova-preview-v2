@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
   Search, Plus, Trash2, Sparkles, Play, TrendingUp, Activity,
-  Globe, Flame, RefreshCw, Check, Languages,
+  Globe, Flame, RefreshCw, Check, Languages, Users, Crown, Brain, Loader2,
 } from "lucide-react";
 import { DR_KEYWORDS, HIGH_YIELD_KEYWORDS } from "@/lib/dr-keywords";
 import { formatDistanceToNow } from "date-fns";

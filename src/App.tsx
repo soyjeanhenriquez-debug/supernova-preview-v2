@@ -11,6 +11,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import AdminOverview from "@/pages/admin/AdminOverview";
 import { AdminStub } from "@/pages/admin/AdminStub";
 import AdminUsers from "@/pages/admin/AdminUsers";
+import AdminKeywords from "@/pages/admin/AdminKeywords";
 
 const queryClient = new QueryClient();
 

@@ -113,8 +113,16 @@ export function useCredits() {
       action, label: ACTION_LABEL[action], cost, meta,
     };
     persist(next, [entry, ...readHistory()]);
+    // Mirror to Supabase for admin analytics (fire-and-forget)
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id;
+      if (!uid) return;
+      supabase.from("credit_transactions").insert({
+        user_id: uid, action, label: ACTION_LABEL[action], cost,
+        meta: meta ? { note: meta } : {},
+      }).then(() => {});
+    });
     return true;
-  }, []);
 
   const canAfford = (action: CreditAction) => state.balance >= CREDIT_COSTS[action];
 

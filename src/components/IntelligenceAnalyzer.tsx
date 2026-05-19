@@ -192,7 +192,7 @@ export function IntelligenceAnalyzer() {
       {/* Report inline (centered, readable) */}
       {result && (
         <div id="oraculo-report" className="mx-auto w-full max-w-3xl">
-          <ReportContent result={result} onClose={() => setResult(null as unknown as IntelligenceResult)} />
+          <ReportContent result={result} onClose={() => setResult(null)} />
         </div>
       )}
 

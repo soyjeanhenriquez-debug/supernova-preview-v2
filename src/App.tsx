@@ -11,6 +11,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import AdminOverview from "@/pages/admin/AdminOverview";
 import { AdminStub } from "@/pages/admin/AdminStub";
 import AdminUsers from "@/pages/admin/AdminUsers";
+import AdminKeywords from "@/pages/admin/AdminKeywords";
 
 const queryClient = new QueryClient();
 
@@ -41,7 +42,7 @@ function AppRoutes() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminOverview />} />
           <Route path="usuarios" element={<AdminUsers />} />
-          <Route path="keywords" element={<AdminStub title="Keywords & Fuentes" description="Control de keywords del sistema y plataformas monitoreadas." />} />
+          <Route path="keywords" element={<AdminKeywords />} />
           <Route path="agente" element={<AdminStub title="Agente IA Admin" description="Chat con el agente del sistema y cola de aprendizaje." />} />
           <Route path="mensajes" element={<AdminStub title="Mensajes & Comunicación" description="Notificaciones, banners y emails a usuarios." />} />
           <Route path="creditos" element={<AdminStub title="Créditos & Planes" description="Configuración de planes, costos y transacciones globales." />} />

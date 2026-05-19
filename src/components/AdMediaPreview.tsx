@@ -10,7 +10,7 @@ interface AdMediaPreviewProps {
 }
 
 // Cache en memoria para no re-pegar a Firecrawl por la misma id en la sesión
-const cache = new Map<string, { screenshot?: string; videoUrl?: string; failed?: boolean }>();
+const cache = new Map<string, { imageUrl?: string | null; videoUrl?: string | null; failed?: boolean }>();
 
 function extractAdId(url?: string): string | null {
   if (!url) return null;

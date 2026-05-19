@@ -35,6 +35,23 @@ type TopRow = {
 
 type EliteSug = { keyword: string; reason: string; category: string };
 
+type MasterState = {
+  id: string; keyword: string; source_tier: string | null;
+  is_paused: boolean; last_run_at: string | null;
+  last_found_count: number; total_found: number; total_winners: number; total_runs: number;
+};
+type MasterRun = {
+  id: string; started_at: string; finished_at: string | null;
+  keywords_used: string[]; ads_found: number; winners_found: number;
+  success: boolean; triggered_by: string;
+};
+type EngineKpis = {
+  total_keywords: number; active_keywords: number; paused_keywords: number;
+  total_ingested: number; total_winners: number; winner_pct: number;
+  total_runs: number; last_run_at: string | null; active_this_hour: string[];
+};
+
+
 
 const LANGS = [
   { code: "all", label: "Todos", icon: "🌐" },

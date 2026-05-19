@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+
 
 const KEY = "supernova_credits_v2";
 const HIST_KEY = "supernova_credits_history_v1";

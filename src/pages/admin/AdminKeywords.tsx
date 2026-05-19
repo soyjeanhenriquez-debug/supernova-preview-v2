@@ -106,6 +106,12 @@ export default function AdminKeywords() {
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive" | "winners" | "dead">("all");
   const [newKw, setNewKw] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [topRows, setTopRows] = useState<TopRow[]>([]);
+  const [topLoading, setTopLoading] = useState(true);
+  const [elite, setElite] = useState<EliteSug[]>([]);
+  const [eliteLoading, setEliteLoading] = useState(false);
+  const [eliteLang, setEliteLang] = useState<"en" | "es" | "pt">("es");
+  const [eliteNiche, setEliteNiche] = useState("");
 
   const load = async () => {
     try {

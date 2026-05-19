@@ -199,22 +199,81 @@ export function WinningAdsPage() {
   const [presetName, setPresetName] = useState("");
   useEffect(() => { localStorage.setItem(PRESETS_KEY, JSON.stringify(presets)); }, [presets]);
 
-  // Cargar estadísticas reales desde la tabla `winning_ads` (sin datos demo)
+  // Cargar histórico real desde `winning_ads` (todo lo que el motor maestro ha ingestado)
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const { data, error } = await supabase
         .from("winning_ads")
-        .select("page_id, page_name, tier", { count: "exact" });
+        .select("*")
+        .order("scraped_at", { ascending: false })
+        .limit(2000);
       if (cancelled || error || !data) return;
       const unique = new Set(data.map((r) => r.page_id ?? r.page_name ?? "").filter(Boolean)).size;
       const mega = data.filter((r) => r.tier === "mega").length;
       const rising = data.filter((r) => r.tier === "rising").length;
       const solid = data.filter((r) => r.tier === "solid").length;
       setLiveStats({ total: data.length, unique, mega, rising, solid });
+
+      const mappedDb: DemoAd[] = data.map((r: any, i: number) => {
+        const adMarket = (r.market ?? "US") as AdMarket;
+        const title = r.ad_title ?? r.page_name ?? "Anuncio";
+        const body = r.ad_body ?? r.ad_description ?? "";
+        const days = r.days_active ?? 1;
+        const rawUrl = r.ad_url ?? (r.page_id
+          ? buildAdsLibraryPageUrl(String(r.page_id), adMarket)
+          : buildAdsLibrarySearchUrl(r.page_name ?? title, adMarket));
+        const adUrl = normalizeAdsLibraryUrl(rawUrl, r.page_name ?? title, adMarket);
+        return {
+          id: `db-${r.id ?? i}`,
+          pageId: r.page_id ?? "",
+          pageName: r.page_name ?? r.advertiser ?? "Facebook Ad",
+          title,
+          body: body || title,
+          daysActive: days,
+          duplicates: r.duplicate_count ?? 1,
+          score: r.winner_score ?? 50,
+          tier: (r.tier ?? "solid") as Tier,
+          offerType: (r.offer_type ?? "infoproducto") as DemoAd["offerType"],
+          market: adMarket,
+          marketLabel: r.market ?? "",
+          flag: flagEmoji(r.market ?? "US"),
+          lang: "en" as AdLang,
+          adUrl,
+          platforms: Array.isArray(r.publisher_platforms) ? r.publisher_platforms : ["facebook"],
+          countries: [r.market ?? "US"],
+          vertical: classifyOffer(`${title} ${body}`),
+        };
+      });
+      setRealAds((prev) => {
+        const seen = new Set(prev.map((a) => a.id));
+        const fresh = mappedDb.filter((a) => !seen.has(a.id));
+        return [...prev, ...fresh];
+      });
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Admin: siembra masiva desde FB Ads Library
+  const [seeding, setSeeding] = useState(false);
+  const runBulkSeed = async () => {
+    if (seeding) return;
+    setSeeding(true);
+    toast.info("Sembrando catálogo desde FB Ads Library… 1-3 min");
+    try {
+      const { data, error } = await supabase.functions.invoke("bulk-seed-ads", {
+        body: { max_jobs: 200, limit: 100 },
+      });
+      if (error) throw error;
+      const d = data as { inserted?: number; fetched?: number; jobs_run?: number };
+      toast.success(`✓ ${d.inserted ?? 0} nuevos · ${d.fetched ?? 0} fetched · ${d.jobs_run ?? 0} jobs`);
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (e) {
+      toast.error(`Error siembra: ${e instanceof Error ? e.message : "desconocido"}`);
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   // === Auto-discovery: rota keywords DR y busca en background (multi-país) ===
   const runAutoDiscovery = async () => {

@@ -199,23 +199,50 @@ export function WinningAdsPage() {
   const [presetName, setPresetName] = useState("");
   useEffect(() => { localStorage.setItem(PRESETS_KEY, JSON.stringify(presets)); }, [presets]);
 
-  // Cargar histórico real desde `winning_ads` (todo lo que el motor maestro ha ingestado)
+  // Cargar histórico real desde `winning_ads` — stats con COUNT exactos + paginación
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase
+      // 1) Stats reales sin tope de 1000: count(head:true) por tier
+      const [{ count: total }, { count: mega }, { count: rising }, { count: solid }] = await Promise.all([
+        supabase.from("winning_ads").select("*", { count: "exact", head: true }),
+        supabase.from("winning_ads").select("*", { count: "exact", head: true }).eq("tier", "mega"),
+        supabase.from("winning_ads").select("*", { count: "exact", head: true }).eq("tier", "rising"),
+        supabase.from("winning_ads").select("*", { count: "exact", head: true }).eq("tier", "solid"),
+      ]);
+      const { data: pages } = await supabase
         .from("winning_ads")
-        .select("*")
-        .order("scraped_at", { ascending: false })
-        .limit(2000);
-      if (cancelled || error || !data) return;
-      const unique = new Set(data.map((r) => r.page_id ?? r.page_name ?? "").filter(Boolean)).size;
-      const mega = data.filter((r) => r.tier === "mega").length;
-      const rising = data.filter((r) => r.tier === "rising").length;
-      const solid = data.filter((r) => r.tier === "solid").length;
-      setLiveStats({ total: data.length, unique, mega, rising, solid });
+        .select("page_id")
+        .not("page_id", "is", null)
+        .limit(10000);
+      const unique = new Set((pages ?? []).map((r: any) => r.page_id)).size;
+      if (!cancelled) {
+        setLiveStats({
+          total: total ?? 0,
+          unique,
+          mega: mega ?? 0,
+          rising: rising ?? 0,
+          solid: solid ?? 0,
+        });
+      }
 
-      const mappedDb: DemoAd[] = data.map((r: any, i: number) => {
+      // 2) Cargar hasta 5000 filas paginadas (Supabase limita a 1000 por request)
+      const PAGE = 1000;
+      const TARGET = 5000;
+      const all: any[] = [];
+      for (let offset = 0; offset < TARGET; offset += PAGE) {
+        const { data, error } = await supabase
+          .from("winning_ads")
+          .select("*")
+          .order("scraped_at", { ascending: false })
+          .range(offset, offset + PAGE - 1);
+        if (error || !data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < PAGE) break;
+      }
+      if (cancelled || all.length === 0) return;
+
+      const mappedDb: DemoAd[] = all.map((r: any, i: number) => {
         const adMarket = (r.market ?? "US") as AdMarket;
         const title = r.ad_title ?? r.page_name ?? "Anuncio";
         const body = r.ad_body ?? r.ad_description ?? "";

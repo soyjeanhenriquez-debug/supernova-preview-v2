@@ -712,6 +712,18 @@ export function WinningAdsPage() {
             {debugLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5 group-hover:rotate-12 transition-transform" />}
             <span className="text-[11px] uppercase tracking-wider">{debugLoading ? "Probando..." : "Probar Edge"}</span>
           </button>
+
+          {isAdmin && (
+            <button
+              onClick={runBulkSeed}
+              disabled={seeding}
+              className="group relative rounded-2xl overflow-hidden bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-500 hover:to-amber-500 text-white p-3 flex flex-col items-center justify-center gap-1 font-bold transition-all disabled:opacity-60 shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 hover:scale-[1.02] active:scale-[0.98] col-span-2"
+              title="Sembrar catálogo masivo desde FB Ads Library"
+            >
+              {seeding ? <Loader2 className="w-5 h-5 animate-spin" /> : <Flame className="w-5 h-5 group-hover:rotate-12 transition-transform" />}
+              <span className="text-[11px] uppercase tracking-wider">{seeding ? "Sembrando…" : "Sembrar +1000 ads"}</span>
+            </button>
+          )}
         </div>
 
         {debugOpen && (

@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { WinningAdsPage } from "@/pages/WinningAdsPage";
+import { OraculoPage } from "@/pages/OraculoPage";
 import { ChatPage } from "@/pages/ChatPage";
 import { GeneradoresPage } from "@/pages/GeneradoresPage";
 import { AgentsPage } from "@/pages/AgentsPage";

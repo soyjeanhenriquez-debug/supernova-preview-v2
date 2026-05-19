@@ -14,6 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_favorites: {
+        Row: {
+          ad_id: string | null
+          ad_key: string
+          body: string | null
+          created_at: string
+          href: string
+          id: string
+          page_id: string | null
+          page_name: string | null
+          title: string | null
+          user_id: string
+        }
+        Insert: {
+          ad_id?: string | null
+          ad_key: string
+          body?: string | null
+          created_at?: string
+          href: string
+          id?: string
+          page_id?: string | null
+          page_name?: string | null
+          title?: string | null
+          user_id: string
+        }
+        Update: {
+          ad_id?: string | null
+          ad_key?: string
+          body?: string | null
+          created_at?: string
+          href?: string
+          id?: string
+          page_id?: string | null
+          page_name?: string | null
+          title?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ad_history: {
+        Row: {
+          ad_id: string | null
+          ad_key: string
+          body: string | null
+          href: string
+          id: string
+          page_id: string | null
+          page_name: string | null
+          title: string | null
+          user_id: string
+          visited_at: string
+        }
+        Insert: {
+          ad_id?: string | null
+          ad_key: string
+          body?: string | null
+          href: string
+          id?: string
+          page_id?: string | null
+          page_name?: string | null
+          title?: string | null
+          user_id: string
+          visited_at?: string
+        }
+        Update: {
+          ad_id?: string | null
+          ad_key?: string
+          body?: string | null
+          href?: string
+          id?: string
+          page_id?: string | null
+          page_name?: string | null
+          title?: string | null
+          user_id?: string
+          visited_at?: string
+        }
+        Relationships: []
+      }
       agents: {
         Row: {
           created_at: string

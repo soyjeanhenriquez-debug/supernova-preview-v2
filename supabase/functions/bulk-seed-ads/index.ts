@@ -11,35 +11,96 @@ const FB_FIELDS = [
   "publisher_platforms", "impressions", "spend", "currency", "languages",
 ].join(",");
 
-// Keywords de alto rendimiento (DR universal). Mezcla inglés/español/portugués.
+// Universo DR masivo. Mezcla inglés/español/portugués + verticales high-spend.
 const SEED_KEYWORDS = [
+  // Disclaimers FB-required (caza casi todo infoproducto)
   "results not typical", "individual results may vary", "this is an advertisement",
-  "los resultados pueden variar", "aviso de afiliado",
-  "hotmart", "kiwify", "clickbank", "digistore24", "shopify",
-  "learn more", "shop now", "get started", "claim your", "free shipping",
-  "free + shipping", "risk free", "money back guarantee",
-  "más información", "comprar ahora", "envío gratis", "garantía",
-  "saiba mais", "compre agora", "frete grátis",
-  "the secret", "el secreto", "o segredo",
-  "weird trick", "doctors don't want", "scientists discovered",
-  "before and after", "antes y después",
+  "paid partnership", "sponsored", "aviso de afiliado", "los resultados pueden variar",
+  "resultados no típicos", "isto é um anúncio", "resultados podem variar",
+  // Plataformas / pasarelas
+  "hotmart", "kiwify", "clickbank", "digistore24", "shopify", "stripe checkout",
+  "thrivecart", "samcart", "kajabi", "teachable", "systeme.io", "groove funnels",
+  // CTAs universales
+  "learn more", "shop now", "get started", "claim your", "sign up free", "try it now",
+  "free shipping", "free + shipping", "risk free", "money back guarantee",
+  "más información", "comprar ahora", "envío gratis", "garantía devolución",
+  "saiba mais", "compre agora", "frete grátis", "garantia 30 dias",
+  // Hooks clásicos
+  "the secret", "el secreto", "o segredo", "weird trick", "one weird trick",
+  "doctors hate", "doctors don't want", "scientists discovered", "they don't want you to know",
+  "before and after", "antes y después", "antes e depois",
+  "as seen on tv", "as seen on", "bestseller", "número 1", "top rated",
+  // Make money / negocios
   "work from home", "trabaja desde casa", "trabalhe de casa",
   "passive income", "ingresos pasivos", "renda passiva",
   "make money online", "ganar dinero online", "ganhar dinheiro online",
-  "dropshipping", "affiliate marketing",
-  "lose weight", "perder peso", "emagrecer", "keto",
-  "diabetes", "blood sugar", "joint pain",
-  "forex", "trading", "crypto", "bitcoin",
-  "real estate", "bienes raíces",
+  "side hustle", "negocio desde casa", "dinero extra",
+  "dropshipping", "affiliate marketing", "amazon fba", "print on demand",
+  "high ticket", "closer", "appointment setter", "smma", "agency owner",
+  // Trading / cripto
+  "forex", "day trading", "swing trading", "options trading", "trading view",
+  "crypto", "bitcoin", "ethereum", "altcoin", "memecoin",
+  "trading signals", "señales de trading", "sinais de trading",
+  // Salud / pérdida de peso
+  "lose weight", "perder peso", "emagrecer", "emagrecer rápido",
+  "keto", "keto diet", "ayuno intermitente", "intermittent fasting", "jejum intermitente",
+  "fat burner", "quema grasa", "queima gordura",
+  "metabolism boost", "smoothie diet", "flat belly",
+  // Salud condiciones
+  "diabetes", "blood sugar", "type 2 diabetes",
+  "joint pain", "back pain", "neuropathy", "tinnitus",
+  "prostate", "menopause", "ed pills", "testosterone booster",
+  "hair loss", "caída del cabello", "queda de cabelo",
+  "anti aging", "wrinkle cream", "skin care", "skincare routine",
+  // Real estate / finanzas
+  "real estate", "bienes raíces", "imóveis", "real estate investing",
+  "rental property", "airbnb arbitrage", "tax deed", "credit repair",
+  "credit score", "debt free", "stock market", "dividend investing",
+  // Educación / cursos
   "webinar gratuito", "free webinar", "masterclass", "free training",
-  "curso gratis", "treinamento gratuito",
-  "vsl", "landing page", "lead magnet",
-  "limited time", "last chance", "última oportunidad",
-  "as seen on", "bestseller", "número 1",
-  "ai tool", "ai app", "chatgpt", "try free", "free trial", "prueba gratis",
-  "saas", "crm", "automation tool", "no code",
-  "agency", "agencia digital", "lead generation",
+  "curso gratis", "treinamento gratuito", "online course",
+  "limited spots", "cupo limitado", "vagas limitadas",
+  "certificación", "certification", "bootcamp",
+  // Funnels / DR lingo
+  "vsl", "video sales letter", "landing page", "lead magnet", "tripwire",
+  "challenge funnel", "webinar funnel", "evergreen webinar",
+  // Urgencia / escasez
+  "limited time", "last chance", "última oportunidad", "ends today",
+  "today only", "solo hoy", "só hoje", "ending soon", "ofertaflash",
+  "black friday", "cyber monday", "flash sale", "doorbusters",
+  // Tech / SaaS / AI
+  "ai tool", "ai app", "chatgpt", "chat gpt", "ai automation",
+  "try free", "free trial", "prueba gratis", "teste grátis",
+  "saas", "crm", "automation tool", "no code", "low code",
+  "ai agent", "ai chatbot", "ai writer", "ai video", "ai voice",
+  "ai image generator", "deepfake", "midjourney", "claude ai",
+  // Ecom verticals
+  "pet supplies", "dog training", "cat toys",
+  "kitchen gadget", "viral product", "tiktok made me buy it",
+  "skincare", "makeup", "lash serum", "lip plumper",
+  "shapewear", "leggings", "athleisure",
+  "smart watch", "wireless earbuds", "phone accessories",
+  "home decor", "led lights", "indoor plants",
+  "kids toys", "baby products", "stroller",
+  // Marketing / agencias
+  "agency", "agencia digital", "lead generation", "leads qualificados",
+  "google ads", "facebook ads", "tiktok ads", "meta ads",
+  "marketing automation", "email marketing", "funnel builder",
+  // Religión / coaching / desarrollo personal
+  "manifestation", "law of attraction", "ley de atracción",
+  "spiritual awakening", "soulmate", "twin flame",
+  "mindset coach", "life coach", "high performance",
+  "abundance", "abundancia", "prosperidade",
+  // Apuestas / juegos
+  "casino online", "betting app", "fantasy sports",
+  "mobile game", "rpg game", "strategy game",
+  // Apps / dating
+  "dating app", "find love", "soulmates", "encuentra pareja",
+  // Servicios B2B
+  "outsource", "virtual assistant", "asistente virtual",
+  "white label", "saas reseller",
 ];
+
 
 const SEED_COUNTRIES = ["US", "ES", "BR", "MX", "AR", "CO", "PT", "GB"];
 
@@ -67,7 +128,7 @@ Deno.serve(async (req) => {
       ? body.countries
       : SEED_COUNTRIES;
     const limit = Math.min(Number(body.limit ?? 100), 100);
-    const maxJobs = Math.min(Number(body.max_jobs ?? 200), 500);
+    const maxJobs = Math.min(Number(body.max_jobs ?? 400), 1500);
 
     // Build jobs (keyword × country) shuffled, truncated to maxJobs
     const jobs: { kw: string; country: string }[] = [];
@@ -90,7 +151,7 @@ Deno.serve(async (req) => {
     let totalErrors = 0;
 
     // Run in batches of 8 in parallel to be polite with FB API
-    const CONCURRENCY = 8;
+    const CONCURRENCY = 25;
     for (let i = 0; i < slice.length; i += CONCURRENCY) {
       const batch = slice.slice(i, i + CONCURRENCY);
       const results = await Promise.all(batch.map(async ({ kw, country }) => {

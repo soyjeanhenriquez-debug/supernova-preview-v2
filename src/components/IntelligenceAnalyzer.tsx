@@ -7,6 +7,7 @@ import { useLandingAnalyzer, STEP_ORDER, STEP_LABEL, type IntelligenceResult, ty
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Loader2, Zap, Link as LinkIcon, Copy, Trash2, ChevronDown, History, ExternalLink, CheckCircle2, Circle, AlertCircle, Sparkles } from "lucide-react";
+import { useCredits } from "@/hooks/useCredits";
 
 interface SavedRow {
   id: string;

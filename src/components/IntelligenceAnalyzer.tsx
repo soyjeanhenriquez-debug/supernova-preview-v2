@@ -26,7 +26,7 @@ export function IntelligenceAnalyzer() {
 
   const [url, setUrl] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [reportOpen, setReportOpen] = useState(false);
+  // (report renders inline below — no popup)
   const [fallback, setFallback] = useState<{ open: boolean; text: string }>({ open: false, text: "" });
   const [saved, setSaved] = useState<SavedRow[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);

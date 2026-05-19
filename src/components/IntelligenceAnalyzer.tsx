@@ -189,12 +189,12 @@ export function IntelligenceAnalyzer() {
         </DialogContent>
       </Dialog>
 
-      {/* Report modal */}
-      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 border-border bg-card">
-          {result && <ReportContent result={result} onClose={() => setReportOpen(false)} />}
-        </DialogContent>
-      </Dialog>
+      {/* Report inline (centered, readable) */}
+      {result && (
+        <div id="oraculo-report" className="mx-auto w-full max-w-3xl">
+          <ReportContent result={result} onClose={() => setResult(null as unknown as IntelligenceResult)} />
+        </div>
+      )}
 
       {/* Saved history */}
       <div className="rounded-2xl border border-border bg-card/40 backdrop-blur-xl">

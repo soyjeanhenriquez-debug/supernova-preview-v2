@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { IntelligenceAnalyzer } from "@/components/IntelligenceAnalyzer";
+import { AdMediaPreview } from "@/components/AdMediaPreview";
 import { getAutoSearchKeywords, TOTAL_DR_KEYWORDS } from "@/lib/dr-keywords";
 
 const COUNTRY_OPTIONS: { code: string; label: string; flag: string }[] = [
@@ -1023,57 +1024,14 @@ function AdCard({ ad, saved, onSave, onSofisticar, compact = false }: { ad: Demo
         {ad.checkoutPlatform && <span className="text-muted-foreground">· via {ad.checkoutPlatform}</span>}
       </div>
 
-      {/* Preview inline forzado — estilo Adheart.
-          El `ad_snapshot_url` de Meta (render_ad) está pensado para embeberse.
-          Forzamos el iframe; si el navegador lo bloquea, el poster de atrás queda visible como fallback. */}
-      {(ad.snapshotUrl || ad.adUrl) && (
-        <div className="relative w-full rounded-lg overflow-hidden border border-border/60 bg-secondary/40 aspect-[4/5] group">
-          {/* Fallback poster (detrás del iframe) */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4 text-center bg-gradient-to-br from-secondary/80 via-secondary/40 to-secondary/80">
-            {ad.pageId ? (
-              <img
-                src={`https://graph.facebook.com/${ad.pageId}/picture?type=large`}
-                alt={ad.pageName}
-                className="w-16 h-16 rounded-full border-2 border-border shadow-lg"
-                onError={(e) => { e.currentTarget.style.display = "none"; }}
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-primary/20 border-2 border-primary/40 flex items-center justify-center text-xl font-bold text-primary">
-                {ad.pageName.charAt(0)}
-              </div>
-            )}
-            <div className="text-xs font-semibold text-foreground/90 line-clamp-2 max-w-[80%]">
-              {ad.title || ad.pageName}
-            </div>
-            <div className="text-[9px] text-muted-foreground uppercase tracking-wider px-2">
-              Cargando preview…
-            </div>
-          </div>
-
-          {/* Iframe vía proxy server-side (evita X-Frame-Options: DENY de Meta) */}
-          {ad.snapshotUrl && (
-            <iframe
-              src={`https://quyjsihawxeghsptwltq.supabase.co/functions/v1/meta-ad-proxy?url=${encodeURIComponent(ad.snapshotUrl)}`}
-              title={`Ad preview – ${ad.pageName}`}
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              className="absolute inset-0 w-full h-full border-0 bg-transparent"
-              sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox"
-              allow="autoplay; encrypted-media; fullscreen"
-            />
-          )}
-
-          {/* Botón flotante HD por encima del iframe */}
-          <a
-            href={ad.snapshotUrl || ad.adUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="absolute top-2 right-2 z-10 px-2.5 py-1 rounded-full bg-background/90 backdrop-blur text-foreground text-[10px] font-bold inline-flex items-center gap-1 shadow-lg border border-border/60 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary hover:text-primary-foreground"
-          >
-            <ExternalLink className="w-3 h-3" /> HD
-          </a>
-        </div>
-      )}
+      {/* Preview real (screenshot/video del Ad Library renderizado server-side) */}
+      <AdMediaPreview
+        snapshotUrl={ad.snapshotUrl}
+        adUrl={ad.adUrl}
+        pageId={ad.pageId}
+        pageName={ad.pageName}
+        title={ad.title}
+      />
 
       <p className="text-sm text-foreground/90 line-clamp-4 italic leading-relaxed">"{ad.body}"</p>
 

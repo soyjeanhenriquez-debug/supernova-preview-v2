@@ -1,8 +1,7 @@
-// SUPERNOVA — Meta Ad Snapshot Proxy
-// Meta sirve el `render_ad` con X-Frame-Options: DENY, lo que impide
-// embeberlo directamente en un iframe. Esta función actúa como proxy:
-// hace fetch server-side del snapshot y reenvía el HTML sin esos headers,
-// permitiendo embeberlo (estilo Adheart).
+// SUPERNOVA — Meta Ad Snapshot (Firecrawl screenshot)
+// Meta bloquea iframes y server-fetches del render_ad. Firecrawl renderiza
+// la Ad Library pública con browser real y devuelve un screenshot que SÍ
+// podemos mostrar como <img>.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 Deno.serve(async (req) => {
@@ -10,79 +9,70 @@ Deno.serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    let target = url.searchParams.get("url");
     const id = url.searchParams.get("id");
-
-    // Si no llega url completa, construirla con el id + token del entorno
-    if (!target && id) {
-      const token = Deno.env.get("FACEBOOK_ACCESS_TOKEN");
-      if (!token) {
-        return new Response("Missing FACEBOOK_ACCESS_TOKEN", {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "text/plain" },
-        });
-      }
-      target = `https://www.facebook.com/ads/archive/render_ad/?id=${encodeURIComponent(id)}&access_token=${token}`;
+    if (!id || !/^\d+$/.test(id)) {
+      return json({ error: "Missing or invalid id" }, 400);
     }
 
-    if (!target) {
-      return new Response("Missing url or id", {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "text/plain" },
-      });
-    }
+    const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
+    if (!apiKey) return json({ error: "FIRECRAWL_API_KEY not configured" }, 500);
 
-    // Whitelist: solo facebook.com
-    try {
-      const u = new URL(target);
-      if (!/(^|\.)facebook\.com$/i.test(u.hostname)) {
-        return new Response("Only facebook.com URLs are allowed", {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "text/plain" },
-        });
-      }
-    } catch {
-      return new Response("Invalid URL", {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "text/plain" },
-      });
-    }
+    const target = `https://www.facebook.com/ads/library/?id=${id}`;
 
-    const upstream = await fetch(target, {
+    const fcRes = await fetch("https://api.firecrawl.dev/v2/scrape", {
+      method: "POST",
       headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
       },
-      redirect: "follow",
+      body: JSON.stringify({
+        url: target,
+        formats: ["screenshot", "links"],
+        onlyMainContent: false,
+        waitFor: 3500,
+        location: { country: "US", languages: ["en"] },
+      }),
     });
 
-    const contentType = upstream.headers.get("content-type") || "text/html; charset=utf-8";
-    const body = await upstream.text();
-
-    // Inyectar <base> para resolver assets relativos hacia facebook.com
-    let html = body;
-    if (contentType.includes("text/html") && !/<base\s/i.test(html)) {
-      html = html.replace(
-        /<head([^>]*)>/i,
-        `<head$1><base href="https://www.facebook.com/">`,
-      );
+    const data = await fcRes.json().catch(() => ({}));
+    if (!fcRes.ok) {
+      console.error("Firecrawl error:", data);
+      return json({ error: "Firecrawl failed", detail: data }, fcRes.status);
     }
 
-    return new Response(html, {
-      status: upstream.status,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": contentType,
-        // Sin X-Frame-Options / frame-ancestors → embebible
-        "Cache-Control": "public, max-age=3600",
-      },
+    // Soporta ambos shapes (v2 SDK / REST)
+    const screenshot =
+      data?.screenshot ||
+      data?.data?.screenshot ||
+      data?.data?.[0]?.screenshot ||
+      null;
+
+    // Buscar URL de video si existe entre los links
+    const links: string[] =
+      data?.links || data?.data?.links || data?.data?.[0]?.links || [];
+    const videoUrl = links.find((l) =>
+      /\.(mp4|m3u8|webm)(\?|$)/i.test(l) || /video.*\.fbcdn/i.test(l),
+    ) || null;
+
+    return json({
+      success: true,
+      id,
+      screenshot,
+      videoUrl,
+      libraryUrl: target,
     });
   } catch (e) {
-    return new Response(`Proxy error: ${e instanceof Error ? e.message : "unknown"}`, {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "text/plain" },
-    });
+    return json({ error: e instanceof Error ? e.message : "unknown" }, 500);
   }
 });
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+      "Cache-Control": "public, max-age=86400",
+    },
+  });
+}

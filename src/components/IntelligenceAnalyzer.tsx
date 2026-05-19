@@ -439,7 +439,7 @@ function OraculoGenerators({ result }: { result: IntelligenceResult }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
         {(Object.keys(GEN_META) as GenKind[]).map((k) => {
           const m = GEN_META[k];
           const isLoading = loading === k;
@@ -452,6 +452,8 @@ function OraculoGenerators({ result }: { result: IntelligenceResult }) {
               className={`group relative text-left px-3 py-3 rounded-xl border transition-all disabled:opacity-60 ${
                 done
                   ? "border-success/40 bg-success/5 hover:border-success/60"
+                  : m.highlight
+                  ? "border-primary/60 bg-primary/10 hover:border-primary hover:bg-primary/15 shadow-sm"
                   : "border-border bg-card hover:border-primary hover:bg-primary/5"
               }`}
             >

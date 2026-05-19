@@ -2,7 +2,7 @@
 // Toma el informe de inteligencia y produce contenido específico según `kind`.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
-type Kind = "creativos" | "landing" | "avatar" | "funnel";
+type Kind = "creativos" | "landing" | "avatar" | "funnel" | "master_prompt";
 
 interface Body {
   kind: Kind;

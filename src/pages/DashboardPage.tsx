@@ -56,6 +56,9 @@ export function DashboardPage({ onNavigate }: Props) {
         <ActionCard title="Iniciar SOFISTICAR" subtitle="Convierte una oferta ganadora en tu producto" onClick={() => onNavigate("Buscar Ofertas Winner")} />
       </section>
 
+      {/* Resumen semanal */}
+      <WeeklySummary />
+
       {/* Recent projects */}
       <section>
         <div className="flex items-end justify-between mb-6">

@@ -1013,13 +1013,11 @@ export function WinningAdsPage() {
           <PillSelect label="Tipo" value={typeFilter} onChange={setTypeFilter} options={TYPE_OPTIONS.map((o) => ({ value: o, label: o }))} />
           <PillSelect label="Mercado" value={regionFilter} onChange={setRegionFilter} options={REGION_OPTIONS.map((o) => ({ value: o, label: o }))} />
           <PillSelect label="Score mínimo" value={String(minScore)} onChange={(v) => setMinScore(Number(v))} options={SCORE_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
-          <PillSelect label="Creativo" value={creativeFilter} onChange={(v) => setCreativeFilter(v as "all" | "with_text" | "no_text")} options={[{ value: "all", label: "Todos" }, { value: "with_text", label: "Con texto" }, { value: "no_text", label: "🎯 Sin texto" }]} />
           <PillSelect label="Ordenar" value={sort} onChange={setSort} options={SORT_OPTIONS.map((o) => ({ value: o, label: o }))} />
         </div>
       </div>
 
-      {/* Ganadores Ocultos — sin texto en copy, pura imagen/video */}
-      <HiddenWinnersSection onSeeAll={() => setCreativeFilter("no_text")} onSofisticar={setSofisticarAd} />
+
 
 
 

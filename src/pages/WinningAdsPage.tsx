@@ -1017,6 +1017,62 @@ export function WinningAdsPage() {
   );
 }
 
+function PaginationBar({
+  total, page, pageSize, totalPages, onPageChange, onPageSizeChange,
+}: {
+  total: number; page: number; pageSize: number; totalPages: number;
+  onPageChange: (p: number) => void; onPageSizeChange: (s: number) => void;
+}) {
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(total, page * pageSize);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 py-3 px-1">
+      <div className="text-xs text-muted-foreground">
+        Mostrando <span className="text-foreground font-medium">{from.toLocaleString()}–{to.toLocaleString()}</span> de{" "}
+        <span className="text-foreground font-medium">{total.toLocaleString()}</span> ads
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Por página</span>
+        <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
+          <SelectTrigger className="h-8 w-[80px] rounded-full text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {[25, 50, 100, 200].map((n) => (
+              <SelectItem key={n} value={String(n)} className="text-xs">{n}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-1 ml-2">
+          <button
+            onClick={() => onPageChange(1)}
+            disabled={page <= 1}
+            className="h-8 px-2 rounded-md text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+          >««</button>
+          <button
+            onClick={() => onPageChange(page - 1)}
+            disabled={page <= 1}
+            className="h-8 px-3 rounded-md text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+          >‹ Anterior</button>
+          <span className="px-3 text-xs text-foreground/80">
+            Página <span className="font-semibold text-foreground">{page}</span> / {totalPages}
+          </span>
+          <button
+            onClick={() => onPageChange(page + 1)}
+            disabled={page >= totalPages}
+            className="h-8 px-3 rounded-md text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+          >Siguiente ›</button>
+          <button
+            onClick={() => onPageChange(totalPages)}
+            disabled={page >= totalPages}
+            className="h-8 px-2 rounded-md text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+          >»»</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>

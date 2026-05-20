@@ -545,52 +545,20 @@ export function WinningAdsPage() {
     }
   };
 
-  const allAds = useMemo(() => realAds.slice(), [realAds]);
-
-  const filtered = useMemo(() => {
-    let list = allAds.slice();
+  // La data ya viene paginada y filtrada desde Supabase. Solo aplicamos
+  // los 2 filtros que no se pueden pushear server-side (vertical clasificado
+  // y market/lang) sobre los ads de la página actual.
+  const paginated = useMemo(() => {
+    let list = realAds.slice();
     if (market !== "all") list = list.filter((a) => a.lang === market);
-    if (minDays > 0) list = list.filter((a) => a.daysActive >= minDays);
-    if (minDups > 0) list = list.filter((a) => a.duplicates >= minDups);
-    if (typeFilter !== "Todos") list = list.filter((a) => OFFER_TYPE_LABEL[a.offerType].toLowerCase().startsWith(typeFilter.toLowerCase().slice(0, 4)));
-    if (regionFilter !== "Todos") {
-      const map: Record<string, string[]> = { LATAM: ["MX", "LATAM"], USA: ["US"], Brasil: ["BR"], España: ["ES"] };
-      list = list.filter((a) => map[regionFilter]?.includes(a.market));
-    }
-    if (minScore > 0) list = list.filter((a) => a.score >= minScore);
     if (verticalFilter !== "Todas") {
-      list = list.filter((a) => {
-        const v = a.vertical ?? classifyOffer(`${a.title} ${a.body}`);
-        return v === verticalFilter;
-      });
-    }
-    if (keyword.trim()) {
-      const q = keyword.toLowerCase();
-      list = list.filter((a) => a.title.toLowerCase().includes(q) || a.body.toLowerCase().includes(q));
-    }
-    switch (sort) {
-      case "Más Duplicados": list.sort((a, b) => b.duplicates - a.duplicates); break;
-      case "Más Días": list.sort((a, b) => b.daysActive - a.daysActive); break;
-      case "Más Recientes": list.sort((a, b) => a.daysActive - b.daysActive); break;
-      default: list.sort((a, b) => b.score - a.score);
+      list = list.filter((a) => (a.vertical ?? classifyOffer(`${a.title} ${a.body}`)) === verticalFilter);
     }
     return list;
-  }, [allAds, market, minDays, minDups, typeFilter, regionFilter, minScore, verticalFilter, sort, keyword]);
+  }, [realAds, market, verticalFilter]);
 
-  // Paginación: el usuario elige 25/50/100/200 ads por página
-  const [pageSize, setPageSize] = useState<number>(() => {
-    const saved = parseInt(localStorage.getItem("supernova:ads-page-size") ?? "50", 10);
-    return [25, 50, 100, 200].includes(saved) ? saved : 50;
-  });
-  const [page, setPage] = useState(1);
-  useEffect(() => { localStorage.setItem("supernova:ads-page-size", String(pageSize)); }, [pageSize]);
-  useEffect(() => { setPage(1); }, [pageSize, market, minDays, minDups, typeFilter, regionFilter, minScore, verticalFilter, sort, keyword]);
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(filteredTotal / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const paginated = useMemo(
-    () => filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize),
-    [filtered, currentPage, pageSize],
-  );
 
   const handleSearch = async () => {
     if (!canAfford("search_ads")) { toast.error("Sin créditos suficientes"); return; }

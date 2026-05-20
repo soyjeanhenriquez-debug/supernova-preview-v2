@@ -678,12 +678,12 @@ export function WinningAdsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="page-heading font-display text-2xl text-foreground">BUSCAR OFERTAS WINNER</h2>
-          <p className="text-sm text-muted-foreground mt-3">Anuncios validados con datos reales. Encuentra, analiza, clona.</p>
+          <h2 className="page-heading font-display text-2xl text-foreground">BUSCAR OFERTAS WINNER ——•</h2>
+          <p className="text-sm text-muted-foreground mt-3">JARVIS escanea Meta Ads Library y TikTok en tiempo real. Encuentra lo que está convirtiendo dinero ahora mismo.</p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 pulse-hot">
           <span className="live-dot" />
-          <span className="text-[11px] font-bold text-primary tracking-widest">ACTUALIZADO HACE {elapsed} MIN</span>
+          <span className="text-[11px] font-bold text-primary tracking-widest">JARVIS ACTUALIZÓ HACE {elapsed} MIN</span>
         </div>
       </div>
 

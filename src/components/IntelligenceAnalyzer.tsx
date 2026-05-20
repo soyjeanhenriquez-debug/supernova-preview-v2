@@ -113,7 +113,7 @@ export function IntelligenceAnalyzer() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleAnalyzeClick(); }}
-              placeholder="https://hotmart.com/... · landing de Shopify · ClickFunnels · Ads Library"
+              placeholder="https://... · JARVIS analizará esta oferta al instante"
               disabled={running}
               className="w-full bg-background/60 border border-border rounded-xl pl-10 pr-4 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all disabled:opacity-60"
             />
@@ -124,7 +124,7 @@ export function IntelligenceAnalyzer() {
             className="btn-primary-nova px-6 py-3.5 rounded-xl text-sm font-semibold whitespace-nowrap flex items-center gap-2 disabled:opacity-60"
           >
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            {running ? "Analizando..." : "Analizar"}
+            {running ? "JARVIS analizando..." : "⚡ Activar JARVIS"}
           </button>
         </div>
 

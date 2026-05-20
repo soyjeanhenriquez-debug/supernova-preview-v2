@@ -6,8 +6,17 @@ import { CountUp } from "@/components/CountUp";
 import { ProjectThumb } from "@/components/ProjectThumb";
 import { WeeklySummary } from "@/components/WeeklySummary";
 import { RisingTemperatureWidget } from "@/components/RisingTemperatureWidget";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Props { onNavigate: (p: string) => void; }
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 6) return "Trabajando tarde";
+  if (h < 13) return "Buenos días";
+  if (h < 20) return "Buenas tardes";
+  return "Buenas noches";
+}
 
 function formatRenewal(d: Date) {
   const days = Math.max(0, Math.ceil((d.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
@@ -18,6 +27,11 @@ function formatRenewal(d: Date) {
 export function DashboardPage({ onNavigate }: Props) {
   const { balance, limit, history, renewalDate } = useCredits();
   const { projects } = useProjects();
+  const { user } = useAuth();
+  const firstName = (user?.user_metadata?.display_name || user?.email?.split("@")[0] || "")
+    .toString()
+    .split(/[\s.@]/)[0]
+    .replace(/^./, (c) => c.toUpperCase());
 
   const todayKey = new Date().toISOString().slice(0, 10);
   const stats = useMemo(() => {
@@ -34,10 +48,12 @@ export function DashboardPage({ onNavigate }: Props) {
 
   return (
     <div className="max-w-[1200px] mx-auto space-y-14 py-4">
-      {/* Header */}
+      {/* Header — bienvenida estilo Apple */}
       <header className="space-y-3">
-        <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium">Overview</div>
-        <h2 className="page-heading font-display text-[34px] leading-[1.1] text-foreground">Intelligence Hub</h2>
+        <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium">{greeting()}</div>
+        <h2 className="page-heading font-display font-semibold text-[52px] leading-[1.02] tracking-[-0.035em] text-foreground">
+          Bienvenido de vuelta{firstName ? `, ${firstName}` : ""}.
+        </h2>
         <p className="text-[15px] text-muted-foreground max-w-xl">Tu motor de descubrimiento de ofertas ganadoras.</p>
       </header>
 

@@ -28,7 +28,7 @@ export function DashboardPage({ onNavigate }: Props) {
 
   const recent = projects.slice(0, 3);
   const low = balance < 100;
-  const renewal = renewalInfo();
+  const renewal = formatRenewal(renewalDate);
   const usagePct = Math.min(100, (balance / limit) * 100);
 
   return (

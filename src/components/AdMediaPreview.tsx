@@ -81,33 +81,36 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title }: 
     return () => io.disconnect();
   }, [visible]);
 
+  // Hidratar SINCRÓNICAMENTE desde cache antes de pintar — 0ms flicker
+  useEffect(() => {
+    if (!adId) return;
+    const cached = readPreviewCache(adId);
+    if (!cached) return;
+    if (cached.failed) { setState("failed"); return; }
+    setImageUrl(cached.imageUrl || null);
+    setVideoUrl(cached.videoUrl || null);
+    setState("ready");
+  }, [adId]);
+
   useEffect(() => {
     if (!visible || !adId || state !== "idle") return;
-    const cached = cache.get(adId);
-    if (cached) {
-      if (cached.failed) { setState("failed"); return; }
-      setImageUrl(cached.imageUrl || null);
-      setVideoUrl(cached.videoUrl || null);
-      setState("ready");
-      return;
-    }
     setState("loading");
     const projectId = (import.meta.env.VITE_SUPABASE_PROJECT_ID as string) || "quyjsihawxeghsptwltq";
     fetch(`https://${projectId}.supabase.co/functions/v1/meta-ad-proxy?id=${adId}`)
       .then((r) => r.json())
       .then((data) => {
         if (!data?.success || (!data.imageUrl && !data.videoUrl)) {
-          cache.set(adId, { failed: true });
+          writePreviewCache(adId, { failed: true });
           setState("failed");
           return;
         }
-        cache.set(adId, { imageUrl: data.imageUrl, videoUrl: data.videoUrl });
+        writePreviewCache(adId, { imageUrl: data.imageUrl, videoUrl: data.videoUrl });
         setImageUrl(data.imageUrl || null);
         setVideoUrl(data.videoUrl || null);
         setState("ready");
       })
       .catch(() => {
-        cache.set(adId, { failed: true });
+        writePreviewCache(adId, { failed: true });
         setState("failed");
       });
   }, [visible, adId, state]);

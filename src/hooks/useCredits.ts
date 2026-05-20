@@ -108,6 +108,9 @@ export const ACTION_HOURS: Record<CreditAction, number> = {
   landing_intelligence: 4,
   gen_funnel: 8,
   gen_master_prompt: 6,
+  gen_light: 1,
+  gen_medium: 3,
+  gen_heavy: 6,
 };
 
 

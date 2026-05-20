@@ -5,18 +5,18 @@ import { toast } from "sonner";
 import { CountUp } from "@/components/CountUp";
 
 const PACKS = [
-  { id: "boost",   name: "PACK BOOST",   credits: 500,  price: 7,  tagline: "Para seguir sin parar esta semana", save: null },
-  { id: "power",   name: "PACK POWER",   credits: 2000, price: 19, tagline: "Otro mes completo de uso intensivo", save: "32%", popular: true },
-  { id: "nuclear", name: "PACK NUCLEAR", credits: 4000, price: 39, tagline: "Para los que no se detienen", save: "44%" },
+  { id: "boost",   name: "PACK BOOST",   credits: 500,  price: 10, tagline: "Para seguir sin parar esta semana", save: null },
+  { id: "power",   name: "PACK POWER",   credits: 2000, price: 20, tagline: "Otro mes completo de uso intensivo", save: "50%", popular: true },
+  { id: "nuclear", name: "PACK NUCLEAR", credits: 4500, price: 39, tagline: "Para los que no se detienen", save: "57%" },
 ];
 
 export function CreditsPage() {
-  const { balance, limit, history, refill } = useCredits();
-  const pct = (balance / limit) * 100;
+  const { balance, monthly, purchased, limit, renewalDate, history, refill } = useCredits();
+  // Anillo: progreso del saldo mensual (los comprados se muestran aparte)
+  const pct = (monthly / limit) * 100;
 
-  const renewDate = new Date();
-  renewDate.setDate(renewDate.getDate() + 30);
-  const renewFormatted = renewDate.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
+  const renewFormatted = renewalDate.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
+  const renewDays = Math.max(0, Math.ceil((renewalDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
 
   // Proyección basada en últimos 7 días
   const projection = useMemo(() => {
@@ -59,7 +59,12 @@ export function CreditsPage() {
             </div>
           </div>
           <div className="text-sm text-foreground mt-3">Créditos disponibles</div>
-          <div className="text-xs text-primary mt-1">Se renuevan en 30 días ({renewFormatted})</div>
+          <div className="text-xs text-primary mt-1">Se renuevan en {renewDays} días ({renewFormatted})</div>
+          {purchased > 0 && (
+            <div className="text-[11px] text-muted-foreground mt-1">
+              {monthly.toLocaleString()} mensuales + <span className="text-success font-semibold">{purchased.toLocaleString()} comprados</span>
+            </div>
+          )}
 
           {/* Proyección de consumo */}
           <ProjectionBadge projection={projection} onRecharge={scrollToPacks} />

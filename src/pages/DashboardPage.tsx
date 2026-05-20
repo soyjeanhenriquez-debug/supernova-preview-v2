@@ -8,16 +8,14 @@ import { WeeklySummary } from "@/components/WeeklySummary";
 
 interface Props { onNavigate: (p: string) => void; }
 
-function renewalInfo() {
-  const renewDate = new Date();
-  renewDate.setDate(renewDate.getDate() + 30);
-  const days = 30;
-  const formatted = renewDate.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
+function formatRenewal(d: Date) {
+  const days = Math.max(0, Math.ceil((d.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
+  const formatted = d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
   return { days, formatted };
 }
 
 export function DashboardPage({ onNavigate }: Props) {
-  const { balance, limit, history } = useCredits();
+  const { balance, limit, history, renewalDate } = useCredits();
   const { projects } = useProjects();
 
   const todayKey = new Date().toISOString().slice(0, 10);
@@ -30,7 +28,7 @@ export function DashboardPage({ onNavigate }: Props) {
 
   const recent = projects.slice(0, 3);
   const low = balance < 100;
-  const renewal = renewalInfo();
+  const renewal = formatRenewal(renewalDate);
   const usagePct = Math.min(100, (balance / limit) * 100);
 
   return (

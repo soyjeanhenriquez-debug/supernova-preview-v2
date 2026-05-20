@@ -239,55 +239,91 @@ export function WinningAdsPage() {
   const [presetName, setPresetName] = useState("");
   useEffect(() => { localStorage.setItem(PRESETS_KEY, JSON.stringify(presets)); }, [presets]);
 
+  // Paginación: el usuario elige 25/50/100/200 ads por página
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const saved = parseInt(localStorage.getItem("supernova:ads-page-size") ?? "50", 10);
+    return [25, 50, 100, 200].includes(saved) ? saved : 50;
+  });
+  const [page, setPage] = useState(1);
+  useEffect(() => { localStorage.setItem("supernova:ads-page-size", String(pageSize)); }, [pageSize]);
+
+  // Total real filtrado en servidor (para "Mostrando X–Y de N")
+  const [filteredTotal, setFilteredTotal] = useState(0);
+
   // Persistir cache en sessionStorage cada vez que cambian ads/stats
   useEffect(() => {
     if (realAds.length > 0) writeAdsCache(realAds, liveStats);
   }, [realAds, liveStats]);
 
-  // Cargar histórico real desde `winning_ads` — stats con COUNT exactos + paginación
+  // 1) Stats globales (independientes del filtro) — se calculan una sola vez
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      // 1) Stats reales sin tope de 1000: count(head:true) por tier
       const [{ count: total }, { count: mega }, { count: rising }, { count: solid }] = await Promise.all([
         supabase.from("winning_ads").select("*", { count: "exact", head: true }),
         supabase.from("winning_ads").select("*", { count: "exact", head: true }).eq("tier", "mega"),
         supabase.from("winning_ads").select("*", { count: "exact", head: true }).eq("tier", "rising"),
         supabase.from("winning_ads").select("*", { count: "exact", head: true }).eq("tier", "solid"),
       ]);
+      if (cancelled) return;
+      // Aproximación de únicos: muestreo de 5000 (cota suficiente para UI)
       const { data: pages } = await supabase
-        .from("winning_ads")
-        .select("page_id")
-        .not("page_id", "is", null)
-        .limit(10000);
+        .from("winning_ads").select("page_id").not("page_id", "is", null).limit(5000);
       const unique = new Set((pages ?? []).map((r: any) => r.page_id)).size;
-      if (!cancelled) {
-        setLiveStats({
-          total: total ?? 0,
-          unique,
-          mega: mega ?? 0,
-          rising: rising ?? 0,
-          solid: solid ?? 0,
-        });
+      setLiveStats({
+        total: total ?? 0, unique,
+        mega: mega ?? 0, rising: rising ?? 0, solid: solid ?? 0,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // 2) Carga SOLO la página actual desde Supabase aplicando filtros server-side.
+  //    Esto evita cargar miles de ads en memoria y dispara previews solo de los visibles.
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingReal(true);
+    (async () => {
+      let q = supabase.from("winning_ads").select("*", { count: "exact" });
+
+      // Filtros pusheables a SQL
+      if (regionFilter !== "Todos") {
+        const regionMap: Record<string, string[]> = {
+          LATAM: ["MX", "AR", "CO", "CL", "PE"],
+          USA: ["US"],
+          Brasil: ["BR"],
+          España: ["ES"],
+        };
+        const codes = regionMap[regionFilter];
+        if (codes?.length) q = q.in("market", codes);
+      }
+      if (minScore > 0) q = q.gte("winner_score", minScore);
+      if (minDays > 0) q = q.gte("days_active", minDays);
+      if (minDups > 0) q = q.gte("duplicate_count", minDups);
+      if (typeFilter !== "Todos") {
+        // typeFilter ej: "Infoproducto" → empieza por "info"
+        q = q.ilike("offer_type", `${typeFilter.toLowerCase().slice(0, 4)}%`);
+      }
+      if (keyword.trim()) {
+        const k = keyword.trim().replace(/[,()]/g, " ");
+        q = q.or(`ad_title.ilike.%${k}%,ad_body.ilike.%${k}%,page_name.ilike.%${k}%`);
       }
 
-      // 2) Cargar hasta 5000 filas paginadas (Supabase limita a 1000 por request)
-      const PAGE = 1000;
-      const TARGET = 5000;
-      const all: any[] = [];
-      for (let offset = 0; offset < TARGET; offset += PAGE) {
-        const { data, error } = await supabase
-          .from("winning_ads")
-          .select("*")
-          .order("scraped_at", { ascending: false })
-          .range(offset, offset + PAGE - 1);
-        if (error || !data || data.length === 0) break;
-        all.push(...data);
-        if (data.length < PAGE) break;
+      // Orden
+      switch (sort) {
+        case "Más Duplicados": q = q.order("duplicate_count", { ascending: false, nullsFirst: false }); break;
+        case "Más Días": q = q.order("days_active", { ascending: false, nullsFirst: false }); break;
+        case "Más Recientes": q = q.order("scraped_at", { ascending: false }); break;
+        default: q = q.order("winner_score", { ascending: false, nullsFirst: false });
       }
-      if (cancelled || all.length === 0) return;
 
-      const mappedDb: DemoAd[] = all.map((r: any, i: number) => {
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      const { data, count, error } = await q.range(from, to);
+      if (cancelled) return;
+      if (error) { setLoadingReal(false); return; }
+
+      const mapped: DemoAd[] = (data ?? []).map((r: any, i: number) => {
         const adMarket = (r.market ?? "US") as AdMarket;
         const title = r.ad_title ?? r.page_name ?? "Anuncio";
         const body = r.ad_body ?? r.ad_description ?? "";
@@ -300,8 +336,7 @@ export function WinningAdsPage() {
           id: `db-${r.id ?? i}`,
           pageId: r.page_id ?? "",
           pageName: r.page_name ?? r.advertiser ?? "Facebook Ad",
-          title,
-          body: body || title,
+          title, body: body || title,
           daysActive: days,
           duplicates: r.duplicate_count ?? 1,
           score: r.winner_score ?? 50,
@@ -317,14 +352,15 @@ export function WinningAdsPage() {
           vertical: classifyOffer(`${title} ${body}`),
         };
       });
-      setRealAds((prev) => {
-        const seen = new Set(prev.map((a) => a.id));
-        const fresh = mappedDb.filter((a) => !seen.has(a.id));
-        return [...prev, ...fresh];
-      });
+      setRealAds(mapped);
+      setFilteredTotal(count ?? 0);
+      setLoadingReal(false);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [page, pageSize, regionFilter, minScore, minDays, minDups, typeFilter, keyword, sort]);
+
+  // Reset a página 1 cuando cambian filtros
+  useEffect(() => { setPage(1); }, [pageSize, regionFilter, minScore, minDays, minDups, typeFilter, keyword, sort]);
 
   // Admin: siembra masiva desde FB Ads Library
   const [seeding, setSeeding] = useState(false);
@@ -509,52 +545,20 @@ export function WinningAdsPage() {
     }
   };
 
-  const allAds = useMemo(() => realAds.slice(), [realAds]);
-
-  const filtered = useMemo(() => {
-    let list = allAds.slice();
+  // La data ya viene paginada y filtrada desde Supabase. Solo aplicamos
+  // los 2 filtros que no se pueden pushear server-side (vertical clasificado
+  // y market/lang) sobre los ads de la página actual.
+  const paginated = useMemo(() => {
+    let list = realAds.slice();
     if (market !== "all") list = list.filter((a) => a.lang === market);
-    if (minDays > 0) list = list.filter((a) => a.daysActive >= minDays);
-    if (minDups > 0) list = list.filter((a) => a.duplicates >= minDups);
-    if (typeFilter !== "Todos") list = list.filter((a) => OFFER_TYPE_LABEL[a.offerType].toLowerCase().startsWith(typeFilter.toLowerCase().slice(0, 4)));
-    if (regionFilter !== "Todos") {
-      const map: Record<string, string[]> = { LATAM: ["MX", "LATAM"], USA: ["US"], Brasil: ["BR"], España: ["ES"] };
-      list = list.filter((a) => map[regionFilter]?.includes(a.market));
-    }
-    if (minScore > 0) list = list.filter((a) => a.score >= minScore);
     if (verticalFilter !== "Todas") {
-      list = list.filter((a) => {
-        const v = a.vertical ?? classifyOffer(`${a.title} ${a.body}`);
-        return v === verticalFilter;
-      });
-    }
-    if (keyword.trim()) {
-      const q = keyword.toLowerCase();
-      list = list.filter((a) => a.title.toLowerCase().includes(q) || a.body.toLowerCase().includes(q));
-    }
-    switch (sort) {
-      case "Más Duplicados": list.sort((a, b) => b.duplicates - a.duplicates); break;
-      case "Más Días": list.sort((a, b) => b.daysActive - a.daysActive); break;
-      case "Más Recientes": list.sort((a, b) => a.daysActive - b.daysActive); break;
-      default: list.sort((a, b) => b.score - a.score);
+      list = list.filter((a) => (a.vertical ?? classifyOffer(`${a.title} ${a.body}`)) === verticalFilter);
     }
     return list;
-  }, [allAds, market, minDays, minDups, typeFilter, regionFilter, minScore, verticalFilter, sort, keyword]);
+  }, [realAds, market, verticalFilter]);
 
-  // Paginación: el usuario elige 25/50/100/200 ads por página
-  const [pageSize, setPageSize] = useState<number>(() => {
-    const saved = parseInt(localStorage.getItem("supernova:ads-page-size") ?? "50", 10);
-    return [25, 50, 100, 200].includes(saved) ? saved : 50;
-  });
-  const [page, setPage] = useState(1);
-  useEffect(() => { localStorage.setItem("supernova:ads-page-size", String(pageSize)); }, [pageSize]);
-  useEffect(() => { setPage(1); }, [pageSize, market, minDays, minDups, typeFilter, regionFilter, minScore, verticalFilter, sort, keyword]);
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(filteredTotal / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const paginated = useMemo(
-    () => filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize),
-    [filtered, currentPage, pageSize],
-  );
 
   const handleSearch = async () => {
     if (!canAfford("search_ads")) { toast.error("Sin créditos suficientes"); return; }
@@ -1037,7 +1041,7 @@ export function WinningAdsPage() {
         })()}
 
 
-        {filtered.length === 0 ? (
+        {filteredTotal === 0 ? (
           <div className="card-surface rounded-xl py-16 text-center">
             <div className="empty-icon mb-4"><Trophy className="w-9 h-9" /></div>
             <div className="font-display font-bold text-lg mb-1">Aún no hay ganadores en este filtro</div>
@@ -1046,7 +1050,7 @@ export function WinningAdsPage() {
         ) : (
           <>
             <PaginationBar
-              total={filtered.length}
+              total={filteredTotal}
               page={currentPage}
               pageSize={pageSize}
               totalPages={totalPages}
@@ -1062,7 +1066,7 @@ export function WinningAdsPage() {
               onSofisticar={setSofisticarAd}
             />
             <PaginationBar
-              total={filtered.length}
+              total={filteredTotal}
               page={currentPage}
               pageSize={pageSize}
               totalPages={totalPages}

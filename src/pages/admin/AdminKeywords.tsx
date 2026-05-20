@@ -139,6 +139,28 @@ export default function AdminKeywords() {
   const [engineTier, setEngineTier] = useState<string>("all");
   const [engineFilter, setEngineFilter] = useState<"all" | "paused" | "productive" | "dead">("all");
   const [engineBusyId, setEngineBusyId] = useState<string | null>(null);
+  const [cronHours, setCronHours] = useState<number>(24);
+  const [cronSaving, setCronSaving] = useState(false);
+
+  // Cargar preferencia actual del cron
+  useEffect(() => {
+    supabase.from("scraper_settings").select("interval_hours").eq("id", 1).maybeSingle()
+      .then(({ data }) => { if (data?.interval_hours) setCronHours(data.interval_hours); });
+  }, []);
+
+  const updateCronInterval = async (hours: number) => {
+    setCronSaving(true);
+    try {
+      const { data, error } = await supabase.rpc("set_scraper_cron", { p_hours: hours });
+      if (error) throw error;
+      setCronHours(hours);
+      toast.success(`Cron actualizado a cada ${hours}h`);
+    } catch (e: any) {
+      toast.error(`Error: ${e.message}`);
+    } finally {
+      setCronSaving(false);
+    }
+  };
 
   const load = async () => {
     try {
@@ -325,6 +347,22 @@ export default function AdminKeywords() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground px-2">Cada</span>
+              {[1, 6, 12, 24].map((h) => (
+                <button
+                  key={h}
+                  onClick={() => updateCronInterval(h)}
+                  disabled={cronSaving}
+                  className={`px-2 h-6 rounded-md text-[10px] font-medium transition disabled:opacity-50 ${
+                    cronHours === h ? "bg-[#f7a93d] text-black" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title={`Reprogramar scrape automático cada ${h}h`}
+                >
+                  {h}h
+                </button>
+              ))}
+            </div>
             <Button variant="ghost" size="sm" onClick={loadEngine}>
               <RefreshCw className="w-3.5 h-3.5" />
             </Button>
@@ -390,7 +428,7 @@ export default function AdminKeywords() {
                 ? formatDistanceToNow(new Date(engineKpis.last_run_at), { addSuffix: true, locale: es })
                 : "—"}
             </div>
-            <div className="text-[10px] text-muted-foreground mt-2">Próxima al minuto 7 de cada hora</div>
+            <div className="text-[10px] text-muted-foreground mt-2">Cron actual: cada {cronHours}h</div>
           </div>
         </div>
 

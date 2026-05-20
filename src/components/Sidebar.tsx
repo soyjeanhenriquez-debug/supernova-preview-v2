@@ -68,6 +68,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
           return (
             <button
               key={item.label}
+              data-tour={`nav-${item.label}`}
               onClick={() => onNavigate(item.label)}
               title={collapsed ? item.label : undefined}
               className={`flex items-center gap-3 w-full rounded-lg transition-colors text-left ${collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2"} ${

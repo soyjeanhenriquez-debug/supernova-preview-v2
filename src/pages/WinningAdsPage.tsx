@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2, Bookmark, Plus, X, Check, Copy, Languages, Eye, LayoutGrid, List, Star, Info } from "lucide-react";
+import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2, Bookmark, Plus, X, Check, Copy, Languages, Eye, LayoutGrid, List, Star, Info, Columns3 } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, normalizeAdsLibraryUrl, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
 import { useElapsedMinutes } from "@/hooks/useElapsedMinutes";
@@ -13,6 +13,37 @@ import { Slider } from "@/components/ui/slider";
 
 import { AdMediaPreview } from "@/components/AdMediaPreview";
 import { getAutoSearchKeywords, TOTAL_DR_KEYWORDS } from "@/lib/dr-keywords";
+
+// Mapa estático → Tailwind necesita clases completas en el bundle
+const GRID_COLS_CLASS: Record<number, string> = {
+  1: "grid grid-cols-1 gap-4",
+  2: "grid grid-cols-1 sm:grid-cols-2 gap-4",
+  3: "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4",
+  4: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3",
+  5: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3",
+  6: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3",
+};
+
+// Cache de ads en sessionStorage para carga instantánea entre navegaciones
+const ADS_CACHE_KEY = "supernova:ads-cache-v2";
+const ADS_CACHE_TTL = 5 * 60_000; // 5 min
+type AdsCache = { ads: DemoAd[]; stats: { total: number; unique: number; mega: number; rising: number; solid: number }; ts: number };
+function readAdsCache(): AdsCache | null {
+  try {
+    const raw = sessionStorage.getItem(ADS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AdsCache;
+    if (Date.now() - parsed.ts > ADS_CACHE_TTL) return null;
+    return parsed;
+  } catch { return null; }
+}
+function writeAdsCache(ads: DemoAd[], stats: AdsCache["stats"]) {
+  try {
+    // Limitar para no saturar sessionStorage (~5MB típico)
+    const slim = ads.slice(0, 1500);
+    sessionStorage.setItem(ADS_CACHE_KEY, JSON.stringify({ ads: slim, stats, ts: Date.now() }));
+  } catch { /* quota */ }
+}
 
 const COUNTRY_OPTIONS: { code: string; label: string; flag: string }[] = [
   { code: "ES", label: "España", flag: "🇪🇸" },
@@ -156,9 +187,11 @@ export function WinningAdsPage() {
   const [sort, setSort] = useState("Mayor Score");
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [sofisticarAd, setSofisticarAd] = useState<DemoAd | null>(null);
-  const [realAds, setRealAds] = useState<DemoAd[]>([]);
+  // Hidratar desde sessionStorage para render instantáneo (Apple-style: no spinners en navegación)
+  const _cachedInit = readAdsCache();
+  const [realAds, setRealAds] = useState<DemoAd[]>(_cachedInit?.ads ?? []);
   const [loadingReal, setLoadingReal] = useState(false);
-  const [liveStats, setLiveStats] = useState({ total: 0, unique: 0, mega: 0, rising: 0, solid: 0 });
+  const [liveStats, setLiveStats] = useState(_cachedInit?.stats ?? { total: 0, unique: 0, mega: 0, rising: 0, solid: 0 });
   const [autoKeywords, setAutoKeywords] = useState<string[]>([]);
   const [autoLoading, setAutoLoading] = useState(false);
   const [lastAutoRun, setLastAutoRun] = useState<Date | null>(null);
@@ -169,6 +202,12 @@ export function WinningAdsPage() {
   const [verticalFilter, setVerticalFilter] = useState<string>("Todas");
   const [viewMode, setViewMode] = useState<"grid" | "list">(() => (localStorage.getItem("supernova:ads-view") as "grid" | "list") ?? "grid");
   useEffect(() => { localStorage.setItem("supernova:ads-view", viewMode); }, [viewMode]);
+  // Nº de columnas en grid (2/3/4/5/6) — persistido
+  const [cols, setCols] = useState<number>(() => {
+    const n = parseInt(localStorage.getItem("supernova:ads-cols") ?? "3", 10);
+    return [2, 3, 4, 5, 6].includes(n) ? n : 3;
+  });
+  useEffect(() => { localStorage.setItem("supernova:ads-cols", String(cols)); }, [cols]);
   const [bannerDismissed, setBannerDismissed] = useState(() => localStorage.getItem("supernova:winner-banner-v1") === "1");
   const dismissBanner = () => { setBannerDismissed(true); localStorage.setItem("supernova:winner-banner-v1", "1"); };
   // Búsquedas guardadas por usuario (keyword + país + estado)
@@ -198,6 +237,11 @@ export function WinningAdsPage() {
   const [savingPreset, setSavingPreset] = useState(false);
   const [presetName, setPresetName] = useState("");
   useEffect(() => { localStorage.setItem(PRESETS_KEY, JSON.stringify(presets)); }, [presets]);
+
+  // Persistir cache en sessionStorage cada vez que cambian ads/stats
+  useEffect(() => {
+    if (realAds.length > 0) writeAdsCache(realAds, liveStats);
+  }, [realAds, liveStats]);
 
   // Cargar histórico real desde `winning_ads` — stats con COUNT exactos + paginación
   useEffect(() => {
@@ -890,14 +934,29 @@ export function WinningAdsPage() {
           <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.18em]">
             <Filter className="w-3.5 h-3.5" /> Filtros de calidad
           </div>
-          {/* Toggle vista grid/list */}
-          <div className="inline-flex bg-secondary/60 rounded-full p-1 border border-border/60">
-            <button onClick={() => setViewMode("grid")} aria-label="Vista grid" className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${viewMode === "grid" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
-              <LayoutGrid className="w-3 h-3" /> Grid
-            </button>
-            <button onClick={() => setViewMode("list")} aria-label="Vista lista" className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${viewMode === "list" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
-              <List className="w-3 h-3" /> Lista
-            </button>
+          {/* Toggle vista grid/list + selector de columnas */}
+          <div className="flex items-center gap-2">
+            {viewMode === "grid" && (
+              <div className="inline-flex items-center gap-1 bg-secondary/60 rounded-full p-1 border border-border/60" title="Columnas">
+                <Columns3 className="w-3 h-3 text-muted-foreground ml-1.5" />
+                {[2, 3, 4, 5, 6].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setCols(n)}
+                    aria-label={`${n} columnas`}
+                    className={`w-7 h-6 rounded-full text-[11px] font-semibold tabular-nums transition-all ${cols === n ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+                  >{n}</button>
+                ))}
+              </div>
+            )}
+            <div className="inline-flex bg-secondary/60 rounded-full p-1 border border-border/60">
+              <button onClick={() => setViewMode("grid")} aria-label="Vista grid" className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${viewMode === "grid" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
+                <LayoutGrid className="w-3 h-3" /> Grid
+              </button>
+              <button onClick={() => setViewMode("list")} aria-label="Vista lista" className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${viewMode === "list" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
+                <List className="w-3 h-3" /> Lista
+              </button>
+            </div>
           </div>
         </div>
 
@@ -993,7 +1052,7 @@ export function WinningAdsPage() {
               onPageChange={setPage}
               onPageSizeChange={setPageSize}
             />
-            <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" : "flex flex-col gap-3"}>
+            <div className={viewMode === "grid" ? GRID_COLS_CLASS[cols] ?? GRID_COLS_CLASS[3] : "flex flex-col gap-3"}>
               {paginated.map((ad) => (
                 <AdCard key={ad.id} ad={ad} saved={saved.has(ad.id)} onSave={() => toggleSave(ad.id)} onSofisticar={() => setSofisticarAd(ad)} compact={viewMode === "list"} />
               ))}
@@ -1128,7 +1187,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 
-function AdCard({ ad, saved, onSave, onSofisticar, compact = false }: { ad: DemoAd; saved: boolean; onSave: () => void; onSofisticar: () => void; compact?: boolean }) {
+const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, compact = false }: { ad: DemoAd; saved: boolean; onSave: () => void; onSofisticar: () => void; compact?: boolean }) {
   const tier = TIERS[ad.tier];
   const desp = despeguePercent(ad.daysActive, ad.duplicates);
 
@@ -1366,4 +1425,4 @@ function AdCard({ ad, saved, onSave, onSofisticar, compact = false }: { ad: Demo
       </a>
     </div>
   );
-}
+});

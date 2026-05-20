@@ -40,6 +40,8 @@ const Index = () => {
           {renderPage()}
         </main>
       </div>
+      <HelpAssistant />
+      <OnboardingTour />
     </div>
   );
 };

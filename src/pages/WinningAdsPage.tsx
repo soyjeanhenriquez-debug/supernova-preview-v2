@@ -13,6 +13,8 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Slider } from "@/components/ui/slider";
 
 import { AdMediaPreview } from "@/components/AdMediaPreview";
+import { TemperatureBlock } from "@/components/TemperatureBlock";
+import { HeatMap } from "@/components/HeatMap";
 import { getAutoSearchKeywords, TOTAL_DR_KEYWORDS } from "@/lib/dr-keywords";
 
 // Mapa estático → Tailwind necesita clases completas en el bundle
@@ -1049,6 +1051,7 @@ export function WinningAdsPage() {
           </div>
         ) : (
           <>
+            <HeatMap onSelectNiche={(niche) => setTypeFilter(niche)} />
             <PaginationBar
               total={filteredTotal}
               page={currentPage}
@@ -1382,6 +1385,14 @@ const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, compact =
       />
 
       <p className="text-sm text-foreground/90 line-clamp-4 italic leading-relaxed">"{ad.body}"</p>
+
+      {/* SUPERNOVA Temperature Layer — capa nueva, no reemplaza al tier badge */}
+      <TemperatureBlock
+        duplicates={ad.duplicates}
+        uniquePages={ad.activeCount ?? 1}
+        daysActive={ad.daysActive}
+        allPageNames={[ad.pageName]}
+      />
 
       {/* Landing URL */}
       {landingDomain && (

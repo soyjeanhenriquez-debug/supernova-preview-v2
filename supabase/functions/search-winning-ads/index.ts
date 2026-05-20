@@ -59,8 +59,7 @@ serve(async (req) => {
               if (item.title || item.description) {
                 const platforms = detectPlatforms(item.url || "");
                 const body = item.description || item.markdown?.slice(0, 400) || "";
-                const daysAgo = Math.floor(Math.random() * 60) + 3;
-                const impLower = Math.floor(Math.random() * 5000000) + 50000;
+                // No inventamos datos: si no hay info real de delivery o impresiones, queda null.
                 adsFound.push({
                   keyword,
                   advertiser: extractAdvertiser(item.url || ""),
@@ -72,10 +71,10 @@ serve(async (req) => {
                   ad_url: item.url || "",
                   platform: platforms[0] === "facebook" ? "Meta" : "Web",
                   publisher_platforms: platforms,
-                  delivery_start_time: new Date(Date.now() - daysAgo * 86400000).toISOString(),
+                  delivery_start_time: null,
                   delivery_stop_time: null,
-                  impressions_lower: impLower,
-                  impressions_upper: impLower * 1.2,
+                  impressions_lower: null,
+                  impressions_upper: null,
                   market: detectMarket(item.url || ""),
                   scraped_at: new Date().toISOString(),
                 });

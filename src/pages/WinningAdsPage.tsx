@@ -496,6 +496,21 @@ export function WinningAdsPage() {
     return list;
   }, [allAds, market, minDays, minDups, typeFilter, regionFilter, minScore, verticalFilter, sort, keyword]);
 
+  // Paginación: el usuario elige 25/50/100/200 ads por página
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const saved = parseInt(localStorage.getItem("supernova:ads-page-size") ?? "50", 10);
+    return [25, 50, 100, 200].includes(saved) ? saved : 50;
+  });
+  const [page, setPage] = useState(1);
+  useEffect(() => { localStorage.setItem("supernova:ads-page-size", String(pageSize)); }, [pageSize]);
+  useEffect(() => { setPage(1); }, [pageSize, market, minDays, minDups, typeFilter, regionFilter, minScore, verticalFilter, sort, keyword]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginated = useMemo(
+    () => filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filtered, currentPage, pageSize],
+  );
+
   const handleSearch = async () => {
     if (!canAfford("search_ads")) { toast.error("Sin créditos suficientes"); return; }
     consume("search_ads", keyword || market);

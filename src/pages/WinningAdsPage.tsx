@@ -203,6 +203,8 @@ export function WinningAdsPage() {
   const [searchLimit, setSearchLimit] = useState(25);
   const [searchStatus, setSearchStatus] = useState<"ACTIVE" | "INACTIVE" | "ALL">("ACTIVE");
   const [verticalFilter, setVerticalFilter] = useState<string>("Todas");
+  // "Creativo": filtrar ads sin texto (ganadores ocultos), con texto, o todos
+  const [creativeFilter, setCreativeFilter] = useState<"all" | "with_text" | "no_text">("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">(() => (localStorage.getItem("supernova:ads-view") as "grid" | "list") ?? "grid");
   useEffect(() => { localStorage.setItem("supernova:ads-view", viewMode); }, [viewMode]);
   // Nº de columnas en grid (2/3/4/5/6) — persistido
@@ -320,6 +322,12 @@ export function WinningAdsPage() {
         const k = keyword.trim().replace(/[,()]/g, " ");
         q = q.or(`ad_title.ilike.%${k}%,ad_body.ilike.%${k}%,page_name.ilike.%${k}%`);
       }
+      // Filtro de creativo (con/sin texto)
+      if (creativeFilter === "no_text") {
+        q = q.or("ad_body.is.null,ad_body.eq.");
+      } else if (creativeFilter === "with_text") {
+        q = q.not("ad_body", "is", null).neq("ad_body", "");
+      }
 
       // Orden
       switch (sort) {
@@ -369,10 +377,10 @@ export function WinningAdsPage() {
       setLoadingReal(false);
     })();
     return () => { cancelled = true; };
-  }, [page, pageSize, regionFilter, minScore, minDays, minDups, typeFilter, keyword, sort]);
+  }, [page, pageSize, regionFilter, minScore, minDays, minDups, typeFilter, keyword, sort, creativeFilter]);
 
   // Reset a página 1 cuando cambian filtros
-  useEffect(() => { setPage(1); }, [pageSize, regionFilter, minScore, minDays, minDups, typeFilter, keyword, sort]);
+  useEffect(() => { setPage(1); }, [pageSize, regionFilter, minScore, minDays, minDups, typeFilter, keyword, sort, creativeFilter]);
 
   // Admin: siembra masiva desde FB Ads Library
   const [seeding, setSeeding] = useState(false);
@@ -903,7 +911,7 @@ export function WinningAdsPage() {
             <Star className="w-4 h-4" />
           </button>
           <button onClick={handleSearch} disabled={loadingReal} className="btn-primary-nova px-6 py-3 rounded-lg text-sm flex items-center gap-2 whitespace-nowrap disabled:opacity-60">
-            {loadingReal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} {loadingReal ? "Buscando..." : "Buscar Anuncios"} <span className="opacity-70">· 1 crédito</span>
+            {loadingReal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} {loadingReal ? "Buscando..." : "Buscar Anuncios"} <span className="opacity-70">· 10 créditos</span>
           </button>
         </div>
 
@@ -1005,9 +1013,14 @@ export function WinningAdsPage() {
           <PillSelect label="Tipo" value={typeFilter} onChange={setTypeFilter} options={TYPE_OPTIONS.map((o) => ({ value: o, label: o }))} />
           <PillSelect label="Mercado" value={regionFilter} onChange={setRegionFilter} options={REGION_OPTIONS.map((o) => ({ value: o, label: o }))} />
           <PillSelect label="Score mínimo" value={String(minScore)} onChange={(v) => setMinScore(Number(v))} options={SCORE_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
+          <PillSelect label="Creativo" value={creativeFilter} onChange={(v) => setCreativeFilter(v as "all" | "with_text" | "no_text")} options={[{ value: "all", label: "Todos" }, { value: "with_text", label: "Con texto" }, { value: "no_text", label: "🎯 Sin texto" }]} />
           <PillSelect label="Ordenar" value={sort} onChange={setSort} options={SORT_OPTIONS.map((o) => ({ value: o, label: o }))} />
         </div>
       </div>
+
+      {/* Ganadores Ocultos — sin texto en copy, pura imagen/video */}
+      <HiddenWinnersSection onSeeAll={() => setCreativeFilter("no_text")} onSofisticar={setSofisticarAd} />
+
 
 
       {/* Ofertas escalando */}

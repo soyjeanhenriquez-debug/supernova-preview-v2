@@ -1041,7 +1041,7 @@ export function WinningAdsPage() {
         })()}
 
 
-        {filtered.length === 0 ? (
+        {filteredTotal === 0 ? (
           <div className="card-surface rounded-xl py-16 text-center">
             <div className="empty-icon mb-4"><Trophy className="w-9 h-9" /></div>
             <div className="font-display font-bold text-lg mb-1">Aún no hay ganadores en este filtro</div>
@@ -1050,7 +1050,7 @@ export function WinningAdsPage() {
         ) : (
           <>
             <PaginationBar
-              total={filtered.length}
+              total={filteredTotal}
               page={currentPage}
               pageSize={pageSize}
               totalPages={totalPages}
@@ -1066,7 +1066,7 @@ export function WinningAdsPage() {
               onSofisticar={setSofisticarAd}
             />
             <PaginationBar
-              total={filtered.length}
+              total={filteredTotal}
               page={currentPage}
               pageSize={pageSize}
               totalPages={totalPages}

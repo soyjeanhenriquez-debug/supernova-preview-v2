@@ -53,6 +53,39 @@ export type Database = {
         }
         Relationships: []
       }
+      active_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          ip_address: string | null
+          is_suspicious: boolean
+          last_seen: string
+          user_agent: string | null
+          user_email: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          is_suspicious?: boolean
+          last_seen?: string
+          user_agent?: string | null
+          user_email?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          is_suspicious?: boolean
+          last_seen?: string
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       ad_favorites: {
         Row: {
           ad_id: string | null
@@ -224,6 +257,78 @@ export type Database = {
           is_active?: boolean
           last_access?: string | null
           notes?: string | null
+        }
+        Relationships: []
+      }
+      audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          error_message: string | null
+          id: string
+          ip_address: string | null
+          new_data: Json | null
+          old_data: Json | null
+          resource_id: string | null
+          resource_type: string | null
+          success: boolean
+          user_agent: string | null
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          resource_id?: string | null
+          resource_type?: string | null
+          success?: boolean
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          resource_id?: string | null
+          resource_type?: string | null
+          success?: boolean
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      blocked_ips: {
+        Row: {
+          blocked_by: string | null
+          created_at: string
+          id: string
+          ip_address: string
+          reason: string | null
+        }
+        Insert: {
+          blocked_by?: string | null
+          created_at?: string
+          id?: string
+          ip_address: string
+          reason?: string | null
+        }
+        Update: {
+          blocked_by?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: string
+          reason?: string | null
         }
         Relationships: []
       }
@@ -521,6 +626,30 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          action_type: string
+          count: number
+          id: string
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          action_type: string
+          count?: number
+          id?: string
+          user_id: string
+          window_start?: string
+        }
+        Update: {
+          action_type?: string
+          count?: number
+          id?: string
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       scraper_settings: {
         Row: {
           id: number
@@ -539,6 +668,36 @@ export type Database = {
           interval_hours?: number
           updated_at?: string
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      system_config: {
+        Row: {
+          category: string
+          description: string | null
+          id: string
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: string
+        }
+        Insert: {
+          category?: string
+          description?: string | null
+          id?: string
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: string
+        }
+        Update: {
+          category?: string
+          description?: string | null
+          id?: string
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string
         }
         Relationships: []
       }
@@ -646,6 +805,33 @@ export type Database = {
           is_favorite?: boolean
           name?: string
           prompt_template?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_credits: {
+        Row: {
+          balance: number
+          created_at: string
+          last_grant_at: string
+          monthly_grant: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          last_grant_at?: string
+          monthly_grant?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          last_grant_at?: string
+          monthly_grant?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -772,8 +958,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_adjust_credits: {
+        Args: { p_amount: number; p_reason?: string; p_target_user_id: string }
+        Returns: Json
+      }
+      admin_terminate_session: {
+        Args: { p_target_user_id: string }
+        Returns: Json
+      }
+      admin_toggle_user_status: {
+        Args: {
+          p_reason?: string
+          p_suspend: boolean
+          p_target_user_id: string
+        }
+        Returns: Json
+      }
       approve_access_request: {
         Args: { p_notes?: string; p_request_id: string }
+        Returns: Json
+      }
+      check_rate_limit: {
+        Args: { p_action: string; p_max_per_hour: number; p_user_id: string }
+        Returns: boolean
+      }
+      consume_credits: {
+        Args: {
+          p_action: string
+          p_amount: number
+          p_label?: string
+          p_meta?: Json
+        }
         Returns: Json
       }
       get_rising_temperature_ads: {
@@ -790,6 +1005,7 @@ export type Database = {
           page_name: string
         }[]
       }
+      grant_monthly_if_due: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -798,6 +1014,19 @@ export type Database = {
         Returns: boolean
       }
       is_email_approved: { Args: { p_email: string }; Returns: boolean }
+      is_suspended: { Args: never; Returns: boolean }
+      log_action: {
+        Args: {
+          p_action: string
+          p_error?: string
+          p_new_data?: Json
+          p_old_data?: Json
+          p_resource_id?: string
+          p_resource_type?: string
+          p_success?: boolean
+        }
+        Returns: undefined
+      }
       reject_access_request: {
         Args: { p_reason?: string; p_request_id: string }
         Returns: Json

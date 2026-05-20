@@ -98,9 +98,9 @@ export function IntelligenceAnalyzer() {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-primary font-bold">
-              <Sparkles className="w-3.5 h-3.5" /> Intelligence Analyzer
+              <Sparkles className="w-3.5 h-3.5" /> ⚡ INFORME JARVIS
             </div>
-            <h3 className="font-display text-xl text-foreground mt-1.5">Pega cualquier landing y la analizamos todo</h3>
+            <h3 className="font-display text-xl text-foreground mt-1.5">Pega cualquier URL y JARVIS hace todo</h3>
             <p className="text-sm text-muted-foreground mt-1">Anuncios activos · Avatar · Ángulo · Debilidades · Blueprint 30 días · Hook listo.</p>
           </div>
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground border border-border rounded-full px-3 py-1">5 créditos · ~25 s</div>

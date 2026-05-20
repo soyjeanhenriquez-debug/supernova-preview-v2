@@ -422,6 +422,27 @@ export type Database = {
         }
         Relationships: []
       }
+      scraper_settings: {
+        Row: {
+          id: number
+          interval_hours: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: number
+          interval_hours?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: number
+          interval_hours?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       templates: {
         Row: {
           category: string
@@ -584,6 +605,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      set_scraper_cron: { Args: { p_hours: number }; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

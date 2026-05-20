@@ -203,8 +203,8 @@ export function WinningAdsPage() {
   const [searchLimit, setSearchLimit] = useState(25);
   const [searchStatus, setSearchStatus] = useState<"ACTIVE" | "INACTIVE" | "ALL">("ACTIVE");
   const [verticalFilter, setVerticalFilter] = useState<string>("Todas");
-  // "Creativo": filtrar ads sin texto (ganadores ocultos), con texto, o todos
-  const [creativeFilter, setCreativeFilter] = useState<"all" | "with_text" | "no_text">("all");
+  // (filtro "Creativo" eliminado — los ads sin texto se muestran junto al resto usando ad_title como fallback)
+
   const [viewMode, setViewMode] = useState<"grid" | "list">(() => (localStorage.getItem("supernova:ads-view") as "grid" | "list") ?? "grid");
   useEffect(() => { localStorage.setItem("supernova:ads-view", viewMode); }, [viewMode]);
   // Nº de columnas en grid (2/3/4/5/6) — persistido

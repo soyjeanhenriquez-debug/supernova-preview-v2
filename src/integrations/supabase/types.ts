@@ -131,6 +131,30 @@ export type Database = {
         }
         Relationships: []
       }
+      ad_media_cache: {
+        Row: {
+          ad_id: string
+          failed: boolean
+          image_url: string | null
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          ad_id: string
+          failed?: boolean
+          image_url?: string | null
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          ad_id?: string
+          failed?: boolean
+          image_url?: string | null
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       agents: {
         Row: {
           created_at: string

@@ -322,12 +322,8 @@ export function WinningAdsPage() {
         const k = keyword.trim().replace(/[,()]/g, " ");
         q = q.or(`ad_title.ilike.%${k}%,ad_body.ilike.%${k}%,page_name.ilike.%${k}%`);
       }
-      // Filtro de creativo (con/sin texto)
-      if (creativeFilter === "no_text") {
-        q = q.or("ad_body.is.null,ad_body.eq.");
-      } else if (creativeFilter === "with_text") {
-        q = q.not("ad_body", "is", null).neq("ad_body", "");
-      }
+      // (filtro creativo eliminado — los ads sin body se muestran con ad_title como fallback)
+
 
       // Orden
       switch (sort) {

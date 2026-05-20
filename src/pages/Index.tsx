@@ -9,6 +9,8 @@ import { BrainPage } from "@/pages/BrainPage";
 import { CreditsPage } from "@/pages/CreditsPage";
 import { CrearPage } from "@/pages/CrearPage";
 import { LowCreditBanner } from "@/components/LowCreditBanner";
+import { HelpAssistant } from "@/components/HelpAssistant";
+import { OnboardingTour } from "@/components/OnboardingTour";
 
 const Index = () => {
   const [activePage, setActivePage] = useState("Dashboard");

@@ -10,6 +10,7 @@ import { AgentsPage } from "@/pages/AgentsPage";
 import { BrainPage } from "@/pages/BrainPage";
 import { CreditsPage } from "@/pages/CreditsPage";
 import { CrearPage } from "@/pages/CrearPage";
+import { LowCreditBanner } from "@/components/LowCreditBanner";
 
 const Index = () => {
   const [activePage, setActivePage] = useState("Dashboard");
@@ -35,6 +36,7 @@ const Index = () => {
     <div className="flex min-h-screen bg-background">
       <Sidebar activePage={activePage} onNavigate={setActivePage} />
       <div className="flex-1 flex flex-col min-w-0">
+        <LowCreditBanner onRecharge={() => setActivePage("Créditos")} />
         <TopBar activePage={activePage} />
         <main className="flex-1 p-6 lg:p-8 overflow-auto">
           {renderPage()}

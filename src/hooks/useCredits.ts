@@ -1,9 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 
 const KEY = "supernova_credits_v2";
 const HIST_KEY = "supernova_credits_history_v1";
+const MILESTONES_KEY = "supernova_milestones_v1";
 const DEFAULT_BALANCE = 3000;
 const DEFAULT_LIMIT = 3000;
 
@@ -23,30 +25,31 @@ export type CreditAction =
   | "gen_funnel"
   | "gen_master_prompt";
 
+// Costos calibrados: ~3x margen sobre costo real de Claude API
 export const CREDIT_COSTS: Record<CreditAction, number> = {
-  search_ads: 1,
-  analyze_url: 1,
-  landing_intelligence: 5,
-  sofisticar: 2,
-  blueprint: 3,
-  adaptar: 1,
-  pain_discovery: 2,
-  chat_message: 1,
-  ai_intel: 1,
-  gen_landing: 3,
-  gen_ad_copies: 2,
-  gen_avatar: 2,
-  gen_funnel: 5,
-  gen_master_prompt: 4,
+  search_ads: 5,
+  analyze_url: 5,
+  ai_intel: 15,
+  chat_message: 15,
+  adaptar: 15,
+  sofisticar: 30,
+  gen_ad_copies: 30,
+  gen_avatar: 30,
+  pain_discovery: 30,
+  blueprint: 80,
+  gen_landing: 80,
+  landing_intelligence: 80,
+  gen_funnel: 100,
+  gen_master_prompt: 100,
 };
 
 export const ACTION_LABEL: Record<CreditAction, string> = {
   search_ads: "Búsqueda de anuncios",
-  analyze_url: "Analizar URL",
-  landing_intelligence: "Intelligence Analyzer (landing)",
+  analyze_url: "Analizar URL del Oráculo",
+  landing_intelligence: "Oráculo completo (IA)",
   sofisticar: "Sofisticar oferta",
   blueprint: "Blueprint completo",
-  adaptar: "Adaptar al mercado",
+  adaptar: "Adaptar anuncio al mercado",
   pain_discovery: "Pain Discovery",
   chat_message: "Mensaje Chat IA",
   ai_intel: "Análisis IA del ad",
@@ -55,6 +58,24 @@ export const ACTION_LABEL: Record<CreditAction, string> = {
   gen_avatar: "Avatar del comprador",
   gen_funnel: "Funnel completo (VSL+emails)",
   gen_master_prompt: "Mega-Prompt Replicador",
+};
+
+// Horas de trabajo manual equivalentes por acción (para "valor percibido")
+export const ACTION_HOURS: Record<CreditAction, number> = {
+  search_ads: 0.5,
+  analyze_url: 0.5,
+  ai_intel: 1,
+  chat_message: 0.25,
+  adaptar: 1,
+  sofisticar: 2,
+  gen_ad_copies: 2,
+  gen_avatar: 2,
+  pain_discovery: 2,
+  blueprint: 4,
+  gen_landing: 4,
+  landing_intelligence: 4,
+  gen_funnel: 8,
+  gen_master_prompt: 6,
 };
 
 export interface CreditHistoryEntry {
@@ -82,6 +103,42 @@ function readHistory(): CreditHistoryEntry[] {
   catch { return []; }
 }
 
+function readMilestones(): string[] {
+  if (typeof window === "undefined") return [];
+  try { return JSON.parse(localStorage.getItem(MILESTONES_KEY) || "[]"); }
+  catch { return []; }
+}
+
+function checkMilestones(prevBalance: number, nextBalance: number, limit: number) {
+  const seen = new Set(readMilestones());
+  const totalSpentBefore = limit - prevBalance;
+  const totalSpentAfter = limit - nextBalance;
+
+  const fire = (key: string, title: string, description?: string) => {
+    if (seen.has(key)) return;
+    seen.add(key);
+    toast(title, { description, duration: 6000 });
+  };
+
+  // Hitos por gasto acumulado
+  if (totalSpentBefore < 500 && totalSpentAfter >= 500) {
+    fire("spent_500", "⚡ 500 créditos bien invertidos", "Eres un usuario activo de SUPERNOVA.");
+  }
+  if (totalSpentBefore < 1500 && totalSpentAfter >= 1500) {
+    fire("spent_1500", "🔥 Has usado la mitad de tus créditos", "Estás aprovechando SUPERNOVA al máximo.");
+  }
+
+  // Hitos por saldo restante
+  if (prevBalance > 500 && nextBalance <= 500) {
+    fire("left_500", "⚡ Te quedan 500 créditos este mes", "Úsalos en lo que más te mueve la aguja.");
+  }
+  if (prevBalance > 100 && nextBalance <= 100) {
+    fire("left_100", "🚨 Últimos 100 créditos del mes", "¿Los usas en un Funnel completo o en 2 Oráculos? Tú decides.");
+  }
+
+  localStorage.setItem(MILESTONES_KEY, JSON.stringify(Array.from(seen)));
+}
+
 export function useCredits() {
   const [state, setState] = useState<State>(read);
   const [history, setHistory] = useState<CreditHistoryEntry[]>(readHistory);
@@ -98,7 +155,7 @@ export function useCredits() {
 
   const persist = (next: State, nextHist: CreditHistoryEntry[]) => {
     localStorage.setItem(KEY, JSON.stringify(next));
-    localStorage.setItem(HIST_KEY, JSON.stringify(nextHist.slice(0, 50)));
+    localStorage.setItem(HIST_KEY, JSON.stringify(nextHist.slice(0, 200)));
     setState(next); setHistory(nextHist);
     window.dispatchEvent(new Event("supernova_credits_changed"));
   };
@@ -113,7 +170,18 @@ export function useCredits() {
       action, label: ACTION_LABEL[action], cost, meta,
     };
     persist(next, [entry, ...readHistory()]);
-    // Mirror to Supabase for admin analytics (fire-and-forget)
+
+    // Feedback visual del gasto
+    toast(`-${cost} ⚡`, {
+      description: ACTION_LABEL[action],
+      duration: 1800,
+    });
+    window.dispatchEvent(new CustomEvent("supernova_credit_spent", { detail: { cost, action, label: ACTION_LABEL[action] } }));
+
+    // Hitos de gamificación
+    checkMilestones(cur.balance, next.balance, cur.limit);
+
+    // Espejo a Supabase
     supabase.auth.getUser().then(({ data }) => {
       const uid = data.user?.id;
       if (!uid) return;

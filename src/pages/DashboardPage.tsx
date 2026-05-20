@@ -4,6 +4,7 @@ import { useCredits } from "@/hooks/useCredits";
 import { useProjects, PILLARS } from "@/hooks/useProjects";
 import { CountUp } from "@/components/CountUp";
 import { ProjectThumb } from "@/components/ProjectThumb";
+import { WeeklySummary } from "@/components/WeeklySummary";
 
 interface Props { onNavigate: (p: string) => void; }
 
@@ -54,6 +55,9 @@ export function DashboardPage({ onNavigate }: Props) {
         <ActionCard title="Buscar Ofertas Winner" subtitle="Encuentra lo que está escalando ahora mismo" onClick={() => onNavigate("Buscar Ofertas Winner")} />
         <ActionCard title="Iniciar SOFISTICAR" subtitle="Convierte una oferta ganadora en tu producto" onClick={() => onNavigate("Buscar Ofertas Winner")} />
       </section>
+
+      {/* Resumen semanal */}
+      <WeeklySummary />
 
       {/* Recent projects */}
       <section>

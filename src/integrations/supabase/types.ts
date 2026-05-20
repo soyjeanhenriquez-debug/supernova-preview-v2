@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_requests: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          message: string | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id?: string
+          message?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          message?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: string
+          status?: string
+        }
+        Relationships: []
+      }
       ad_favorites: {
         Row: {
           ad_id: string | null
@@ -125,6 +164,42 @@ export type Database = {
           system_prompt?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      approved_emails: {
+        Row: {
+          added_by: string | null
+          approved_at: string
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          is_active: boolean
+          last_access: string | null
+          notes: string | null
+        }
+        Insert: {
+          added_by?: string | null
+          approved_at?: string
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id?: string
+          is_active?: boolean
+          last_access?: string | null
+          notes?: string | null
+        }
+        Update: {
+          added_by?: string | null
+          approved_at?: string
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          is_active?: boolean
+          last_access?: string | null
+          notes?: string | null
         }
         Relationships: []
       }
@@ -640,12 +715,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_access_request: {
+        Args: { p_notes?: string; p_request_id: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      is_email_approved: { Args: { p_email: string }; Returns: boolean }
+      reject_access_request: {
+        Args: { p_reason?: string; p_request_id: string }
+        Returns: Json
       }
       set_scraper_cron: { Args: { p_hours: number }; Returns: Json }
     }

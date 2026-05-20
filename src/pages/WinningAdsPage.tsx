@@ -1051,6 +1051,7 @@ export function WinningAdsPage() {
           </div>
         ) : (
           <>
+            <HeatMap onSelectNiche={(niche) => setTypeFilter(niche)} />
             <PaginationBar
               total={filteredTotal}
               page={currentPage}

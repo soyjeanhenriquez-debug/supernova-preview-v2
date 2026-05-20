@@ -4,6 +4,7 @@ import { useCredits } from "@/hooks/useCredits";
 import { useProjects, PILLARS } from "@/hooks/useProjects";
 import { CountUp } from "@/components/CountUp";
 import { ProjectThumb } from "@/components/ProjectThumb";
+import { WeeklySummary } from "@/components/WeeklySummary";
 
 interface Props { onNavigate: (p: string) => void; }
 

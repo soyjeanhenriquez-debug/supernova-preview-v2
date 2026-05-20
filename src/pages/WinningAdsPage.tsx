@@ -1080,6 +1080,102 @@ export function WinningAdsPage() {
   );
 }
 
+// ============================================================
+// VirtualizedAdGrid — renderiza miles de ads sin trabar la UI.
+// Solo monta las filas visibles (+ overscan) usando @tanstack/react-virtual.
+// El contenedor scroll es <main> (overflow-auto en Index.tsx).
+// ============================================================
+function VirtualizedAdGrid({
+  ads, cols, compact, saved, onSave, onSofisticar,
+}: {
+  ads: DemoAd[];
+  cols: number;
+  compact: boolean;
+  saved: Set<string>;
+  onSave: (id: string) => void;
+  onSofisticar: (ad: DemoAd) => void;
+}) {
+  const parentRef = useRef<HTMLDivElement>(null);
+  const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
+
+  // Busca el ancestro scrollable (el <main> de Index.tsx)
+  useEffect(() => {
+    let el: HTMLElement | null = parentRef.current;
+    while (el && el !== document.body) {
+      const oy = getComputedStyle(el).overflowY;
+      if (oy === "auto" || oy === "scroll") { setScrollEl(el); return; }
+      el = el.parentElement;
+    }
+    setScrollEl(document.documentElement);
+  }, []);
+
+  // Agrupar ads en filas según nº de columnas
+  const rows = useMemo(() => {
+    const r: DemoAd[][] = [];
+    for (let i = 0; i < ads.length; i += cols) r.push(ads.slice(i, i + cols));
+    return r;
+  }, [ads, cols]);
+
+  // Estimación de altura por fila (px). Card grid alta = ~640px; list = ~170px.
+  // El virtualizer remide automáticamente con measureElement.
+  const estimateRowHeight = compact ? 180 : 640;
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollEl,
+    estimateSize: () => estimateRowHeight,
+    overscan: 4,
+    gap: compact ? 12 : 16,
+  });
+
+  // Sin scroll container aún → render simple (1er paint) para evitar 0 alto
+  if (!scrollEl) {
+    return (
+      <div ref={parentRef} className={compact ? "flex flex-col gap-3" : GRID_COLS_CLASS[cols] ?? GRID_COLS_CLASS[3]}>
+        {ads.slice(0, cols * 3).map((ad) => (
+          <AdCard key={ad.id} ad={ad} saved={saved.has(ad.id)} onSave={() => onSave(ad.id)} onSofisticar={() => onSofisticar(ad)} compact={compact} />
+        ))}
+      </div>
+    );
+  }
+
+  const items = virtualizer.getVirtualItems();
+  // Clase de grid interna de cada fila (sin gap vertical, lo gestiona virtualizer)
+  const rowGridClass = compact
+    ? "flex flex-col"
+    : (GRID_COLS_CLASS[cols] ?? GRID_COLS_CLASS[3]).replace(/gap-\d+/, "gap-3");
+
+  return (
+    <div ref={parentRef} style={{ height: virtualizer.getTotalSize(), width: "100%", position: "relative" }}>
+      {items.map((vRow) => {
+        const row = rows[vRow.index];
+        if (!row) return null;
+        return (
+          <div
+            key={vRow.key}
+            data-index={vRow.index}
+            ref={virtualizer.measureElement}
+            className={rowGridClass}
+            style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${vRow.start}px)` }}
+          >
+            {row.map((ad) => (
+              <AdCard
+                key={ad.id}
+                ad={ad}
+                saved={saved.has(ad.id)}
+                onSave={() => onSave(ad.id)}
+                onSofisticar={() => onSofisticar(ad)}
+                compact={compact}
+              />
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+
 function PaginationBar({
   total, page, pageSize, totalPages, onPageChange, onPageSizeChange,
 }: {

@@ -1052,7 +1052,7 @@ export function WinningAdsPage() {
               onPageChange={setPage}
               onPageSizeChange={setPageSize}
             />
-            <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" : "flex flex-col gap-3"}>
+            <div className={viewMode === "grid" ? GRID_COLS_CLASS[cols] ?? GRID_COLS_CLASS[3] : "flex flex-col gap-3"}>
               {paginated.map((ad) => (
                 <AdCard key={ad.id} ad={ad} saved={saved.has(ad.id)} onSave={() => toggleSave(ad.id)} onSofisticar={() => setSofisticarAd(ad)} compact={viewMode === "list"} />
               ))}

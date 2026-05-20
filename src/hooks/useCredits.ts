@@ -24,7 +24,8 @@ export type CreditAction =
   | "gen_ad_copies"
   | "gen_avatar"
   | "gen_funnel"
-  | "gen_master_prompt";
+  | "gen_master_prompt"
+  | "pillar_assist";
 
 // Costos calibrados: ~3x margen sobre costo real de Claude API
 export const CREDIT_COSTS: Record<CreditAction, number> = {
@@ -33,6 +34,7 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   ai_intel: 15,
   chat_message: 15,
   adaptar: 15,
+  pillar_assist: 15,
   sofisticar: 30,
   gen_ad_copies: 30,
   gen_avatar: 30,
@@ -59,6 +61,7 @@ export const ACTION_LABEL: Record<CreditAction, string> = {
   gen_avatar: "Avatar del comprador",
   gen_funnel: "Funnel completo (VSL+emails)",
   gen_master_prompt: "Mega-Prompt Replicador",
+  pillar_assist: "Asistente IA de Pilar",
 };
 
 export const ACTION_HOURS: Record<CreditAction, number> = {
@@ -67,6 +70,7 @@ export const ACTION_HOURS: Record<CreditAction, number> = {
   ai_intel: 1,
   chat_message: 0.25,
   adaptar: 1,
+  pillar_assist: 1,
   sofisticar: 2,
   gen_ad_copies: 2,
   gen_avatar: 2,
@@ -77,6 +81,7 @@ export const ACTION_HOURS: Record<CreditAction, number> = {
   gen_funnel: 8,
   gen_master_prompt: 6,
 };
+
 
 export interface CreditHistoryEntry {
   date: string;

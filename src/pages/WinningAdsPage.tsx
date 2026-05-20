@@ -13,6 +13,8 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Slider } from "@/components/ui/slider";
 
 import { AdMediaPreview } from "@/components/AdMediaPreview";
+import { TemperatureBlock } from "@/components/TemperatureBlock";
+import { HeatMap } from "@/components/HeatMap";
 import { getAutoSearchKeywords, TOTAL_DR_KEYWORDS } from "@/lib/dr-keywords";
 
 // Mapa estático → Tailwind necesita clases completas en el bundle

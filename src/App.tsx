@@ -14,14 +14,16 @@ import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminKeywords from "@/pages/admin/AdminKeywords";
 import AdminAgent from "@/pages/admin/AdminAgent";
 import AdminAccesos from "@/pages/admin/AdminAccesos";
-import PendingAccessPage from "./pages/PendingAccessPage";
-import { useAccessStatus } from "@/hooks/useAccessStatus";
+import AdminConfig from "@/pages/admin/AdminConfig";
+import AdminAudit from "@/pages/admin/AdminAudit";
+import AdminSessions from "@/pages/admin/AdminSessions";
+import AdminHealth from "@/pages/admin/AdminHealth";
+import { RequireAccess } from "@/components/RequireAccess";
 
 const queryClient = new QueryClient();
 
 function AppRoutes() {
   const { user, loading } = useAuth();
-  const access = useAccessStatus();
 
   if (loading) {
     return (
@@ -36,40 +38,31 @@ function AppRoutes() {
     );
   }
 
-  if (!user) {
-    return <AuthPage />;
-  }
-
-  if (access === "loading") {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (access === "pending") {
-    return <PendingAccessPage />;
-  }
+  if (!user) return <AuthPage />;
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<AdminOverview />} />
-          <Route path="accesos" element={<AdminAccesos />} />
-          <Route path="usuarios" element={<AdminUsers />} />
-          <Route path="keywords" element={<AdminKeywords />} />
-          <Route path="agente" element={<AdminAgent />} />
-          <Route path="mensajes" element={<AdminStub title="Mensajes & Comunicación" description="Notificaciones, banners y emails a usuarios." />} />
-          <Route path="creditos" element={<AdminStub title="Créditos & Planes" description="Configuración de planes, costos y transacciones globales." />} />
-          <Route path="analytics" element={<AdminStub title="Analytics" description="Retención, conversión, funnel y comportamiento del producto." />} />
-          <Route path="config" element={<AdminStub title="Configuración del Sistema" description="Branding, APIs, búsqueda automática y mantenimiento." />} />
-        </Route>
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
+    <RequireAccess>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminOverview />} />
+            <Route path="accesos" element={<AdminAccesos />} />
+            <Route path="usuarios" element={<AdminUsers />} />
+            <Route path="keywords" element={<AdminKeywords />} />
+            <Route path="agente" element={<AdminAgent />} />
+            <Route path="audit" element={<AdminAudit />} />
+            <Route path="sesiones" element={<AdminSessions />} />
+            <Route path="salud" element={<AdminHealth />} />
+            <Route path="config" element={<AdminConfig />} />
+            <Route path="mensajes" element={<AdminStub title="Mensajes & Comunicación" description="Notificaciones, banners y emails a usuarios." />} />
+            <Route path="creditos" element={<AdminStub title="Créditos & Planes" description="Configuración de planes, costos y transacciones globales." />} />
+            <Route path="analytics" element={<AdminStub title="Analytics" description="Retención, conversión, funnel y comportamiento del producto." />} />
+          </Route>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </RequireAccess>
   );
 }
 

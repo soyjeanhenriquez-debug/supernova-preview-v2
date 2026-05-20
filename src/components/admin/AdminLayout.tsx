@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, KeyRound, Bot, MessageSquare,
   Coins, BarChart3, Settings, ArrowLeft, Shield, Lock,
+  ScrollText, Wifi, HeartPulse,
 } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,6 +11,9 @@ const items = [
   { to: "/admin", label: "Overview", icon: LayoutDashboard, end: true },
   { to: "/admin/accesos", label: "Accesos", icon: Lock },
   { to: "/admin/usuarios", label: "Usuarios", icon: Users },
+  { to: "/admin/sesiones", label: "Sesiones", icon: Wifi },
+  { to: "/admin/audit", label: "Audit log", icon: ScrollText },
+  { to: "/admin/salud", label: "Salud del sistema", icon: HeartPulse },
   { to: "/admin/keywords", label: "Keywords & Fuentes", icon: KeyRound },
   { to: "/admin/agente", label: "Agente IA Admin", icon: Bot },
   { to: "/admin/mensajes", label: "Mensajes", icon: MessageSquare },

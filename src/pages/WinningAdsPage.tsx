@@ -200,6 +200,12 @@ export function WinningAdsPage() {
   const [verticalFilter, setVerticalFilter] = useState<string>("Todas");
   const [viewMode, setViewMode] = useState<"grid" | "list">(() => (localStorage.getItem("supernova:ads-view") as "grid" | "list") ?? "grid");
   useEffect(() => { localStorage.setItem("supernova:ads-view", viewMode); }, [viewMode]);
+  // Nº de columnas en grid (2/3/4/5/6) — persistido
+  const [cols, setCols] = useState<number>(() => {
+    const n = parseInt(localStorage.getItem("supernova:ads-cols") ?? "3", 10);
+    return [2, 3, 4, 5, 6].includes(n) ? n : 3;
+  });
+  useEffect(() => { localStorage.setItem("supernova:ads-cols", String(cols)); }, [cols]);
   const [bannerDismissed, setBannerDismissed] = useState(() => localStorage.getItem("supernova:winner-banner-v1") === "1");
   const dismissBanner = () => { setBannerDismissed(true); localStorage.setItem("supernova:winner-banner-v1", "1"); };
   // Búsquedas guardadas por usuario (keyword + país + estado)

@@ -98,9 +98,9 @@ export function IntelligenceAnalyzer() {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-primary font-bold">
-              <Sparkles className="w-3.5 h-3.5" /> ⚡ INFORME JARVIS
+              <Sparkles className="w-3.5 h-3.5" /> Intelligence Analyzer
             </div>
-            <h3 className="font-display text-xl text-foreground mt-1.5">Pega cualquier URL y JARVIS hace todo</h3>
+            <h3 className="font-display text-xl text-foreground mt-1.5">Pega cualquier landing y la analizamos todo</h3>
             <p className="text-sm text-muted-foreground mt-1">Anuncios activos · Avatar · Ángulo · Debilidades · Blueprint 30 días · Hook listo.</p>
           </div>
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground border border-border rounded-full px-3 py-1">5 créditos · ~25 s</div>
@@ -113,7 +113,7 @@ export function IntelligenceAnalyzer() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleAnalyzeClick(); }}
-              placeholder="https://... · JARVIS analizará esta oferta al instante"
+              placeholder="https://hotmart.com/... · landing de Shopify · ClickFunnels · Ads Library"
               disabled={running}
               className="w-full bg-background/60 border border-border rounded-xl pl-10 pr-4 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all disabled:opacity-60"
             />
@@ -124,7 +124,7 @@ export function IntelligenceAnalyzer() {
             className="btn-primary-nova px-6 py-3.5 rounded-xl text-sm font-semibold whitespace-nowrap flex items-center gap-2 disabled:opacity-60"
           >
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            {running ? "JARVIS analizando..." : "⚡ Activar JARVIS"}
+            {running ? "Analizando..." : "Analizar"}
           </button>
         </div>
 

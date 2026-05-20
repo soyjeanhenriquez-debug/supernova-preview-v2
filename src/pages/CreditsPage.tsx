@@ -5,9 +5,9 @@ import { toast } from "sonner";
 import { CountUp } from "@/components/CountUp";
 
 const PACKS = [
-  { id: "boost",   name: "PACK BOOST",   credits: 500,  price: 10, tagline: "Recarga rápida para JARVIS", save: null },
-  { id: "power",   name: "PACK POWER",   credits: 2000, price: 20, tagline: "Un mes más de JARVIS al máximo", save: "50%", popular: true },
-  { id: "nuclear", name: "PACK NUCLEAR", credits: 4500, price: 39, tagline: "Para los que no paran nunca", save: "57%" },
+  { id: "boost",   name: "PACK BOOST",   credits: 500,  price: 10, tagline: "Para seguir sin parar esta semana", save: null },
+  { id: "power",   name: "PACK POWER",   credits: 2000, price: 20, tagline: "Otro mes completo de uso intensivo", save: "50%", popular: true },
+  { id: "nuclear", name: "PACK NUCLEAR", credits: 4500, price: 39, tagline: "Para los que no se detienen", save: "57%" },
 ];
 
 export function CreditsPage() {
@@ -41,8 +41,8 @@ export function CreditsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="page-heading font-display text-2xl text-foreground">TUS CRÉDITOS JARVIS</h2>
-        <p className="text-sm text-muted-foreground mt-3">Energía para activar el motor DR. Cada crédito activa a JARVIS en una acción específica.</p>
+        <h2 className="page-heading font-display text-2xl text-foreground">TUS CRÉDITOS</h2>
+        <p className="text-sm text-muted-foreground mt-3">Energía SUPERNOVA para tu motor DR</p>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -97,7 +97,7 @@ export function CreditsPage() {
       <div id="recharge-packs">
         <div className="flex items-center gap-2 mb-2">
           <Sparkles className="w-4 h-4 text-primary" />
-          <h3 className="font-display font-bold text-lg">¿JARVIS NECESITA MÁS ENERGÍA?</h3>
+          <h3 className="font-display font-bold text-lg">RECARGA TUS CRÉDITOS</h3>
         </div>
         <p className="text-sm text-muted-foreground mb-5 max-w-xl">
           Tus 2,000 créditos mensuales están incluidos con tu membresía. Si los agotás antes del próximo ciclo, recarga cuando quieras.

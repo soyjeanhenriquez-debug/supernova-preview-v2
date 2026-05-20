@@ -10,10 +10,10 @@ export function OraculoPage() {
         </div>
         <div className="min-w-0">
           <h1 className="font-display font-semibold text-[20px] tracking-tight text-foreground">
-            ORÁCULO — Powered by JARVIS
+            Oráculo de Inteligencia
           </h1>
           <p className="text-[13px] text-muted-foreground mt-1 leading-relaxed">
-            Pega cualquier URL y JARVIS descifra la oferta completa: anuncios activos, ángulo, avatar, debilidades y blueprint.
+            Pega cualquier URL y descifra la oferta completa: anuncios activos, ángulo, avatar, debilidades y blueprint.
           </p>
         </div>
       </header>

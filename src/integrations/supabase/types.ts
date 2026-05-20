@@ -836,6 +836,42 @@ export type Database = {
         }
         Relationships: []
       }
+      user_gamification: {
+        Row: {
+          badges: string[]
+          created_at: string
+          last_login_date: string | null
+          level: number
+          streak_days: number
+          total_hours_saved: number
+          updated_at: string
+          user_id: string
+          xp: number
+        }
+        Insert: {
+          badges?: string[]
+          created_at?: string
+          last_login_date?: string | null
+          level?: number
+          streak_days?: number
+          total_hours_saved?: number
+          updated_at?: string
+          user_id: string
+          xp?: number
+        }
+        Update: {
+          badges?: string[]
+          created_at?: string
+          last_login_date?: string | null
+          level?: number
+          streak_days?: number
+          total_hours_saved?: number
+          updated_at?: string
+          user_id?: string
+          xp?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -958,6 +994,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_xp: { Args: { p_amount: number; p_reason?: string }; Returns: Json }
       admin_adjust_credits: {
         Args: { p_amount: number; p_reason?: string; p_target_user_id: string }
         Returns: Json
@@ -978,10 +1015,15 @@ export type Database = {
         Args: { p_notes?: string; p_request_id: string }
         Returns: Json
       }
+      award_mission_bonus: {
+        Args: { p_amount?: number; p_mission_date: string }
+        Returns: Json
+      }
       check_rate_limit: {
         Args: { p_action: string; p_max_per_hour: number; p_user_id: string }
         Returns: boolean
       }
+      compute_level: { Args: { p_xp: number }; Returns: number }
       consume_credits: {
         Args: {
           p_action: string
@@ -1027,11 +1069,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      register_daily_login: { Args: never; Returns: Json }
       reject_access_request: {
         Args: { p_reason?: string; p_request_id: string }
         Returns: Json
       }
       set_scraper_cron: { Args: { p_hours: number }; Returns: Json }
+      unlock_badge: { Args: { p_badge: string }; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user" | "suspended"

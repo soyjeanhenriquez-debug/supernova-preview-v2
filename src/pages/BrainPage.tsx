@@ -16,9 +16,9 @@ export function BrainPage() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h2 className="page-heading font-display text-2xl text-foreground flex items-center gap-2">
-            <Brain className="w-6 h-6 text-primary" /> ⚡ SUPERNOVA BRAIN — JARVIS + 6 PILARES
+            <Brain className="w-6 h-6 text-primary" /> SUPERNOVA BRAIN — 6 PILARES
           </h2>
-          <p className="text-sm text-muted-foreground mt-3">Motor JARVIS — inteligencia secuencial para Direct Response</p>
+          <p className="text-sm text-muted-foreground mt-3">Tu sistema de inteligencia secuencial para Direct Response</p>
         </div>
       </div>
 

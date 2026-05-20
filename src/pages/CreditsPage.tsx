@@ -11,12 +11,12 @@ const PACKS = [
 ];
 
 export function CreditsPage() {
-  const { balance, limit, history, refill } = useCredits();
-  const pct = (balance / limit) * 100;
+  const { balance, monthly, purchased, limit, renewalDate, history, refill } = useCredits();
+  // Anillo: progreso del saldo mensual (los comprados se muestran aparte)
+  const pct = (monthly / limit) * 100;
 
-  const renewDate = new Date();
-  renewDate.setDate(renewDate.getDate() + 30);
-  const renewFormatted = renewDate.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
+  const renewFormatted = renewalDate.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
+  const renewDays = Math.max(0, Math.ceil((renewalDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
 
   // Proyección basada en últimos 7 días
   const projection = useMemo(() => {

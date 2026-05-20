@@ -5,9 +5,9 @@ import { toast } from "sonner";
 import { CountUp } from "@/components/CountUp";
 
 const PACKS = [
-  { id: "boost",   name: "PACK BOOST",   credits: 500,  price: 10, tagline: "Recarga rápida para JARVIS", save: null },
-  { id: "power",   name: "PACK POWER",   credits: 2000, price: 20, tagline: "Un mes más de JARVIS al máximo", save: "50%", popular: true },
-  { id: "nuclear", name: "PACK NUCLEAR", credits: 4500, price: 39, tagline: "Para los que no paran nunca", save: "57%" },
+  { id: "boost",   name: "PACK BOOST",   credits: 500,  price: 10, tagline: "Para seguir sin parar esta semana", save: null },
+  { id: "power",   name: "PACK POWER",   credits: 2000, price: 20, tagline: "Otro mes completo de uso intensivo", save: "50%", popular: true },
+  { id: "nuclear", name: "PACK NUCLEAR", credits: 4500, price: 39, tagline: "Para los que no se detienen", save: "57%" },
 ];
 
 export function CreditsPage() {

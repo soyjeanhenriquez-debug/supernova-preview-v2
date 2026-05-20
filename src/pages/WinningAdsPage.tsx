@@ -1187,7 +1187,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 
-function AdCard({ ad, saved, onSave, onSofisticar, compact = false }: { ad: DemoAd; saved: boolean; onSave: () => void; onSofisticar: () => void; compact?: boolean }) {
+const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, compact = false }: { ad: DemoAd; saved: boolean; onSave: () => void; onSofisticar: () => void; compact?: boolean }) {
   const tier = TIERS[ad.tier];
   const desp = despeguePercent(ad.daysActive, ad.duplicates);
 

@@ -934,14 +934,29 @@ export function WinningAdsPage() {
           <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.18em]">
             <Filter className="w-3.5 h-3.5" /> Filtros de calidad
           </div>
-          {/* Toggle vista grid/list */}
-          <div className="inline-flex bg-secondary/60 rounded-full p-1 border border-border/60">
-            <button onClick={() => setViewMode("grid")} aria-label="Vista grid" className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${viewMode === "grid" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
-              <LayoutGrid className="w-3 h-3" /> Grid
-            </button>
-            <button onClick={() => setViewMode("list")} aria-label="Vista lista" className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${viewMode === "list" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
-              <List className="w-3 h-3" /> Lista
-            </button>
+          {/* Toggle vista grid/list + selector de columnas */}
+          <div className="flex items-center gap-2">
+            {viewMode === "grid" && (
+              <div className="inline-flex items-center gap-1 bg-secondary/60 rounded-full p-1 border border-border/60" title="Columnas">
+                <Columns3 className="w-3 h-3 text-muted-foreground ml-1.5" />
+                {[2, 3, 4, 5, 6].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setCols(n)}
+                    aria-label={`${n} columnas`}
+                    className={`w-7 h-6 rounded-full text-[11px] font-semibold tabular-nums transition-all ${cols === n ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+                  >{n}</button>
+                ))}
+              </div>
+            )}
+            <div className="inline-flex bg-secondary/60 rounded-full p-1 border border-border/60">
+              <button onClick={() => setViewMode("grid")} aria-label="Vista grid" className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${viewMode === "grid" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
+                <LayoutGrid className="w-3 h-3" /> Grid
+              </button>
+              <button onClick={() => setViewMode("list")} aria-label="Vista lista" className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${viewMode === "list" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
+                <List className="w-3 h-3" /> Lista
+              </button>
+            </div>
           </div>
         </div>
 

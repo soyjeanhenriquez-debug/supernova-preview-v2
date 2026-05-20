@@ -1,11 +1,12 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 
-const KEY = "supernova_credits_v2";
+const KEY = "supernova_credits_v3";
 const HIST_KEY = "supernova_credits_history_v1";
 const MILESTONES_KEY = "supernova_milestones_v1";
+const SIGNUP_KEY = "supernova_signup_at";
 const DEFAULT_BALANCE = 1500;
 const DEFAULT_LIMIT = 1500;
 
@@ -60,7 +61,6 @@ export const ACTION_LABEL: Record<CreditAction, string> = {
   gen_master_prompt: "Mega-Prompt Replicador",
 };
 
-// Horas de trabajo manual equivalentes por acción (para "valor percibido")
 export const ACTION_HOURS: Record<CreditAction, number> = {
   search_ads: 0.5,
   analyze_url: 0.5,
@@ -86,74 +86,138 @@ export interface CreditHistoryEntry {
   meta?: string;
 }
 
+/**
+ * Lógica estilo Lovable:
+ * - El usuario recibe DEFAULT_BALANCE créditos mensuales al iniciar su cuenta.
+ * - Los créditos mensuales NO se acumulan: cada nuevo ciclo se resetean a DEFAULT_BALANCE.
+ * - Los créditos COMPRADOS no expiran y se suman al balance disponible.
+ * - Al gastar: se descuenta primero del mensual, y el excedente del comprado.
+ * - Un ciclo dura 30 días contados desde la fecha de registro (signup) del usuario.
+ *   La renovación ocurre EXACTAMENTE cuando se cruza un múltiplo de 30 días desde signup,
+ *   no en cada llamada ni a cada momento.
+ */
 interface State {
-  monthly: number;      // saldo del ciclo mensual (gratis)
-  purchased: number;    // créditos comprados (no expiran)
-  cycleStart: string;   // ISO date — inicio del ciclo de 30 días
-  limit: number;        // tope mensual (1500)
+  monthly: number;        // saldo del ciclo actual
+  purchased: number;      // créditos comprados acumulados (no expiran)
+  cycleIndex: number;     // # del ciclo actual desde signup (0,1,2,...)
+  signupAt: string;       // ISO date — anclaje fijo del usuario
+  limit: number;          // tope mensual
 }
 
 const CYCLE_MS = 30 * 24 * 60 * 60 * 1000;
 
-function freshCycle(): State {
+function getSignupAt(): string {
+  if (typeof window === "undefined") return new Date().toISOString();
+  const cached = localStorage.getItem(SIGNUP_KEY);
+  if (cached) return cached;
+  const fallback = new Date().toISOString();
+  localStorage.setItem(SIGNUP_KEY, fallback);
+  return fallback;
+}
+
+function setSignupAt(iso: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(SIGNUP_KEY, iso);
+}
+
+function currentCycleIndex(signupISO: string): number {
+  const start = new Date(signupISO).getTime();
+  if (isNaN(start)) return 0;
+  const diff = Date.now() - start;
+  if (diff <= 0) return 0;
+  return Math.floor(diff / CYCLE_MS);
+}
+
+function cycleEndDate(signupISO: string, cycleIndex: number): Date {
+  const start = new Date(signupISO).getTime();
+  return new Date(start + (cycleIndex + 1) * CYCLE_MS);
+}
+
+function freshState(signupAt: string): State {
   return {
     monthly: DEFAULT_BALANCE,
     purchased: 0,
-    cycleStart: new Date().toISOString(),
+    cycleIndex: currentCycleIndex(signupAt),
+    signupAt,
     limit: DEFAULT_LIMIT,
   };
 }
 
-function maybeRenew(s: State): { state: State; renewed: boolean } {
-  const start = new Date(s.cycleStart).getTime();
-  if (isNaN(start) || Date.now() - start >= CYCLE_MS) {
-    // Renovación: monthly vuelve a 1500. Purchased se conserva.
-    if (typeof window !== "undefined") {
-      // Reiniciar hitos del ciclo nuevo
-      localStorage.removeItem(MILESTONES_KEY);
-    }
-    return {
-      state: { ...s, monthly: DEFAULT_BALANCE, limit: DEFAULT_LIMIT, cycleStart: new Date().toISOString() },
-      renewed: true,
-    };
-  }
-  return { state: s, renewed: false };
-}
-
 function read(): State {
-  if (typeof window === "undefined") return freshCycle();
+  if (typeof window === "undefined") {
+    return freshState(new Date().toISOString());
+  }
+  const signupAt = getSignupAt();
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) {
-      const s = freshCycle();
+      // Posible migración desde esquemas anteriores (v1/v2)
+      const legacy = localStorage.getItem("supernova_credits_v2") || localStorage.getItem("supernova_credits_v1");
+      let monthly = DEFAULT_BALANCE;
+      let purchased = 0;
+      if (legacy) {
+        try {
+          const p = JSON.parse(legacy);
+          if (typeof p.monthly === "number") {
+            monthly = Math.min(DEFAULT_BALANCE, p.monthly);
+            purchased = typeof p.purchased === "number" ? p.purchased : 0;
+          } else if (typeof p.balance === "number") {
+            monthly = Math.min(DEFAULT_BALANCE, p.balance);
+            purchased = Math.max(0, p.balance - DEFAULT_BALANCE);
+          }
+        } catch { /* ignore */ }
+      }
+      const s: State = {
+        monthly,
+        purchased,
+        cycleIndex: currentCycleIndex(signupAt),
+        signupAt,
+        limit: DEFAULT_LIMIT,
+      };
       localStorage.setItem(KEY, JSON.stringify(s));
       return s;
     }
     const parsed = JSON.parse(raw);
-    let s: State;
-    if (typeof parsed.monthly === "number" && typeof parsed.cycleStart === "string") {
-      s = {
-        monthly: parsed.monthly,
-        purchased: typeof parsed.purchased === "number" ? parsed.purchased : 0,
-        cycleStart: parsed.cycleStart,
-        limit: DEFAULT_LIMIT,
-      };
-    } else {
-      // Migración del esquema anterior {balance, limit}
-      const prevBalance = typeof parsed.balance === "number" ? parsed.balance : DEFAULT_BALANCE;
-      s = {
-        monthly: Math.min(DEFAULT_BALANCE, prevBalance),
-        purchased: Math.max(0, prevBalance - DEFAULT_BALANCE),
-        cycleStart: new Date().toISOString(),
-        limit: DEFAULT_LIMIT,
-      };
-    }
-    const { state: renewed, renewed: didRenew } = maybeRenew(s);
-    if (didRenew) localStorage.setItem(KEY, JSON.stringify(renewed));
-    return renewed;
+    const s: State = {
+      monthly: typeof parsed.monthly === "number" ? parsed.monthly : DEFAULT_BALANCE,
+      purchased: typeof parsed.purchased === "number" ? parsed.purchased : 0,
+      cycleIndex: typeof parsed.cycleIndex === "number" ? parsed.cycleIndex : currentCycleIndex(signupAt),
+      signupAt,
+      limit: DEFAULT_LIMIT,
+    };
+    return s;
   } catch {
-    return freshCycle();
+    return freshState(signupAt);
   }
+}
+
+function write(s: State) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(KEY, JSON.stringify(s));
+}
+
+/**
+ * Aplica renovaciones pendientes: si hoy estamos en un cycleIndex mayor al guardado,
+ * el saldo mensual se restablece a DEFAULT_BALANCE (no se acumula). Los comprados no cambian.
+ * Devuelve { state, renewedCount } — renewedCount > 0 si efectivamente se renovó.
+ */
+function applyRenewal(s: State): { state: State; renewedCount: number } {
+  const now = currentCycleIndex(s.signupAt);
+  if (now > s.cycleIndex) {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(MILESTONES_KEY);
+    }
+    return {
+      state: {
+        ...s,
+        monthly: DEFAULT_BALANCE,
+        limit: DEFAULT_LIMIT,
+        cycleIndex: now,
+      },
+      renewedCount: now - s.cycleIndex,
+    };
+  }
+  return { state: s, renewedCount: 0 };
 }
 
 function readHistory(): CreditHistoryEntry[] {
@@ -197,49 +261,95 @@ function checkMilestones(prevBalance: number, nextBalance: number, limit: number
 
 function totalBalance(s: State) { return s.monthly + s.purchased; }
 
-function renewalDate(s: State): Date {
-  return new Date(new Date(s.cycleStart).getTime() + CYCLE_MS);
-}
-
 export function useCredits() {
-  const [state, setState] = useState<State>(read);
+  // Init: lee estado y aplica renovación si corresponde
+  const [state, setState] = useState<State>(() => {
+    const initial = read();
+    const { state: renewed, renewedCount } = applyRenewal(initial);
+    if (renewedCount > 0) write(renewed);
+    return renewed;
+  });
   const [history, setHistory] = useState<CreditHistoryEntry[]>(readHistory);
+  const lastCycleRef = useRef<number>(state.cycleIndex);
 
+  // Sincroniza el signupAt con la fecha real de la cuenta del usuario (auth.user.created_at)
   useEffect(() => {
-    const sync = () => { setState(read()); setHistory(readHistory()); };
+    let cancelled = false;
+    supabase.auth.getUser().then(({ data }) => {
+      const createdAt = data.user?.created_at;
+      if (!createdAt || cancelled) return;
+      const current = localStorage.getItem(SIGNUP_KEY);
+      if (current !== createdAt) {
+        setSignupAt(createdAt);
+        // Recalcula estado con el anclaje correcto
+        const cur = read();
+        const aligned: State = { ...cur, signupAt: createdAt };
+        const { state: renewed, renewedCount } = applyRenewal(aligned);
+        write(renewed);
+        lastCycleRef.current = renewed.cycleIndex;
+        setState(renewed);
+        if (renewedCount > 0) {
+          toast("✨ Créditos mensuales renovados", {
+            description: `+${DEFAULT_BALANCE} créditos disponibles este ciclo.`,
+          });
+        }
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Sync entre tabs y verificación periódica (sólo dispara toast cuando realmente cambia el ciclo)
+  useEffect(() => {
+    const sync = () => {
+      const fresh = read();
+      const { state: renewed, renewedCount } = applyRenewal(fresh);
+      if (renewedCount > 0) {
+        write(renewed);
+        toast("✨ Créditos mensuales renovados", {
+          description: `+${DEFAULT_BALANCE} créditos disponibles este ciclo.`,
+        });
+      }
+      lastCycleRef.current = renewed.cycleIndex;
+      setState(renewed);
+      setHistory(readHistory());
+    };
     window.addEventListener("storage", sync);
     window.addEventListener("supernova_credits_changed", sync);
-    // Chequeo periódico de renovación (cada 60s)
     const interval = window.setInterval(() => {
-      const before = state;
       const fresh = read();
-      if (fresh.cycleStart !== before.cycleStart) {
-        toast("✨ Créditos mensuales renovados", { description: `+${DEFAULT_BALANCE} créditos disponibles este mes.` });
-        setState(fresh);
+      const { state: renewed, renewedCount } = applyRenewal(fresh);
+      if (renewedCount > 0 && renewed.cycleIndex !== lastCycleRef.current) {
+        write(renewed);
+        lastCycleRef.current = renewed.cycleIndex;
+        setState(renewed);
+        toast("✨ Créditos mensuales renovados", {
+          description: `+${DEFAULT_BALANCE} créditos disponibles este ciclo.`,
+        });
       }
-    }, 60000);
+    }, 60_000);
     return () => {
       window.removeEventListener("storage", sync);
       window.removeEventListener("supernova_credits_changed", sync);
       window.clearInterval(interval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const persist = (next: State, nextHist: CreditHistoryEntry[]) => {
-    localStorage.setItem(KEY, JSON.stringify(next));
+    write(next);
     localStorage.setItem(HIST_KEY, JSON.stringify(nextHist.slice(0, 200)));
-    setState(next); setHistory(nextHist);
+    setState(next);
+    setHistory(nextHist);
     window.dispatchEvent(new Event("supernova_credits_changed"));
   };
 
   const consume = useCallback((action: CreditAction, meta?: string): boolean => {
     const cost = CREDIT_COSTS[action];
-    const cur = read();
+    // Asegúrate de aplicar renovación antes de gastar
+    const { state: cur } = applyRenewal(read());
     const total = totalBalance(cur);
     if (total < cost) return false;
 
-    // Gastar primero del saldo mensual; el excedente, de los comprados.
+    // Gasta primero del saldo mensual; el excedente, de los comprados.
     let remaining = cost;
     const useMonthly = Math.min(cur.monthly, remaining);
     remaining -= useMonthly;
@@ -276,7 +386,7 @@ export function useCredits() {
 
   // Las recargas se suman a "purchased" (no expiran, no se topan al límite mensual)
   const refill = (amount: number) => {
-    const cur = read();
+    const { state: cur } = applyRenewal(read());
     persist({ ...cur, purchased: cur.purchased + amount }, readHistory());
   };
 
@@ -285,11 +395,10 @@ export function useCredits() {
     monthly: state.monthly,
     purchased: state.purchased,
     limit: state.limit,
-    renewalDate: renewalDate(state),
+    renewalDate: cycleEndDate(state.signupAt, state.cycleIndex),
     history,
     consume,
     canAfford,
     refill,
   };
 }
-

@@ -12,6 +12,7 @@ import AdminOverview from "@/pages/admin/AdminOverview";
 import { AdminStub } from "@/pages/admin/AdminStub";
 import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminKeywords from "@/pages/admin/AdminKeywords";
+import AdminAgent from "@/pages/admin/AdminAgent";
 
 const queryClient = new QueryClient();
 
@@ -43,7 +44,7 @@ function AppRoutes() {
           <Route index element={<AdminOverview />} />
           <Route path="usuarios" element={<AdminUsers />} />
           <Route path="keywords" element={<AdminKeywords />} />
-          <Route path="agente" element={<AdminStub title="Agente IA Admin" description="Chat con el agente del sistema y cola de aprendizaje." />} />
+          <Route path="agente" element={<AdminAgent />} />
           <Route path="mensajes" element={<AdminStub title="Mensajes & Comunicación" description="Notificaciones, banners y emails a usuarios." />} />
           <Route path="creditos" element={<AdminStub title="Créditos & Planes" description="Configuración de planes, costos y transacciones globales." />} />
           <Route path="analytics" element={<AdminStub title="Analytics" description="Retención, conversión, funnel y comportamiento del producto." />} />

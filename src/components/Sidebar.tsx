@@ -108,7 +108,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
               </div>
               {projects.length > 0 && <span className="text-[10px] tabular-nums text-muted-foreground">{projects.length}</span>}
             </div>
-            <div className="text-[10px] text-muted-foreground/80 tracking-tight">6 pilares · motor DR</div>
+            <div className="text-[10px] text-muted-foreground/80 tracking-tight">JARVIS + 6 pilares · motor DR</div>
           </button>
         ) : (
           <button

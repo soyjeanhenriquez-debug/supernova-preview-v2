@@ -443,6 +443,48 @@ export type Database = {
         }
         Relationships: []
       }
+      system_learnings: {
+        Row: {
+          admin_note: string | null
+          category: string | null
+          created_at: string
+          data_evidence: Json | null
+          id: string
+          insight: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source: string | null
+          status: string
+          week_date: string
+        }
+        Insert: {
+          admin_note?: string | null
+          category?: string | null
+          created_at?: string
+          data_evidence?: Json | null
+          id?: string
+          insight: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: string | null
+          status?: string
+          week_date?: string
+        }
+        Update: {
+          admin_note?: string | null
+          category?: string | null
+          created_at?: string
+          data_evidence?: Json | null
+          id?: string
+          insight?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: string | null
+          status?: string
+          week_date?: string
+        }
+        Relationships: []
+      }
       templates: {
         Row: {
           category: string

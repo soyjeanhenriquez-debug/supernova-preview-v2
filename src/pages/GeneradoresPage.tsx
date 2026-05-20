@@ -177,7 +177,7 @@ export function GeneradoresPage() {
     }
     // Descontar con label específico para que aparezca en el historial
     // como "Generador: <título> · -Nc"
-    const ok = consume(action, `Generador: ${generator.title}`);
+    const ok = consume(action, generator.title);
     if (!ok) return;
 
     setLoading(true);

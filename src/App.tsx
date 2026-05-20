@@ -13,11 +13,15 @@ import { AdminStub } from "@/pages/admin/AdminStub";
 import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminKeywords from "@/pages/admin/AdminKeywords";
 import AdminAgent from "@/pages/admin/AdminAgent";
+import AdminAccesos from "@/pages/admin/AdminAccesos";
+import PendingAccessPage from "./pages/PendingAccessPage";
+import { useAccessStatus } from "@/hooks/useAccessStatus";
 
 const queryClient = new QueryClient();
 
 function AppRoutes() {
   const { user, loading } = useAuth();
+  const access = useAccessStatus();
 
   if (loading) {
     return (
@@ -36,12 +40,25 @@ function AppRoutes() {
     return <AuthPage />;
   }
 
+  if (access === "loading") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (access === "pending") {
+    return <PendingAccessPage />;
+  }
+
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminOverview />} />
+          <Route path="accesos" element={<AdminAccesos />} />
           <Route path="usuarios" element={<AdminUsers />} />
           <Route path="keywords" element={<AdminKeywords />} />
           <Route path="agente" element={<AdminAgent />} />

@@ -41,8 +41,8 @@ export function CreditsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="page-heading font-display text-2xl text-foreground">TUS CRÉDITOS JARVIS</h2>
-        <p className="text-sm text-muted-foreground mt-3">Energía para activar el motor DR. Cada crédito activa a JARVIS en una acción específica.</p>
+        <h2 className="page-heading font-display text-2xl text-foreground">TUS CRÉDITOS</h2>
+        <p className="text-sm text-muted-foreground mt-3">Energía SUPERNOVA para tu motor DR</p>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">

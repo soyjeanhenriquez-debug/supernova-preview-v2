@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useCredits, generatorCost } from "@/hooks/useCredits";
 
 const categories = [
   { icon: Sparkles, label: "Todos", id: "all" },
@@ -146,6 +147,7 @@ export function GeneradoresPage() {
   const [generatorInput, setGeneratorInput] = useState("");
   const [generatorOutput, setGeneratorOutput] = useState("");
   const [loading, setLoading] = useState(false);
+  const { consume, canAfford } = useCredits();
 
   const filteredGenerators = generators.filter((g) => {
     if (activeCategory === "all") return true;
@@ -165,6 +167,19 @@ export function GeneradoresPage() {
       toast.error("Escribe los detalles de tu producto/servicio");
       return;
     }
+    // Costo interno por tipo de generador (silencioso, sin mostrar en UI)
+    const { action } = generatorCost(generator.id);
+    if (!canAfford(action)) {
+      toast.error("Sin créditos suficientes para generar", {
+        description: "Recarga tu saldo o espera al próximo ciclo mensual.",
+      });
+      return;
+    }
+    // Descontar con label específico para que aparezca en el historial
+    // como "Generador: <título> · -Nc"
+    const ok = consume(action, generator.title);
+    if (!ok) return;
+
     setLoading(true);
     setGeneratorOutput("");
 

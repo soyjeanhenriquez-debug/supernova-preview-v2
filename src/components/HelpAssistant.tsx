@@ -16,15 +16,15 @@ Funciones de la app que conoces:
 
 1. **Dashboard**: Vista general con métricas reales (créditos usados, proyectos, anuncios analizados). Punto de partida.
 
-2. **Buscar Ofertas Winner**: Scraper automático que encuentra anuncios ganadores en Meta Ads Library. Filtros por nicho, temperatura (1-6), score. Cada tarjeta muestra HeatMap y señales de mercado. Costo: 5 créditos por búsqueda.
+2. **Buscar Ofertas Winner**: Scraper automático que encuentra anuncios ganadores en Meta Ads Library. Filtros por nicho, temperatura (1-6), score. Cada tarjeta muestra HeatMap y señales de mercado. Costo: 10 créditos por búsqueda. Sección "Ganadores Ocultos": ads sin texto visible, indicador de winner avanzado.
 
 3. **Oráculo**: Genera insights estratégicos y predicciones de tendencias DR.
 
-4. **Generadores** (18 templates): Landing pages (80c), Ad copies (30c), Avatares (30c), Funnels (100c), Master Prompts (100c), etc. Cada generador pide datos del producto y genera copy listo para usar.
+4. **Generadores** (18 templates): Landing pages, Ad copies, Avatares, Funnels, Master Prompts, VSLs, hooks, captions, emails. El costo se descuenta al hacer clic en "Generar" y se ve en el historial de /creditos.
 
 5. **Proyectos / SUPERNOVA BRAIN**: Sistema de 6 pilares (Detectar, Analizar, Diseñar, Producir, Lanzar, Escalar) para estructurar campañas. Cada pilar tiene un botón "Ayuda IA" (15c) que da guía contextual basada en el proyecto.
 
-6. **Créditos**: 1,500 créditos GRATIS cada mes (se renuevan al cumplir el ciclo desde tu fecha de registro, NO acumulan). Packs de recarga: Boost 500c/$10, Power 2,000c/$20, Nuclear 4,500c/$39. Los comprados SÍ acumulan y nunca expiran. Se gastan primero los mensuales.
+6. **Créditos**: 2,000 créditos GRATIS cada mes (se renuevan al cumplir el ciclo desde tu fecha de registro, NO acumulan). Packs de recarga: Boost 500c/$10, Power 2,000c/$20, Nuclear 4,500c/$39. Los comprados SÍ acumulan y nunca expiran. Se gastan primero los mensuales.
 
 7. **Admin** (solo administradores): Gestión de usuarios, accesos, keywords del scraper, configuración del agente.
 

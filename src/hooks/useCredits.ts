@@ -7,8 +7,8 @@ const KEY = "supernova_credits_v3";
 const HIST_KEY = "supernova_credits_history_v1";
 const MILESTONES_KEY = "supernova_milestones_v1";
 const SIGNUP_KEY = "supernova_signup_at";
-const DEFAULT_BALANCE = 1500;
-const DEFAULT_LIMIT = 1500;
+const DEFAULT_BALANCE = 2000;
+const DEFAULT_LIMIT = 2000;
 
 export type CreditAction =
   | "search_ads"
@@ -25,15 +25,19 @@ export type CreditAction =
   | "gen_avatar"
   | "gen_funnel"
   | "gen_master_prompt"
-  | "pillar_assist";
+  | "pillar_assist"
+  | "gen_light"
+  | "gen_medium"
+  | "gen_heavy";
 
-// Costos calibrados: ~3x margen sobre costo real de Claude API
+// Costos calibrados para que un usuario con 2,000 créditos pueda lanzar
+// su primera oferta completa sin recargar.
 export const CREDIT_COSTS: Record<CreditAction, number> = {
-  search_ads: 5,
-  analyze_url: 5,
-  ai_intel: 15,
-  chat_message: 15,
-  adaptar: 15,
+  search_ads: 10,
+  analyze_url: 10,
+  chat_message: 10,
+  adaptar: 10,
+  ai_intel: 10,
   pillar_assist: 15,
   sofisticar: 30,
   gen_ad_copies: 30,
@@ -44,25 +48,49 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   landing_intelligence: 80,
   gen_funnel: 100,
   gen_master_prompt: 100,
+  gen_light: 30,
+  gen_medium: 60,
+  gen_heavy: 150,
 };
 
 export const ACTION_LABEL: Record<CreditAction, string> = {
   search_ads: "Búsqueda de anuncios",
-  analyze_url: "Analizar URL del Oráculo",
+  analyze_url: "Analizar URL básico",
   landing_intelligence: "Oráculo completo (IA)",
   sofisticar: "Sofisticar oferta",
   blueprint: "Blueprint completo",
   adaptar: "Adaptar anuncio al mercado",
   pain_discovery: "Pain Discovery",
-  chat_message: "Mensaje Chat IA",
+  chat_message: "Chat IA (por mensaje)",
   ai_intel: "Análisis IA del ad",
   gen_landing: "Generar landing page",
   gen_ad_copies: "10 variaciones de ad copy",
   gen_avatar: "Avatar del comprador",
-  gen_funnel: "Funnel completo (VSL+emails)",
+  gen_funnel: "Funnel completo VSL+emails",
   gen_master_prompt: "Mega-Prompt Replicador",
   pillar_assist: "Asistente IA de Pilar",
+  gen_light: "Generador",
+  gen_medium: "Generador",
+  gen_heavy: "Generador",
 };
+
+// Costos internos por id de generador (no se muestran al usuario, solo en historial)
+const GEN_LIGHT_IDS = new Set([
+  "captions-ig", "yt-titles", "hooks-meta", "hooks-tiktok", "reels-script", "dm-script", "whatsapp-sequence",
+]);
+const GEN_MEDIUM_IDS = new Set([
+  "landing-copy", "email-launch", "email-sequence", "yt-script", "funnel-strategy", "audience-research", "product-desc", "offer-stack",
+]);
+const GEN_HEAVY_IDS = new Set([
+  "vsl-downsell", "vsl-upsell-1", "vsl-upsell-2",
+]);
+
+export function generatorCost(id: string): { action: CreditAction; cost: number } {
+  if (GEN_HEAVY_IDS.has(id)) return { action: "gen_heavy", cost: 150 };
+  if (GEN_MEDIUM_IDS.has(id)) return { action: "gen_medium", cost: 60 };
+  // default light
+  return { action: "gen_light", cost: 30 };
+}
 
 export const ACTION_HOURS: Record<CreditAction, number> = {
   search_ads: 0.5,
@@ -80,6 +108,9 @@ export const ACTION_HOURS: Record<CreditAction, number> = {
   landing_intelligence: 4,
   gen_funnel: 8,
   gen_master_prompt: 6,
+  gen_light: 1,
+  gen_medium: 3,
+  gen_heavy: 6,
 };
 
 

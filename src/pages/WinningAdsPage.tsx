@@ -203,6 +203,8 @@ export function WinningAdsPage() {
   const [searchLimit, setSearchLimit] = useState(25);
   const [searchStatus, setSearchStatus] = useState<"ACTIVE" | "INACTIVE" | "ALL">("ACTIVE");
   const [verticalFilter, setVerticalFilter] = useState<string>("Todas");
+  // "Creativo": filtrar ads sin texto (ganadores ocultos), con texto, o todos
+  const [creativeFilter, setCreativeFilter] = useState<"all" | "with_text" | "no_text">("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">(() => (localStorage.getItem("supernova:ads-view") as "grid" | "list") ?? "grid");
   useEffect(() => { localStorage.setItem("supernova:ads-view", viewMode); }, [viewMode]);
   // Nº de columnas en grid (2/3/4/5/6) — persistido
@@ -320,6 +322,12 @@ export function WinningAdsPage() {
         const k = keyword.trim().replace(/[,()]/g, " ");
         q = q.or(`ad_title.ilike.%${k}%,ad_body.ilike.%${k}%,page_name.ilike.%${k}%`);
       }
+      // Filtro de creativo (con/sin texto)
+      if (creativeFilter === "no_text") {
+        q = q.or("ad_body.is.null,ad_body.eq.");
+      } else if (creativeFilter === "with_text") {
+        q = q.not("ad_body", "is", null).neq("ad_body", "");
+      }
 
       // Orden
       switch (sort) {
@@ -369,10 +377,10 @@ export function WinningAdsPage() {
       setLoadingReal(false);
     })();
     return () => { cancelled = true; };
-  }, [page, pageSize, regionFilter, minScore, minDays, minDups, typeFilter, keyword, sort]);
+  }, [page, pageSize, regionFilter, minScore, minDays, minDups, typeFilter, keyword, sort, creativeFilter]);
 
   // Reset a página 1 cuando cambian filtros
-  useEffect(() => { setPage(1); }, [pageSize, regionFilter, minScore, minDays, minDups, typeFilter, keyword, sort]);
+  useEffect(() => { setPage(1); }, [pageSize, regionFilter, minScore, minDays, minDups, typeFilter, keyword, sort, creativeFilter]);
 
   // Admin: siembra masiva desde FB Ads Library
   const [seeding, setSeeding] = useState(false);
@@ -903,7 +911,7 @@ export function WinningAdsPage() {
             <Star className="w-4 h-4" />
           </button>
           <button onClick={handleSearch} disabled={loadingReal} className="btn-primary-nova px-6 py-3 rounded-lg text-sm flex items-center gap-2 whitespace-nowrap disabled:opacity-60">
-            {loadingReal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} {loadingReal ? "Buscando..." : "Buscar Anuncios"} <span className="opacity-70">· 1 crédito</span>
+            {loadingReal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} {loadingReal ? "Buscando..." : "Buscar Anuncios"} <span className="opacity-70">· 10 créditos</span>
           </button>
         </div>
 
@@ -1005,9 +1013,14 @@ export function WinningAdsPage() {
           <PillSelect label="Tipo" value={typeFilter} onChange={setTypeFilter} options={TYPE_OPTIONS.map((o) => ({ value: o, label: o }))} />
           <PillSelect label="Mercado" value={regionFilter} onChange={setRegionFilter} options={REGION_OPTIONS.map((o) => ({ value: o, label: o }))} />
           <PillSelect label="Score mínimo" value={String(minScore)} onChange={(v) => setMinScore(Number(v))} options={SCORE_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
+          <PillSelect label="Creativo" value={creativeFilter} onChange={(v) => setCreativeFilter(v as "all" | "with_text" | "no_text")} options={[{ value: "all", label: "Todos" }, { value: "with_text", label: "Con texto" }, { value: "no_text", label: "🎯 Sin texto" }]} />
           <PillSelect label="Ordenar" value={sort} onChange={setSort} options={SORT_OPTIONS.map((o) => ({ value: o, label: o }))} />
         </div>
       </div>
+
+      {/* Ganadores Ocultos — sin texto en copy, pura imagen/video */}
+      <HiddenWinnersSection onSeeAll={() => setCreativeFilter("no_text")} onSofisticar={setSofisticarAd} />
+
 
 
       {/* Ofertas escalando */}
@@ -1551,3 +1564,151 @@ const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, compact =
     </div>
   );
 });
+
+// ============================================================
+// HiddenWinnersSection — "Ganadores Ocultos": ads sin texto.
+// Alguien gasta miles en estos sin mostrar su copy. Alta señal.
+// ============================================================
+function HiddenWinnersSection({
+  onSeeAll,
+  onSofisticar,
+}: {
+  onSeeAll: () => void;
+  onSofisticar: (ad: DemoAd) => void;
+}) {
+  const [items, setItems] = useState<Array<{
+    id: string;
+    pageName: string;
+    pageId: string;
+    daysActive: number;
+    duplicates: number;
+    adUrl: string;
+    snapshotUrl?: string;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("winning_ads")
+        .select("id,page_id,page_name,ad_body,ad_url,days_active,duplicate_count,market,scraped_at")
+        .or("ad_body.is.null,ad_body.eq.")
+        .order("days_active", { ascending: false, nullsFirst: false })
+        .order("duplicate_count", { ascending: false, nullsFirst: false })
+        .limit(8);
+      if (cancelled) return;
+      const mapped = (data ?? []).map((r: any) => {
+        const adMarket = (r.market ?? "US") as AdMarket;
+        const pageName = r.page_name ?? "Anuncio";
+        const rawUrl = r.ad_url ?? (r.page_id
+          ? buildAdsLibraryPageUrl(String(r.page_id), adMarket)
+          : buildAdsLibrarySearchUrl(pageName, adMarket));
+        return {
+          id: `hidden-${r.id}`,
+          pageName,
+          pageId: r.page_id ?? "",
+          daysActive: r.days_active ?? 1,
+          duplicates: r.duplicate_count ?? 1,
+          adUrl: normalizeAdsLibraryUrl(rawUrl, pageName, adMarket),
+        };
+      });
+      setItems(mapped);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleSofisticarStub = (it: typeof items[number]) => {
+    // Construir un DemoAd mínimo válido para abrir el modal de Sofisticar
+    const adMarket = "US" as AdMarket;
+    const stub: DemoAd = {
+      id: it.id,
+      pageId: it.pageId,
+      pageName: it.pageName,
+      title: it.pageName,
+      body: "",
+      daysActive: it.daysActive,
+      duplicates: it.duplicates,
+      score: 70,
+      tier: "mega",
+      offerType: "infoproducto",
+      market: adMarket,
+      marketLabel: "US",
+      flag: "🇺🇸",
+      lang: "en" as AdLang,
+      adUrl: it.adUrl,
+      platforms: ["facebook"],
+      countries: ["US"],
+    };
+    onSofisticar(stub);
+  };
+
+  return (
+    <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/[0.08] via-amber-500/[0.03] to-transparent p-5 space-y-4">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-lg">🎯</span>
+            <h3 className="font-display font-bold text-lg text-foreground">GANADORES OCULTOS</h3>
+            <span className="text-[9px] uppercase tracking-widest font-bold text-amber-500 border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 rounded">EXCLUSIVO</span>
+          </div>
+          <p className="text-xs text-muted-foreground max-w-xl leading-relaxed">
+            Sin texto. Solo imagen o video. Muchos días activos. Alguien gasta miles en estos sin mostrar su copy.
+          </p>
+        </div>
+        <button
+          onClick={onSeeAll}
+          className="text-xs font-semibold text-amber-500 hover:text-amber-400 flex items-center gap-1"
+        >
+          Ver todos → <span className="text-muted-foreground/60">(filtro "Sin texto")</span>
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground py-6">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Escaneando la biblioteca en busca de ganadores ocultos…
+        </div>
+      ) : items.length === 0 ? (
+        <div className="text-xs text-muted-foreground py-6 text-center">
+          Aún sin ganadores ocultos detectados. El scraper sigue buscando.
+        </div>
+      ) : (
+        <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
+          {items.map((it) => (
+            <div
+              key={it.id}
+              className="snap-start flex-shrink-0 w-[260px] rounded-xl border border-border bg-card/70 backdrop-blur p-4 space-y-3 hover:border-amber-500/40 transition-colors"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[9px] uppercase tracking-widest font-bold text-amber-600 bg-amber-500/15 border border-amber-500/40 px-1.5 py-0.5 rounded">
+                  🎯 CREATIVO PURO
+                </span>
+                <span className="text-[10px] text-muted-foreground">{it.daysActive}d · ×{it.duplicates}</span>
+              </div>
+              <div className="font-display font-semibold text-sm text-foreground truncate">{it.pageName}</div>
+              <div className="text-[12px] text-muted-foreground italic leading-snug">
+                🎯 Sin copy visible — creativo de imagen/video puro
+              </div>
+              <button
+                onClick={() => handleSofisticarStub(it)}
+                className="btn-primary-nova w-full py-2 rounded-lg text-xs flex items-center justify-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5" /> SOFISTICAR →
+              </button>
+              <a
+                href={it.adUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] text-muted-foreground hover:text-amber-500 flex items-center gap-1 justify-center"
+              >
+                <ExternalLink className="w-3 h-3" /> Ver en Ads Library
+              </a>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+

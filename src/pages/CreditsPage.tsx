@@ -59,7 +59,12 @@ export function CreditsPage() {
             </div>
           </div>
           <div className="text-sm text-foreground mt-3">Créditos disponibles</div>
-          <div className="text-xs text-primary mt-1">Se renuevan en 30 días ({renewFormatted})</div>
+          <div className="text-xs text-primary mt-1">Se renuevan en {renewDays} días ({renewFormatted})</div>
+          {purchased > 0 && (
+            <div className="text-[11px] text-muted-foreground mt-1">
+              {monthly.toLocaleString()} mensuales + <span className="text-success font-semibold">{purchased.toLocaleString()} comprados</span>
+            </div>
+          )}
 
           {/* Proyección de consumo */}
           <ProjectionBadge projection={projection} onRecharge={scrollToPacks} />

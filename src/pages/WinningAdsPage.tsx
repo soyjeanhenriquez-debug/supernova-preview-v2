@@ -373,10 +373,10 @@ export function WinningAdsPage() {
       setLoadingReal(false);
     })();
     return () => { cancelled = true; };
-  }, [page, pageSize, regionFilter, minScore, minDays, minDups, typeFilter, keyword, sort, creativeFilter]);
+  }, [page, pageSize, regionFilter, minScore, minDays, minDups, typeFilter, keyword, sort]);
 
   // Reset a página 1 cuando cambian filtros
-  useEffect(() => { setPage(1); }, [pageSize, regionFilter, minScore, minDays, minDups, typeFilter, keyword, sort, creativeFilter]);
+  useEffect(() => { setPage(1); }, [pageSize, regionFilter, minScore, minDays, minDups, typeFilter, keyword, sort]);
 
   // Admin: siembra masiva desde FB Ads Library
   const [seeding, setSeeding] = useState(false);

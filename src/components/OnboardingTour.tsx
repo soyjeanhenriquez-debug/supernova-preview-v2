@@ -16,7 +16,7 @@ const STEPS: Step[] = [
     icon: Sparkles,
     title: "Bienvenido a SUPERNOVA",
     page: "Tu motor DR Intelligence",
-    body: "En 6 pasos te enseño cómo sacarle el máximo. Tienes **1,500 créditos gratis cada mes** que se renuevan automáticamente. Empecemos.",
+    body: "En 6 pasos te enseño cómo sacarle el máximo. Tienes **2,000 créditos gratis cada mes** que se renuevan automáticamente. Empecemos.",
   },
   {
     icon: LayoutDashboard,
@@ -28,7 +28,7 @@ const STEPS: Step[] = [
     icon: Trophy,
     title: "Buscar Ofertas Winner",
     page: "Encuentra anuncios ganadores",
-    body: "Scraper automático que rastrea **Meta Ads Library** y detecta ofertas con mayor temperatura (escala 1-6). Filtra por nicho y mira el HeatMap de cada tarjeta. **Costo: 5 créditos** por búsqueda.",
+    body: "Scraper automático que rastrea **Meta Ads Library** y detecta ofertas con mayor temperatura (escala 1-6). Filtra por nicho y mira el HeatMap de cada tarjeta. **Costo: 10 créditos** por búsqueda.",
   },
   {
     icon: Telescope,
@@ -46,7 +46,7 @@ const STEPS: Step[] = [
     icon: Coins,
     title: "Créditos",
     page: "Cómo funcionan",
-    body: "**1,500 gratis cada mes** (se renuevan en el aniversario de tu registro, NO acumulan). Si necesitas más: **Boost 500c/$10**, **Power 2,000c/$20**, **Nuclear 4,500c/$39**. Los comprados nunca expiran y se usan después de los gratis.",
+    body: "**2,000 gratis cada mes** (se renuevan en el aniversario de tu registro, NO acumulan). Si necesitas más: **Boost 500c/$10**, **Power 2,000c/$20**, **Nuclear 4,500c/$39**. Los comprados nunca expiran y se usan después de los gratis.",
   },
   {
     icon: Sparkles,

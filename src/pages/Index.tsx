@@ -11,6 +11,7 @@ import { CrearPage } from "@/pages/CrearPage";
 import { LowCreditBanner } from "@/components/LowCreditBanner";
 import { HelpAssistant } from "@/components/HelpAssistant";
 import { OnboardingTour } from "@/components/OnboardingTour";
+import { FloatingWinnerButton } from "@/components/FloatingWinnerButton";
 
 const Index = () => {
   const [activePage, setActivePage] = useState("Dashboard");
@@ -40,6 +41,7 @@ const Index = () => {
           {renderPage()}
         </main>
       </div>
+      <FloatingWinnerButton onClick={() => setActivePage("Buscar Ofertas Winner")} />
       <HelpAssistant />
       <OnboardingTour />
     </div>

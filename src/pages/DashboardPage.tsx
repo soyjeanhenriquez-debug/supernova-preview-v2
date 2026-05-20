@@ -8,14 +8,6 @@ import { WeeklySummary } from "@/components/WeeklySummary";
 
 interface Props { onNavigate: (p: string) => void; }
 
-function renewalInfo() {
-  const renewDate = new Date();
-  renewDate.setDate(renewDate.getDate() + 30);
-  const days = 30;
-  const formatted = renewDate.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
-  return { days, formatted };
-}
-
 export function DashboardPage({ onNavigate }: Props) {
   const { balance, limit, history } = useCredits();
   const { projects } = useProjects();

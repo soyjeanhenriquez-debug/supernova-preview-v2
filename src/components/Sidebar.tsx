@@ -16,7 +16,7 @@ const navItems = [
   { icon: Trophy, label: "Buscar Ofertas Winner" },
   { icon: Telescope, label: "Oráculo" },
   { icon: Bot, label: "Agentes DR" },
-  { icon: MessageSquare, label: "Chat IA" },
+  
   { icon: FileText, label: "Generadores" },
   { icon: FolderKanban, label: "Proyectos" },
   { icon: Coins, label: "Créditos" },

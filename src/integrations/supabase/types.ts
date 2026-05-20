@@ -805,7 +805,7 @@ export type Database = {
       set_scraper_cron: { Args: { p_hours: number }; Returns: Json }
     }
     Enums: {
-      app_role: "admin" | "moderator" | "user"
+      app_role: "admin" | "moderator" | "user" | "suspended"
       campaign_objective:
         | "conversions"
         | "awareness"
@@ -949,7 +949,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "moderator", "user"],
+      app_role: ["admin", "moderator", "user", "suspended"],
       campaign_objective: [
         "conversions",
         "awareness",

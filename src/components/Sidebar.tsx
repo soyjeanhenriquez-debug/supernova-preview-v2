@@ -1,4 +1,4 @@
-import { LayoutDashboard, Trophy, Telescope, Bot, MessageSquare, FileText, FolderKanban, Coins, Shield, LogOut, Brain, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { LayoutDashboard, Trophy, Telescope, FileText, FolderKanban, Coins, Shield, LogOut, Brain, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -15,8 +15,6 @@ const navItems = [
   { icon: LayoutDashboard, label: "Dashboard" },
   { icon: Trophy, label: "Buscar Ofertas Winner" },
   { icon: Telescope, label: "Oráculo" },
-  { icon: Bot, label: "Agentes DR" },
-  
   { icon: FileText, label: "Generadores" },
   { icon: FolderKanban, label: "Proyectos" },
   { icon: Coins, label: "Créditos" },

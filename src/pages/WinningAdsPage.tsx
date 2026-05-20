@@ -1385,6 +1385,14 @@ const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, compact =
 
       <p className="text-sm text-foreground/90 line-clamp-4 italic leading-relaxed">"{ad.body}"</p>
 
+      {/* SUPERNOVA Temperature Layer — capa nueva, no reemplaza al tier badge */}
+      <TemperatureBlock
+        duplicates={ad.duplicates}
+        uniquePages={ad.activeCount ?? 1}
+        daysActive={ad.daysActive}
+        allPageNames={[ad.pageName]}
+      />
+
       {/* Landing URL */}
       {landingDomain && (
         <a href={ad.landingUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary hover:underline flex items-center gap-1 truncate">

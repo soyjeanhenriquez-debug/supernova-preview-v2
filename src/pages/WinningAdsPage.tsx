@@ -1425,4 +1425,4 @@ const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, compact =
       </a>
     </div>
   );
-}
+});

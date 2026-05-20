@@ -86,15 +86,74 @@ export interface CreditHistoryEntry {
   meta?: string;
 }
 
-interface State { balance: number; limit: number; }
+interface State {
+  monthly: number;      // saldo del ciclo mensual (gratis)
+  purchased: number;    // créditos comprados (no expiran)
+  cycleStart: string;   // ISO date — inicio del ciclo de 30 días
+  limit: number;        // tope mensual (1500)
+}
+
+const CYCLE_MS = 30 * 24 * 60 * 60 * 1000;
+
+function freshCycle(): State {
+  return {
+    monthly: DEFAULT_BALANCE,
+    purchased: 0,
+    cycleStart: new Date().toISOString(),
+    limit: DEFAULT_LIMIT,
+  };
+}
+
+function maybeRenew(s: State): { state: State; renewed: boolean } {
+  const start = new Date(s.cycleStart).getTime();
+  if (isNaN(start) || Date.now() - start >= CYCLE_MS) {
+    // Renovación: monthly vuelve a 1500. Purchased se conserva.
+    if (typeof window !== "undefined") {
+      // Reiniciar hitos del ciclo nuevo
+      localStorage.removeItem(MILESTONES_KEY);
+    }
+    return {
+      state: { ...s, monthly: DEFAULT_BALANCE, limit: DEFAULT_LIMIT, cycleStart: new Date().toISOString() },
+      renewed: true,
+    };
+  }
+  return { state: s, renewed: false };
+}
 
 function read(): State {
-  if (typeof window === "undefined") return { balance: DEFAULT_BALANCE, limit: DEFAULT_LIMIT };
+  if (typeof window === "undefined") return freshCycle();
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return { balance: DEFAULT_BALANCE, limit: DEFAULT_LIMIT };
-    return JSON.parse(raw);
-  } catch { return { balance: DEFAULT_BALANCE, limit: DEFAULT_LIMIT }; }
+    if (!raw) {
+      const s = freshCycle();
+      localStorage.setItem(KEY, JSON.stringify(s));
+      return s;
+    }
+    const parsed = JSON.parse(raw);
+    let s: State;
+    if (typeof parsed.monthly === "number" && typeof parsed.cycleStart === "string") {
+      s = {
+        monthly: parsed.monthly,
+        purchased: typeof parsed.purchased === "number" ? parsed.purchased : 0,
+        cycleStart: parsed.cycleStart,
+        limit: DEFAULT_LIMIT,
+      };
+    } else {
+      // Migración del esquema anterior {balance, limit}
+      const prevBalance = typeof parsed.balance === "number" ? parsed.balance : DEFAULT_BALANCE;
+      s = {
+        monthly: Math.min(DEFAULT_BALANCE, prevBalance),
+        purchased: Math.max(0, prevBalance - DEFAULT_BALANCE),
+        cycleStart: new Date().toISOString(),
+        limit: DEFAULT_LIMIT,
+      };
+    }
+    const { state: renewed, renewed: didRenew } = maybeRenew(s);
+    if (didRenew) localStorage.setItem(KEY, JSON.stringify(renewed));
+    return renewed;
+  } catch {
+    return freshCycle();
+  }
 }
 
 function readHistory(): CreditHistoryEntry[] {
@@ -120,15 +179,12 @@ function checkMilestones(prevBalance: number, nextBalance: number, limit: number
     toast(title, { description, duration: 6000 });
   };
 
-  // Hitos por gasto acumulado
   if (totalSpentBefore < 500 && totalSpentAfter >= 500) {
     fire("spent_500", "⚡ 500 créditos bien invertidos", "Eres un usuario activo de SUPERNOVA.");
   }
   if (totalSpentBefore < 1500 && totalSpentAfter >= 1500) {
     fire("spent_1500", "🔥 Has usado la mitad de tus créditos", "Estás aprovechando SUPERNOVA al máximo.");
   }
-
-  // Hitos por saldo restante
   if (prevBalance > 500 && nextBalance <= 500) {
     fire("left_500", "⚡ Te quedan 500 créditos este mes", "Úsalos en lo que más te mueve la aguja.");
   }
@@ -139,6 +195,12 @@ function checkMilestones(prevBalance: number, nextBalance: number, limit: number
   localStorage.setItem(MILESTONES_KEY, JSON.stringify(Array.from(seen)));
 }
 
+function totalBalance(s: State) { return s.monthly + s.purchased; }
+
+function renewalDate(s: State): Date {
+  return new Date(new Date(s.cycleStart).getTime() + CYCLE_MS);
+}
+
 export function useCredits() {
   const [state, setState] = useState<State>(read);
   const [history, setHistory] = useState<CreditHistoryEntry[]>(readHistory);
@@ -147,10 +209,21 @@ export function useCredits() {
     const sync = () => { setState(read()); setHistory(readHistory()); };
     window.addEventListener("storage", sync);
     window.addEventListener("supernova_credits_changed", sync);
+    // Chequeo periódico de renovación (cada 60s)
+    const interval = window.setInterval(() => {
+      const before = state;
+      const fresh = read();
+      if (fresh.cycleStart !== before.cycleStart) {
+        toast("✨ Créditos mensuales renovados", { description: `+${DEFAULT_BALANCE} créditos disponibles este mes.` });
+        setState(fresh);
+      }
+    }, 60000);
     return () => {
       window.removeEventListener("storage", sync);
       window.removeEventListener("supernova_credits_changed", sync);
+      window.clearInterval(interval);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const persist = (next: State, nextHist: CreditHistoryEntry[]) => {
@@ -163,25 +236,31 @@ export function useCredits() {
   const consume = useCallback((action: CreditAction, meta?: string): boolean => {
     const cost = CREDIT_COSTS[action];
     const cur = read();
-    if (cur.balance < cost) return false;
-    const next = { ...cur, balance: cur.balance - cost };
+    const total = totalBalance(cur);
+    if (total < cost) return false;
+
+    // Gastar primero del saldo mensual; el excedente, de los comprados.
+    let remaining = cost;
+    const useMonthly = Math.min(cur.monthly, remaining);
+    remaining -= useMonthly;
+    const usePurchased = remaining;
+    const next: State = {
+      ...cur,
+      monthly: cur.monthly - useMonthly,
+      purchased: cur.purchased - usePurchased,
+    };
+
     const entry: CreditHistoryEntry = {
       date: new Date().toISOString(),
       action, label: ACTION_LABEL[action], cost, meta,
     };
     persist(next, [entry, ...readHistory()]);
 
-    // Feedback visual del gasto
-    toast(`-${cost} ⚡`, {
-      description: ACTION_LABEL[action],
-      duration: 1800,
-    });
+    toast(`-${cost} ⚡`, { description: ACTION_LABEL[action], duration: 1800 });
     window.dispatchEvent(new CustomEvent("supernova_credit_spent", { detail: { cost, action, label: ACTION_LABEL[action] } }));
 
-    // Hitos de gamificación
-    checkMilestones(cur.balance, next.balance, cur.limit);
+    checkMilestones(total, totalBalance(next), cur.limit);
 
-    // Espejo a Supabase
     supabase.auth.getUser().then(({ data }) => {
       const uid = data.user?.id;
       if (!uid) return;
@@ -193,13 +272,24 @@ export function useCredits() {
     return true;
   }, []);
 
+  const canAfford = (action: CreditAction) => totalBalance(state) >= CREDIT_COSTS[action];
 
-  const canAfford = (action: CreditAction) => state.balance >= CREDIT_COSTS[action];
-
+  // Las recargas se suman a "purchased" (no expiran, no se topan al límite mensual)
   const refill = (amount: number) => {
     const cur = read();
-    persist({ ...cur, balance: Math.min(cur.limit, cur.balance + amount) }, readHistory());
+    persist({ ...cur, purchased: cur.purchased + amount }, readHistory());
   };
 
-  return { balance: state.balance, limit: state.limit, history, consume, canAfford, refill };
+  return {
+    balance: totalBalance(state),
+    monthly: state.monthly,
+    purchased: state.purchased,
+    limit: state.limit,
+    renewalDate: renewalDate(state),
+    history,
+    consume,
+    canAfford,
+    refill,
+  };
 }
+

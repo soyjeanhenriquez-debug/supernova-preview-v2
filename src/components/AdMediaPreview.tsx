@@ -9,8 +9,47 @@ interface AdMediaPreviewProps {
   title?: string;
 }
 
-// Cache en memoria para no re-pegar a Firecrawl por la misma id en la sesión
-const cache = new Map<string, { imageUrl?: string | null; videoUrl?: string | null; failed?: boolean }>();
+// ============================================================
+// CACHE DE PREVIEWS — 2 niveles:
+//   1) Map en memoria (instantáneo, vida = sesión)
+//   2) localStorage (persistente entre recargas, TTL 7 días)
+// Así cada vez que el usuario vuelve a la app las previews
+// que ya hemos resuelto cargan sin volver a pegarle al proxy.
+// ============================================================
+type CacheEntry = { imageUrl?: string | null; videoUrl?: string | null; failed?: boolean; ts: number };
+const PREVIEW_TTL = 7 * 24 * 60 * 60_000;
+const PREVIEW_KEY = (id: string) => `sn:ad-prev:${id}`;
+const memCache = new Map<string, CacheEntry>();
+
+function readPreviewCache(id: string): CacheEntry | null {
+  const mem = memCache.get(id);
+  if (mem && Date.now() - mem.ts < PREVIEW_TTL) return mem;
+  try {
+    const raw = localStorage.getItem(PREVIEW_KEY(id));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CacheEntry;
+    if (Date.now() - parsed.ts > PREVIEW_TTL) {
+      localStorage.removeItem(PREVIEW_KEY(id));
+      return null;
+    }
+    memCache.set(id, parsed);
+    return parsed;
+  } catch { return null; }
+}
+
+function writePreviewCache(id: string, entry: Omit<CacheEntry, "ts">) {
+  const full: CacheEntry = { ...entry, ts: Date.now() };
+  memCache.set(id, full);
+  try { localStorage.setItem(PREVIEW_KEY(id), JSON.stringify(full)); }
+  catch {
+    // Quota: limpiar previews viejas y reintentar
+    try {
+      const keys = Object.keys(localStorage).filter((k) => k.startsWith("sn:ad-prev:"));
+      keys.slice(0, Math.ceil(keys.length / 2)).forEach((k) => localStorage.removeItem(k));
+      localStorage.setItem(PREVIEW_KEY(id), JSON.stringify(full));
+    } catch { /* dar up */ }
+  }
+}
 
 function extractAdId(url?: string): string | null {
   if (!url) return null;
@@ -42,33 +81,36 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title }: 
     return () => io.disconnect();
   }, [visible]);
 
+  // Hidratar SINCRÓNICAMENTE desde cache antes de pintar — 0ms flicker
+  useEffect(() => {
+    if (!adId) return;
+    const cached = readPreviewCache(adId);
+    if (!cached) return;
+    if (cached.failed) { setState("failed"); return; }
+    setImageUrl(cached.imageUrl || null);
+    setVideoUrl(cached.videoUrl || null);
+    setState("ready");
+  }, [adId]);
+
   useEffect(() => {
     if (!visible || !adId || state !== "idle") return;
-    const cached = cache.get(adId);
-    if (cached) {
-      if (cached.failed) { setState("failed"); return; }
-      setImageUrl(cached.imageUrl || null);
-      setVideoUrl(cached.videoUrl || null);
-      setState("ready");
-      return;
-    }
     setState("loading");
     const projectId = (import.meta.env.VITE_SUPABASE_PROJECT_ID as string) || "quyjsihawxeghsptwltq";
     fetch(`https://${projectId}.supabase.co/functions/v1/meta-ad-proxy?id=${adId}`)
       .then((r) => r.json())
       .then((data) => {
         if (!data?.success || (!data.imageUrl && !data.videoUrl)) {
-          cache.set(adId, { failed: true });
+          writePreviewCache(adId, { failed: true });
           setState("failed");
           return;
         }
-        cache.set(adId, { imageUrl: data.imageUrl, videoUrl: data.videoUrl });
+        writePreviewCache(adId, { imageUrl: data.imageUrl, videoUrl: data.videoUrl });
         setImageUrl(data.imageUrl || null);
         setVideoUrl(data.videoUrl || null);
         setState("ready");
       })
       .catch(() => {
-        cache.set(adId, { failed: true });
+        writePreviewCache(adId, { failed: true });
         setState("failed");
       });
   }, [visible, adId, state]);

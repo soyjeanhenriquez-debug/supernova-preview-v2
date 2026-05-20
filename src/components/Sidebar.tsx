@@ -49,13 +49,16 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
         {collapsed ? <PanelLeftOpen className="w-3 h-3" strokeWidth={1.8} /> : <PanelLeftClose className="w-3 h-3" strokeWidth={1.8} />}
       </button>
 
-      {/* Logo */}
-      <div className={`flex items-center gap-3 py-7 ${collapsed ? "px-0 justify-center" : "px-6"}`}>
-        <img src="/supernova-icon.png" alt="SUPERNOVA" className="w-7 h-7 flex-shrink-0" />
-        {!collapsed && (
-          <div className="leading-tight overflow-hidden">
-            <div className="font-display font-semibold text-foreground text-[13px] tracking-tight">SUPERNOVA</div>
-            <div className="text-[9px] text-muted-foreground tracking-[0.18em] uppercase font-medium mt-0.5">DR Intelligence</div>
+      {/* Wordmark — Apple-style */}
+      <div className={`py-8 ${collapsed ? "px-0 flex justify-center" : "px-6"}`}>
+        {collapsed ? (
+          <img src="/supernova-icon.png" alt="SUPERNOVA" className="w-7 h-7" />
+        ) : (
+          <div className="leading-none">
+            <div className="font-display font-semibold text-foreground text-[26px] tracking-[-0.04em]">
+              supern<span className="text-primary">o</span>va
+            </div>
+            <div className="text-[9px] text-muted-foreground tracking-[0.22em] uppercase font-medium mt-2">DR Intelligence</div>
           </div>
         )}
       </div>

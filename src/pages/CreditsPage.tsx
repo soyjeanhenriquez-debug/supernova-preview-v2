@@ -7,7 +7,7 @@ import { CountUp } from "@/components/CountUp";
 const PACKS = [
   { id: "boost",   name: "PACK BOOST",   credits: 500,  price: 7,  tagline: "Para seguir sin parar esta semana", save: null },
   { id: "power",   name: "PACK POWER",   credits: 2000, price: 19, tagline: "Otro mes completo de uso intensivo", save: "32%", popular: true },
-  { id: "nuclear", name: "PACK NUCLEAR", credits: 6000, price: 39, tagline: "Para los que no se detienen", save: "44%" },
+  { id: "nuclear", name: "PACK NUCLEAR", credits: 4000, price: 39, tagline: "Para los que no se detienen", save: "44%" },
 ];
 
 export function CreditsPage() {
@@ -95,7 +95,7 @@ export function CreditsPage() {
           <h3 className="font-display font-bold text-lg">RECARGA TUS CRÉDITOS</h3>
         </div>
         <p className="text-sm text-muted-foreground mb-5 max-w-xl">
-          Tus 3,000 créditos mensuales están incluidos con tu membresía. Si los agotás antes del próximo ciclo, recarga cuando quieras.
+          Tus 1,500 créditos mensuales están incluidos con tu membresía. Si los agotás antes del próximo ciclo, recarga cuando quieras.
         </p>
 
         <div className="grid md:grid-cols-3 gap-4">

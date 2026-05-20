@@ -6,8 +6,8 @@ import { toast } from "sonner";
 const KEY = "supernova_credits_v2";
 const HIST_KEY = "supernova_credits_history_v1";
 const MILESTONES_KEY = "supernova_milestones_v1";
-const DEFAULT_BALANCE = 3000;
-const DEFAULT_LIMIT = 3000;
+const DEFAULT_BALANCE = 1500;
+const DEFAULT_LIMIT = 1500;
 
 export type CreditAction =
   | "search_ads"

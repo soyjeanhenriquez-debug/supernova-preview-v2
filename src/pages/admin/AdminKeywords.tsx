@@ -139,6 +139,28 @@ export default function AdminKeywords() {
   const [engineTier, setEngineTier] = useState<string>("all");
   const [engineFilter, setEngineFilter] = useState<"all" | "paused" | "productive" | "dead">("all");
   const [engineBusyId, setEngineBusyId] = useState<string | null>(null);
+  const [cronHours, setCronHours] = useState<number>(24);
+  const [cronSaving, setCronSaving] = useState(false);
+
+  // Cargar preferencia actual del cron
+  useEffect(() => {
+    supabase.from("scraper_settings").select("interval_hours").eq("id", 1).maybeSingle()
+      .then(({ data }) => { if (data?.interval_hours) setCronHours(data.interval_hours); });
+  }, []);
+
+  const updateCronInterval = async (hours: number) => {
+    setCronSaving(true);
+    try {
+      const { data, error } = await supabase.rpc("set_scraper_cron", { p_hours: hours });
+      if (error) throw error;
+      setCronHours(hours);
+      toast.success(`Cron actualizado a cada ${hours}h`);
+    } catch (e: any) {
+      toast.error(`Error: ${e.message}`);
+    } finally {
+      setCronSaving(false);
+    }
+  };
 
   const load = async () => {
     try {

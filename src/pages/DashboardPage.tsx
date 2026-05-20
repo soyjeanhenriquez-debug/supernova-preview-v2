@@ -8,6 +8,12 @@ import { WeeklySummary } from "@/components/WeeklySummary";
 
 interface Props { onNavigate: (p: string) => void; }
 
+function formatRenewal(d: Date) {
+  const days = Math.max(0, Math.ceil((d.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
+  const formatted = d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
+  return { days, formatted };
+}
+
 export function DashboardPage({ onNavigate }: Props) {
   const { balance, limit, history } = useCredits();
   const { projects } = useProjects();

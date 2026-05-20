@@ -347,6 +347,22 @@ export default function AdminKeywords() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground px-2">Cada</span>
+              {[1, 6, 12, 24].map((h) => (
+                <button
+                  key={h}
+                  onClick={() => updateCronInterval(h)}
+                  disabled={cronSaving}
+                  className={`px-2 h-6 rounded-md text-[10px] font-medium transition disabled:opacity-50 ${
+                    cronHours === h ? "bg-[#f7a93d] text-black" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title={`Reprogramar scrape automático cada ${h}h`}
+                >
+                  {h}h
+                </button>
+              ))}
+            </div>
             <Button variant="ghost" size="sm" onClick={loadEngine}>
               <RefreshCw className="w-3.5 h-3.5" />
             </Button>

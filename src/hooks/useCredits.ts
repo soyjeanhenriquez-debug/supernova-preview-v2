@@ -21,15 +21,15 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
 };
 
 export const ACTION_LABEL: Record<CreditAction, string> = {
-  search_ads: "JARVIS — Búsqueda de anuncios", analyze_url: "JARVIS — Analizar URL básico",
-  landing_intelligence: "JARVIS — Análisis Oráculo", sofisticar: "JARVIS — Sofisticar oferta",
-  blueprint: "JARVIS — Blueprint completo", adaptar: "JARVIS — Adaptar anuncio al mercado",
-  pain_discovery: "JARVIS — Pain Discovery", chat_message: "JARVIS — Consulta estratégica",
-  ai_intel: "JARVIS — Análisis del ad", gen_landing: "JARVIS — Generar landing page",
-  gen_ad_copies: "JARVIS — 10 variaciones de ad copy", gen_avatar: "JARVIS — Avatar del comprador",
-  gen_funnel: "JARVIS — Funnel completo VSL+emails", gen_master_prompt: "JARVIS — Mega-Prompt Replicador",
-  pillar_assist: "JARVIS — Asistente de Pilar", gen_light: "JARVIS — Generador",
-  gen_medium: "JARVIS — Generador", gen_heavy: "JARVIS — Generador",
+  search_ads: "Búsqueda de anuncios", analyze_url: "Analizar URL básico",
+  landing_intelligence: "Oráculo completo (IA)", sofisticar: "Sofisticar oferta",
+  blueprint: "Blueprint completo", adaptar: "Adaptar anuncio al mercado",
+  pain_discovery: "Pain Discovery", chat_message: "Consulta IA (por mensaje)",
+  ai_intel: "Análisis IA del ad", gen_landing: "Generar landing page",
+  gen_ad_copies: "10 variaciones de ad copy", gen_avatar: "Avatar del comprador",
+  gen_funnel: "Funnel completo VSL+emails", gen_master_prompt: "Mega-Prompt Replicador",
+  pillar_assist: "Asistente IA de Pilar", gen_light: "Generador",
+  gen_medium: "Generador", gen_heavy: "Generador",
 };
 
 const GEN_LIGHT_IDS = new Set(["captions-ig","yt-titles","hooks-meta","hooks-tiktok","reels-script","dm-script","whatsapp-sequence"]);

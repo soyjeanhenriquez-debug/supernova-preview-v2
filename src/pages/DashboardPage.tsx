@@ -5,6 +5,7 @@ import { useProjects, PILLARS } from "@/hooks/useProjects";
 import { CountUp } from "@/components/CountUp";
 import { ProjectThumb } from "@/components/ProjectThumb";
 import { WeeklySummary } from "@/components/WeeklySummary";
+import { RisingTemperatureWidget } from "@/components/RisingTemperatureWidget";
 
 interface Props { onNavigate: (p: string) => void; }
 

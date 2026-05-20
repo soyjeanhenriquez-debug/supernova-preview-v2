@@ -98,6 +98,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
         {!collapsed ? (
           <button
             onClick={() => onNavigate("Proyectos")}
+            data-tour="nav-brain"
             className="w-full mt-6 mx-0 px-3 py-3 rounded-lg border border-border hover:border-foreground/20 hover:bg-secondary/40 transition-colors text-left group"
           >
             <div className="flex items-center justify-between mb-1">

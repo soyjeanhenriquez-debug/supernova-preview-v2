@@ -257,10 +257,11 @@ export function WinningAdsPage() {
     if (realAds.length > 0) writeAdsCache(realAds, liveStats);
   }, [realAds, liveStats]);
 
-  // 1) Stats globales (independientes del filtro) — se calculan una sola vez
+  // 1) Stats globales (independientes del filtro) — se recalculan cada 60s
+  //    para reflejar en tiempo real los ads que el scraper va insertando.
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const fetchStats = async () => {
       const [{ count: total }, { count: mega }, { count: rising }, { count: solid }] = await Promise.all([
         supabase.from("winning_ads").select("*", { count: "exact", head: true }),
         supabase.from("winning_ads").select("*", { count: "exact", head: true }).eq("tier", "mega"),
@@ -271,13 +272,22 @@ export function WinningAdsPage() {
       // Aproximación de únicos: muestreo de 5000 (cota suficiente para UI)
       const { data: pages } = await supabase
         .from("winning_ads").select("page_id").not("page_id", "is", null).limit(5000);
+      if (cancelled) return;
       const unique = new Set((pages ?? []).map((r: any) => r.page_id)).size;
       setLiveStats({
         total: total ?? 0, unique,
         mega: mega ?? 0, rising: rising ?? 0, solid: solid ?? 0,
       });
-    })();
-    return () => { cancelled = true; };
+    };
+    fetchStats();
+    const interval = setInterval(fetchStats, 60_000);
+    const onVisible = () => { if (document.visibilityState === "visible") fetchStats(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   // 2) Carga SOLO la página actual desde Supabase aplicando filtros server-side.

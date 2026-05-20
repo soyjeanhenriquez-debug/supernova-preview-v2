@@ -15,7 +15,7 @@ function formatRenewal(d: Date) {
 }
 
 export function DashboardPage({ onNavigate }: Props) {
-  const { balance, limit, history } = useCredits();
+  const { balance, limit, history, renewalDate } = useCredits();
   const { projects } = useProjects();
 
   const todayKey = new Date().toISOString().slice(0, 10);

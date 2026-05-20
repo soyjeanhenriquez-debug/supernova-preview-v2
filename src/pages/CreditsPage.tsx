@@ -97,7 +97,7 @@ export function CreditsPage() {
       <div id="recharge-packs">
         <div className="flex items-center gap-2 mb-2">
           <Sparkles className="w-4 h-4 text-primary" />
-          <h3 className="font-display font-bold text-lg">¿JARVIS NECESITA MÁS ENERGÍA?</h3>
+          <h3 className="font-display font-bold text-lg">RECARGA TUS CRÉDITOS</h3>
         </div>
         <p className="text-sm text-muted-foreground mb-5 max-w-xl">
           Tus 2,000 créditos mensuales están incluidos con tu membresía. Si los agotás antes del próximo ciclo, recarga cuando quieras.

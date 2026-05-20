@@ -496,6 +496,21 @@ export function WinningAdsPage() {
     return list;
   }, [allAds, market, minDays, minDups, typeFilter, regionFilter, minScore, verticalFilter, sort, keyword]);
 
+  // Paginación: el usuario elige 25/50/100/200 ads por página
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const saved = parseInt(localStorage.getItem("supernova:ads-page-size") ?? "50", 10);
+    return [25, 50, 100, 200].includes(saved) ? saved : 50;
+  });
+  const [page, setPage] = useState(1);
+  useEffect(() => { localStorage.setItem("supernova:ads-page-size", String(pageSize)); }, [pageSize]);
+  useEffect(() => { setPage(1); }, [pageSize, market, minDays, minDups, typeFilter, regionFilter, minScore, verticalFilter, sort, keyword]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginated = useMemo(
+    () => filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filtered, currentPage, pageSize],
+  );
+
   const handleSearch = async () => {
     if (!canAfford("search_ads")) { toast.error("Sin créditos suficientes"); return; }
     consume("search_ads", keyword || market);
@@ -969,17 +984,91 @@ export function WinningAdsPage() {
             <div className="text-sm text-muted-foreground max-w-sm mx-auto">Ajusta días, repeticiones o cambia de mercado para descubrir más oportunidades</div>
           </div>
         ) : (
-          <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" : "flex flex-col gap-3"}>
-            {filtered.map((ad) => (
-              <AdCard key={ad.id} ad={ad} saved={saved.has(ad.id)} onSave={() => toggleSave(ad.id)} onSofisticar={() => setSofisticarAd(ad)} compact={viewMode === "list"} />
-            ))}
-          </div>
+          <>
+            <PaginationBar
+              total={filtered.length}
+              page={currentPage}
+              pageSize={pageSize}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+            <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" : "flex flex-col gap-3"}>
+              {paginated.map((ad) => (
+                <AdCard key={ad.id} ad={ad} saved={saved.has(ad.id)} onSave={() => toggleSave(ad.id)} onSofisticar={() => setSofisticarAd(ad)} compact={viewMode === "list"} />
+              ))}
+            </div>
+            <PaginationBar
+              total={filtered.length}
+              page={currentPage}
+              pageSize={pageSize}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          </>
         )}
       </div>
 
       {sofisticarAd && (
         <SofisticarModal ad={sofisticarAd} onClose={() => setSofisticarAd(null)} />
       )}
+    </div>
+  );
+}
+
+function PaginationBar({
+  total, page, pageSize, totalPages, onPageChange, onPageSizeChange,
+}: {
+  total: number; page: number; pageSize: number; totalPages: number;
+  onPageChange: (p: number) => void; onPageSizeChange: (s: number) => void;
+}) {
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(total, page * pageSize);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 py-3 px-1">
+      <div className="text-xs text-muted-foreground">
+        Mostrando <span className="text-foreground font-medium">{from.toLocaleString()}–{to.toLocaleString()}</span> de{" "}
+        <span className="text-foreground font-medium">{total.toLocaleString()}</span> ads
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Por página</span>
+        <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
+          <SelectTrigger className="h-8 w-[80px] rounded-full text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {[25, 50, 100, 200].map((n) => (
+              <SelectItem key={n} value={String(n)} className="text-xs">{n}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-1 ml-2">
+          <button
+            onClick={() => onPageChange(1)}
+            disabled={page <= 1}
+            className="h-8 px-2 rounded-md text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+          >««</button>
+          <button
+            onClick={() => onPageChange(page - 1)}
+            disabled={page <= 1}
+            className="h-8 px-3 rounded-md text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+          >‹ Anterior</button>
+          <span className="px-3 text-xs text-foreground/80">
+            Página <span className="font-semibold text-foreground">{page}</span> / {totalPages}
+          </span>
+          <button
+            onClick={() => onPageChange(page + 1)}
+            disabled={page >= totalPages}
+            className="h-8 px-3 rounded-md text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+          >Siguiente ›</button>
+          <button
+            onClick={() => onPageChange(totalPages)}
+            disabled={page >= totalPages}
+            className="h-8 px-2 rounded-md text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+          >»»</button>
+        </div>
+      </div>
     </div>
   );
 }

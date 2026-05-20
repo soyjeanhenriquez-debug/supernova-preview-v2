@@ -560,6 +560,39 @@ export type Database = {
         }
         Relationships: []
       }
+      temperature_snapshots: {
+        Row: {
+          ad_id: string
+          duplicate_count: number | null
+          id: string
+          market: string | null
+          offer_type: string | null
+          page_name: string | null
+          recorded_at: string
+          temperature_level: number | null
+        }
+        Insert: {
+          ad_id: string
+          duplicate_count?: number | null
+          id?: string
+          market?: string | null
+          offer_type?: string | null
+          page_name?: string | null
+          recorded_at?: string
+          temperature_level?: number | null
+        }
+        Update: {
+          ad_id?: string
+          duplicate_count?: number | null
+          id?: string
+          market?: string | null
+          offer_type?: string | null
+          page_name?: string | null
+          recorded_at?: string
+          temperature_level?: number | null
+        }
+        Relationships: []
+      }
       templates: {
         Row: {
           category: string
@@ -718,6 +751,20 @@ export type Database = {
       approve_access_request: {
         Args: { p_notes?: string; p_request_id: string }
         Returns: Json
+      }
+      get_rising_temperature_ads: {
+        Args: { hours_back?: number; min_jump?: number }
+        Returns: {
+          ad_id: string
+          level_jump: number
+          market: string
+          new_duplicates: number
+          new_level: number
+          offer_type: string
+          old_duplicates: number
+          old_level: number
+          page_name: string
+        }[]
       }
       has_role: {
         Args: {

@@ -22,7 +22,7 @@ const Index = () => {
       case "Anuncios Ganadores": return <WinningAdsPage />;
       case "Oráculo": return <OraculoPage />;
       case "Agentes DR": return <AgentsPage />;
-      case "Chat IA": return <ChatPage />;
+      case "Chat IA": return <AgentsPage />;
       case "Generadores": return <GeneradoresPage />;
       case "Proyectos": return <BrainPage />;
       case "Créditos": return <CreditsPage />;

@@ -51,8 +51,8 @@ export function RisingTemperatureWidget({ onSeeAll }: Props) {
           <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium mb-1 flex items-center gap-2">
             <Flame className="w-3 h-3" /> Últimas 48h
           </div>
-          <h3 className="font-display font-semibold text-lg text-foreground">🚀 Subiendo de temperatura</h3>
-          <p className="text-[12px] text-muted-foreground mt-1">Anuncios que escalaron más rápido en el mercado.</p>
+          <h3 className="font-display font-semibold text-lg text-foreground">⚡ JARVIS DETECTÓ — Subiendo de temperatura</h3>
+          <p className="text-[12px] text-muted-foreground mt-1">Anuncios que JARVIS marcó como urgentes en 48h.</p>
         </div>
         {onSeeAll && (
           <button onClick={onSeeAll} className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">

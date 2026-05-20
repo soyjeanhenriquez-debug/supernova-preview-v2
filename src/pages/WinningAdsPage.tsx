@@ -678,12 +678,12 @@ export function WinningAdsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="page-heading font-display text-2xl text-foreground">BUSCAR OFERTAS WINNER</h2>
-          <p className="text-sm text-muted-foreground mt-3">Anuncios validados con datos reales. Encuentra, analiza, clona.</p>
+          <h2 className="page-heading font-display text-2xl text-foreground">BUSCAR OFERTAS WINNER ——•</h2>
+          <p className="text-sm text-muted-foreground mt-3">JARVIS escanea Meta Ads Library y TikTok en tiempo real. Encuentra lo que está convirtiendo dinero ahora mismo.</p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 pulse-hot">
           <span className="live-dot" />
-          <span className="text-[11px] font-bold text-primary tracking-widest">ACTUALIZADO HACE {elapsed} MIN</span>
+          <span className="text-[11px] font-bold text-primary tracking-widest">JARVIS ACTUALIZÓ HACE {elapsed} MIN</span>
         </div>
       </div>
 
@@ -883,7 +883,7 @@ export function WinningAdsPage() {
 
       {/* Global stats bar */}
       <div className="card-surface rounded-xl p-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-        <span className="flex items-center gap-2 text-success font-semibold"><span className="live-dot" /> MINER ACTIVO</span>
+        <span className="flex items-center gap-2 text-success font-semibold"><span className="live-dot" /> ⚡ JARVIS ACTIVO</span>
         <span className="text-muted-foreground"><strong className="text-foreground">{liveStats.total.toLocaleString()}</strong> anuncios</span>
         <span className="text-muted-foreground"><strong className="text-foreground">{liveStats.unique.toLocaleString()}</strong> únicos</span>
         <span className="flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-mega))" }} /> <strong>{liveStats.mega}</strong> mega</span>
@@ -1038,8 +1038,8 @@ export function WinningAdsPage() {
                   )}
                   <span className="text-[10px] font-bold tracking-widest text-primary border border-primary/30 bg-primary/10 px-2 py-1 rounded">
                     {lastAutoRun
-                      ? `ACTUALIZADO HACE ${Math.max(0, Math.floor((Date.now() - lastAutoRun.getTime()) / 60_000))} MIN`
-                      : "INICIANDO…"}
+                      ? `JARVIS ACTUALIZÓ HACE ${Math.max(0, Math.floor((Date.now() - lastAutoRun.getTime()) / 60_000))} MIN`
+                      : "JARVIS INICIANDO…"}
                   </span>
                 </div>
               </div>

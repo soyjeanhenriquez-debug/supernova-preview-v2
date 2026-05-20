@@ -38,15 +38,15 @@ export function DashboardPage({ onNavigate }: Props) {
       <header className="space-y-3">
         <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium">Overview</div>
         <h2 className="page-heading font-display text-[34px] leading-[1.1] text-foreground">Intelligence Hub</h2>
-        <p className="text-[15px] text-muted-foreground max-w-xl">Tu motor de descubrimiento de ofertas ganadoras.</p>
+        <p className="text-[15px] text-muted-foreground max-w-xl">JARVIS — tu motor de descubrimiento de ofertas ganadoras.</p>
       </header>
 
       {/* KPI grid — generous spacing, hairline cards */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border rounded-2xl overflow-hidden border border-border">
-        <StatTile label="Anuncios analizados" sub="Hoy" value={stats.analyzed} />
-        <StatTile label="Búsquedas" sub="Hoy" value={stats.searches} />
-        <StatTile label="Proyectos" sub="En BRAIN" value={projects.length} />
-        <StatTile label="Créditos" sub={low ? "Saldo bajo" : "Disponibles"} value={balance} accent={low ? "destructive" : "primary"} />
+        <StatTile label="Anuncios procesados por JARVIS" sub="Hoy" value={stats.analyzed} />
+        <StatTile label="Activaciones de JARVIS" sub="Hoy" value={stats.searches} />
+        <StatTile label="Proyectos activos" sub="En BRAIN" value={projects.length} />
+        <StatTile label="Créditos JARVIS disponibles" sub={low ? "Saldo bajo" : "Disponibles"} value={balance} accent={low ? "destructive" : "primary"} />
       </section>
 
       {/* Quick actions */}

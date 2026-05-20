@@ -10,11 +10,10 @@ export function OraculoPage() {
         </div>
         <div className="min-w-0">
           <h1 className="font-display font-semibold text-[20px] tracking-tight text-foreground">
-            Oráculo de Inteligencia
+            ORÁCULO — Powered by JARVIS
           </h1>
           <p className="text-[13px] text-muted-foreground mt-1 leading-relaxed">
-            Pega cualquier URL y SUPERNOVA descifra la oferta, encuentra los anuncios activos del anunciante
-            en Facebook Ads Library y genera un informe completo de inteligencia DR con IA.
+            Pega cualquier URL y JARVIS descifra la oferta completa: anuncios activos, ángulo, avatar, debilidades y blueprint.
           </p>
         </div>
       </header>

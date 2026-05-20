@@ -58,6 +58,9 @@ export function DashboardPage({ onNavigate }: Props) {
       {/* Resumen semanal */}
       <WeeklySummary />
 
+      <RisingTemperatureWidget onSeeAll={() => onNavigate("Buscar Ofertas Winner")} />
+
+
       {/* Recent projects */}
       <section>
         <div className="flex items-end justify-between mb-6">

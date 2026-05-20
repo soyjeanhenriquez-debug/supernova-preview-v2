@@ -187,9 +187,11 @@ export function WinningAdsPage() {
   const [sort, setSort] = useState("Mayor Score");
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [sofisticarAd, setSofisticarAd] = useState<DemoAd | null>(null);
-  const [realAds, setRealAds] = useState<DemoAd[]>([]);
+  // Hidratar desde sessionStorage para render instantáneo (Apple-style: no spinners en navegación)
+  const _cachedInit = readAdsCache();
+  const [realAds, setRealAds] = useState<DemoAd[]>(_cachedInit?.ads ?? []);
   const [loadingReal, setLoadingReal] = useState(false);
-  const [liveStats, setLiveStats] = useState({ total: 0, unique: 0, mega: 0, rising: 0, solid: 0 });
+  const [liveStats, setLiveStats] = useState(_cachedInit?.stats ?? { total: 0, unique: 0, mega: 0, rising: 0, solid: 0 });
   const [autoKeywords, setAutoKeywords] = useState<string[]>([]);
   const [autoLoading, setAutoLoading] = useState(false);
   const [lastAutoRun, setLastAutoRun] = useState<Date | null>(null);

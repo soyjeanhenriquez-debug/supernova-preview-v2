@@ -238,6 +238,11 @@ export function WinningAdsPage() {
   const [presetName, setPresetName] = useState("");
   useEffect(() => { localStorage.setItem(PRESETS_KEY, JSON.stringify(presets)); }, [presets]);
 
+  // Persistir cache en sessionStorage cada vez que cambian ads/stats
+  useEffect(() => {
+    if (realAds.length > 0) writeAdsCache(realAds, liveStats);
+  }, [realAds, liveStats]);
+
   // Cargar histórico real desde `winning_ads` — stats con COUNT exactos + paginación
   useEffect(() => {
     let cancelled = false;

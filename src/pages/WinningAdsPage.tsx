@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2, Bookmark, Plus, X, Check, Copy, Languages, Eye, LayoutGrid, List, Star, Info } from "lucide-react";
+import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2, Bookmark, Plus, X, Check, Copy, Languages, Eye, LayoutGrid, List, Star, Info, Columns3 } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, normalizeAdsLibraryUrl, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
 import { useElapsedMinutes } from "@/hooks/useElapsedMinutes";
@@ -13,6 +13,37 @@ import { Slider } from "@/components/ui/slider";
 
 import { AdMediaPreview } from "@/components/AdMediaPreview";
 import { getAutoSearchKeywords, TOTAL_DR_KEYWORDS } from "@/lib/dr-keywords";
+
+// Mapa estático → Tailwind necesita clases completas en el bundle
+const GRID_COLS_CLASS: Record<number, string> = {
+  1: "grid grid-cols-1 gap-4",
+  2: "grid grid-cols-1 sm:grid-cols-2 gap-4",
+  3: "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4",
+  4: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3",
+  5: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3",
+  6: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3",
+};
+
+// Cache de ads en sessionStorage para carga instantánea entre navegaciones
+const ADS_CACHE_KEY = "supernova:ads-cache-v2";
+const ADS_CACHE_TTL = 5 * 60_000; // 5 min
+type AdsCache = { ads: DemoAd[]; stats: { total: number; unique: number; mega: number; rising: number; solid: number }; ts: number };
+function readAdsCache(): AdsCache | null {
+  try {
+    const raw = sessionStorage.getItem(ADS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AdsCache;
+    if (Date.now() - parsed.ts > ADS_CACHE_TTL) return null;
+    return parsed;
+  } catch { return null; }
+}
+function writeAdsCache(ads: DemoAd[], stats: AdsCache["stats"]) {
+  try {
+    // Limitar para no saturar sessionStorage (~5MB típico)
+    const slim = ads.slice(0, 1500);
+    sessionStorage.setItem(ADS_CACHE_KEY, JSON.stringify({ ads: slim, stats, ts: Date.now() }));
+  } catch { /* quota */ }
+}
 
 const COUNTRY_OPTIONS: { code: string; label: string; flag: string }[] = [
   { code: "ES", label: "España", flag: "🇪🇸" },

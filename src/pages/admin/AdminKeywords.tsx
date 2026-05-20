@@ -428,7 +428,7 @@ export default function AdminKeywords() {
                 ? formatDistanceToNow(new Date(engineKpis.last_run_at), { addSuffix: true, locale: es })
                 : "—"}
             </div>
-            <div className="text-[10px] text-muted-foreground mt-2">Próxima al minuto 7 de cada hora</div>
+            <div className="text-[10px] text-muted-foreground mt-2">Cron actual: cada {cronHours}h</div>
           </div>
         </div>
 

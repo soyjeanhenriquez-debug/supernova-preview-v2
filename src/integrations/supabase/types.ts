@@ -1036,7 +1036,25 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      master_keyword_performance: {
+        Row: {
+          activated_at: string | null
+          active_ads_found: number | null
+          average_opportunity_score: number | null
+          category: string | null
+          duplicate_rate: number | null
+          is_paused: boolean | null
+          keyword: string | null
+          language: string | null
+          priority: string | null
+          risk_flag: boolean | null
+          source: string | null
+          total_ads_found: number | null
+          unique_advertisers_found: number | null
+          unique_landing_domains_found: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       add_xp: { Args: { p_amount: number; p_reason?: string }; Returns: Json }

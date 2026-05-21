@@ -31,13 +31,34 @@ const Index = () => {
     }
   };
 
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar activePage={activePage} onNavigate={setActivePage} />
+      {/* Desktop sidebar */}
+      <div className="hidden lg:flex">
+        <Sidebar activePage={activePage} onNavigate={setActivePage} />
+      </div>
+
+      {/* Mobile drawer */}
+      {mobileNavOpen && (
+        <div className="lg:hidden fixed inset-0 z-40 flex">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setMobileNavOpen(false)} />
+          <div className="relative z-10 animate-in slide-in-from-left duration-200">
+            <Sidebar
+              activePage={activePage}
+              onNavigate={setActivePage}
+              mobile
+              onCloseMobile={() => setMobileNavOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 flex flex-col min-w-0">
         <LowCreditBanner onRecharge={() => setActivePage("Créditos")} />
-        <TopBar activePage={activePage} />
-        <main className="flex-1 p-6 lg:p-8 overflow-auto">
+        <TopBar activePage={activePage} onOpenMobileNav={() => setMobileNavOpen(true)} />
+        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
           {renderPage()}
         </main>
       </div>

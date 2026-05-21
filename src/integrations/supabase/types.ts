@@ -556,42 +556,87 @@ export type Database = {
       }
       master_keyword_state: {
         Row: {
+          activated_at: string | null
+          active_ads_count: number
+          category: string | null
+          compliance_note: string | null
+          country_target: string | null
           created_at: string
+          duplicate_rate: number
           id: string
+          intent: string | null
           is_paused: boolean
           keyword: string
+          language: string | null
           last_found_count: number
           last_run_at: string | null
+          opportunity_score: number
+          priority: string | null
+          risk_flag: boolean
+          risk_rate: number
+          source: string | null
           source_tier: string | null
           total_found: number
           total_runs: number
           total_winners: number
+          unique_advertisers: number
+          unique_domains: number
           updated_at: string
         }
         Insert: {
+          activated_at?: string | null
+          active_ads_count?: number
+          category?: string | null
+          compliance_note?: string | null
+          country_target?: string | null
           created_at?: string
+          duplicate_rate?: number
           id?: string
+          intent?: string | null
           is_paused?: boolean
           keyword: string
+          language?: string | null
           last_found_count?: number
           last_run_at?: string | null
+          opportunity_score?: number
+          priority?: string | null
+          risk_flag?: boolean
+          risk_rate?: number
+          source?: string | null
           source_tier?: string | null
           total_found?: number
           total_runs?: number
           total_winners?: number
+          unique_advertisers?: number
+          unique_domains?: number
           updated_at?: string
         }
         Update: {
+          activated_at?: string | null
+          active_ads_count?: number
+          category?: string | null
+          compliance_note?: string | null
+          country_target?: string | null
           created_at?: string
+          duplicate_rate?: number
           id?: string
+          intent?: string | null
           is_paused?: boolean
           keyword?: string
+          language?: string | null
           last_found_count?: number
           last_run_at?: string | null
+          opportunity_score?: number
+          priority?: string | null
+          risk_flag?: boolean
+          risk_rate?: number
+          source?: string | null
           source_tier?: string | null
           total_found?: number
           total_runs?: number
           total_winners?: number
+          unique_advertisers?: number
+          unique_domains?: number
           updated_at?: string
         }
         Relationships: []
@@ -991,7 +1036,25 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      master_keyword_performance: {
+        Row: {
+          activated_at: string | null
+          active_ads_found: number | null
+          average_opportunity_score: number | null
+          category: string | null
+          duplicate_rate: number | null
+          is_paused: boolean | null
+          keyword: string | null
+          language: string | null
+          priority: string | null
+          risk_flag: boolean | null
+          source: string | null
+          total_ads_found: number | null
+          unique_advertisers_found: number | null
+          unique_landing_domains_found: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       add_xp: { Args: { p_amount: number; p_reason?: string }; Returns: Json }

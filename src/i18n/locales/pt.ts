@@ -1,0 +1,41 @@
+export default {
+  common: {
+    loading: "Carregando…",
+    save: "Salvar",
+    cancel: "Cancelar",
+    continue: "Continuar",
+    close: "Fechar",
+    logout: "Sair",
+    credits: "créditos",
+    admin: "Admin",
+    today: "hoje",
+    online: "Online",
+  },
+  greeting: {
+    night: "Trabalhando até tarde",
+    morning: "Bom dia",
+    afternoon: "Boa tarde",
+    evening: "Boa noite",
+    welcomeBack: "Bem-vindo de volta, {{name}}.",
+  },
+  nav: {
+    dashboard: "Painel",
+    winners: "Buscar Ofertas Winner",
+    oracle: "Oráculo",
+    generators: "Geradores",
+    projects: "Projetos",
+    credits: "Créditos",
+    brain: "SUPERNOVA BRAIN",
+    brainSub: "6 pilares · motor DR",
+  },
+  topbar: {
+    jarvisActive: "JARVIS ATIVO",
+    creditsOf: "/ {{limit}} créditos",
+  },
+  lang: {
+    label: "Idioma",
+    es: "Español",
+    en: "English",
+    pt: "Português",
+  },
+};

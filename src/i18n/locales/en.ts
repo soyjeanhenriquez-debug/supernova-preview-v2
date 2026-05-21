@@ -1,0 +1,41 @@
+export default {
+  common: {
+    loading: "Loading…",
+    save: "Save",
+    cancel: "Cancel",
+    continue: "Continue",
+    close: "Close",
+    logout: "Sign out",
+    credits: "credits",
+    admin: "Admin",
+    today: "today",
+    online: "Online",
+  },
+  greeting: {
+    night: "Working late",
+    morning: "Good morning",
+    afternoon: "Good afternoon",
+    evening: "Good evening",
+    welcomeBack: "Welcome back, {{name}}.",
+  },
+  nav: {
+    dashboard: "Dashboard",
+    winners: "Find Winning Offers",
+    oracle: "Oracle",
+    generators: "Generators",
+    projects: "Projects",
+    credits: "Credits",
+    brain: "SUPERNOVA BRAIN",
+    brainSub: "6 pillars · DR engine",
+  },
+  topbar: {
+    jarvisActive: "JARVIS ACTIVE",
+    creditsOf: "/ {{limit}} credits",
+  },
+  lang: {
+    label: "Language",
+    es: "Español",
+    en: "English",
+    pt: "Português",
+  },
+};

@@ -61,8 +61,8 @@ Deno.serve(async (req) => {
         url: target,
         formats: ["rawHtml", "links"],
         onlyMainContent: false,
-        waitFor: 1800, // bajado de 4500 → corte temprano, suele tener data ya
-        timeout: 12000,
+        waitFor: 2500,
+        timeout: 25000,
         location: { country: "US", languages: ["en"] },
       }),
     });
@@ -70,11 +70,12 @@ Deno.serve(async (req) => {
     const data = await fcRes.json().catch(() => ({}));
     if (!fcRes.ok) {
       console.error("Firecrawl error:", data);
-      // Cachear fallo corto para no martillar
+      // Cachear fallo corto para no martillar — devolver 200 con success:false
+      // para que el cliente lo trate como "sin preview" sin disparar error.
       await admin.from("ad_media_cache").upsert({
         ad_id: id, image_url: null, video_url: null, failed: true, updated_at: new Date().toISOString(),
       });
-      return json({ error: "Firecrawl failed", detail: data }, fcRes.status);
+      return json({ success: false, id, reason: "scrape_failed", libraryUrl: target });
     }
 
     const html: string =

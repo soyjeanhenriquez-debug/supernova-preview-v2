@@ -1138,6 +1138,10 @@ export type Database = {
         Returns: Json
       }
       set_scraper_cron: { Args: { p_hours: number }; Returns: Json }
+      spend_credits: {
+        Args: { p_action: string; p_meta?: Json }
+        Returns: Json
+      }
       unlock_badge: { Args: { p_badge: string }; Returns: Json }
     }
     Enums: {

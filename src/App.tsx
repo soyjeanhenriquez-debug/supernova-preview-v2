@@ -2,9 +2,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
+import LandingPage from "./pages/LandingPage";
+import SignupPage from "./pages/SignupPage";
 import NotFound from "./pages/NotFound";
 import { AuthPage } from "./pages/AuthPage";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -38,13 +40,24 @@ function AppRoutes() {
     );
   }
 
-  if (!user) return <AuthPage />;
+  if (!user) {
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="*" element={<AuthPage />} />
+        </Routes>
+      </BrowserRouter>
+    );
+  }
 
   return (
     <RequireAccess>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/auth" element={<Navigate to="/" replace />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminOverview />} />
             <Route path="accesos" element={<AdminAccesos />} />

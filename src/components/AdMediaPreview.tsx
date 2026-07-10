@@ -95,7 +95,7 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title }: 
   useEffect(() => {
     if (!visible || !adId || state !== "idle") return;
     setState("loading");
-    const projectId = (import.meta.env.VITE_SUPABASE_PROJECT_ID as string) || "quyjsihawxeghsptwltq";
+    const projectId = (import.meta.env.VITE_SUPABASE_PROJECT_ID as string) || "krfdoofwhtcxbyhkjoik";
     fetch(`https://${projectId}.supabase.co/functions/v1/meta-ad-proxy?id=${adId}`)
       .then((r) => r.json())
       .then((data) => {

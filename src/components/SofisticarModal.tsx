@@ -47,7 +47,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
         targetMarket, hasProduct, budget, adaptTo,
       };
       const resp = await fetch(
-        `https://quyjsihawxeghsptwltq.supabase.co/functions/v1/sofisticar-ad`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sofisticar-ad`,
         {
           method: "POST",
           headers: {

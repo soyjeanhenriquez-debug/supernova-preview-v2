@@ -46,7 +46,7 @@ export function CrearPage() {
 
     try {
       const resp = await fetch(
-        `https://quyjsihawxeghsptwltq.supabase.co/functions/v1/pain-discovery`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pain-discovery`,
         {
           method: "POST",
           headers: {

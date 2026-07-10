@@ -86,9 +86,20 @@ serve(async (req) => {
         }
 
         if (adsFound.length > 0) {
-          const { error } = await supabaseAdmin.from("winning_ads").insert(adsFound);
-          if (!error) totalFound += adsFound.length;
-          else console.error("Insert error:", error);
+          // Dedupe within the batch and upsert against (keyword, ad_url)
+          // so re-running the same keyword never creates duplicates.
+          const seen = new Set<string>();
+          const unique = adsFound.filter((ad) => {
+            const key = `${ad.keyword}|${ad.ad_url}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          const { error } = await supabaseAdmin
+            .from("winning_ads")
+            .upsert(unique, { onConflict: "keyword,ad_url" });
+          if (!error) totalFound += unique.length;
+          else console.error("Upsert error:", error);
         }
 
         await supabaseAdmin

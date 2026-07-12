@@ -216,7 +216,9 @@ Deno.serve(async (req) => {
         // Insert in chunks of 200
         for (let j = 0; j < rows.length; j += 200) {
           const chunk = rows.slice(j, j + 200);
-          const { error } = await supabase.from("winning_ads").insert(chunk);
+          const { error } = await supabase
+            .from("winning_ads")
+            .upsert(chunk, { onConflict: "keyword,ad_url" });
           if (error) {
             console.error("insert error:", error.message);
             totalErrors++;

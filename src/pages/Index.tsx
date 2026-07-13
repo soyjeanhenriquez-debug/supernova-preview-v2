@@ -1,17 +1,29 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
+import { Loader2 } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
-import { DashboardPage } from "@/pages/DashboardPage";
-import { WinningAdsPage } from "@/pages/WinningAdsPage";
-import { OraculoPage } from "@/pages/OraculoPage";
-import { GeneradoresPage } from "@/pages/GeneradoresPage";
-import { BrainPage } from "@/pages/BrainPage";
-import { CreditsPage } from "@/pages/CreditsPage";
-import { CrearPage } from "@/pages/CrearPage";
 import { LowCreditBanner } from "@/components/LowCreditBanner";
 import { HelpAssistant } from "@/components/HelpAssistant";
 import { OnboardingTour } from "@/components/OnboardingTour";
 import { FloatingWinnerButton } from "@/components/FloatingWinnerButton";
+
+// Carga diferida: cada pantalla es su propio chunk → la primera carga solo
+// baja el Dashboard, el resto llega bajo demanda al navegar.
+const DashboardPage = lazy(() => import("@/pages/DashboardPage").then(m => ({ default: m.DashboardPage })));
+const WinningAdsPage = lazy(() => import("@/pages/WinningAdsPage").then(m => ({ default: m.WinningAdsPage })));
+const OraculoPage = lazy(() => import("@/pages/OraculoPage").then(m => ({ default: m.OraculoPage })));
+const GeneradoresPage = lazy(() => import("@/pages/GeneradoresPage").then(m => ({ default: m.GeneradoresPage })));
+const BrainPage = lazy(() => import("@/pages/BrainPage").then(m => ({ default: m.BrainPage })));
+const CreditsPage = lazy(() => import("@/pages/CreditsPage").then(m => ({ default: m.CreditsPage })));
+const CrearPage = lazy(() => import("@/pages/CrearPage").then(m => ({ default: m.CrearPage })));
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center py-24">
+      <Loader2 className="w-6 h-6 text-primary animate-spin" />
+    </div>
+  );
+}
 
 const Index = () => {
   const [activePage, setActivePage] = useState("Dashboard");
@@ -59,7 +71,9 @@ const Index = () => {
         <LowCreditBanner onRecharge={() => setActivePage("Créditos")} />
         <TopBar activePage={activePage} onOpenMobileNav={() => setMobileNavOpen(true)} />
         <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
-          {renderPage()}
+          <Suspense fallback={<PageLoader />}>
+            {renderPage()}
+          </Suspense>
         </main>
       </div>
       <FloatingWinnerButton onClick={() => setActivePage("Buscar Ofertas Winner")} />

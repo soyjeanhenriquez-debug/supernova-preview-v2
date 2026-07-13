@@ -3,23 +3,27 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import Index from "./pages/Index";
 import LandingPage from "./pages/LandingPage";
 import SignupPage from "./pages/SignupPage";
 import NotFound from "./pages/NotFound";
 import { AuthPage } from "./pages/AuthPage";
-import { AdminLayout } from "@/components/admin/AdminLayout";
-import AdminOverview from "@/pages/admin/AdminOverview";
-import { AdminStub } from "@/pages/admin/AdminStub";
-import AdminUsers from "@/pages/admin/AdminUsers";
-import AdminKeywords from "@/pages/admin/AdminKeywords";
-import AdminAgent from "@/pages/admin/AdminAgent";
-import AdminAccesos from "@/pages/admin/AdminAccesos";
-import AdminConfig from "@/pages/admin/AdminConfig";
-import AdminAudit from "@/pages/admin/AdminAudit";
-import AdminSessions from "@/pages/admin/AdminSessions";
-import AdminHealth from "@/pages/admin/AdminHealth";
+
+// La app autenticada y el panel admin viajan en chunks aparte: el visitante
+// anónimo solo descarga landing + auth.
+const Index = lazy(() => import("./pages/Index"));
+const AdminLayout = lazy(() => import("@/components/admin/AdminLayout").then(m => ({ default: m.AdminLayout })));
+const AdminOverview = lazy(() => import("@/pages/admin/AdminOverview"));
+const AdminStub = lazy(() => import("@/pages/admin/AdminStub").then(m => ({ default: m.AdminStub })));
+const AdminUsers = lazy(() => import("@/pages/admin/AdminUsers"));
+const AdminKeywords = lazy(() => import("@/pages/admin/AdminKeywords"));
+const AdminAgent = lazy(() => import("@/pages/admin/AdminAgent"));
+const AdminAccesos = lazy(() => import("@/pages/admin/AdminAccesos"));
+const AdminConfig = lazy(() => import("@/pages/admin/AdminConfig"));
+const AdminAudit = lazy(() => import("@/pages/admin/AdminAudit"));
+const AdminSessions = lazy(() => import("@/pages/admin/AdminSessions"));
+const AdminHealth = lazy(() => import("@/pages/admin/AdminHealth"));
 import { RequireAccess } from "@/components/RequireAccess";
 
 const queryClient = new QueryClient();
@@ -55,6 +59,7 @@ function AppRoutes() {
   return (
     <RequireAccess>
       <BrowserRouter>
+        <Suspense fallback={<div className="min-h-screen bg-background" />}>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Navigate to="/" replace />} />
@@ -74,6 +79,7 @@ function AppRoutes() {
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
       </BrowserRouter>
     </RequireAccess>
   );

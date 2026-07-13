@@ -81,8 +81,6 @@ serve(async (req) => {
               }
             }
           }
-        } else {
-          adsFound = generateDemoWinnerGroups(keyword);
         }
 
         if (adsFound.length > 0) {
@@ -143,104 +141,9 @@ function detectMarket(url: string): string {
   if (/\.br|brasil|portugu/i.test(url)) return "BR";
   if (/\.mx|mexico/i.test(url)) return "MX";
   if (/\.es|spain|españa/i.test(url)) return "ES";
+  if (/\.de|\.at|\.ch(\/|$)|deutsch|german/i.test(url)) return "DE";
+  if (/\.ru|\.kz|\.by|russi|русск/i.test(url)) return "RU";
   if (/\.com|usa/i.test(url)) return "US";
   return "LATAM";
 }
 
-// ============================================================
-// DEMO: grupos realistas con 3-5 variantes por anunciante
-// ============================================================
-function generateDemoWinnerGroups(keyword: string): any[] {
-  const now = Date.now();
-  const day = 86400000;
-
-  const groups = [
-    // Grupo 1: MEGA WINNER infoproducto BR — 5 variantes, 52 días
-    {
-      page_id: `demo_${keyword}_saudebr`,
-      page_name: "Saúde & Bem-Estar BR",
-      market: "BR",
-      platform: "Meta",
-      platforms: ["facebook", "instagram"],
-      start: now - 52 * day,
-      imp: 2800000,
-      variants: [
-        { title: "Descubra o Método Natural", body: `O segredo que os médicos não querem que você saiba para emagrecer 10kg em 30 dias sem dieta e sem academia. Mais de 47.000 pessoas já transformaram seus corpos com este método natural ${keyword}. Garantia de 60 dias ou seu dinheiro de volta.` },
-        { title: "Método Natural Comprovado", body: `O segredo dos médicos para emagrecer 10kg em 30 dias sem dieta. 47.000 pessoas já transformaram seus corpos. Método natural ${keyword}, garantia de 60 dias.` },
-        { title: "Emagreça 10kg em 30 dias", body: `Médicos escondem este segredo natural para emagrecer 10kg em 30 dias. Sem dieta, sem academia. Mais de 47.000 transformações ${keyword}. Garantia total.` },
-        { title: "O Segredo dos Médicos", body: `${keyword}: o método natural que os médicos não querem que você saiba. Emagreça 10kg em 30 dias sem dieta. 47.000 alunos satisfeitos. Garantia de 60 dias.` },
-        { title: "Transforme Seu Corpo", body: `Método natural ${keyword} comprovado: emagrecimento de 10kg em 30 dias sem dieta nem academia. Segredo médico revelado. Garantia 60 dias.` },
-      ],
-    },
-    // Grupo 2: RISING ecommerce México — 3 variantes, 18 días
-    {
-      page_id: `demo_${keyword}_envioshop`,
-      page_name: "EnvíoShop México",
-      market: "MX",
-      platform: "Meta",
-      platforms: ["facebook", "instagram"],
-      start: now - 18 * day,
-      imp: 650000,
-      variants: [
-        { title: "Envío Gratis Hoy", body: `Última oportunidad: ${keyword} con 50% OFF y envío gratis a todo México. Solo hoy. Más de 12.000 clientes felices este mes. Garantía de devolución.` },
-        { title: "50% OFF + Envío Gratis", body: `${keyword} con descuento del 50% y envío gratis. Solo hoy. 12.000 clientes felices. Garantía total de devolución.` },
-        { title: "Última Oportunidad", body: `Hoy: ${keyword} 50% OFF + envío gratis México. 12.000 clientes este mes. Garantía de devolución sin preguntas.` },
-      ],
-    },
-    // Grupo 3: MEGA ecommerce US — 4 variantes, 75 días
-    {
-      page_id: `demo_${keyword}_skinglow`,
-      page_name: "SkinGlow Official",
-      market: "US",
-      platform: "Meta",
-      platforms: ["facebook", "instagram"],
-      start: now - 75 * day,
-      imp: 6200000,
-      variants: [
-        { title: "Dermatologist Approved", body: `The ${keyword} routine that dermatologists are talking about. 92% of users saw visible results in 14 days. Free shipping worldwide, 90-day money back guarantee. Join 200K+ happy customers.` },
-        { title: "92% See Results in 14 Days", body: `${keyword} routine recommended by dermatologists. 92% visible results in 14 days. 200K+ customers. Free shipping, 90-day guarantee.` },
-        { title: "Join 200K+ Customers", body: `Dermatologist-recommended ${keyword}. 92% see results in 14 days. 200K customers. Free worldwide shipping. 90-day money back.` },
-        { title: "Visible Results in 14 Days", body: `${keyword} approved by dermatologists. 92% users see visible results in 14 days. Free shipping, 90-day guarantee, 200K+ satisfied customers.` },
-      ],
-    },
-    // Grupo 4: SOLID curso España — 2 variantes, 9 días
-    {
-      page_id: `demo_${keyword}_academia`,
-      page_name: "Academia Pro ES",
-      market: "ES",
-      platform: "Meta",
-      platforms: ["facebook"],
-      start: now - 9 * day,
-      imp: 180000,
-      variants: [
-        { title: "Curso Intensivo Online", body: `Aprende ${keyword} desde cero con nuestro curso intensivo. 30 horas de contenido + certificado. Más de 5.000 alumnos. Acceso de por vida.` },
-        { title: "Domina en 30 Días", body: `Curso de ${keyword} con certificado oficial. 30 horas de contenido, 5.000 alumnos satisfechos. Acceso de por vida garantizado.` },
-      ],
-    },
-  ];
-
-  const all: any[] = [];
-  for (const g of groups) {
-    g.variants.forEach((v, i) => {
-      all.push({
-        keyword,
-        advertiser: g.page_name,
-        page_id: g.page_id,
-        page_name: g.page_name,
-        ad_title: v.title,
-        ad_description: v.body,
-        ad_body: v.body,
-        ad_url: `https://facebook.com/ads/library/?id=demo_${g.page_id}_${i}`,
-        platform: g.platform,
-        publisher_platforms: g.platforms,
-        delivery_start_time: new Date(g.start - i * 2 * day).toISOString(),
-        delivery_stop_time: null,
-        impressions_lower: g.imp,
-        impressions_upper: Math.round(g.imp * 1.2),
-        market: g.market,
-        scraped_at: new Date().toISOString(),
-      });
-    });
-  }
-  return all;
-}

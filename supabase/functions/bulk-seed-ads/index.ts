@@ -99,10 +99,28 @@ const SEED_KEYWORDS = [
   // Servicios B2B
   "outsource", "virtual assistant", "asistente virtual",
   "white label", "saas reseller",
+  // Alemán (DACH)
+  "geld verdienen online", "passives einkommen", "finanzielle freiheit",
+  "von zuhause arbeiten", "nebeneinkommen", "abnehmen ohne diät",
+  "schnell abnehmen", "fett verbrennen", "intervallfasten",
+  "jetzt kaufen", "mehr erfahren", "kostenloser versand",
+  "geld zurück garantie", "kostenlos testen", "das geheimnis",
+  "kostenloses webinar", "gratis training", "onlinekurs",
+  "trading signale", "immobilien investieren", "ki tool", "digistore24",
+  "ergebnisse können variieren", "haarausfall stoppen", "gelenkschmerzen",
+  // Ruso (RU + diáspora)
+  "заработок в интернете", "пассивный доход", "финансовая свобода",
+  "работа из дома", "дополнительный доход", "похудеть без диеты",
+  "быстро похудеть", "сжигание жира", "интервальное голодание",
+  "купить сейчас", "узнать больше", "бесплатная доставка",
+  "гарантия возврата денег", "секрет", "врачи скрывают",
+  "бесплатный вебинар", "бесплатный курс", "онлайн курс",
+  "торговые сигналы", "инвестиции в недвижимость", "нейросеть",
+  "до и после", "изменило мою жизнь", "результаты могут отличаться",
 ];
 
 
-const SEED_COUNTRIES = ["US", "ES", "BR", "MX", "AR", "CO", "PT", "GB"];
+const SEED_COUNTRIES = ["US", "ES", "BR", "MX", "AR", "CO", "PT", "GB", "DE", "AT", "CH", "RU", "KZ"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });

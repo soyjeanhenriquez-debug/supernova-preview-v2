@@ -13,11 +13,13 @@ export type CreditAction =
   | "gen_landing" | "gen_ad_copies" | "gen_avatar" | "gen_funnel"
   | "gen_master_prompt" | "pillar_assist" | "gen_light" | "gen_medium" | "gen_heavy";
 
+// Precios calibrados para uso DIARIO: 2000/mes alcanza para ~1 mes de uso
+// intenso; explorar el radar es gratis, las acciones ligeras casi gratis.
 export const CREDIT_COSTS: Record<CreditAction, number> = {
-  search_ads: 10, analyze_url: 10, chat_message: 10, adaptar: 10, ai_intel: 10,
-  pillar_assist: 15, sofisticar: 30, gen_ad_copies: 30, gen_avatar: 30,
-  pain_discovery: 30, blueprint: 80, gen_landing: 80, landing_intelligence: 80,
-  gen_funnel: 100, gen_master_prompt: 100, gen_light: 30, gen_medium: 60, gen_heavy: 150,
+  search_ads: 5, analyze_url: 5, chat_message: 2, adaptar: 5, ai_intel: 5,
+  pillar_assist: 10, sofisticar: 15, gen_ad_copies: 15, gen_avatar: 15,
+  pain_discovery: 15, blueprint: 25, gen_landing: 40, landing_intelligence: 50,
+  gen_funnel: 50, gen_master_prompt: 50, gen_light: 15, gen_medium: 30, gen_heavy: 75,
 };
 
 export const ACTION_LABEL: Record<CreditAction, string> = {
@@ -37,9 +39,9 @@ const GEN_MEDIUM_IDS = new Set(["landing-copy","email-launch","email-sequence","
 const GEN_HEAVY_IDS = new Set(["vsl-downsell","vsl-upsell-1","vsl-upsell-2"]);
 
 export function generatorCost(id: string): { action: CreditAction; cost: number } {
-  if (GEN_HEAVY_IDS.has(id)) return { action: "gen_heavy", cost: 150 };
-  if (GEN_MEDIUM_IDS.has(id)) return { action: "gen_medium", cost: 60 };
-  return { action: "gen_light", cost: 30 };
+  if (GEN_HEAVY_IDS.has(id)) return { action: "gen_heavy", cost: 75 };
+  if (GEN_MEDIUM_IDS.has(id)) return { action: "gen_medium", cost: 30 };
+  return { action: "gen_light", cost: 15 };
 }
 
 export const ACTION_HOURS: Record<CreditAction, number> = {

@@ -5,8 +5,9 @@ import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCir
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, normalizeAdsLibraryUrl, langFromCountry, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
 import { useElapsedMinutes } from "@/hooks/useElapsedMinutes";
-import { useCredits } from "@/hooks/useCredits";
+import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import { SofisticarModal } from "@/components/SofisticarModal";
+import { MiniAppModal } from "@/components/MiniAppModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
@@ -196,6 +197,7 @@ export function WinningAdsPage() {
   const [sort, setSort] = useState("Mayor Score");
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [sofisticarAd, setSofisticarAd] = useState<DemoAd | null>(null);
+  const [miniAppAd, setMiniAppAd] = useState<DemoAd | null>(null);
   // Hidratar desde sessionStorage para render instantáneo (Apple-style: no spinners en navegación)
   const _cachedInit = readAdsCache();
   const [realAds, setRealAds] = useState<DemoAd[]>(_cachedInit?.ads ?? []);
@@ -1090,6 +1092,7 @@ export function WinningAdsPage() {
               saved={saved}
               onSave={toggleSave}
               onSofisticar={setSofisticarAd}
+              onMiniApp={setMiniAppAd}
             />
             <PaginationBar
               total={filteredTotal}
@@ -1103,6 +1106,9 @@ export function WinningAdsPage() {
         )}
       </div>
 
+      {miniAppAd && (
+        <MiniAppModal ad={miniAppAd} onClose={() => setMiniAppAd(null)} />
+      )}
       {sofisticarAd && (
         <SofisticarModal ad={sofisticarAd} onClose={() => setSofisticarAd(null)} />
       )}
@@ -1116,7 +1122,7 @@ export function WinningAdsPage() {
 // El contenedor scroll es <main> (overflow-auto en Index.tsx).
 // ============================================================
 function VirtualizedAdGrid({
-  ads, cols, compact, saved, onSave, onSofisticar,
+  ads, cols, compact, saved, onSave, onSofisticar, onMiniApp,
 }: {
   ads: DemoAd[];
   cols: number;
@@ -1124,6 +1130,7 @@ function VirtualizedAdGrid({
   saved: Set<string>;
   onSave: (id: string) => void;
   onSofisticar: (ad: DemoAd) => void;
+  onMiniApp: (ad: DemoAd) => void;
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
@@ -1163,7 +1170,7 @@ function VirtualizedAdGrid({
     return (
       <div ref={parentRef} className={compact ? "flex flex-col gap-3" : GRID_COLS_CLASS[cols] ?? GRID_COLS_CLASS[3]}>
         {ads.slice(0, cols * 3).map((ad) => (
-          <AdCard key={ad.id} ad={ad} saved={saved.has(ad.id)} onSave={() => onSave(ad.id)} onSofisticar={() => onSofisticar(ad)} compact={compact} />
+          <AdCard key={ad.id} ad={ad} saved={saved.has(ad.id)} onSave={() => onSave(ad.id)} onSofisticar={() => onSofisticar(ad)} onMiniApp={() => onMiniApp(ad)} compact={compact} />
         ))}
       </div>
     );
@@ -1195,6 +1202,7 @@ function VirtualizedAdGrid({
                 saved={saved.has(ad.id)}
                 onSave={() => onSave(ad.id)}
                 onSofisticar={() => onSofisticar(ad)}
+                onMiniApp={() => onMiniApp(ad)}
                 compact={compact}
               />
             ))}
@@ -1317,7 +1325,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 
-const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, compact = false }: { ad: DemoAd; saved: boolean; onSave: () => void; onSofisticar: () => void; compact?: boolean }) {
+const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, onMiniApp, compact = false }: { ad: DemoAd; saved: boolean; onSave: () => void; onSofisticar: () => void; onMiniApp: () => void; compact?: boolean }) {
   const tier = TIERS[ad.tier];
   const desp = despeguePercent(ad.daysActive, ad.duplicates);
 
@@ -1554,8 +1562,12 @@ const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, compact =
         </PopoverContent>
       </Popover>
 
-      <button onClick={onSofisticar} className="btn-primary-nova w-full py-2.5 rounded-lg text-sm flex items-center justify-center gap-2 mt-1">
-        <Sparkles className="w-4 h-4" /> SOFISTICAR → <span className="opacity-70 text-xs">· 1 crédito</span>
+      <button onClick={onMiniApp} className="btn-primary-nova w-full py-2.5 rounded-lg text-sm flex items-center justify-center gap-2 mt-1">
+        🧬 CREAR MI APP → <span className="opacity-70 text-xs">· {CREDIT_COSTS.gen_master_prompt} ⚡</span>
+      </button>
+
+      <button onClick={onSofisticar} className="w-full py-2 rounded-lg text-xs border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 flex items-center justify-center gap-1.5 transition-colors">
+        <Sparkles className="w-3.5 h-3.5" /> Sofisticar oferta · {CREDIT_COSTS.sofisticar} ⚡
       </button>
 
       <a href={ad.adUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-muted-foreground hover:text-primary flex items-center gap-1 justify-center group">

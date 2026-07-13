@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { X, ArrowLeft, Sparkles, Globe2, Target, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
-import { useCredits } from "@/hooks/useCredits";
+import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import { useProjects } from "@/hooks/useProjects";
 import type { DemoAd } from "@/lib/demo-winning-ads";
 import { OFFER_TYPE_LABEL } from "@/lib/demo-winning-ads";
@@ -130,7 +130,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
                   cost="2 créditos" onClick={() => setMode("sofisticar")} />
                 <ModeCard icon={<Globe2 className="w-5 h-5" />} title="🌍 ADAPTAR A MI MERCADO"
                   desc="Este anuncio está en otro idioma o mercado. Lo adaptamos culturalmente a tu audiencia — no es traducción, es recreación."
-                  cost="1 crédito"
+                  cost={`${CREDIT_COSTS.sofisticar} ⚡`}
                   extra={
                     <div className="flex gap-2 mt-2">
                       <button onClick={() => { setAdaptTo("es"); setMode("adaptar"); run("adaptar"); }}

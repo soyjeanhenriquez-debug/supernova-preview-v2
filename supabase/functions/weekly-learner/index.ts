@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const LOVABLE_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
 
   try {
     const since = new Date(Date.now() - 7 * 86400000).toISOString();
@@ -58,11 +58,11 @@ Deno.serve(async (req) => {
 - Ejecuciones del scraper: ${totalRuns} (éxitos ${successRuns}), ads totales ${totalFound}, winners ${totalWinners}.
 
 Devuelve un JSON array con 3-6 objetos { "insight": string (1 frase clara), "category": una de [keyword_performance,user_behavior,market_trend,feature_usage,scoring_calibration], "source": string corto, "evidence": object }. Sé conciso y accionable.`;
-      const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "gemini-3-flash-preview",
           messages: [{ role: "user", content: prompt }],
           response_format: { type: "json_object" },
         }),

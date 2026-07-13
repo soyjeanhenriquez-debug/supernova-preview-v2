@@ -65,7 +65,7 @@ serve(async (req) => {
 
   try {
     const { type, url, query } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const LOVABLE_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
@@ -103,14 +103,14 @@ Basándote en el contenido REAL de la página, devuelve un análisis en formato 
 
 Extrae los hooks y CTAs REALES del contenido. Sé específico basándote en lo que realmente dice la página.`;
 
-      const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const aiResp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "gemini-3-flash-preview",
           messages: [
             { role: "system", content: "Eres un experto en análisis competitivo de publicidad digital. Responde SOLO con JSON válido, sin markdown ni explicaciones." },
             { role: "user", content: prompt },
@@ -163,14 +163,14 @@ Para cada resultado, devuelve un array JSON enriquecido:
 
 Mantén las URLs reales. Agrega tu análisis de la estrategia detectada.`;
 
-      const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const aiResp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "gemini-3-flash-preview",
           messages: [
             { role: "system", content: "Eres un experto en análisis competitivo de publicidad digital. Responde SOLO con JSON válido." },
             { role: "user", content: prompt },

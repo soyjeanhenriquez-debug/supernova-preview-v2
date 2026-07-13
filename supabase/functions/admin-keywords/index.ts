@@ -127,7 +127,7 @@ serve(async (req) => {
     if (action === "elite_suggestions") {
       const lang = (body.lang as string) || "es";
       const niche = (body.niche as string) || "";
-      const apiKey = Deno.env.get("LOVABLE_API_KEY");
+      const apiKey = (Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
       if (!apiKey) return json({ error: "LOVABLE_API_KEY missing" }, 500);
       const langName = { en: "English", es: "Spanish", pt: "Brazilian Portuguese" }[lang] || "English";
       const sys = `You are an elite Direct Response Marketing strategist who has personally scaled $100M+ in Facebook Ads and TikTok Ads spend for offers in weight loss, men's health, finance, dating, biz-opp, supplements, ED, diabetes, manifestation, AI tools, and survival niches. You think like a 9-figure media buyer: you know the EXACT angles, pattern interrupts, curiosity loops, and compliance-edge phrases that PRINT money in 2026. You know what's banned, what passes the algo sniff test, and what no normal copywriter would think of.`;
@@ -140,11 +140,11 @@ serve(async (req) => {
 Return JSON ONLY in this exact shape:
 {"suggestions":[{"keyword":"...","reason":"one short line explaining why this prints money","category":"hook|pain|compliance|funnel|niche|trend"}]}`;
 
-      const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const aiResp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({
-          model: "google/gemini-2.5-pro",
+          model: "gemini-3-pro-preview",
           messages: [{ role: "system", content: sys }, { role: "user", content: usr }],
           response_format: { type: "json_object" },
         }),

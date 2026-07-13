@@ -10,7 +10,7 @@ serve(async (req) => {
 
   try {
     const { ad } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const LOVABLE_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const prompt = `Eres el mejor analista de direct response marketing del mundo.
@@ -56,11 +56,11 @@ ENTREGA EXACTAMENTE ESTO EN ESTE ORDEN (usa markdown):
 
 Sé específico, directo y accionable. Sin relleno. Todo en español latinoamericano.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "gemini-3-flash-preview",
         messages: [{ role: "user", content: prompt }],
         stream: true,
       }),

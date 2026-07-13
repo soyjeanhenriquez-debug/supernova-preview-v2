@@ -7,7 +7,7 @@ Deno.serve(async (req) => {
     const { keyword, suggestions = [], sources = {} } = await req.json();
     if (!keyword) return new Response(JSON.stringify({ error: "keyword required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const LOVABLE_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
     if (!LOVABLE_API_KEY) return new Response(JSON.stringify({ error: "Missing LOVABLE_API_KEY" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const sourceList = Object.entries(sources).filter(([_, v]) => v).map(([k]) => k).join(", ") || "google";
@@ -43,11 +43,11 @@ Analiza y entrega un informe con este formato exacto:
 ## 🎯 RECOMENDACIÓN
 [1 párrafo: cuál atacar primero y por qué]`;
 
-    const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const upstream = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${LOVABLE_API_KEY}` },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "gemini-3-flash-preview",
         stream: true,
         messages: [{ role: "system", content: system }, { role: "user", content: user }],
       }),

@@ -5,6 +5,9 @@ import { ArrowRight, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PLANS, checkoutUrl, type PlanKey } from "@/lib/plans";
+import { Turnstile } from "@/components/Turnstile";
+
+const CAPTCHA_ENABLED = Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY);
 
 /**
  * Funnel de registro self-serve (3 pasos):
@@ -80,12 +83,15 @@ export default function SignupPage() {
   const [quiz, setQuiz] = useState<Partial<Quiz>>({});
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState<"session" | "confirm" | null>(null);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
 
   const startQuiz = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return toast.error("Dinos tu nombre");
     if (!/^\S+@\S+\.\S+$/.test(email)) return toast.error("Email inválido");
     if (password.length < 6) return toast.error("La contraseña necesita mínimo 6 caracteres");
+    if (CAPTCHA_ENABLED && !captchaToken) return toast.error("Completa la verificación de seguridad");
     setStep(1);
   };
 
@@ -107,6 +113,7 @@ export default function SignupPage() {
           signup_source: "trial",
           onboarding: finalQuiz,
         },
+        captchaToken: CAPTCHA_ENABLED ? captchaToken : undefined,
       },
     });
     setLoading(false);
@@ -115,6 +122,8 @@ export default function SignupPage() {
       toast.error(error.message === "User already registered"
         ? "Ese email ya tiene cuenta. Inicia sesión."
         : error.message);
+      setCaptchaToken("");
+      setCaptchaResetKey((k) => k + 1);
       setStep(0);
       return;
     }
@@ -177,9 +186,13 @@ export default function SignupPage() {
                   <label className={labelCls} htmlFor="su-pass">Contraseña</label>
                   <input id="su-pass" type="password" className={inputCls} placeholder="Mínimo 6 caracteres" value={password} onChange={(e) => setPassword(e.target.value)} />
                 </div>
+                {CAPTCHA_ENABLED && (
+                  <Turnstile onVerify={setCaptchaToken} resetKey={captchaResetKey} />
+                )}
                 <button
                   type="submit"
-                  className="flex w-full items-center justify-center gap-2 border border-[#C5A880] bg-[#C5A880] px-8 py-4 font-[Inter,sans-serif] text-sm font-medium uppercase tracking-[0.14em] text-black transition-all duration-500 hover:bg-transparent hover:text-[#C5A880]"
+                  disabled={CAPTCHA_ENABLED && !captchaToken}
+                  className="flex w-full items-center justify-center gap-2 border border-[#C5A880] bg-[#C5A880] px-8 py-4 font-[Inter,sans-serif] text-sm font-medium uppercase tracking-[0.14em] text-black transition-all duration-500 hover:bg-transparent hover:text-[#C5A880] disabled:opacity-50"
                 >
                   Continuar <ArrowRight className="h-4 w-4" />
                 </button>

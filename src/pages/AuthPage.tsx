@@ -3,8 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, Mail, KeyRound, Loader2, ArrowLeft, Lock, Send, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { Turnstile } from "@/components/Turnstile";
 
 type Step = "email" | "code" | "denied" | "requested";
+
+const CAPTCHA_ENABLED = Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY);
 
 export function AuthPage() {
   const [step, setStep] = useState<Step>("email");
@@ -13,11 +16,17 @@ export function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [requestName, setRequestName] = useState("");
   const [requestMessage, setRequestMessage] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
 
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
     const normalized = email.trim().toLowerCase();
     if (!normalized) return;
+    if (CAPTCHA_ENABLED && !captchaToken) {
+      toast.error("Completa la verificación de seguridad");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -35,7 +44,11 @@ export function AuthPage() {
 
       const { error } = await supabase.auth.signInWithOtp({
         email: normalized,
-        options: { shouldCreateUser: true, emailRedirectTo: window.location.origin },
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: window.location.origin,
+          captchaToken: CAPTCHA_ENABLED ? captchaToken : undefined,
+        },
       });
       if (error) throw error;
       toast.success("Código enviado. Revisa tu correo 📩");
@@ -43,6 +56,8 @@ export function AuthPage() {
       setStep("code");
     } catch (err: any) {
       toast.error(err.message || "No se pudo enviar el código");
+      setCaptchaToken("");
+      setCaptchaResetKey((k) => k + 1);
     } finally {
       setLoading(false);
     }
@@ -121,8 +136,11 @@ export function AuthPage() {
                     className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                   />
                 </div>
+                {CAPTCHA_ENABLED && (
+                  <Turnstile onVerify={setCaptchaToken} resetKey={captchaResetKey} />
+                )}
                 <button
-                  type="submit" disabled={loading}
+                  type="submit" disabled={loading || (CAPTCHA_ENABLED && !captchaToken)}
                   className="w-full gradient-brand text-primary-foreground py-3 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 glow-primary disabled:opacity-60"
                 >
                   {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Verificando...</> : <><Sparkles className="w-4 h-4" /> Enviar código de acceso</>}

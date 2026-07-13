@@ -1,7 +1,7 @@
 // Realistic demo data for Anuncios Ganadores
 export type OfferType = "infoproducto" | "ecommerce" | "saas" | "app" | "servicio";
 export type AdMarket = "BR" | "US" | "ES" | "MX" | "RU" | "LATAM";
-export type AdLang = "en" | "es" | "pt" | "ru";
+export type AdLang = "en" | "es" | "pt" | "de" | "ru";
 export type Tier = "mega" | "rising" | "solid";
 
 export interface DemoAd {
@@ -118,6 +118,7 @@ export const MARKETS = [
   { id: "en",  label: "English", flag: "🇺🇸" },
   { id: "es",  label: "Español", flag: "🇪🇸" },
   { id: "pt",  label: "Português", flag: "🇧🇷" },
+  { id: "de",  label: "Deutsch", flag: "🇩🇪" },
   { id: "ru",  label: "Русский", flag: "🇷🇺" },
 ] as const;
 
@@ -126,8 +127,20 @@ export const KEYWORD_CHIPS: Record<string, string[]> = {
   en:  ["Learn more", "Free shipping", "Shop now", "Limited time", "Just pay shipping", "The secret", "Claim your", "Order now", "Act now", "Are you tired of", "Finally revealed", "Free trial", "No credit card", "Back in stock", "Free masterclass", "Clickbank", "Shopify"],
   es:  ["El secreto", "Más información", "Envío gratis", "Solo hoy", "Lo que nadie te dice", "¿Cansado de", "Método probado", "Garantizado", "Accede ahora", "Webinar gratuito", "Por fin", "Cupos limitados", "Acceso inmediato", "Sin tarjeta", "Hotmart", "Masterclass gratuita"],
   pt:  ["O segredo", "Saiba mais", "Frete grátis", "Só hoje", "O que ninguém te conta", "Você sabia que", "Método comprovado", "Garantido", "Acesse agora", "Webinar gratuito", "Vagas limitadas", "Acesso imediato", "Hotmart", "Kiwify", "Eduzz"],
+  de:  ["Das Geheimnis", "Mehr erfahren", "Jetzt kaufen", "Kostenloser Versand", "Nur heute", "Geld zurück Garantie", "Kostenlos testen", "Gratis Webinar", "Endlich enthüllt", "Digistore24"],
   ru:  ["Секрет", "Узнать больше", "Бесплатно", "Только сегодня", "Метод", "Гарантировано", "Получить доступ", "Мастер-класс", "Никто не говорит", "Узнайте как"],
 };
+
+
+// Idioma probable según el país del anuncio (para el filtro de idioma)
+export function langFromCountry(country?: string | null): AdLang {
+  const c = (country ?? "").toUpperCase();
+  if (["ES","MX","AR","CO","CL","PE","LATAM"].includes(c)) return "es";
+  if (["BR","PT"].includes(c)) return "pt";
+  if (["DE","AT","CH"].includes(c)) return "de";
+  if (["RU","KZ","BY"].includes(c)) return "ru";
+  return "en";
+}
 
 // Auto-classify ad based on creative text keywords
 export type AdCategory = "ecommerce" | "infoproducto" | "app_saas" | "servicio" | "crypto" | "salud" | "otro";

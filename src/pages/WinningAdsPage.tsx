@@ -3,7 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
 import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2, Bookmark, Plus, X, Check, Copy, Languages, Eye, LayoutGrid, List, Star, Info, Columns3 } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, normalizeAdsLibraryUrl, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
+import { MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, normalizeAdsLibraryUrl, langFromCountry, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
 import { useElapsedMinutes } from "@/hooks/useElapsedMinutes";
 import { useCredits } from "@/hooks/useCredits";
 import { SofisticarModal } from "@/components/SofisticarModal";
@@ -179,7 +179,13 @@ export function WinningAdsPage() {
   const { user } = useAuth();
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
 
-  const [market, setMarket] = useState<string>("all");
+  const [market, setMarket] = useState<string>(() => {
+    const saved = localStorage.getItem("supernova_market");
+    if (saved) return saved;
+    const nav = (navigator.language || "en").slice(0, 2);
+    return ["es","pt","de","ru","en"].includes(nav) ? nav : "all";
+  });
+  useEffect(() => { localStorage.setItem("supernova_market", market); }, [market]);
   const [keyword, setKeyword] = useState("");
   const [urlInput, setUrlInput] = useState("");
   const [minDays, setMinDays] = useState(0);
@@ -361,7 +367,7 @@ export function WinningAdsPage() {
           market: adMarket,
           marketLabel: r.market ?? "",
           flag: flagEmoji(r.market ?? "US"),
-          lang: "en" as AdLang,
+          lang: langFromCountry(r.market),
           adUrl,
           platforms: Array.isArray(r.publisher_platforms) ? r.publisher_platforms : ["facebook"],
           countries: [r.market ?? "US"],

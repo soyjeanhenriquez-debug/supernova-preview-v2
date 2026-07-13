@@ -44,7 +44,10 @@ export function useGamification() {
       const { data: login } = await supabase.rpc("register_daily_login");
       const result = login as any;
       if (result?.milestone && STREAK_MILESTONES[result.milestone]) {
-        setTimeout(() => toast(STREAK_MILESTONES[result.milestone], { duration: 6000 }), 1200);
+        const opts = result?.reward
+          ? { description: `+${result.reward} ⚡ créditos añadidos a tu cuenta`, duration: 8000 }
+          : { duration: 6000 };
+        setTimeout(() => toast(STREAK_MILESTONES[result.milestone], opts), 1200);
       }
       if (result?.broke) {
         setTimeout(() => toast("Rompiste tu racha. Hoy empieza una nueva.", { duration: 5000 }), 1200);

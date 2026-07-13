@@ -11,6 +11,7 @@ import { HeatMap } from "@/components/HeatMap";
 import { RisingTemperatureWidget } from "@/components/RisingTemperatureWidget";
 import { CountUp } from "@/components/CountUp";
 import { HeroJarvis } from "@/components/dashboard/HeroJarvis";
+import { DailyWinnerWidget } from "@/components/dashboard/DailyWinnerWidget";
 import { StreakWidget } from "@/components/dashboard/StreakWidget";
 import { StatCardSparkline } from "@/components/dashboard/StatCardSparkline";
 import { DailyMissionWidget } from "@/components/dashboard/DailyMissionWidget";
@@ -65,6 +66,9 @@ export function DashboardPage({ onNavigate }: Props) {
 
       {/* 2. Racha */}
       <StreakWidget streak={streak} lastLoginDate={lastLoginDate} />
+
+      {/* El Ganador del Día: hábito diario → crear tu Mini App */}
+      <DailyWinnerWidget />
 
       {/* 3. Stats cards con sparklines */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

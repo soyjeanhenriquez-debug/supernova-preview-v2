@@ -54,7 +54,7 @@ export function AuthPage() {
       toast.success("Código enviado. Revisa tu correo 📩");
       setEmail(normalized);
       setStep("code");
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(err.message || "No se pudo enviar el código");
       setCaptchaToken("");
       setCaptchaResetKey((k) => k + 1);
@@ -74,7 +74,7 @@ export function AuthPage() {
       });
       if (error) throw error;
       toast.success("¡Acceso concedido! 🚀");
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(err.message || "Código inválido o expirado");
     } finally {
       setLoading(false);
@@ -93,7 +93,7 @@ export function AuthPage() {
       }, { onConflict: "email" });
       if (error && error.code !== "23505") throw error;
       setStep("requested");
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(err.message || "No se pudo enviar la solicitud");
     } finally {
       setLoading(false);

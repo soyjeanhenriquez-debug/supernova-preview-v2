@@ -23,7 +23,7 @@ type CampaignForm = z.infer<typeof campaignSchema>;
 interface CampaignModalProps {
   onClose: () => void;
   onSuccess: () => void;
-  editCampaign?: any;
+  editCampaign?: Record<string, unknown>;
 }
 
 export function CampaignModal({ onClose, onSuccess, editCampaign }: CampaignModalProps) {
@@ -77,8 +77,8 @@ export function CampaignModal({ onClose, onSuccess, editCampaign }: CampaignModa
         toast.success("Campaña creada");
       }
       onSuccess();
-    } catch (err: any) {
-      toast.error(err.message || "Error al guardar");
+    } catch (err) {
+      toast.error((err instanceof Error ? err.message : "Error al guardar") || "Error al guardar");
     } finally {
       setLoading(false);
     }

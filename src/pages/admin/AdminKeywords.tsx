@@ -109,10 +109,10 @@ function dailySuggestions(existing: Set<string>) {
   };
 }
 
-async function invoke(action: string, payload: any = {}) {
+async function invoke(action: string, payload: Record<string, unknown> = {}) {
   const { data, error } = await supabase.functions.invoke("admin-keywords", { body: { action, ...payload } });
   if (error) throw error;
-  if ((data as any)?.error) throw new Error((data as any).error);
+  if ((data as { error?: string })?.error) throw new Error((data as unknown).error);
   return data;
 }
 
@@ -155,7 +155,7 @@ export default function AdminKeywords() {
       if (error) throw error;
       setCronHours(hours);
       toast.success(`Cron actualizado a cada ${hours}h`);
-    } catch (e: any) {
+    } catch (e: unknown) {
       toast.error(`Error: ${e.message}`);
     } finally {
       setCronSaving(false);
@@ -164,9 +164,9 @@ export default function AdminKeywords() {
 
   const load = async () => {
     try {
-      const d: any = await invoke("list");
+      const d: unknown = await invoke("list");
       setKeywords(d.keywords);
-    } catch (e: any) {
+    } catch (e: unknown) {
       toast.error(e.message);
     } finally {
       setLoading(false);
@@ -181,11 +181,11 @@ export default function AdminKeywords() {
 
   const loadEngine = async () => {
     try {
-      const d: any = await invoke("engine_status");
+      const d: unknown = await invoke("engine_status");
       setEngineStates(d.states || []);
       setEngineRuns(d.runs || []);
       setEngineKpis(d.kpis || null);
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: unknown) { toast.error(e.message); }
     finally { setEngineLoading(false); }
   };
 
@@ -193,11 +193,11 @@ export default function AdminKeywords() {
     setEngineRunning(true);
     toast.info("Disparando motor…");
     try {
-      const r: any = await invoke("engine_run_now", { batch_size: 5 });
+      const r: unknown = await invoke("engine_run_now", { batch_size: 5 });
       const res = r.result || {};
       toast.success(`Motor: ${res.ads_found ?? 0} ads, ${res.winners_found ?? 0} winners`);
       loadEngine();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: unknown) { toast.error(e.message); }
     finally { setEngineRunning(false); }
   };
 
@@ -206,26 +206,26 @@ export default function AdminKeywords() {
     try {
       await invoke("master_toggle", { id: s.id, is_paused: !s.is_paused });
       setEngineStates((arr) => arr.map((x) => (x.id === s.id ? { ...x, is_paused: !s.is_paused } : x)));
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: unknown) { toast.error(e.message); }
     finally { setEngineBusyId(null); }
   };
 
   const loadTop = async () => {
     setTopLoading(true);
     try {
-      const d: any = await invoke("user_top");
+      const d: unknown = await invoke("user_top");
       setTopRows(d.top || []);
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: unknown) { toast.error(e.message); }
     finally { setTopLoading(false); }
   };
 
   const loadElite = async () => {
     setEliteLoading(true);
     try {
-      const d: any = await invoke("elite_suggestions", { lang: eliteLang, niche: eliteNiche });
+      const d: unknown = await invoke("elite_suggestions", { lang: eliteLang, niche: eliteNiche });
       setElite(d.suggestions || []);
       if (!d.suggestions?.length) toast.warning("La IA no devolvió sugerencias. Reintenta.");
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: unknown) { toast.error(e.message); }
     finally { setEliteLoading(false); }
   };
 
@@ -260,7 +260,7 @@ export default function AdminKeywords() {
       toast.success(`"${kw}" añadida`);
       if (!k) setNewKw("");
       load();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: unknown) { toast.error(e.message); }
   };
 
   const handleToggle = async (kw: KW) => {
@@ -268,7 +268,7 @@ export default function AdminKeywords() {
     try {
       await invoke("toggle", { id: kw.id, is_active: !kw.is_active });
       setKeywords((arr) => arr.map((k) => (k.id === kw.id ? { ...k, is_active: !k.is_active } : k)));
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: unknown) { toast.error(e.message); }
     finally { setBusyId(null); }
   };
 
@@ -279,7 +279,7 @@ export default function AdminKeywords() {
       await invoke("delete", { id: kw.id });
       setKeywords((arr) => arr.filter((k) => k.id !== kw.id));
       toast.success("Eliminada");
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: unknown) { toast.error(e.message); }
     finally { setBusyId(null); }
   };
 
@@ -287,10 +287,10 @@ export default function AdminKeywords() {
     setBusyId(kw.id);
     toast.info(`Probando "${kw.keyword}"…`);
     try {
-      const r: any = await invoke("test_now", { keyword: kw.keyword });
+      const r: unknown = await invoke("test_now", { keyword: kw.keyword });
       toast.success(`Scraping: ${r.result?.found ?? 0} anuncios encontrados`);
       load();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: unknown) { toast.error(e.message); }
     finally { setBusyId(null); }
   };
 
@@ -460,7 +460,7 @@ export default function AdminKeywords() {
             {[{v:"all",l:"Todas"},{v:"productive",l:"Productivas"},{v:"dead",l:"Sin resultados"},{v:"paused",l:"Pausadas"}].map((f) => (
               <button
                 key={f.v}
-                onClick={() => setEngineFilter(f.v as any)}
+                onClick={() => setEngineFilter(f.v as unknown)}
                 className={`px-2 h-6 rounded-md text-[10px] font-medium transition ${
                   engineFilter === f.v ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
                 }`}
@@ -618,7 +618,7 @@ export default function AdminKeywords() {
           ].map((f) => (
             <button
               key={f.v}
-              onClick={() => setFilterStatus(f.v as any)}
+              onClick={() => setFilterStatus(f.v as unknown)}
               className={`px-3 h-7 rounded-lg text-xs font-medium transition ${
                 filterStatus === f.v ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
               }`}

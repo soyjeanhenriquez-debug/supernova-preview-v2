@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Brain, Trash2, ArrowRight, CheckCircle2, Circle, Sparkles, Loader2, Plus } from "lucide-react";
+import { Brain, Trash2, ArrowRight, CheckCircle2, Circle, Sparkles, Loader2, Plus, Copy } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { useProjects, PILLARS, type BrainProject } from "@/hooks/useProjects";
@@ -96,6 +96,7 @@ function ProjectDetail({ proj, onClose, togglePillar, setNote }: { proj: BrainPr
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">Cerrar</button>
         </div>
         <div className="p-6 overflow-y-auto space-y-3">
+          <SavedAssets context={proj.context} />
           {PILLARS.map((pillar) => (
             <PillarBlock
               key={pillar.id}
@@ -107,6 +108,50 @@ function ProjectDetail({ proj, onClose, togglePillar, setNote }: { proj: BrainPr
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Muestra los assets que se generaron al crear la app (Blueprint + Mega-Prompt),
+ *  guardados en project.context, para que el usuario los reencuentre y recopie. */
+function SavedAssets({ context }: { context: unknown }) {
+  const ctx = (context ?? {}) as { blueprint?: string; miniapp?: string; salesPath?: "whatsapp" | "vsl"; salesScript?: string };
+  const [openKey, setOpenKey] = useState<"miniapp" | "blueprint" | "vender" | null>(ctx.salesScript ? "vender" : "miniapp");
+  if (!ctx.miniapp && !ctx.blueprint) return null;
+
+  const copy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copiado — pégalo en Lovable o Claude");
+  };
+
+  const ventaLabel = ctx.salesPath === "whatsapp" ? "📱 Guion de WhatsApp · cobro manual" : "🎥 Guion de VSL · cobro automático";
+
+  const items = [
+    { key: "vender" as const, label: ventaLabel, content: ctx.salesScript },
+    { key: "miniapp" as const, label: "🧬 Mega-Prompt · Mini App + embudo", content: ctx.miniapp },
+    { key: "blueprint" as const, label: "🎯 Por qué gana · Blueprint", content: ctx.blueprint },
+  ].filter((i) => i.content);
+
+  return (
+    <div className="space-y-2 mb-4">
+      <div className="text-[10px] uppercase tracking-widest text-primary font-bold">Lo que generaste</div>
+      {items.map((i) => (
+        <div key={i.key} className="border border-primary/25 rounded-lg overflow-hidden bg-primary/5">
+          <div className="flex items-center justify-between px-3 py-2">
+            <button onClick={() => setOpenKey(openKey === i.key ? null : i.key)} className="text-xs font-semibold text-primary text-left">
+              {i.label}
+            </button>
+            <button onClick={() => copy(i.content!)} className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline shrink-0">
+              <Copy className="w-3 h-3" /> Copiar
+            </button>
+          </div>
+          {openKey === i.key && (
+            <div className="max-h-72 overflow-y-auto px-3 pb-3 prose prose-invert prose-sm max-w-none prose-headings:text-primary prose-headings:text-sm prose-p:text-xs prose-li:text-xs">
+              <ReactMarkdown>{i.content!}</ReactMarkdown>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -179,8 +224,8 @@ function PillarBlock({
         }
       }
       toast.success("✓ Guía generada");
-    } catch (e: any) {
-      toast.error(e.message || "Error generando guía");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error generando guía");
     } finally { setLoading(false); }
   };
 

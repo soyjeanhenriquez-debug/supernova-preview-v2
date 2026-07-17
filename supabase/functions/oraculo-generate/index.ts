@@ -2,13 +2,16 @@
 // Toma el informe de inteligencia y produce contenido específico según `kind`.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
-type Kind = "creativos" | "landing" | "avatar" | "funnel" | "master_prompt";
+type Kind = "creativos" | "landing" | "avatar" | "funnel" | "master_prompt" | "whatsapp_script" | "vsl_prompt";
 
 interface Body {
   kind: Kind;
   analysis: string;
   brand?: string;
   url?: string;
+  /** Solo para whatsapp_script: país/moneda del vendedor para precio y método de cobro. */
+  country?: string;
+  currency?: string;
 }
 
 const PROMPTS: Record<Kind, { system: string; user: (b: Body) => string }> = {
@@ -318,7 +321,85 @@ Dame:
 3. Copia PROMPT 3 → revisa con un LLM razonador antes de invertir más
 4. Vuelve a SUPERNOVA y pide feedback de la comunidad antes de escalar`,
   },
+  whatsapp_script: {
+    system:
+      "Eres un vendedor experto en cierre por WhatsApp para LATAM, especializado en cobro manual (transferencia/app local), en español latinoamericano. Devuelve SOLO Markdown listo para copiar y pegar en WhatsApp, sin preámbulos.",
+    user: (b) => `A partir de este informe de inteligencia de la oferta de ${b.brand ?? b.url ?? "el competidor"}, arma el guion de venta por WhatsApp de una versión propia de este negocio, con cobro manual en ${paymentHint(b.country, b.currency).label}.
+
+INFORME:
+${b.analysis}
+
+MÉTODOS DE COBRO DISPONIBLES EN ESE PAÍS: ${paymentHint(b.country, b.currency).methods}
+
+FORMATO EXACTO:
+
+## 💵 Precio sugerido
+[Precio único en ${paymentHint(b.country, b.currency).currency}, redondo y realista para ese mercado, con 1 línea justificando por qué ese precio funciona]
+
+## 👋 Mensaje de apertura (primer contacto)
+[Mensaje corto, 3-4 líneas, hook + pregunta que abre conversación — NO vende todavía]
+
+## 🎯 Presentación de la oferta
+[Mensaje de seguimiento cuando responden: qué es, qué resuelve, 3 beneficios concretos — 5-6 líneas, tono cercano de WhatsApp, no de anuncio]
+
+## 🙅 Las 2 objeciones más comunes
+**"[objeción 1 literal, ej: está caro / no sé si funciona]"**
+→ [respuesta lista para copiar y pegar]
+
+**"[objeción 2 literal]"**
+→ [respuesta lista para copiar y pegar]
+
+## ✅ Mensaje de cierre + cómo pagar
+[Mensaje que pide el pago, menciona el precio y explica EXACTAMENTE cómo pagar usando los métodos de cobro de arriba — número/cuenta como placeholder "[tu número Nequi/cuenta]"]
+
+## 🔁 Mensaje de seguimiento (si no responde en 24h)
+[Mensaje corto de reenganche, sin sonar desesperado]
+
+## 📌 Recordatorio
+Copia estos mensajes, reemplaza los placeholders con tus datos reales de cobro, y empieza a mandarlos hoy mismo a tu lista de contactos o grupos de WhatsApp.`,
+  },
+  vsl_prompt: {
+    system:
+      "Eres un guionista de VSL (video sales letter) de direct response en español latinoamericano, experto en cierre corto de 5-7 minutos. Devuelve SOLO Markdown listo para grabar, sin preámbulos.",
+    user: (b) => `A partir de este informe de inteligencia de la oferta de ${b.brand ?? b.url ?? "el competidor"}, escribe el guion completo de una VSL de 5-7 minutos para una versión propia y mejorada de este negocio, con cobro automático vía link de pago.
+
+INFORME:
+${b.analysis}
+
+FORMATO EXACTO:
+
+## 🎬 Guion VSL completo (con timestamps)
+[Guion palabra por palabra desde 0:00 hasta el cierre, marcando minutos aproximados: 0:00 Hook, 0:30 Problema, 1:30 Agitación, 2:30 Mecanismo único, 4:00 Prueba/autoridad, 5:00 Oferta y precio, 6:00 Garantía, 6:30 CTA final]
+
+## 🎥 Cómo grabarla sin equipo
+[3-4 líneas: grabar con el celular o pantalla (Loom/CapCut), sin necesidad de estudio ni editor profesional]
+
+## 🔗 Conectar el cobro automático (Whop)
+1. Crea un producto de pago único o suscripción en Whop con el precio de esta oferta.
+2. Copia el link de checkout que te da Whop.
+3. Pega ese link en la descripción del video y dilo en voz alta en el minuto 6:00 ("el link está justo debajo de este video").
+4. Sube el video a YouTube (no listado) o a una página simple, y comparte ese link donde publiques tu VSL.
+
+## 📌 Recordatorio
+No necesitas una landing compleja: el video + el link de pago de Whop ya es un funnel completo para empezar a cobrar esta semana.`,
+  },
 };
+
+/** Métodos de cobro manual reales por país, para que la IA no invente apps que no existen ahí. */
+function paymentHint(country?: string, currency?: string): { label: string; methods: string; currency: string } {
+  const key = (country ?? currency ?? "").toUpperCase();
+  const map: Record<string, { label: string; methods: string; currency: string }> = {
+    CO: { label: "Colombia (COP)", methods: "Nequi, Daviplata o transferencia Bancolombia", currency: "COP" },
+    COP: { label: "Colombia (COP)", methods: "Nequi, Daviplata o transferencia Bancolombia", currency: "COP" },
+    DO: { label: "República Dominicana (DOP)", methods: "transferencia Banco Popular, BHD o Banreservas", currency: "DOP" },
+    DOP: { label: "República Dominicana (DOP)", methods: "transferencia Banco Popular, BHD o Banreservas", currency: "DOP" },
+    MX: { label: "México (MXN)", methods: "transferencia SPEI, Mercado Pago o depósito OXXO", currency: "MXN" },
+    MXN: { label: "México (MXN)", methods: "transferencia SPEI, Mercado Pago o depósito OXXO", currency: "MXN" },
+    US: { label: "Estados Unidos (USD)", methods: "Zelle, PayPal o Venmo", currency: "USD" },
+    USD: { label: "dólares (USD)", methods: "Zelle, PayPal o Venmo", currency: "USD" },
+  };
+  return map[key] ?? { label: "su país", methods: "PayPal o Wise (transferencia internacional)", currency: "USD" };
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });

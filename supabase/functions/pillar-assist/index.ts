@@ -1,5 +1,6 @@
 // SUPERNOVA — Asistente IA por Pilar (streaming SSE)
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+// eslint-disable @typescript-eslint/no-explicit-any
 
 interface Payload {
   projectName: string;
@@ -8,7 +9,7 @@ interface Payload {
   pillarName: string;
   pillarDesc: string;
   notes?: string;
-  context?: any;
+  context?: unknown;
   previousNotes?: Record<number, string>;
 }
 

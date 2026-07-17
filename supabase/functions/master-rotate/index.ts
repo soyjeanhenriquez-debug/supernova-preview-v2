@@ -2,6 +2,7 @@
 // Picks N least-recently-run keywords from master_keyword_state, calls search-winning-ads, updates stats.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+// eslint-disable @typescript-eslint/no-explicit-any
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,10 +36,10 @@ const MASTER: Record<string, string[]> = {
   ],
 };
 
-async function seedIfNeeded(admin: any) {
+async function seedIfNeeded(admin: unknown) {
   const { count } = await admin.from("master_keyword_state").select("*", { count: "exact", head: true });
   if ((count ?? 0) > 0) return 0;
-  const rows: any[] = [];
+  const rows: unknown[] = [];
   for (const [tier, list] of Object.entries(MASTER)) {
     for (const kw of list) rows.push({ keyword: kw, source_tier: tier });
   }
@@ -53,8 +54,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-  let body: any = {};
-  try { body = await req.json(); } catch {}
+  let body: unknown = {};
+  try { body = await req.json(); } catch (e) { console.error("JSON parse error:", e); }
   const batchSize = Math.min(20, Math.max(1, Number(body.batch_size) || BATCH_SIZE));
   const triggeredBy = String(body.triggered_by || "cron");
 
@@ -70,7 +71,7 @@ serve(async (req) => {
   if (pickErr) {
     return new Response(JSON.stringify({ error: pickErr.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
-  const keywords = (candidates || []).map((c: any) => c.keyword);
+  const keywords = (candidates || []).map((c: unknown) => c.keyword);
   if (keywords.length === 0) {
     return new Response(JSON.stringify({ ok: true, seeded, message: "No keywords to run" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
@@ -104,7 +105,7 @@ serve(async (req) => {
     });
     scrapeOk = resp.ok;
     if (!resp.ok) scrapeErr = `scraper ${resp.status}: ${await resp.text()}`;
-  } catch (e: any) {
+  } catch (e: unknown) {
     scrapeErr = e.message;
   }
 

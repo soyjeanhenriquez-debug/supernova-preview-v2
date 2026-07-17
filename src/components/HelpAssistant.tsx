@@ -44,7 +44,7 @@ export function HelpAssistant() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-30))); } catch {}
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-30))); } catch (e) { console.error("Failed to save messages", e); }
   }, [messages]);
 
   useEffect(() => {
@@ -115,7 +115,7 @@ export function HelpAssistant() {
                 return copy;
               });
             }
-          } catch {}
+          } catch (e) { console.error("Failed to parse streaming response", e); }
         }
       }
     } catch (e) {

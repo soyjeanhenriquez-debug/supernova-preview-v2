@@ -6,11 +6,12 @@
 // Se dispara por cron (send-daily-digest-cron). Modo dry-run automático si no
 // hay RESEND_API_KEY: no envía, solo reporta a quién enviaría.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// eslint-disable @typescript-eslint/no-explicit-any
 
 const APP_URL = "https://supernova-six-eta.vercel.app";
 const FROM = "SUPERNOVA <noreply@supernova.app>"; // ajustar al dominio verificado en Resend
 
-function digestHtml(name: string, ad: any, unsubToken: string): string {
+function digestHtml(name: string, ad: unknown, unsubToken: string): string {
   const body = String(ad.ad_body ?? ad.ad_title ?? "").slice(0, 240);
   return `<!doctype html><html><body style="margin:0;background:#0B0B0C;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#F5F5F7">
   <div style="max-width:520px;margin:0 auto;padding:32px 24px">

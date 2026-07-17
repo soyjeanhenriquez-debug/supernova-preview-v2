@@ -94,7 +94,7 @@ export function useCredits() {
 
     // Otorgar mensual si toca (idempotente)
     await supabase.rpc("grant_monthly_if_due").then(({ data }) => {
-      if ((data as any)?.granted) {
+      if ((data as unknown)?.granted) {
         toast("✨ Créditos mensuales renovados", { description: `+${DEFAULT_BALANCE} créditos disponibles` });
       }
     });
@@ -125,7 +125,7 @@ export function useCredits() {
         action: t.action as CreditAction,
         label: t.label || ACTION_LABEL[t.action as CreditAction] || t.action,
         cost: t.cost,
-        meta: (t.meta as any)?.note,
+        meta: (t.meta as unknown)?.note,
       }));
       setHistory(mapped);
       localStorage.setItem(HIST_KEY, JSON.stringify(mapped));
@@ -162,7 +162,7 @@ export function useCredits() {
       p_label: ACTION_LABEL[action],
       p_meta: meta ? { note: meta } : {},
     }).then(({ data, error }) => {
-      const result = data as any;
+      const result = data as unknown;
       if (error || !result?.success) {
         // Rollback si falla
         setBalance(prev);
@@ -176,19 +176,6 @@ export function useCredits() {
 
   const canAfford = (action: CreditAction) => balance >= CREDIT_COSTS[action];
 
-  const refill = useCallback(async (amount: number) => {
-    const uid = userIdRef.current;
-    if (!uid) return;
-    // Self-refill solo via admin RPC en su propio usuario no permitido; usar UPDATE directo (RLS uc_admin_all)
-    // o desde la página de packs vía edge function. Para mantener compat: hacemos UPDATE optimista + refresh.
-    const next = balance + amount;
-    setBalance(next);
-    await supabase.from("user_credits")
-      .update({ balance: next })
-      .eq("user_id", uid);
-    refreshFromDB();
-  }, [balance, refreshFromDB]);
-
   return {
     balance,
     monthly: Math.min(balance, DEFAULT_BALANCE),
@@ -198,6 +185,5 @@ export function useCredits() {
     history,
     consume,
     canAfford,
-    refill,
   };
 }

@@ -19,15 +19,15 @@ interface AdminUser {
 }
 
 interface UserDetail {
-  user: any;
+  user: unknown;
   roles: Role[];
-  profile: any;
-  transactions: any[];
-  history: any[];
-  analyses: any[];
+  profile: unknown;
+  transactions: unknown[];
+  history: unknown[];
+  analyses: unknown[];
 }
 
-async function call(action: string, payload: Record<string, any> = {}) {
+async function call(action: string, payload: Record<string, unknown> = {}) {
   const { data, error } = await supabase.functions.invoke("admin-users", {
     body: { action, ...payload },
   });
@@ -69,7 +69,7 @@ export default function AdminUsers() {
     try {
       const data = await call("list", { page: 1, perPage: 200 });
       setUsers(data.users);
-    } catch (e: any) {
+    } catch (e: unknown) {
       toast.error(e.message || "Error cargando usuarios");
     } finally {
       setLoading(false);
@@ -257,21 +257,21 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: string; onClo
     try {
       const data = await call("detail", { userId });
       setD(data);
-    } catch (e: any) {
+    } catch (e: unknown) {
       toast.error(e.message);
     } finally { setLoading(false); }
   }, [userId]);
 
   useEffect(() => { load(); }, [load]);
 
-  const run = async (action: string, payload: any = {}, msg = "Hecho") => {
+  const run = async (action: string, payload: Record<string, unknown> = {}, msg = "Hecho") => {
     setBusy(true);
     try {
       await call(action, { userId, ...payload });
       toast.success(msg);
       await load();
       onChanged();
-    } catch (e: any) {
+    } catch (e: unknown) {
       toast.error(e.message);
     } finally { setBusy(false); }
   };
@@ -388,10 +388,10 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: string; onClo
               </h3>
               <div className="rounded-xl border border-border divide-y divide-border max-h-72 overflow-auto">
                 {([
-                  ...d.transactions.map((t: any) => ({ type: "credit", at: t.created_at, label: t.label || t.action, value: t.cost })),
-                  ...d.history.map((h: any) => ({ type: "ad", at: h.visited_at, label: `Vio ad: ${h.title || h.page_name || "anuncio"}` })),
-                  ...d.analyses.map((a: any) => ({ type: "landing", at: a.created_at, label: `Analizó ${a.domain}` })),
-                ] as any[])
+                  ...d.transactions.map((t: unknown) => ({ type: "credit", at: t.created_at, label: t.label || t.action, value: t.cost })),
+                  ...d.history.map((h: unknown) => ({ type: "ad", at: h.visited_at, label: `Vio ad: ${h.title || h.page_name || "anuncio"}` })),
+                  ...d.analyses.map((a: unknown) => ({ type: "landing", at: a.created_at, label: `Analizó ${a.domain}` })),
+                ] as unknown[])
                   .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
                   .slice(0, 30)
                   .map((e, i) => (

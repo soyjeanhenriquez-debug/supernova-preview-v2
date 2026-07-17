@@ -39,7 +39,7 @@ export default function AdminHealth() {
       // 4. Usuarios suspendidos
       const susp = await supabase.from("user_roles")
         .select("user_id", { count: "exact", head: true })
-        .eq("role", "suspended" as any);
+        .eq("role", "suspended" as unknown);
       out.push({
         name: "Usuarios suspendidos",
         ok: true,

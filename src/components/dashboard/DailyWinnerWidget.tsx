@@ -15,7 +15,7 @@ const FLAGS: Record<string, string> = {
   BR: "🇧🇷", PT: "🇵🇹", DE: "🇩🇪", AT: "🇦🇹", CH: "🇨🇭", RU: "🇷🇺", KZ: "🇰🇿",
 };
 
-function rowToDemoAd(r: any): DemoAd {
+function rowToDemoAd(r: unknown): DemoAd {
   const market = (r.market ?? "US") as AdMarket;
   const title = r.ad_title ?? r.page_name ?? "Anuncio";
   const rawUrl = r.ad_url ?? buildAdsLibrarySearchUrl(r.page_name ?? title, market);
@@ -51,8 +51,8 @@ export function DailyWinnerWidget() {
   useEffect(() => {
     (async () => {
       const [{ data: winner }, { data: t }] = await Promise.all([
-        supabase.rpc("get_daily_winner" as any),
-        supabase.rpc("get_market_trends" as any),
+        supabase.rpc("get_daily_winner" as unknown),
+        supabase.rpc("get_market_trends" as unknown),
       ]);
       const row = Array.isArray(winner) ? winner[0] : winner;
       if (row) setAd(rowToDemoAd(row));

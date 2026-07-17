@@ -73,7 +73,7 @@ export function useDailyMission() {
       p_mission_date: new Date().toISOString().slice(0, 10),
       p_amount: 50,
     });
-    const result = data as any;
+    const result = data as unknown;
     if (result?.success) {
       const next = { ...progress, claimed: true };
       write(next);

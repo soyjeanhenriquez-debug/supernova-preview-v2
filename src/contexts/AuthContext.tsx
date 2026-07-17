@@ -22,19 +22,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    let resolved = false;
+    const apply = (session: Session | null) => {
+      resolved = true;
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-    });
+    };
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => apply(session));
 
-    return () => subscription.unsubscribe();
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => apply(session))
+      .catch((e) => {
+        // Si getSession falla (p. ej. una extensión bloquea la request),
+        // no dejamos al usuario colgado: caemos al estado no autenticado.
+        console.error("getSession falló:", e);
+        setLoading(false);
+      });
+
+    // Failsafe: si en 8s nada resolvió (red bloqueada, token corrupto), salimos
+    // del spinner infinito y mostramos landing/login en vez de "Cargando…".
+    const failsafe = setTimeout(() => {
+      if (!resolved) {
+        console.warn("Auth: timeout de inicialización, mostrando estado no autenticado.");
+        setLoading(false);
+      }
+    }, 8000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(failsafe);
+    };
   }, []);
 
   const signOut = async () => {

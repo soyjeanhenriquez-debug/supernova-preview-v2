@@ -36,24 +36,31 @@ const MINER_ROWS: Row[] = [
 const BUILDER_ROWS: Row[] = [
   {
     num: "/01",
-    title: "Sofisticar: clona lo que ya vende",
-    body: "Tomas la oferta ganadora y SUPERNOVA la adapta a tu mercado, tu idioma y tu ángulo. Mismo mecanismo probado, versión tuya.",
+    title: "Sofisticar: clona lo que ya factura",
+    body: "Tomas el negocio que ya funciona en un mercado grande y SUPERNOVA lo adapta a tu idioma, tu país y tu ángulo. Mismo modelo probado, versión tuya.",
     stat: "1 clic",
-    statLabel: "De espiada a tuya",
+    statLabel: "De ajeno a tuyo",
   },
   {
     num: "/02",
-    title: "El Oráculo descifra el embudo completo",
-    body: "Pegas la landing del competidor y te devuelve el avatar, la promesa, las objeciones y la estructura de la página. Lo que un consultor te cobraría en semanas.",
+    title: "El Oráculo descifra el negocio completo",
+    body: "Pegas la landing y te devuelve el avatar, la promesa, el precio y la estructura completa. Lo que te tomaría semanas de prueba y error, en 3 minutos.",
     stat: "3 min",
     statLabel: "Análisis completo",
   },
   {
     num: "/03",
-    title: "Generadores de copy, landing y funnel",
-    body: "Ad copies, avatar del comprador, landing page, secuencia de emails, VSL. Todo generado desde el ángulo ganador que acabas de copiar. Sin diseñador, copywriter ni programador.",
+    title: "Generadores para lanzar sin equipo",
+    body: "Copy, landing, avatar, secuencia de emails, VSL. Todo generado desde el modelo que copiaste. Sin diseñador, copywriter ni programador.",
     stat: "18",
     statLabel: "Generadores listos",
+  },
+  {
+    num: "/04",
+    title: "Cóbralo en tu moneda, esta semana",
+    body: "Pesos, dólares o lo que uses en tu país. Por WhatsApp con cobro manual, o con un link de pago automático — tú eliges. Tu negocio recurrente arranca donde tú vendes, no donde vende Silicon Valley.",
+    stat: "COP·DOP·USD",
+    statLabel: "Tu moneda, tu forma de cobrar",
   },
 ];
 
@@ -126,7 +133,7 @@ export function MinerEngine() {
         <>
           Esto <span className="italic text-[#86868B]">no</span> es un spy tool.
           <br />
-          Es un <span className="text-[#C5A880]">radar curado.</span>
+          Es tu <span className="text-[#C5A880]">radar de mercados grandes.</span>
         </>
       }
       rows={MINER_ROWS}
@@ -143,10 +150,10 @@ export function BuilderEngine() {
         <>
           No solo la encuentras.
           <br />
-          La <span className="text-[#C5A880]">relanzas.</span>
+          <span className="text-[#C5A880]">Montas tu negocio recurrente.</span>
         </>
       }
-      intro="Encontrar la ganadora es la mitad del trabajo. La otra mitad — el ángulo, el copy, el avatar, el funnel — la hace SUPERNOVA por ti, en minutos."
+      intro="Encontrar el negocio que funciona es la mitad del trabajo. La otra mitad — adaptarlo, lanzarlo y cobrarlo en tu moneda — la hace SUPERNOVA contigo, esta semana."
       rows={BUILDER_ROWS}
     />
   );

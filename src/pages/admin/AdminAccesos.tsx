@@ -56,7 +56,7 @@ export default function AdminAccesos() {
     refreshAll();
     const channel = supabase
       .channel("access_requests_realtime")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "access_requests" }, (payload: any) => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "access_requests" }, (payload: Record<string, unknown>) => {
         toast.info(`⚡ Nueva solicitud: ${payload.new.email}`);
         refreshAll();
       })
@@ -70,11 +70,11 @@ export default function AdminAccesos() {
       p_notes: `Aprobado desde panel el ${new Date().toLocaleDateString()}`,
     });
     if (error) { toast.error(error.message); return; }
-    if ((data as any)?.success) {
+    if ((data as { success?: boolean })?.success) {
       toast.success(`✅ ${email} aprobado`);
       refreshAll();
     } else {
-      toast.error((data as any)?.error || "No se pudo aprobar");
+      toast.error((data as { error?: string })?.error || "No se pudo aprobar");
     }
   }
 

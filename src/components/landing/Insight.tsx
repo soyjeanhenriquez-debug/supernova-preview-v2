@@ -10,38 +10,38 @@ export function Insight() {
             — El insight
           </p>
           <h2 className="font-['Playfair_Display',serif] text-3xl font-medium leading-[1.2] text-[#F5F5F7] sm:text-5xl">
-            Encontrar la oferta es{" "}
-            <span className="text-[#C5A880]">el 80%.</span>
+            Otros ya gastaron miles{" "}
+            <span className="text-[#C5A880]">probando.</span>
             <br />
-            El otro 20% te comía{" "}
-            <span className="italic text-[#86868B]">semanas.</span>
+            Tú solo copias{" "}
+            <span className="italic text-[#86868B]">lo que funcionó.</span>
           </h2>
         </FadeIn>
 
         <FadeIn delay={0.15}>
           <div className="mt-14 grid gap-10 font-[Inter,sans-serif] text-sm font-light leading-relaxed text-[#86868B] sm:grid-cols-2">
             <p>
-              Modelar una oferta que{" "}
+              Montar un negocio recurrente desde cero significa{" "}
               <span className="font-normal text-[#F5F5F7]">
-                ya está vendiendo
+                probar precios y ángulos a ciegas
               </span>{" "}
-              le gana a inventar la tuya el 100% de las veces. Pregúntale a
-              cualquiera que ya factura: nadie inventa, todos modelan.
+              — semanas y cientos de dólares en anuncios antes de saber si
+              algo va a funcionar.
             </p>
             <div>
               <p>
-                Pero encontrarla te tomaba{" "}
+                SUPERNOVA te muestra qué{" "}
                 <span className="font-normal text-[#F5F5F7]">
-                  un sábado entero
+                  ya está facturando
                 </span>{" "}
-                scrolleando Meta Ad Library, esquivando dropshipping, MLM y
-                cripto. Y aun encontrándola, faltaba lo caro: descifrar el
-                ángulo, el gancho y el embudo detrás.
+                en mercados grandes — USA, Brasil, España — validado con miles
+                de dólares en anuncios reales de otros. Tú lo copias, lo
+                adaptas a tu país y lo cobras en tu moneda.
               </p>
               <p className="mt-6 text-[#C5A880]">
-                SUPERNOVA cierra las dos puntas: JARVIS encuentra la ganadora y
-                sus generadores te arman el copy, el avatar y el funnel la
-                misma tarde.
+                SUPERNOVA cierra las dos puntas: encuentra el negocio que ya
+                funciona y te da todo para cobrarlo en tu mercado, esta
+                semana.
               </p>
             </div>
           </div>

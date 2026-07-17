@@ -22,7 +22,7 @@ export interface BrainProject {
   createdAt: string;
   updatedAt: string;
   notes: Record<number, string>;
-  context?: any;
+  context?: unknown;
 }
 
 function read(): BrainProject[] {

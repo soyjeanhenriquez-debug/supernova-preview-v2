@@ -21,9 +21,9 @@ export function ProjectThumb({ seed, className = "" }: Props) {
     <div
       className={`brain-thumb ${className}`}
       style={{
-        ["--th-c1" as any]: `${h1} ${s1}% ${l1}%`,
-        ["--th-c2" as any]: `${h2} 85% 48%`,
-        ["--th-c3" as any]: `${h3} 92% 55%`,
+        ["--th-c1" as unknown]: `${h1} ${s1}% ${l1}%`,
+        ["--th-c2" as unknown]: `${h2} 85% 48%`,
+        ["--th-c3" as unknown]: `${h3} 92% 55%`,
       }}
     >
       <div className="brain-thumb-spark" />

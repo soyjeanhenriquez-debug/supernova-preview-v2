@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// eslint-disable @typescript-eslint/no-explicit-any
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,7 +28,7 @@ serve(async (req) => {
 
     if (keywords.length === 0) {
       const { data: kw } = await supabaseAdmin.from("keywords").select("keyword").eq("is_active", true);
-      keywords = (kw || []).map((k: any) => k.keyword);
+      keywords = (kw || []).map((k: unknown) => k.keyword);
     }
 
     if (keywords.length === 0) {
@@ -40,7 +41,7 @@ serve(async (req) => {
 
     for (const keyword of keywords.slice(0, 10)) {
       try {
-        let adsFound: any[] = [];
+        const adsFound: unknown[] = [];
 
         if (FIRECRAWL_API_KEY) {
           const searchResponse = await fetch("https://api.firecrawl.dev/v1/search", {

@@ -164,13 +164,14 @@ export default function SignupPage() {
                 — Cuenta gratis
               </p>
               <h1 className="font-['Playfair_Display',serif] text-4xl font-medium leading-[1.1] sm:text-5xl">
-                Empieza a copiar
+                Tu negocio recurrente
                 <br />
-                ofertas <span className="italic text-[#C5A880]">ganadoras.</span>
+                <span className="italic text-[#C5A880]">arranca esta semana.</span>
               </h1>
               <p className="mt-5 font-[Inter,sans-serif] text-sm font-light leading-relaxed text-[#86868B]">
                 Te creamos la cuenta en 30 segundos. 7 días gratis con acceso
-                completo al radar y los generadores.
+                completo al radar de ofertas y las herramientas para cobrar en
+                tu moneda.
               </p>
 
               <form onSubmit={startQuiz} className="mt-10 space-y-5">

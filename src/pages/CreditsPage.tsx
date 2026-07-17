@@ -11,7 +11,7 @@ const PACKS = [
 ];
 
 export function CreditsPage() {
-  const { balance, monthly, purchased, limit, renewalDate, history, refill } = useCredits();
+  const { balance, monthly, purchased, limit, renewalDate, history } = useCredits();
   // Anillo: progreso del saldo mensual (los comprados se muestran aparte)
   const pct = (monthly / limit) * 100;
 
@@ -68,10 +68,6 @@ export function CreditsPage() {
 
           {/* Proyección de consumo */}
           <ProjectionBadge projection={projection} onRecharge={scrollToPacks} />
-
-          <button onClick={() => { refill(500); toast.success("+500 créditos demo añadidos"); }} className="mt-4 text-[11px] text-muted-foreground hover:text-primary transition">
-            + Añadir 500 créditos demo
-          </button>
         </div>
 
         <div className="card-surface rounded-xl p-6 lg:col-span-2">

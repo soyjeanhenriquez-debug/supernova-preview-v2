@@ -42,7 +42,7 @@ export function useGamification() {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) { setState(s => ({ ...s, loading: false })); return; }
       const { data: login } = await supabase.rpc("register_daily_login");
-      const result = login as any;
+      const result = login as unknown;
       if (result?.milestone && STREAK_MILESTONES[result.milestone]) {
         const opts = result?.reward
           ? { description: `+${result.reward} ⚡ créditos añadidos a tu cuenta`, duration: 8000 }
@@ -61,7 +61,7 @@ export function useGamification() {
     if (amount <= 0) return;
     const prevLevel = state.level;
     const { data } = await supabase.rpc("add_xp", { p_amount: amount });
-    const result = data as any;
+    const result = data as unknown;
     if (result && !result.error) {
       const newLevel = result.level;
       setState(s => ({ ...s, xp: result.xp, level: newLevel, badges: result.badges ?? s.badges }));
@@ -74,7 +74,7 @@ export function useGamification() {
   const unlockBadge = useCallback(async (badge: string) => {
     if (state.badges.includes(badge)) return;
     const { data } = await supabase.rpc("unlock_badge", { p_badge: badge });
-    const result = data as any;
+    const result = data as unknown;
     if (result?.new) {
       setState(s => ({ ...s, badges: result.badges }));
     }

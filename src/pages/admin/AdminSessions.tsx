@@ -55,8 +55,8 @@ export default function AdminSessions() {
   const terminate = async (userId: string) => {
     if (!confirm("¿Terminar la sesión de este usuario?")) return;
     const { data, error } = await supabase.rpc("admin_terminate_session", { p_target_user_id: userId });
-    if (error || !(data as any)?.success) {
-      toast.error((data as any)?.error || "Error");
+    if (error || !(data as { success?: boolean })?.success) {
+      toast.error((data as { error?: string })?.error || "Error");
     } else {
       toast.success("Sesión terminada");
       load();

@@ -283,7 +283,7 @@ export function WinningAdsPage() {
       const { data: pages } = await supabase
         .from("winning_ads").select("page_id").not("page_id", "is", null).limit(5000);
       if (cancelled) return;
-      const unique = new Set((pages ?? []).map((r: any) => r.page_id)).size;
+      const unique = new Set((pages ?? []).map((r: unknown) => r.page_id)).size;
       setLiveStats({
         total: total ?? 0, unique,
         mega: mega ?? 0, rising: rising ?? 0, solid: solid ?? 0,
@@ -347,7 +347,7 @@ export function WinningAdsPage() {
       if (cancelled) return;
       if (error) { setLoadingReal(false); return; }
 
-      const mapped: DemoAd[] = (data ?? []).map((r: any, i: number) => {
+      const mapped: DemoAd[] = (data ?? []).map((r: unknown, i: number) => {
         const adMarket = (r.market ?? "US") as AdMarket;
         const title = r.ad_title ?? r.page_name ?? "Anuncio";
         const body = r.ad_body ?? r.ad_description ?? "";

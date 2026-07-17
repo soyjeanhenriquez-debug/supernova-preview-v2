@@ -32,9 +32,9 @@ export function SofisticarModal({ ad, onClose }: Props) {
   }, [streamText]);
 
   const run = async (action: "sofisticar" | "adaptar" | "blueprint") => {
-    if (!canAfford(action as any)) { toast.error("Sin créditos suficientes"); return; }
+    if (!canAfford(action as "sofisticar" | "adaptar" | "blueprint")) { toast.error("Sin créditos suficientes"); return; }
     setLoading(true); setStreamText("");
-    consume(action as any, ad.title);
+    consume(action as "sofisticar" | "adaptar" | "blueprint", ad.title);
 
     try {
       const payload = {
@@ -79,7 +79,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
         }
       }
       toast.success("✓ Análisis completado");
-    } catch (e: any) {
+    } catch (e: unknown) {
       toast.error(e.message || "Error generando análisis");
     } finally { setLoading(false); }
   };
@@ -88,7 +88,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
     const projectMode = mode === "blueprint" ? "blueprint" : mode === "adaptar" ? "sofisticar" : "sofisticar";
     create({
       name: ad.title.slice(0, 50),
-      mode: projectMode as any,
+      mode: projectMode as "sofisticar" | "crear" | "blueprint",
       context: { ad, analysis: streamText, mode },
     });
     toast.success("✓ Guardado en SUPERNOVA BRAIN");

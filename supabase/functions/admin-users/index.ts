@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+// eslint-disable @typescript-eslint/no-explicit-any
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,22 +63,22 @@ serve(async (req) => {
         ]);
 
       const rolesMap = new Map<string, string[]>();
-      roles?.forEach((r: any) => {
+      roles?.forEach((r: unknown) => {
         const arr = rolesMap.get(r.user_id) || [];
         arr.push(r.role);
         rolesMap.set(r.user_id, arr);
       });
 
-      const profMap = new Map(profiles?.map((p: any) => [p.user_id, p]) || []);
+      const profMap = new Map(profiles?.map((p: unknown) => [p.user_id, p]) || []);
 
       const spendMap = new Map<string, number>();
       const lastActMap = new Map<string, string>();
-      txs?.forEach((t: any) => {
+      txs?.forEach((t: unknown) => {
         spendMap.set(t.user_id, (spendMap.get(t.user_id) || 0) + (t.cost || 0));
         const cur = lastActMap.get(t.user_id);
         if (!cur || t.created_at > cur) lastActMap.set(t.user_id, t.created_at);
       });
-      history?.forEach((h: any) => {
+      history?.forEach((h: unknown) => {
         const cur = lastActMap.get(h.user_id);
         if (!cur || h.visited_at > cur) lastActMap.set(h.user_id, h.visited_at);
       });
@@ -87,7 +88,7 @@ serve(async (req) => {
         email: u.email,
         created_at: u.created_at,
         last_sign_in_at: u.last_sign_in_at,
-        banned_until: (u as any).banned_until,
+        banned_until: (u as unknown).banned_until,
         confirmed_at: u.confirmed_at,
         roles: rolesMap.get(u.id) || ["user"],
         profile: profMap.get(u.id) || null,
@@ -95,7 +96,7 @@ serve(async (req) => {
         last_activity_at: lastActMap.get(u.id) || u.last_sign_in_at || u.created_at,
       }));
 
-      return json({ users, total: (list as any).total ?? users.length });
+      return json({ users, total: (list as unknown).total ?? users.length });
     }
 
     if (action === "detail") {
@@ -112,7 +113,7 @@ serve(async (req) => {
         ]);
       return json({
         user: u.user,
-        roles: roles?.map((r: any) => r.role) || [],
+        roles: roles?.map((r: unknown) => r.role) || [],
         profile,
         transactions: txs || [],
         history: history || [],
@@ -151,7 +152,7 @@ serve(async (req) => {
       const hours = Number(body.hours ?? 8760); // default 1 year
       const { error } = await admin.auth.admin.updateUserById(userId, {
         ban_duration: `${hours}h`,
-      } as any);
+      } as unknown);
       if (error) throw error;
       return json({ ok: true });
     }
@@ -160,7 +161,7 @@ serve(async (req) => {
       const userId = body.userId as string;
       const { error } = await admin.auth.admin.updateUserById(userId, {
         ban_duration: "none",
-      } as any);
+      } as unknown);
       if (error) throw error;
       return json({ ok: true });
     }
@@ -174,7 +175,7 @@ serve(async (req) => {
     }
 
     return json({ error: "Unknown action" }, 400);
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("admin-users error", e);
     return json({ error: e.message || String(e) }, 500);
   }

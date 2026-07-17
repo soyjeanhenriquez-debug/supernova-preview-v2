@@ -3,6 +3,7 @@
 // que el admin debe aprobar o rechazar manualmente.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// eslint-disable @typescript-eslint/no-explicit-any
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -26,7 +27,7 @@ Deno.serve(async (req) => {
     const ads = weekAds ?? [];
     const kwCounts = new Map<string, number>();
     const nicheCounts = new Map<string, number>();
-    for (const a of ads as any[]) {
+    for (const a of ads as unknown[]) {
       kwCounts.set(a.keyword, (kwCounts.get(a.keyword) ?? 0) + 1);
       const k = `${a.offer_type ?? "?"}|${a.market ?? "?"}`;
       nicheCounts.set(k, (nicheCounts.get(k) ?? 0) + 1);
@@ -44,12 +45,12 @@ Deno.serve(async (req) => {
       .limit(100);
 
     const totalRuns = runs?.length ?? 0;
-    const successRuns = (runs ?? []).filter((r: any) => r.success).length;
-    const totalFound = (runs ?? []).reduce((s: number, r: any) => s + (r.ads_found ?? 0), 0);
-    const totalWinners = (runs ?? []).reduce((s: number, r: any) => s + (r.winners_found ?? 0), 0);
+    const successRuns = (runs ?? []).filter((r: unknown) => r.success).length;
+    const totalFound = (runs ?? []).reduce((s: number, r: unknown) => s + (r.ads_found ?? 0), 0);
+    const totalWinners = (runs ?? []).reduce((s: number, r: unknown) => s + (r.winners_found ?? 0), 0);
 
     // 3) Pedir a la IA que sintetice 3–6 insights accionables
-    let aiInsights: any[] = [];
+    let aiInsights: unknown[] = [];
     if (LOVABLE_API_KEY) {
       const prompt = `Eres el agente analista de SUPERNOVA. Esta semana:
 - Top keywords por volumen: ${topKw.map(([k, n]) => `${k}(${n})`).join(", ")}
@@ -96,13 +97,13 @@ Devuelve un JSON array con 3-6 objetos { "insight": string (1 frase clara), "cat
     }
 
     // 5) Insertar pendientes
-    const rows = aiInsights.slice(0, 8).map((i: any) => ({
+    const rows = aiInsights.slice(0, 8).map((i: unknown) => ({
       insight: String(i.insight ?? "").slice(0, 500),
       category: ["keyword_performance","user_behavior","market_trend","feature_usage","scoring_calibration"].includes(i.category) ? i.category : "market_trend",
       source: String(i.source ?? "weekly-learner").slice(0, 100),
       data_evidence: i.evidence ?? {},
       status: "pending",
-    })).filter((r: any) => r.insight);
+    })).filter((r: unknown) => r.insight);
 
     if (rows.length) {
       await supabase.from("system_learnings").insert(rows);

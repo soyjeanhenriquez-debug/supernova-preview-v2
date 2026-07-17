@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,7 +32,7 @@ export function IntelligenceAnalyzer() {
   const [saved, setSaved] = useState<SavedRow[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  const loadSaved = async () => {
+  const loadSaved = useCallback(async () => {
     if (!user?.id) return;
     const { data } = await supabase
       .from("landing_analyses")
@@ -40,8 +40,9 @@ export function IntelligenceAnalyzer() {
       .order("created_at", { ascending: false })
       .limit(20);
     setSaved((data as SavedRow[]) ?? []);
-  };
-  useEffect(() => { loadSaved(); }, [user?.id]);
+  }, [user?.id]);
+
+  useEffect(() => { loadSaved(); }, [loadSaved]);
 
   const launch = async (manualText?: string) => {
     setConfirmOpen(false);

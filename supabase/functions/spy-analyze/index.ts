@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// eslint-disable @typescript-eslint/no-explicit-any
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -139,7 +140,7 @@ Extrae los hooks y CTAs REALES del contenido. Sé específico basándote en lo q
       const searchResults = await searchWeb(query, FIRECRAWL_API_KEY);
 
       // Step 2: Enrich with AI analysis
-      const resultsForAI = searchResults.map((r: any) => ({
+      const resultsForAI = searchResults.map((r: unknown) => ({
         url: r.url,
         title: r.title,
         description: r.description,
@@ -188,7 +189,7 @@ Mantén las URLs reales. Agrega tu análisis de la estrategia detectada.`;
       const content = aiData.choices?.[0]?.message?.content || "";
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       
-      const results = jsonMatch ? JSON.parse(jsonMatch[0]) : searchResults.map((r: any) => ({
+      const results = jsonMatch ? JSON.parse(jsonMatch[0]) : searchResults.map((r: unknown) => ({
         title: r.title || "Sin título",
         url: r.url,
         description: r.description || "",

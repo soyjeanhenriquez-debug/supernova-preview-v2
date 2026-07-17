@@ -22,7 +22,7 @@ export function Hero() {
             transition={{ duration: 1, ease }}
             className="mb-8 font-[Inter,sans-serif] text-[11px] uppercase tracking-[0.4em] text-[#86868B]"
           >
-            · El radar + el criterio · Una sola cuenta ·
+            · Mercados grandes · Tu moneda · Esta semana ·
           </motion.p>
 
           <motion.h1
@@ -31,11 +31,11 @@ export function Hero() {
             transition={{ duration: 1, delay: 0.15, ease }}
             className="font-['Playfair_Display',serif] text-5xl font-medium leading-[1.06] tracking-tight text-[#F5F5F7] sm:text-6xl xl:text-7xl"
           >
-            La oferta ganadora
+            Tu negocio recurrente
             <br />
-            ya existe.
+            ya funciona en otro país.
             <br />
-            <span className="italic text-[#C5A880]">Cópiala hoy.</span>
+            <span className="italic text-[#C5A880]">Cópialo esta semana.</span>
           </motion.h1>
 
           <motion.p
@@ -44,11 +44,11 @@ export function Hero() {
             transition={{ duration: 1, delay: 0.35, ease }}
             className="mx-auto mt-8 max-w-xl font-[Inter,sans-serif] text-base font-light leading-relaxed text-[#86868B] lg:mx-0"
           >
-            SUPERNOVA escanea Meta Ads 24/7 en LATAM, USA y Brasil y te entrega
-            solo productos digitales validados, rankeados por temperatura real.
-            Copias el ángulo, el copy y el gancho —{" "}
+            SUPERNOVA escanea lo que ya está facturando en USA, Brasil y España
+            y te entrega el modelo completo — oferta, precio, ángulo — listo
+            para copiar.{" "}
             <span className="text-[#F5F5F7]">
-              sin scrollear, sin basura, sin perder sábados.
+              Lo cobras en tu moneda, por WhatsApp o por link, sin inventar nada.
             </span>
           </motion.p>
 

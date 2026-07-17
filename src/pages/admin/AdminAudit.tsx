@@ -11,7 +11,7 @@ interface AuditRow {
   success: boolean;
   error_message: string | null;
   created_at: string;
-  new_data: any;
+  new_data: unknown;
 }
 
 const CRITICAL = new Set(["ADMIN_DELETE_USER","ADMIN_SUSPEND_USER","UNAUTHORIZED_ACCESS"]);

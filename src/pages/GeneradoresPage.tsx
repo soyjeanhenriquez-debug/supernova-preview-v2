@@ -238,7 +238,7 @@ export function GeneradoresPage() {
         }
       }
       toast.success("¡Contenido generado!");
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(err.message || "Error al generar contenido");
     } finally {
       setLoading(false);

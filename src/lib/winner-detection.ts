@@ -249,7 +249,7 @@ export function processAdsIntoWinners(
 }
 
 // Map DB row -> FBAd
-export function dbRowToFBAd(row: any): FBAd {
+export function dbRowToFBAd(row: unknown): FBAd {
   return {
     id: row.id,
     page_id: row.page_id || undefined,

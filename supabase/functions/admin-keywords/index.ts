@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+// eslint-disable @typescript-eslint/no-explicit-any
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,7 +39,7 @@ serve(async (req) => {
         admin.from("winning_ads").select("keyword, winner_score, scraped_at"),
       ]);
       const adMap = new Map<string, { count: number; winners: number; lastScraped: string | null }>();
-      ads?.forEach((a: any) => {
+      ads?.forEach((a: unknown) => {
         const k = (a.keyword || "").toLowerCase();
         const cur = adMap.get(k) || { count: 0, winners: 0, lastScraped: null };
         cur.count++;
@@ -46,7 +47,7 @@ serve(async (req) => {
         if (!cur.lastScraped || a.scraped_at > cur.lastScraped) cur.lastScraped = a.scraped_at;
         adMap.set(k, cur);
       });
-      const enriched = (kws || []).map((k: any) => {
+      const enriched = (kws || []).map((k: unknown) => {
         const m = adMap.get(k.keyword.toLowerCase()) || { count: 0, winners: 0, lastScraped: null };
         return { ...k, ads_count: m.count, winners_count: m.winners, last_scraped_at: m.lastScraped };
       });
@@ -100,7 +101,7 @@ serve(async (req) => {
         .from("keywords")
         .select("keyword, user_id, is_active, last_searched_at, created_at");
       const map = new Map<string, { keyword: string; users: Set<string>; total: number; active: number; lastUsed: string | null; firstSeen: string }>();
-      (kws || []).forEach((k: any) => {
+      (kws || []).forEach((k: unknown) => {
         const key = (k.keyword || "").trim().toLowerCase();
         if (!key) return;
         const cur = map.get(key) || { keyword: k.keyword, users: new Set(), total: 0, active: 0, lastUsed: null, firstSeen: k.created_at };
@@ -154,8 +155,8 @@ Return JSON ONLY in this exact shape:
         return json({ error: `AI ${aiResp.status}: ${t}` }, aiResp.status === 429 || aiResp.status === 402 ? aiResp.status : 500);
       }
       const aiData = await aiResp.json();
-      let parsed: any = {};
-      try { parsed = JSON.parse(aiData.choices?.[0]?.message?.content || "{}"); } catch {}
+      let parsed: unknown = {};
+      try { parsed = JSON.parse(aiData.choices?.[0]?.message?.content || "{}"); } catch (e) { console.error("Parse error:", e); }
       return json({ suggestions: parsed.suggestions || [], lang });
     }
 
@@ -168,11 +169,11 @@ Return JSON ONLY in this exact shape:
       // Active "this hour" = the most recent run's keywords (or currently running)
       const activeThisHour = runs?.[0]?.keywords_used || [];
       // Aggregates
-      const totalIngested = (states || []).reduce((a: number, s: any) => a + (s.total_found || 0), 0);
-      const totalWinners = (states || []).reduce((a: number, s: any) => a + (s.total_winners || 0), 0);
-      const totalRuns = (states || []).reduce((a: number, s: any) => a + (s.total_runs || 0), 0);
+      const totalIngested = (states || []).reduce((a: number, s: unknown) => a + (s.total_found || 0), 0);
+      const totalWinners = (states || []).reduce((a: number, s: unknown) => a + (s.total_winners || 0), 0);
+      const totalRuns = (states || []).reduce((a: number, s: unknown) => a + (s.total_runs || 0), 0);
       const winnerPct = totalIngested > 0 ? Math.round((totalWinners / totalIngested) * 100) : 0;
-      const paused = (states || []).filter((s: any) => s.is_paused).length;
+      const paused = (states || []).filter((s: unknown) => s.is_paused).length;
       const total = (states || []).length;
       // Next run = top of last_run_at NULLS FIRST ASC implies hourly schedule; we just say "in next hour"
       return json({
@@ -212,7 +213,7 @@ Return JSON ONLY in this exact shape:
     }
 
     return json({ error: "Unknown action" }, 400);
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error(e);
     return json({ error: e.message || String(e) }, 500);
   }

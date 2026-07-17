@@ -14,7 +14,7 @@ export function VslSection() {
           Mira cómo funciona
         </h2>
         <p className="mx-auto mb-14 max-w-md text-center font-[Inter,sans-serif] text-sm font-light leading-relaxed text-[#86868B]">
-          Tres minutos. De la búsqueda al anuncio ganador copiado.
+          Tres minutos. De la oferta que ya funciona a tu negocio cobrando en tu moneda.
         </p>
       </FadeIn>
       <FadeIn delay={0.15}>

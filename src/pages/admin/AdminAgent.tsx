@@ -8,7 +8,7 @@ interface Learning {
   insight: string;
   category: string;
   source: string | null;
-  data_evidence: any;
+  data_evidence: unknown;
   status: string;
   admin_note: string | null;
   created_at: string;
@@ -60,7 +60,7 @@ export default function AdminAgent() {
       if (error) throw error;
       toast.success("Aprendizajes generados");
       await load();
-    } catch (e: any) {
+    } catch (e: unknown) {
       toast.error(e?.message ?? "Error");
     } finally { setRunning(false); }
   };

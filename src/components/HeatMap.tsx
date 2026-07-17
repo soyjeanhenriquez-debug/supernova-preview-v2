@@ -44,7 +44,7 @@ export function HeatMap({ onSelectNiche }: { onSelectNiche?: (offer: string, mar
         .limit(5000);
       if (cancelled || error || !data) return;
       const counts = new Map<string, { count: number; offer: string; market: string }>();
-      for (const r of data as any[]) {
+      for (const r of data as Array<{ offer_type?: string | null; market?: string | null }>) {
         const offer = (r.offer_type ?? '').toString().toLowerCase().split(/[\s-]/)[0];
         const market = r.market ?? 'GLOBAL';
         if (!offer) continue;

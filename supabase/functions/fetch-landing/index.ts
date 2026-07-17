@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
 
     // Best-guess brand name
     const brandName = (siteName || ogTitle || title)
-      .replace(/[\|\-–—].*$/, "")
+      .replace(/[|\-–—].*$/, "")
       .trim()
       .slice(0, 80) || domain;
 

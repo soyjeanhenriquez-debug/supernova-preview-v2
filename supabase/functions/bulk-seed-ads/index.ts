@@ -3,6 +3,7 @@
 // guarda todo en winning_ads. Pensado para inflar el catálogo a miles de anuncios.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// eslint-disable @typescript-eslint/no-explicit-any
 
 const FB_FIELDS = [
   "id", "ad_creation_time", "ad_delivery_start_time", "ad_delivery_stop_time",
@@ -191,7 +192,7 @@ Deno.serve(async (req) => {
         }
       }));
 
-      const rows: any[] = [];
+      const rows: unknown[] = [];
       for (const r of results) {
         if (r.err) { totalErrors++; continue; }
         totalFetched += r.items.length;

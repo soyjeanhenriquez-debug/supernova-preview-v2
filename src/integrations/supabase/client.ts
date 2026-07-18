@@ -13,5 +13,10 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
+    // Evita el candado navigator.locks (buggy con muchas pestañas/extensiones:
+    // se queda colgado y tira "Acquiring an exclusive Navigator LockManager
+    // lock ... timed out"). Sin él, el refresh de sesión ya no se serializa
+    // entre pestañas, pero para el patrón de uso de esta app no hay riesgo real.
+    lock: async <R>(_name: string, _acquireTimeout: number, fn: () => Promise<R>): Promise<R> => fn(),
   }
 });

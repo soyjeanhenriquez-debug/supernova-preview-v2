@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useCredits, CREDIT_COSTS, ACTION_LABEL } from "@/hooks/useCredits";
-import { Zap, Coins, Sparkles, AlertTriangle } from "lucide-react";
+import { useMediaCredits, MEDIA_COST_PER_VIDEO } from "@/hooks/useMediaCredits";
+import { Zap, Coins, Sparkles, AlertTriangle, Video } from "lucide-react";
 import { toast } from "sonner";
 import { CountUp } from "@/components/CountUp";
 
@@ -10,8 +11,17 @@ const PACKS = [
   { id: "nuclear", name: "PACK NUCLEAR", credits: 4500, price: 39, tagline: "Para los que no se detienen", save: "57%" },
 ];
 
+// Pool separado del de texto: el costo real de video con avatar IA (HeyGen,
+// ~$1 USD/min) es órdenes de magnitud mayor al de un generador de texto.
+const MEDIA_PACKS = [
+  { id: "media-starter", name: "STARTER", credits: 50,  price: 12, tagline: "~5 videos para probar el hook de hoy", save: null },
+  { id: "media-pro",     name: "PRO",     credits: 150, price: 29, tagline: "~15 videos — ritmo de testing semanal", save: null, popular: true },
+  { id: "media-scale",   name: "SCALE",   credits: 400, price: 69, tagline: "~40 videos para escalar creativos", save: null },
+];
+
 export function CreditsPage() {
   const { balance, monthly, purchased, limit, renewalDate, history } = useCredits();
+  const { balance: mediaBalance, loading: mediaLoading } = useMediaCredits();
   // Anillo: progreso del saldo mensual (los comprados se muestran aparte)
   const pct = (monthly / limit) * 100;
 
@@ -30,6 +40,12 @@ export function CreditsPage() {
 
   const handleRecharge = () => {
     toast.info("Recarga disponible próximamente", {
+      description: "Escríbenos por WhatsApp para recargar manualmente.",
+    });
+  };
+
+  const handleMediaRecharge = () => {
+    toast.info("Recarga de Media Credits disponible próximamente", {
       description: "Escríbenos por WhatsApp para recargar manualmente.",
     });
   };
@@ -125,6 +141,52 @@ export function CreditsPage() {
         </div>
         <p className="text-[11px] text-muted-foreground mt-4 text-center">
           Los créditos comprados no expiran. Se suman a tu saldo actual.
+        </p>
+      </div>
+
+      {/* Media Credits — pool separado, para dejar clarísimo que es otra economía */}
+      <div className="border-t-2 border-dashed border-border pt-8">
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
+          <div className="flex items-center gap-2">
+            <Video className="w-4 h-4 text-primary" />
+            <h3 className="font-display font-bold text-lg">MEDIA CREDITS · VIDEO CON AVATAR IA</h3>
+          </div>
+          <div className="card-surface rounded-lg px-4 py-2 text-right">
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Tu saldo</div>
+            <div className="font-display font-bold text-lg text-primary">{mediaLoading ? "…" : mediaBalance}</div>
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground mb-5 max-w-xl">
+          Pool separado de tus créditos de texto — el video con avatar IA (HeyGen) cuesta mucho más de producir.
+          Cada video ({MEDIA_COST_PER_VIDEO} Media Credits) es un hook de ~1 minuto, listo para subir a Meta o TikTok.
+        </p>
+
+        <div className="grid md:grid-cols-3 gap-4">
+          {MEDIA_PACKS.map((p) => (
+            <div key={p.id} className={`card-surface rounded-xl p-6 relative flex flex-col ${p.popular ? "border-primary shadow-[0_0_30px_hsl(var(--primary)/0.15)]" : ""}`}>
+              {p.popular && (
+                <span className="absolute -top-2 right-4 text-[10px] bg-primary text-primary-foreground px-2 py-0.5 rounded font-bold tracking-widest">
+                  ⭐ MÁS POPULAR
+                </span>
+              )}
+              <div className="font-display font-extrabold text-lg tracking-wide">{p.name}</div>
+              <div className="flex items-baseline gap-2 mt-3">
+                <span className="text-3xl font-display font-bold text-primary tabular-nums">{p.credits.toLocaleString()}</span>
+                <span className="text-xs text-muted-foreground">media credits</span>
+              </div>
+              <div className="flex items-baseline gap-2 mt-3">
+                <span className="text-2xl font-display font-bold text-foreground">${p.price}</span>
+                <span className="text-[11px] text-muted-foreground">~{Math.round(p.credits / MEDIA_COST_PER_VIDEO)} videos</span>
+              </div>
+              <p className="text-[13px] text-muted-foreground mt-3 leading-relaxed flex-1">"{p.tagline}"</p>
+              <button onClick={handleMediaRecharge} className="btn-primary-nova w-full py-2.5 rounded-lg text-sm mt-5">
+                Recargar ${p.price} →
+              </button>
+            </div>
+          ))}
+        </div>
+        <p className="text-[11px] text-muted-foreground mt-4 text-center">
+          Los Media Credits no expiran y no se mezclan con tus créditos de texto.
         </p>
       </div>
 

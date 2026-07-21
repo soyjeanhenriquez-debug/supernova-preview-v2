@@ -23,6 +23,7 @@ export default {
     winners: "Buscar Ofertas Winner",
     oracle: "Oráculo",
     generators: "Generadores",
+    mediaStudio: "Media Studio",
     projects: "Proyectos",
     credits: "Créditos",
     brain: "SUPERNOVA BRAIN",

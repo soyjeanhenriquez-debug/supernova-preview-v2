@@ -1,4 +1,4 @@
-import { LayoutDashboard, Trophy, Telescope, FileText, FolderKanban, Coins, Shield, LogOut, Brain, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { LayoutDashboard, Trophy, Telescope, FileText, FolderKanban, Coins, Shield, LogOut, Brain, PanelLeftClose, PanelLeftOpen, X, Video } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,6 +29,7 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
     { icon: Trophy, key: "Buscar Ofertas Winner", label: t("nav.winners") },
     { icon: Telescope, key: "Oráculo", label: t("nav.oracle") },
     { icon: FileText, key: "Generadores", label: t("nav.generators") },
+    { icon: Video, key: "Media Studio", label: t("nav.mediaStudio") },
     { icon: FolderKanban, key: "Proyectos", label: t("nav.projects") },
     { icon: Coins, key: "Créditos", label: t("nav.credits") },
   ];

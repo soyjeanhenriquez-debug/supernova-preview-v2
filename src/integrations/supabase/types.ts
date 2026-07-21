@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -641,6 +641,96 @@ export type Database = {
         }
         Relationships: []
       }
+      media_generation_jobs: {
+        Row: {
+          avatar_id: string | null
+          cost_media_credits: number
+          created_at: string
+          dry_run: boolean
+          error: string | null
+          heygen_video_id: string | null
+          id: string
+          provider: string
+          script: string
+          status: string
+          updated_at: string
+          user_id: string
+          video_url: string | null
+          voice_id: string | null
+        }
+        Insert: {
+          avatar_id?: string | null
+          cost_media_credits: number
+          created_at?: string
+          dry_run?: boolean
+          error?: string | null
+          heygen_video_id?: string | null
+          id?: string
+          provider?: string
+          script: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          video_url?: string | null
+          voice_id?: string | null
+        }
+        Update: {
+          avatar_id?: string | null
+          cost_media_credits?: number
+          created_at?: string
+          dry_run?: boolean
+          error?: string | null
+          heygen_video_id?: string | null
+          id?: string
+          provider?: string
+          script?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          video_url?: string | null
+          voice_id?: string | null
+        }
+        Relationships: []
+      }
+      notification_prefs: {
+        Row: {
+          created_at: string
+          daily_winner_email: boolean
+          email: string
+          last_digest_sent: string | null
+          streak_reminder_email: boolean
+          unsub_token: string
+          updated_at: string
+          user_id: string
+          whatsapp_opt_in: boolean
+          whatsapp_phone: string | null
+        }
+        Insert: {
+          created_at?: string
+          daily_winner_email?: boolean
+          email: string
+          last_digest_sent?: string | null
+          streak_reminder_email?: boolean
+          unsub_token?: string
+          updated_at?: string
+          user_id: string
+          whatsapp_opt_in?: boolean
+          whatsapp_phone?: string | null
+        }
+        Update: {
+          created_at?: string
+          daily_winner_email?: boolean
+          email?: string
+          last_digest_sent?: string | null
+          streak_reminder_email?: boolean
+          unsub_token?: string
+          updated_at?: string
+          user_id?: string
+          whatsapp_opt_in?: boolean
+          whatsapp_phone?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -713,6 +803,45 @@ export type Database = {
           interval_hours?: number
           updated_at?: string
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          created_at: string
+          current_period_end: string | null
+          email: string
+          id: string
+          plan_id: string | null
+          raw: Json | null
+          status: string
+          updated_at: string
+          user_id: string | null
+          whop_membership_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          current_period_end?: string | null
+          email: string
+          id?: string
+          plan_id?: string | null
+          raw?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          whop_membership_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          current_period_end?: string | null
+          email?: string
+          id?: string
+          plan_id?: string | null
+          raw?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          whop_membership_id?: string | null
         }
         Relationships: []
       }
@@ -917,6 +1046,57 @@ export type Database = {
         }
         Relationships: []
       }
+      user_media_credits: {
+        Row: {
+          balance: number
+          created_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_onboarding: {
+        Row: {
+          answers: Json
+          created_at: string
+          experience_level: string | null
+          main_goal: string | null
+          runs_ads: string | null
+          sells_what: string | null
+          user_id: string
+        }
+        Insert: {
+          answers?: Json
+          created_at?: string
+          experience_level?: string | null
+          main_goal?: string | null
+          runs_ads?: string | null
+          sells_what?: string | null
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          created_at?: string
+          experience_level?: string | null
+          main_goal?: string | null
+          runs_ads?: string | null
+          sells_what?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1096,6 +1276,64 @@ export type Database = {
         }
         Returns: Json
       }
+      consume_media_credits: {
+        Args: {
+          p_action?: string
+          p_amount: number
+          p_meta?: Json
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      get_daily_winner: {
+        Args: never
+        Returns: {
+          ad_body: string | null
+          ad_description: string | null
+          ad_format: string | null
+          ad_title: string | null
+          ad_url: string | null
+          advertiser: string | null
+          days_active: number | null
+          delivery_start_time: string | null
+          delivery_stop_time: string | null
+          duplicate_count: number | null
+          engagement_score: number | null
+          id: string
+          impressions_estimate: string | null
+          impressions_lower: number | null
+          impressions_upper: number | null
+          is_confirmed_winner: boolean | null
+          is_featured: boolean
+          keyword: string
+          market: string | null
+          offer_type: string | null
+          page_id: string | null
+          page_name: string | null
+          platform: string
+          publisher_platforms: Json | null
+          raw_data: Json | null
+          scraped_at: string
+          signals: Json | null
+          tier: string | null
+          winner_score: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "winning_ads"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_market_trends: {
+        Args: never
+        Returns: {
+          ads_7d: number
+          ads_prev7d: number
+          growth_pct: number
+          keyword: string
+        }[]
+      }
       get_rising_temperature_ads: {
         Args: { hours_back?: number; min_jump?: number }
         Returns: {
@@ -1110,7 +1348,13 @@ export type Database = {
           page_name: string
         }[]
       }
+      get_user_id_by_email: { Args: { p_email: string }; Returns: string }
+      grant_media_credits: {
+        Args: { p_amount: number; p_reason?: string; p_user_id: string }
+        Returns: Json
+      }
       grant_monthly_if_due: { Args: never; Returns: Json }
+      has_active_subscription: { Args: never; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1132,11 +1376,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      recompute_advertiser_scale: { Args: never; Returns: number }
       register_daily_login: { Args: never; Returns: Json }
       reject_access_request: {
         Args: { p_reason?: string; p_request_id: string }
         Returns: Json
       }
+      score_unscored_ads: { Args: never; Returns: number }
       set_scraper_cron: { Args: { p_hours: number }; Returns: Json }
       spend_credits: {
         Args: { p_action: string; p_meta?: Json }

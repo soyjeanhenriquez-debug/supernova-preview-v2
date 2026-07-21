@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { X, Rocket, Loader2, Copy, Check, Save, MessageCircle, Play } from "lucide-react";
+import { X, Rocket, Loader2, Copy, Check, Save, MessageCircle, Play, Video } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import { useProjects } from "@/hooks/useProjects";
+import { useMediaCredits, MEDIA_COST_PER_VIDEO } from "@/hooks/useMediaCredits";
+import { listAvatars, generateVideo, extractHookFromScript } from "@/lib/heygen";
 import type { DemoAd } from "@/lib/demo-winning-ads";
 import { OFFER_TYPE_LABEL } from "@/lib/demo-winning-ads";
 
@@ -36,6 +38,8 @@ const COUNTRIES = [
 export function MiniAppModal({ ad, onClose }: Props) {
   const { consume, canAfford } = useCredits();
   const { create, update } = useProjects();
+  const { balance: mediaBalance, canAfford: canAffordVideo } = useMediaCredits();
+  const [videoState, setVideoState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [phase, setPhase] = useState<Phase>("idle");
   const [blueprint, setBlueprint] = useState("");
   const [miniapp, setMiniapp] = useState("");
@@ -171,6 +175,30 @@ export function MiniAppModal({ ad, onClose }: Props) {
     }
   };
 
+  // Cierra la promesa "cóbralo esta semana" con un activo real: toma el
+  // arranque del guion VSL y genera el video con avatar IA (HeyGen). Usa el
+  // primer avatar/voz disponible — la personalización completa vive en
+  // Media Studio, aquí es un atajo de 1 clic desde el flujo de creación.
+  const handleGenerateHookVideo = async () => {
+    if (videoState === "loading" || !salesScript) return;
+    if (!canAffordVideo(1)) {
+      toast.error(`Necesitas ${MEDIA_COST_PER_VIDEO} Media Credits (tienes ${mediaBalance})`);
+      return;
+    }
+    setVideoState("loading");
+    try {
+      const { avatars, voices } = await listAvatars();
+      if (!avatars[0] || !voices[0]) throw new Error("No hay avatares disponibles");
+      const hook = extractHookFromScript(salesScript);
+      await generateVideo({ script: hook, avatar_id: avatars[0].avatar_id, voice_id: voices[0].voice_id });
+      setVideoState("done");
+      toast.success("🎬 Generando tu video — búscalo en Media Studio en 1-3 min");
+    } catch (e) {
+      setVideoState("error");
+      toast.error(e instanceof Error ? e.message : "Error generando el video");
+    }
+  };
+
   const currentText = tab === "vender" ? salesScript : tab === "miniapp" ? miniapp : blueprint;
   const copyLabel = tab === "vender"
     ? (salesPath === "whatsapp" ? "Copiar guion de WhatsApp" : "Copiar guion de VSL")
@@ -294,6 +322,29 @@ export function MiniAppModal({ ad, onClose }: Props) {
                       : blueprint
                 }</ReactMarkdown>
               </article>
+
+              {/* VSL elegido + guion listo: ofrecer generar el video del hook */}
+              {tab === "vender" && salesPath === "vsl" && salesScript && !salesLoading && (
+                <div className="mt-6 rounded-xl border border-primary/25 bg-primary/5 p-5">
+                  <div className="flex items-start gap-3">
+                    <Video className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="font-display font-semibold text-sm text-foreground">Generar video del hook con avatar IA</h4>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Un avatar con IA graba los primeros 45-60s de tu guion — el activo real, listo para subir a Meta/TikTok. {MEDIA_COST_PER_VIDEO} Media Credits.
+                      </p>
+                      <button
+                        onClick={handleGenerateHookVideo}
+                        disabled={videoState === "loading" || videoState === "done"}
+                        className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/15 text-primary text-sm font-semibold hover:bg-primary/25 disabled:opacity-50 transition-colors"
+                      >
+                        {videoState === "loading" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
+                        {videoState === "done" ? "Generando en Media Studio…" : `Generar video · ${MEDIA_COST_PER_VIDEO} ⚡`}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Elegir camino de venta: aparece en cuanto la Mini App está lista */}
               {phase === "done" && tab === "miniapp" && !salesPath && (

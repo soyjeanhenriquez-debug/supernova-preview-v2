@@ -13,6 +13,7 @@ const DashboardPage = lazy(() => import("@/pages/DashboardPage").then(m => ({ de
 const WinningAdsPage = lazy(() => import("@/pages/WinningAdsPage").then(m => ({ default: m.WinningAdsPage })));
 const OraculoPage = lazy(() => import("@/pages/OraculoPage").then(m => ({ default: m.OraculoPage })));
 const GeneradoresPage = lazy(() => import("@/pages/GeneradoresPage").then(m => ({ default: m.GeneradoresPage })));
+const MediaStudioPage = lazy(() => import("@/pages/MediaStudioPage").then(m => ({ default: m.MediaStudioPage })));
 const BrainPage = lazy(() => import("@/pages/BrainPage").then(m => ({ default: m.BrainPage })));
 const CreditsPage = lazy(() => import("@/pages/CreditsPage").then(m => ({ default: m.CreditsPage })));
 const CrearPage = lazy(() => import("@/pages/CrearPage").then(m => ({ default: m.CrearPage })));
@@ -35,6 +36,7 @@ const Index = () => {
       case "Anuncios Ganadores": return <WinningAdsPage />;
       case "Oráculo": return <OraculoPage />;
       case "Generadores": return <GeneradoresPage />;
+      case "Media Studio": return <MediaStudioPage />;
       case "Proyectos": return <BrainPage />;
       case "Créditos": return <CreditsPage />;
       case "Crear": return <CrearPage />;

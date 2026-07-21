@@ -46,7 +46,7 @@ export function HeroJarvis({ firstName }: Props) {
       ]);
       if (cancelled) return;
       setAdsToday(cAds ?? 0);
-      setMaxTemp((temp as unknown)?.temperature_level ?? 0);
+      setMaxTemp(temp?.temperature_level ?? 0);
       setActiveKeywords(cKw ?? 0);
     })();
     return () => { cancelled = true; };

@@ -33,8 +33,14 @@ export function MediaStudioPage() {
       setAvatars(res.avatars);
       setVoices(res.voices);
       setDryRunMode(res.dry_run);
-      if (res.avatars[0]) setAvatarId(res.avatars[0].avatar_id);
-      if (res.voices[0]) setVoiceId(res.voices[0].voice_id);
+      if (res.avatars[0]) {
+        setAvatarId(res.avatars[0].avatar_id);
+        // Cada avatar trae su voz recomendada — se preselecciona, el usuario
+        // puede cambiarla si quiere.
+        setVoiceId(res.avatars[0].default_voice_id || res.voices[0]?.voice_id || "");
+      } else if (res.voices[0]) {
+        setVoiceId(res.voices[0].voice_id);
+      }
     }).catch((e) => toast.error(e.message || "Error cargando avatares"));
 
     loadJobs();
@@ -66,7 +72,8 @@ export function MediaStudioPage() {
     if (!canGenerate) return;
     setGenerating(true);
     try {
-      const res = await generateVideo({ script: script.trim(), avatar_id: avatarId, voice_id: voiceId });
+      const selectedAvatar = avatars.find((a) => a.avatar_id === avatarId);
+      const res = await generateVideo({ script: script.trim(), avatar_id: avatarId, voice_id: voiceId, kind: selectedAvatar?.kind });
       toast.success(res.dry_run ? "🎬 Video simulado generado (modo demo)" : "🎬 Generando tu video — listo en 1-3 min");
       setScript("");
       await refreshCredits();
@@ -132,7 +139,10 @@ export function MediaStudioPage() {
               {avatars.map((a) => (
                 <button
                   key={a.avatar_id}
-                  onClick={() => setAvatarId(a.avatar_id)}
+                  onClick={() => {
+                    setAvatarId(a.avatar_id);
+                    if (a.default_voice_id) setVoiceId(a.default_voice_id);
+                  }}
                   className={`px-3 py-2.5 rounded-lg border text-left text-sm transition-colors ${
                     avatarId === a.avatar_id ? "border-primary bg-primary/10 text-primary" : "border-border text-foreground hover:bg-secondary/60"
                   }`}

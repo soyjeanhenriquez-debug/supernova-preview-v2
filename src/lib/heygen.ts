@@ -1,6 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export interface HeygenAvatar { avatar_id: string; avatar_name: string; preview_image_url: string | null; gender: string | null }
+export interface HeygenAvatar {
+  avatar_id: string; avatar_name: string; preview_image_url: string | null;
+  default_voice_id?: string | null; kind?: "talking_photo" | "avatar";
+}
 export interface HeygenVoice { voice_id: string; name: string; language: string | null }
 export interface MediaJob {
   id: string;
@@ -38,7 +41,7 @@ export async function listAvatars(): Promise<{ avatars: HeygenAvatar[]; voices: 
   return data;
 }
 
-export async function generateVideo(params: { script: string; avatar_id: string; voice_id: string }): Promise<{ id: string; status: string; dry_run: boolean; balance?: number }> {
+export async function generateVideo(params: { script: string; avatar_id: string; voice_id: string; kind?: "talking_photo" | "avatar" }): Promise<{ id: string; status: string; dry_run: boolean; balance?: number }> {
   const res = await fetch(FN_URL("heygen-generate-video"), {
     method: "POST",
     headers: await authHeaders(),

@@ -190,9 +190,11 @@ export function MiniAppModal({ ad, onClose }: Props) {
     setVideoState("loading");
     try {
       const { avatars, voices } = await listAvatars();
-      if (!avatars[0] || !voices[0]) throw new Error("No hay avatares disponibles");
+      if (!avatars[0]) throw new Error("No hay avatares disponibles");
       const hook = extractHookFromScript(salesScript);
-      await generateVideo({ script: hook, avatar_id: avatars[0].avatar_id, voice_id: voices[0].voice_id });
+      const voiceId = avatars[0].default_voice_id || voices[0]?.voice_id;
+      if (!voiceId) throw new Error("No hay voces disponibles");
+      await generateVideo({ script: hook, avatar_id: avatars[0].avatar_id, voice_id: voiceId, kind: avatars[0].kind });
       setVideoState("done");
       toast.success("🎬 Generando tu video — búscalo en Media Studio en 1-3 min");
     } catch (e) {

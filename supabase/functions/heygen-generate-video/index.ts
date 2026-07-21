@@ -22,6 +22,10 @@ interface Body {
   script: string;
   avatar_id: string;
   voice_id: string;
+  /** "talking_photo" (Photo Avatar subido por el usuario, formato usado por
+   *  esta cuenta) o "avatar" (avatar de stock/estudio tradicional). Default
+   *  talking_photo porque es lo que heygen-list-avatars devuelve hoy. */
+  kind?: "talking_photo" | "avatar";
 }
 
 Deno.serve(async (req) => {
@@ -47,6 +51,7 @@ Deno.serve(async (req) => {
     const script = (body.script ?? "").trim();
     const avatarId = (body.avatar_id ?? "").trim();
     const voiceId = (body.voice_id ?? "").trim();
+    const kind = body.kind === "avatar" ? "avatar" : "talking_photo";
 
     if (!script) {
       return new Response(JSON.stringify({ error: "Guion requerido" }), {
@@ -100,18 +105,38 @@ Deno.serve(async (req) => {
     }).select("id").single();
     if (insErr) throw insErr;
 
-    const heygenResp = await fetch("https://api.heygen.com/v2/video/generate", {
-      method: "POST",
-      headers: { "X-Api-Key": heygenKey, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        video_inputs: [{
-          character: { type: "avatar", avatar_id: avatarId, avatar_style: "normal" },
-          voice: { type: "text", input_text: script, voice_id: voiceId },
-        }],
-        dimension: { width: 720, height: 1280 }, // vertical 9:16 — formato Reels/TikTok/Stories
-        callback_url: `${SUPABASE_URL}/functions/v1/heygen-webhook`,
-      }),
-    });
+    const character = kind === "talking_photo"
+      ? { type: "talking_photo", talking_photo_id: avatarId }
+      : { type: "avatar", avatar_id: avatarId, avatar_style: "normal" };
+
+    // Timeout duro: /v2/avatars ya nos colgó indefinidamente una vez sin esto
+    // (ver heygen-list-avatars) — nunca confiar en que HeyGen responda rápido.
+    const ctrl = new AbortController();
+    const abortTimer = setTimeout(() => ctrl.abort(), 20000);
+    let heygenResp: Response;
+    try {
+      heygenResp = await fetch("https://api.heygen.com/v2/video/generate", {
+        method: "POST",
+        headers: { "X-Api-Key": heygenKey, "Content-Type": "application/json" },
+        signal: ctrl.signal,
+        body: JSON.stringify({
+          video_inputs: [{
+            character,
+            voice: { type: "text", input_text: script, voice_id: voiceId },
+          }],
+          dimension: { width: 720, height: 1280 }, // vertical 9:16 — formato Reels/TikTok/Stories
+          callback_url: `${SUPABASE_URL}/functions/v1/heygen-webhook`,
+        }),
+      });
+    } catch (e) {
+      const timedOut = e instanceof Error && e.name === "AbortError";
+      await admin.from("media_generation_jobs").update({ status: "failed", error: timedOut ? "Timeout llamando a HeyGen" : String(e), updated_at: new Date().toISOString() }).eq("id", job.id);
+      return new Response(JSON.stringify({ error: timedOut ? "HeyGen no respondió a tiempo" : "Error de red llamando a HeyGen", job_id: job.id }), {
+        status: 504, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } finally {
+      clearTimeout(abortTimer);
+    }
     const heygenData = await heygenResp.json().catch(() => ({}));
 
     if (!heygenResp.ok) {

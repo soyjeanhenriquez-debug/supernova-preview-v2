@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { X, Rocket, Loader2, Copy, Check, Save, MessageCircle, Play, Video } from "lucide-react";
+import { X, Rocket, Loader2, Copy, Check, Save, MessageCircle, Play, Video, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
@@ -40,6 +40,8 @@ export function MiniAppModal({ ad, onClose }: Props) {
   const { create, update } = useProjects();
   const { balance: mediaBalance, canAfford: canAffordVideo } = useMediaCredits();
   const [videoState, setVideoState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [imageState, setImageState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [adImage, setAdImage] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [blueprint, setBlueprint] = useState("");
   const [miniapp, setMiniapp] = useState("");
@@ -199,6 +201,35 @@ export function MiniAppModal({ ad, onClose }: Props) {
     }
   };
 
+  // Camino WhatsApp: el creativo de imagen que acompaña el mensaje de venta.
+  // Vía Gemini/Nano Banana — mismo GEMINI_API_KEY que ya usamos para texto,
+  // sin proveedor nuevo. Va en el pool de créditos normal (barato), no en
+  // Media Credits (reservado para lo que sí cuesta órdenes de magnitud más).
+  const handleGenerateAdImage = async () => {
+    if (imageState === "loading" || !blueprint) return;
+    if (!canAfford("gen_ad_image")) { toast.error("Sin créditos suficientes"); return; }
+    setImageState("loading");
+    consume("gen_ad_image", `Creativo · ${ad.title.slice(0, 40)}`);
+    try {
+      const prompt = `Anuncio para "${ad.pageName}": ${ad.title}. ${blueprint.slice(0, 300)}`;
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-ad-creative`,
+        { method: "POST", headers: FN_HEADERS, body: JSON.stringify({ prompt, aspectRatio: "1:1" }) },
+      );
+      const data = await resp.json();
+      if (!resp.ok || !data.image) throw new Error(data.error || "Error generando la imagen");
+      setAdImage(data.image);
+      setImageState("done");
+      if (projectIdRef.current) {
+        update(projectIdRef.current, { context: { ad, blueprint, miniapp, salesPath, salesScript, adImage: data.image } });
+      }
+      toast.success("🖼️ Creativo listo");
+    } catch (e) {
+      setImageState("error");
+      toast.error(e instanceof Error ? e.message : "Error generando la imagen");
+    }
+  };
+
   const currentText = tab === "vender" ? salesScript : tab === "miniapp" ? miniapp : blueprint;
   const copyLabel = tab === "vender"
     ? (salesPath === "whatsapp" ? "Copiar guion de WhatsApp" : "Copiar guion de VSL")
@@ -341,6 +372,32 @@ export function MiniAppModal({ ad, onClose }: Props) {
                         {videoState === "loading" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
                         {videoState === "done" ? "Generando en Media Studio…" : `Generar video · ${MEDIA_COST_PER_VIDEO} ⚡`}
                       </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* WhatsApp elegido + guion listo: ofrecer generar el creativo de imagen */}
+              {tab === "vender" && salesPath === "whatsapp" && salesScript && !salesLoading && (
+                <div className="mt-6 rounded-xl border border-primary/25 bg-primary/5 p-5">
+                  <div className="flex items-start gap-3">
+                    <Sparkles className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="font-display font-semibold text-sm text-foreground">Generar creativo de imagen con IA</h4>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Una imagen lista para acompañar tu mensaje de WhatsApp o publicarla en tu feed. {CREDIT_COSTS.gen_ad_image} créditos.
+                      </p>
+                      <button
+                        onClick={handleGenerateAdImage}
+                        disabled={imageState === "loading" || imageState === "done"}
+                        className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/15 text-primary text-sm font-semibold hover:bg-primary/25 disabled:opacity-50 transition-colors"
+                      >
+                        {imageState === "loading" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                        {imageState === "done" ? "Creativo generado ✓" : `Generar imagen · ${CREDIT_COSTS.gen_ad_image} ⚡`}
+                      </button>
+                      {adImage && (
+                        <img src={adImage} alt="Creativo de anuncio generado" className="mt-4 w-40 rounded-lg border border-border" />
+                      )}
                     </div>
                   </div>
                 </div>

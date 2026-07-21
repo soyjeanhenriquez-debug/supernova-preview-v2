@@ -115,7 +115,7 @@ function ProjectDetail({ proj, onClose, togglePillar, setNote }: { proj: BrainPr
 /** Muestra los assets que se generaron al crear la app (Blueprint + Mega-Prompt),
  *  guardados en project.context, para que el usuario los reencuentre y recopie. */
 function SavedAssets({ context }: { context: unknown }) {
-  const ctx = (context ?? {}) as { blueprint?: string; miniapp?: string; salesPath?: "whatsapp" | "vsl"; salesScript?: string };
+  const ctx = (context ?? {}) as { blueprint?: string; miniapp?: string; salesPath?: "whatsapp" | "vsl"; salesScript?: string; adImage?: string };
   const [openKey, setOpenKey] = useState<"miniapp" | "blueprint" | "vender" | null>(ctx.salesScript ? "vender" : "miniapp");
   if (!ctx.miniapp && !ctx.blueprint) return null;
 
@@ -152,6 +152,12 @@ function SavedAssets({ context }: { context: unknown }) {
           )}
         </div>
       ))}
+      {ctx.adImage && (
+        <div className="border border-primary/25 rounded-lg overflow-hidden bg-primary/5 p-3">
+          <div className="text-xs font-semibold text-primary mb-2">🖼️ Creativo de imagen generado</div>
+          <img src={ctx.adImage} alt="Creativo de anuncio" className="w-40 rounded-lg border border-border" />
+        </div>
+      )}
     </div>
   );
 }

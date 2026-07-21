@@ -11,7 +11,8 @@ export type CreditAction =
   | "search_ads" | "analyze_url" | "landing_intelligence" | "sofisticar"
   | "blueprint" | "adaptar" | "pain_discovery" | "chat_message" | "ai_intel"
   | "gen_landing" | "gen_ad_copies" | "gen_avatar" | "gen_funnel"
-  | "gen_master_prompt" | "pillar_assist" | "gen_light" | "gen_medium" | "gen_heavy";
+  | "gen_master_prompt" | "pillar_assist" | "gen_light" | "gen_medium" | "gen_heavy"
+  | "gen_ad_image";
 
 // Precios calibrados para uso DIARIO: 2000/mes alcanza para ~1 mes de uso
 // intenso; explorar el radar es gratis, las acciones ligeras casi gratis.
@@ -20,6 +21,7 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   pillar_assist: 10, sofisticar: 15, gen_ad_copies: 15, gen_avatar: 15,
   pain_discovery: 15, blueprint: 25, gen_landing: 40, landing_intelligence: 50,
   gen_funnel: 50, gen_master_prompt: 50, gen_light: 15, gen_medium: 30, gen_heavy: 75,
+  gen_ad_image: 25,
 };
 
 export const ACTION_LABEL: Record<CreditAction, string> = {
@@ -32,6 +34,7 @@ export const ACTION_LABEL: Record<CreditAction, string> = {
   gen_funnel: "Funnel completo VSL+emails", gen_master_prompt: "Mega-Prompt Replicador",
   pillar_assist: "Asistente IA de Pilar", gen_light: "Generador",
   gen_medium: "Generador", gen_heavy: "Generador",
+  gen_ad_image: "Creativo de anuncio (imagen IA)",
 };
 
 const GEN_LIGHT_IDS = new Set(["captions-ig","yt-titles","hooks-meta","hooks-tiktok","reels-script","dm-script","whatsapp-sequence"]);
@@ -48,7 +51,7 @@ export const ACTION_HOURS: Record<CreditAction, number> = {
   search_ads: 0.5, analyze_url: 0.5, ai_intel: 1, chat_message: 0.25, adaptar: 1,
   pillar_assist: 1, sofisticar: 2, gen_ad_copies: 2, gen_avatar: 2, pain_discovery: 2,
   blueprint: 4, gen_landing: 4, landing_intelligence: 4, gen_funnel: 8,
-  gen_master_prompt: 6, gen_light: 1, gen_medium: 3, gen_heavy: 6,
+  gen_master_prompt: 6, gen_light: 1, gen_medium: 3, gen_heavy: 6, gen_ad_image: 1,
 };
 
 export interface CreditHistoryEntry {

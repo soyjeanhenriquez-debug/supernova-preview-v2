@@ -23,7 +23,53 @@ const categories = [
   { icon: BarChart2, label: "Estrategia", id: "strategy" },
 ];
 
-const generators = [
+interface Generator {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  recommended?: boolean;
+  /** Prompt propio para frameworks específicos; si falta, se usa el genérico. */
+  prompt?: string;
+}
+
+// Framework T→MAES→A/N para videos yapping (talking-head hablado a cámara).
+// La versión corta sale calibrada a ~150 palabras A PROPÓSITO: es el límite
+// de Media Studio (160), así el guion pasa directo al video con avatar IA.
+const YAPPING_PROMPT = `Eres un guionista experto en videos "yapping" (talking-head hablado a cámara, estilo TikTok/Reels/Shorts) para creadores de direct response. Escribes guiones que suenan a una persona real hablando con convicción, no a un anuncio.
+
+ESTRUCTURA OBLIGATORIA — framework T→MAES→A/N:
+1) T — THOUGHT o TOPIC: abre con el pensamiento o tema en UNA frase que detiene el scroll (el hook).
+2) MAES — desarrolla con las 2-3 herramientas que mejor le queden al tema: Metáfora, Analogía, Ejemplo concreto o Historia breve en primera persona. NO uses las cuatro mecánicamente: elige las que más venden la idea.
+3) A/N — cierra con Aplicación (cómo el espectador lo aplica HOY) o Next steps (el siguiente paso claro / CTA).
+
+FORMATO EXACTO de tu respuesta:
+
+## 🎬 Guion corto (~150 palabras — listo para Media Studio / avatar IA)
+[Guion hablado corrido, sin encabezados internos. Tono conversacional, primera persona, frases cortas.]
+
+## 🎬 Versión extendida (90-120 segundos)
+**[T] 0:00 —** [apertura con el hook]
+**[MAES] 0:10 —** [desarrollo, marcando entre paréntesis qué herramienta usas: (metáfora), (ejemplo), (historia)…]
+**[A/N] 1:20 —** [cierre con aplicación o próximo paso + CTA]
+
+## ⚡ 3 hooks alternativos para el mismo tema
+1. […]
+2. […]
+3. […]
+
+## 📌 Nota de grabación
+[1-2 líneas: tono, ritmo y dónde enfatizar]`;
+
+const generators: Generator[] = [
+  {
+    id: "yapping-script",
+    title: "Guion Video Yapping (T→MAES→A/N)",
+    description: "Guion hablado a cámara con el framework T→MAES→A/N: hook, desarrollo con metáfora/ejemplo/historia y cierre con CTA. La versión corta sale lista para Media Studio.",
+    category: "social",
+    recommended: true,
+    prompt: YAPPING_PROMPT,
+  },
   {
     id: "vsl-downsell",
     title: "VSL Downsell (5–7 minutos)",
@@ -196,7 +242,9 @@ export function GeneradoresPage() {
             messages: [
               {
                 role: "user",
-                content: `Actúa como un experto en ${generator.category}. Tu tarea: ${generator.description}\n\nDetalles del producto/servicio del usuario:\n${generatorInput}\n\nGenera el contenido completo, listo para usar. Sé específico, persuasivo y orientado a conversiones.`,
+                content: generator.prompt
+                  ? `${generator.prompt}\n\nTEMA / DETALLES DEL USUARIO:\n${generatorInput}`
+                  : `Actúa como un experto en ${generator.category}. Tu tarea: ${generator.description}\n\nDetalles del producto/servicio del usuario:\n${generatorInput}\n\nGenera el contenido completo, listo para usar. Sé específico, persuasivo y orientado a conversiones.`,
               },
             ],
           }),

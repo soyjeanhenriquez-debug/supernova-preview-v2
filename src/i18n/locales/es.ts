@@ -21,6 +21,7 @@ export default {
   nav: {
     dashboard: "Dashboard",
     winners: "Buscar Ofertas Winner",
+    hooks: "Hooks",
     oracle: "Oráculo",
     generators: "Generadores",
     mediaStudio: "Media Studio",

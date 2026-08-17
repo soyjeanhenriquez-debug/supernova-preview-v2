@@ -29,6 +29,13 @@ export function MediaStudioPage() {
   const pollRef = useRef<number | null>(null);
 
   useEffect(() => {
+    // Prefill desde la Bóveda de Hooks (u otra página): guion listo al llegar.
+    const prefill = localStorage.getItem("supernova_media_prefill");
+    if (prefill) {
+      setScript(prefill);
+      localStorage.removeItem("supernova_media_prefill");
+    }
+
     listAvatars().then((res) => {
       setAvatars(res.avatars);
       setVoices(res.voices);

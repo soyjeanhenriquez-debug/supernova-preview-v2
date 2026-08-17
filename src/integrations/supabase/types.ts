@@ -425,6 +425,72 @@ export type Database = {
         }
         Relationships: []
       }
+      hook_favorites: {
+        Row: {
+          created_at: string
+          hook_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          hook_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          hook_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      hook_vault: {
+        Row: {
+          category: string
+          created_at: string
+          days_active: number | null
+          dedup_hash: string
+          duplicate_count: number | null
+          hook_template: string
+          hook_text: string
+          id: string
+          language: string | null
+          market: string | null
+          source_ad_id: string | null
+          source_page_name: string | null
+          winner_score: number | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          days_active?: number | null
+          dedup_hash: string
+          duplicate_count?: number | null
+          hook_template: string
+          hook_text: string
+          id?: string
+          language?: string | null
+          market?: string | null
+          source_ad_id?: string | null
+          source_page_name?: string | null
+          winner_score?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          days_active?: number | null
+          dedup_hash?: string
+          duplicate_count?: number | null
+          hook_template?: string
+          hook_text?: string
+          id?: string
+          language?: string | null
+          market?: string | null
+          source_ad_id?: string | null
+          source_page_name?: string | null
+          winner_score?: number | null
+        }
+        Relationships: []
+      }
       keywords: {
         Row: {
           created_at: string

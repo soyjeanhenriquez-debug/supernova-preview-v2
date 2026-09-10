@@ -4,6 +4,7 @@ import { useMediaCredits, MEDIA_COST_PER_VIDEO } from "@/hooks/useMediaCredits";
 import { Zap, Coins, Sparkles, AlertTriangle, Video } from "lucide-react";
 import { toast } from "sonner";
 import { CountUp } from "@/components/CountUp";
+import { SubscriptionCard } from "@/components/SubscriptionCard";
 
 const PACKS = [
   { id: "boost",   name: "PACK BOOST",   credits: 500,  price: 10, tagline: "Para seguir sin parar esta semana", save: null },
@@ -60,6 +61,9 @@ export function CreditsPage() {
         <h2 className="page-heading font-display text-2xl text-foreground">TUS CRÉDITOS</h2>
         <p className="text-sm text-muted-foreground mt-3">Energía SUPERNOVA para tu motor DR</p>
       </div>
+
+      {/* Suscripción self-service (Stripe portal / Whop) */}
+      <SubscriptionCard />
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="card-surface rounded-xl p-6 flex flex-col items-center justify-center text-center">

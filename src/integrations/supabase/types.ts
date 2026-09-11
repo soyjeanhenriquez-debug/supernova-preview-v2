@@ -872,6 +872,24 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_events: {
+        Row: {
+          created_at: string
+          id: string
+          type: string | null
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          type?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          type?: string | null
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           created_at: string
@@ -879,8 +897,10 @@ export type Database = {
           email: string
           id: string
           plan_id: string | null
+          provider: string
           raw: Json | null
           status: string
+          stripe_customer_id: string | null
           updated_at: string
           user_id: string | null
           whop_membership_id: string | null
@@ -891,8 +911,10 @@ export type Database = {
           email: string
           id?: string
           plan_id?: string | null
+          provider?: string
           raw?: Json | null
           status?: string
+          stripe_customer_id?: string | null
           updated_at?: string
           user_id?: string | null
           whop_membership_id?: string | null
@@ -903,8 +925,10 @@ export type Database = {
           email?: string
           id?: string
           plan_id?: string | null
+          provider?: string
           raw?: Json | null
           status?: string
+          stripe_customer_id?: string | null
           updated_at?: string
           user_id?: string | null
           whop_membership_id?: string | null
@@ -1420,6 +1444,10 @@ export type Database = {
         Returns: Json
       }
       grant_monthly_if_due: { Args: never; Returns: Json }
+      grant_purchased_credits: {
+        Args: { p_amount: number; p_label?: string; p_user_id: string }
+        Returns: Json
+      }
       has_active_subscription: { Args: never; Returns: boolean }
       has_role: {
         Args: {

@@ -255,9 +255,12 @@ export default function SignupPage() {
                   const p = PLANS[key];
                   const featured = key === "proMax";
                   return (
+                    // Cobro principal Stripe: PRO/PRO MAX se activan dentro de
+                    // la cuenta (checkout con el correo del JWT, 7 días gratis).
+                    // Solo Comunidad sigue siendo checkout externo (Skool).
                     <a
                       key={key}
-                      href={checkoutUrl(key, email)}
+                      href={key === "comunidad" ? checkoutUrl(key, email) : "/"}
                       className={`block rounded-xl border p-5 transition-all duration-500 ${
                         featured
                           ? "border-[#C5A880]/60 bg-[#C5A880]/5 hover:bg-[#C5A880]/10"

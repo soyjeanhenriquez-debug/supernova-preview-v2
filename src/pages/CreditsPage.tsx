@@ -1,10 +1,10 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCredits, CREDIT_COSTS, ACTION_LABEL } from "@/hooks/useCredits";
 import { useMediaCredits, MEDIA_COST_PER_VIDEO } from "@/hooks/useMediaCredits";
 import { Zap, Coins, Sparkles, AlertTriangle, Video } from "lucide-react";
-import { toast } from "sonner";
 import { CountUp } from "@/components/CountUp";
 import { SubscriptionCard } from "@/components/SubscriptionCard";
+import { startCheckout, consumeCheckoutResult } from "@/lib/stripe";
 
 const PACKS = [
   { id: "boost",   name: "PACK BOOST",   credits: 500,  price: 10, tagline: "Para seguir sin parar esta semana", save: null },
@@ -39,17 +39,15 @@ export function CreditsPage() {
     return { days: Math.floor(balance / avgDaily), avgDaily: Math.round(avgDaily) };
   }, [history, balance]);
 
-  const handleRecharge = () => {
-    toast.info("Recarga disponible próximamente", {
-      description: "Escríbenos por WhatsApp para recargar manualmente.",
-    });
+  // Checkout real vía Stripe (cobro principal)
+  const [buyingPack, setBuyingPack] = useState<string | null>(null);
+  const handleRecharge = async (packId: string) => {
+    setBuyingPack(packId);
+    const redirected = await startCheckout({ action: "pack", pack_id: packId });
+    if (!redirected) setBuyingPack(null);
   };
 
-  const handleMediaRecharge = () => {
-    toast.info("Recarga de Media Credits disponible próximamente", {
-      description: "Escríbenos por WhatsApp para recargar manualmente.",
-    });
-  };
+  useEffect(() => { consumeCheckoutResult(); }, []);
 
   const scrollToPacks = () => {
     document.getElementById("recharge-packs")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -137,8 +135,8 @@ export function CreditsPage() {
                 {p.save && <span className="text-[11px] text-success font-semibold">ahorra {p.save}</span>}
               </div>
               <p className="text-[13px] text-muted-foreground mt-3 leading-relaxed flex-1">"{p.tagline}"</p>
-              <button onClick={handleRecharge} className="btn-primary-nova w-full py-2.5 rounded-lg text-sm mt-5">
-                Recargar ${p.price} →
+              <button onClick={() => handleRecharge(p.id)} disabled={buyingPack !== null} className="btn-primary-nova w-full py-2.5 rounded-lg text-sm mt-5 disabled:opacity-60">
+                {buyingPack === p.id ? "Abriendo pago…" : `Recargar $${p.price} →`}
               </button>
             </div>
           ))}
@@ -183,8 +181,8 @@ export function CreditsPage() {
                 <span className="text-[11px] text-muted-foreground">~{Math.round(p.credits / MEDIA_COST_PER_VIDEO)} videos</span>
               </div>
               <p className="text-[13px] text-muted-foreground mt-3 leading-relaxed flex-1">"{p.tagline}"</p>
-              <button onClick={handleMediaRecharge} className="btn-primary-nova w-full py-2.5 rounded-lg text-sm mt-5">
-                Recargar ${p.price} →
+              <button onClick={() => handleRecharge(p.id)} disabled={buyingPack !== null} className="btn-primary-nova w-full py-2.5 rounded-lg text-sm mt-5 disabled:opacity-60">
+                {buyingPack === p.id ? "Abriendo pago…" : `Recargar $${p.price} →`}
               </button>
             </div>
           ))}

@@ -17,7 +17,9 @@ const corsHeaders = {
 };
 
 const LANG_TO_GROUP: Record<string, string> = { es: "ES", pt: "BR", en: "US", ru: "RU" };
-const MODELS_TRY = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3-flash-preview"];
+// De mejor a peor; los lite al final: tienen cuota propia más amplia en el
+// tier gratuito y sostienen la generación cuando los grandes agotan la suya.
+const MODELS_TRY = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3-flash-preview", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
 
 const EMOJI_BY_NICHE: Record<string, string> = {
   salud_fitness: "💪", dinero_negocios: "💰", marketing_ventas: "📣", desarrollo_personal: "🧠", relaciones: "❤️",

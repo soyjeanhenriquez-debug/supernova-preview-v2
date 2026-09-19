@@ -9,6 +9,7 @@ import { listAvatars, generateVideo, extractHookFromScript } from "@/lib/heygen"
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import type { DemoAd } from "@/lib/demo-winning-ads";
 import { OFFER_TYPE_LABEL } from "@/lib/demo-winning-ads";
+import { ModalPortal } from "@/components/ModalPortal";
 
 interface Props { ad: DemoAd; onClose: () => void; }
 
@@ -263,6 +264,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
   const busy = running || salesLoading;
 
   return (
+    <ModalPortal onClose={busy ? undefined : onClose}>
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-card border border-border rounded-2xl w-full max-w-4xl h-[92vh] flex flex-col overflow-hidden">
         {/* Header */}
@@ -483,5 +485,6 @@ export function MiniAppModal({ ad, onClose }: Props) {
         )}
       </div>
     </div>
+    </ModalPortal>
   );
 }

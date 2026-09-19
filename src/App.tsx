@@ -24,12 +24,20 @@ const AdminConfig = lazy(() => import("@/pages/admin/AdminConfig"));
 const AdminAudit = lazy(() => import("@/pages/admin/AdminAudit"));
 const AdminSessions = lazy(() => import("@/pages/admin/AdminSessions"));
 const AdminHealth = lazy(() => import("@/pages/admin/AdminHealth"));
+const UnsubscribePage = lazy(() => import("@/pages/UnsubscribePage"));
 import { RequireAccess } from "@/components/RequireAccess";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
 function AppRoutes() {
   const { user, loading } = useAuth();
+
+  // La baja del correo funciona con o sin sesión y sin pasar por el muro de
+  // acceso: quien llega desde su correo debe poder darse de baja con un clic.
+  if (window.location.pathname === "/unsub") {
+    return <Suspense fallback={<div className="min-h-screen bg-background" />}><UnsubscribePage /></Suspense>;
+  }
 
   if (loading) {
     return (
@@ -90,9 +98,11 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      <ErrorBoundary>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </ErrorBoundary>
     </TooltipProvider>
   </QueryClientProvider>
 );

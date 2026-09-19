@@ -6,6 +6,7 @@ import { useProjects, PILLARS, type BrainProject } from "@/hooks/useProjects";
 import { ProjectThumb } from "@/components/ProjectThumb";
 import { useCredits } from "@/hooks/useCredits";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
+import { ModalPortal } from "@/components/ModalPortal";
 
 export function BrainPage() {
   const { projects, remove, togglePillar, setNote } = useProjects();
@@ -87,6 +88,7 @@ function ProjectCard({ p, onOpen, onDelete }: { p: BrainProject; onOpen: () => v
 
 function ProjectDetail({ proj, onClose, togglePillar, setNote }: { proj: BrainProject; onClose: () => void; togglePillar: (id: string, p: number) => void; setNote: (id: string, p: number, n: string) => void }) {
   return (
+    <ModalPortal onClose={onClose}>
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-card border border-border rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="px-6 py-4 border-b border-border flex items-center justify-between">
@@ -110,6 +112,7 @@ function ProjectDetail({ proj, onClose, togglePillar, setNote }: { proj: BrainPr
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }
 

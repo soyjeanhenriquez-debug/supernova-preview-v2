@@ -6,6 +6,7 @@ import { X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { ModalPortal } from "@/components/ModalPortal";
 
 const campaignSchema = z.object({
   name: z.string().min(2, "Mínimo 2 caracteres"),
@@ -89,6 +90,7 @@ export function CampaignModal({ onClose, onSuccess, editCampaign }: CampaignModa
   const errorClass = "text-xs text-destructive mt-1";
 
   return (
+    <ModalPortal onClose={onClose}>
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="card-surface rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-fade-up">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
@@ -191,5 +193,6 @@ export function CampaignModal({ onClose, onSuccess, editCampaign }: CampaignModa
         </form>
       </div>
     </div>
+    </ModalPortal>
   );
 }

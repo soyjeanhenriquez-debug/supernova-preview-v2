@@ -7,6 +7,7 @@ import { useProjects } from "@/hooks/useProjects";
 import type { DemoAd } from "@/lib/demo-winning-ads";
 import { OFFER_TYPE_LABEL } from "@/lib/demo-winning-ads";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
+import { ModalPortal } from "@/components/ModalPortal";
 
 interface Props { ad: DemoAd; onClose: () => void; }
 
@@ -92,6 +93,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
   };
 
   return (
+    <ModalPortal onClose={onClose}>
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-card border border-border rounded-2xl w-full max-w-6xl h-[92vh] flex flex-col overflow-hidden">
         {/* Header */}
@@ -183,6 +185,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }
 

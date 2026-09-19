@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { useProjects } from "@/hooks/useProjects";
 import { NICHE_LABEL, MARKET_GROUP, flagFor, MARKET_NAME } from "@/lib/offers";
+import { ModalPortal } from "@/components/ModalPortal";
 
 /**
  * Mini Apps Rentables: negocios digitales listos para copiar y cobrar.
@@ -208,6 +209,7 @@ function KitModal({ kit, onClose, onUnlock, busy }: { kit: Kit; onClose: () => v
   };
 
   return (
+    <ModalPortal onClose={onClose}>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm" onClick={onClose}>
       <div className="card-surface rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-3">
@@ -268,5 +270,6 @@ function KitModal({ kit, onClose, onUnlock, busy }: { kit: Kit; onClose: () => v
         )}
       </div>
     </div>
+    </ModalPortal>
   );
 }

@@ -5,6 +5,12 @@ import { checkoutUrl } from "@/lib/plans";
 // Cobro principal: Stripe. Esta lib solo pide URLs al backend y redirige —
 // precios y validación viven en las edge functions (stripe-checkout / stripe-portal).
 
+const WHOP_PACKS: Record<string, string> = {
+  boost: "https://whop.com/digitalizados/boost-500",
+  power: "https://whop.com/digitalizados/power-2-000",
+  nuclear: "https://whop.com/digitalizados/nuclear-4-500",
+};
+
 type CheckoutBody =
   | { action: "subscribe"; plan: "pro" | "proMax" }
   | { action: "pack"; pack_id: string };
@@ -16,10 +22,18 @@ export async function startCheckout(body: CheckoutBody): Promise<boolean> {
   if (error || !data?.url) {
     // Respaldo: si Stripe no está disponible (falta la llave o falla), la membresía se cobra
     // por Whop. Su webhook activa el acceso por CORREO, por eso el checkout va con el correo
-    // de la cuenta ya puesto. Los packs de créditos solo existen en Stripe.
+    // de la cuenta ya puesto. Los Media Credits solo existen en Stripe.
     if (body.action === "subscribe") {
       const { data: u } = await supabase.auth.getUser();
       window.location.href = checkoutUrl(body.plan, u.user?.email ?? undefined);
+      return true;
+    }
+    // Recargas de créditos de texto: también existen en Whop (el webhook las acredita por correo).
+    const whopPack = body.action === "pack" ? WHOP_PACKS[body.pack_id] : undefined;
+    if (whopPack) {
+      const { data: u } = await supabase.auth.getUser();
+      const email = u.user?.email;
+      window.location.href = email ? `${whopPack}?email=${encodeURIComponent(email)}` : whopPack;
       return true;
     }
     toast.error("No se pudo abrir el pago", {

@@ -10,7 +10,7 @@ export const PLANS = {
   },
   proMax: {
     name: "SUPERNOVA PRO MAX",
-    price: 39,
+    price: 39.99,
     period: "/mes",
     checkout: "https://whop.com/checkout/plan_VsWbrtokeQOLu",
     tagline: "Radar + arsenal completo",

@@ -138,6 +138,18 @@ function mapEvent(rawType: string, data: Record<string, unknown>): SubStatus | n
   return null; // evento que no nos interesa
 }
 
+// Packs de recarga: productos de pago único en whop.com/digitalizados/<ruta>. Se reconocen por
+// la ruta o el título del producto dentro del payload (no dependen de un id que cambie).
+const PACKS = [
+  { id: "boost", name: "Boost 500", credits: 500, re: /boost[\s-]*500/i },
+  { id: "power", name: "Power 2,000", credits: 2000, re: /power[\s-]*2[\s.,-]*000/i },
+  { id: "nuclear", name: "Nuclear 4,500", credits: 4500, re: /nuclear[\s-]*4[\s.,-]*500/i },
+];
+function detectPack(data: Record<string, unknown>) {
+  const hay = JSON.stringify([data.product, data.plan, data.access_pass, data.membership, data.product_title, data.plan_title, data.title, data.name, data.route, data.metadata]);
+  return PACKS.find((p) => p.re.test(hay)) ?? null;
+}
+
 /** Busca el email en las rutas conocidas del payload de Whop (User expandido). */
 function extractEmail(data: Record<string, unknown>): string {
   const paths: unknown[] = [
@@ -192,6 +204,47 @@ serve(async (req) => {
 
   const eventType = payload.type ?? payload.action ?? payload.event ?? "";
   const data = payload.data ?? {};
+  // ── Packs de créditos (productos de pago único en Whop) ──────────────────
+  // Van ANTES que la lógica de membresías: si un pack se tratara como membresía pisaría la
+  // suscripción del comprador y, al "expirar" el pack, le quitaría el acceso.
+  const pack = detectPack(data);
+  // Rastro sin datos personales: qué producto/plan trae cada evento (para diagnosticar packs).
+  console.log(`evento ${eventType} · product=${String((data.product as Record<string, unknown>)?.id ?? data.product_id ?? "?")} · plan=${String((data.plan as Record<string, unknown>)?.id ?? data.plan_id ?? "?")} · pack=${pack?.id ?? "no"}`);
+  if (pack) {
+    const t = eventType.toLowerCase().replace(/[._-]/g, " ");
+    const paid = (t.includes("payment") || t.includes("invoice")) && (t.includes("succeed") || t.includes("paid"));
+    if (!paid) {
+      return new Response(JSON.stringify({ ok: true, skipped: `pack:${eventType}` }), { headers: { "Content-Type": "application/json" } });
+    }
+    const packEmail = extractEmail(data);
+    const paymentId = String(data.id ?? "");
+    if (!packEmail || !paymentId) {
+      console.error(`Pack ${pack.id}: pago sin email o sin id`);
+      return new Response(JSON.stringify({ error: "Pack payment without email/id" }), { status: 422, headers: { "Content-Type": "application/json" } });
+    }
+    const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: buyerId } = await db.rpc("get_user_id_by_email", { p_email: packEmail });
+    if (!buyerId) {
+      // Pagó con un correo que no tiene cuenta: 409 para que Whop reintente (puede registrarse luego).
+      console.error(`Pack ${pack.id}: no hay cuenta con el correo del pago`);
+      return new Response(JSON.stringify({ error: "No account for this email yet" }), { status: 409, headers: { "Content-Type": "application/json" } });
+    }
+    // Idempotencia por pago (Whop reintenta entregas): misma tabla que Stripe, con prefijo.
+    const key = `whop:${paymentId}`;
+    const { error: dup } = await db.from("stripe_events").insert({ id: key, type: `whop_pack:${pack.id}` });
+    if (dup) {
+      return new Response(JSON.stringify({ ok: true, duplicate: true }), { headers: { "Content-Type": "application/json" } });
+    }
+    const { error: grantErr } = await db.rpc("grant_purchased_credits", { p_user_id: buyerId, p_amount: pack.credits, p_label: `Recarga ${pack.name} (Whop)` });
+    if (grantErr) {
+      await db.from("stripe_events").delete().eq("id", key); // que el reintento pueda acreditar
+      console.error("grant_purchased_credits:", grantErr.message);
+      return new Response(JSON.stringify({ error: "DB error" }), { status: 500, headers: { "Content-Type": "application/json" } });
+    }
+    console.log(`OK pack ${pack.id} → +${pack.credits} créditos`);
+    return new Response(JSON.stringify({ ok: true, pack: pack.id, credits: pack.credits }), { headers: { "Content-Type": "application/json" } });
+  }
+
   const newStatus = mapEvent(eventType, data);
   if (!newStatus) {
     return new Response(JSON.stringify({ ok: true, skipped: eventType }), {

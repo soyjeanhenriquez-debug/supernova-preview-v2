@@ -61,7 +61,7 @@ export function Hero() {
             transition={{ duration: 1, delay: 0.55, ease }}
             className="mt-12 flex flex-col items-center gap-4 sm:flex-row lg:justify-start"
           >
-            <LuxButton to="/signup">Entrar gratis 7 días · $29/mes</LuxButton>
+            <LuxButton to="/signup">Entrar gratis 3 días · $29/mes</LuxButton>
             <LuxButton to="/auth" variant="ghost">
               Ver cómo funciona
             </LuxButton>
@@ -73,7 +73,7 @@ export function Hero() {
             transition={{ duration: 1, delay: 0.75, ease }}
             className="mt-6 font-[Inter,sans-serif] text-[11px] uppercase tracking-[0.2em] text-[#86868B]"
           >
-            7 días gratis · Cancelas cuando quieras · Sin contrato
+            3 días gratis · Cancelas cuando quieras · Sin contrato
           </motion.p>
         </div>
 

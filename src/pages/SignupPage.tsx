@@ -169,7 +169,7 @@ export default function SignupPage() {
                 <span className="italic text-[#C5A880]">arranca esta semana.</span>
               </h1>
               <p className="mt-5 font-[Inter,sans-serif] text-sm font-light leading-relaxed text-[#86868B]">
-                Te creamos la cuenta en 30 segundos. 7 días gratis con acceso
+                Te creamos la cuenta en 30 segundos. 3 días gratis con acceso
                 completo al radar de ofertas y las herramientas para cobrar en
                 tu moneda.
               </p>
@@ -247,7 +247,7 @@ export default function SignupPage() {
               <p className="mx-auto mt-4 max-w-sm text-center font-[Inter,sans-serif] text-sm font-light leading-relaxed text-[#86868B]">
                 {done === "confirm"
                   ? `Te enviamos un enlace de confirmación a ${email}.`
-                  : "Desbloquea el radar completo con 7 días gratis."}
+                  : "Desbloquea el radar completo con 3 días gratis."}
               </p>
 
               <div className="mt-10 space-y-4">

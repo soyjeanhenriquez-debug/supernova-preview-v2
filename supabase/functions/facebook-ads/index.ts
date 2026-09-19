@@ -113,6 +113,18 @@ Deno.serve(async (req) => {
       return unavailable("fb_error");
     }
 
+    // Meta devuelve `ad_snapshot_url` con NUESTRO access_token pegado. Esto viaja
+    // al navegador del usuario: se reemplaza por la URL pública del anuncio.
+    if (Array.isArray(data?.data)) {
+      for (const it of data.data) {
+        if (it && typeof it === "object" && "ad_snapshot_url" in it) {
+          it.ad_snapshot_url = it.id ? `https://www.facebook.com/ads/library/?id=${encodeURIComponent(String(it.id))}` : null;
+        }
+      }
+    }
+    // La paginación de Meta también trae el token dentro de las URLs "next/previous".
+    if (data?.paging) { delete data.paging.next; delete data.paging.previous; }
+
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

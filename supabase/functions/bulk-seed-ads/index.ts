@@ -232,7 +232,10 @@ Deno.serve(async (req) => {
         for (const it of r.items) {
           const body = (it.ad_creative_bodies?.[0] ?? "").toString();
           const title = (it.ad_creative_link_titles?.[0] ?? it.page_name ?? "Anuncio").toString();
-          const adUrl = it.ad_snapshot_url ?? (it.page_id ? `https://www.facebook.com/ads/library/?id=${it.id}` : "");
+          // `ad_snapshot_url` trae nuestro access_token pegado: jamás se guarda
+          // (estas filas las leen los usuarios). Misma forma que las filas ya
+          // limpias, para que el dedupe por (keyword, ad_url) siga funcionando.
+          const adUrl = it.id ? `https://www.facebook.com/ads/archive/render_ad/?id=${it.id}` : "";
           if (!adUrl || seenUrls.has(adUrl)) continue;
           seenUrls.add(adUrl);
 

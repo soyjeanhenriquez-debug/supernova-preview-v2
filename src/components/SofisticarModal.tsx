@@ -126,10 +126,10 @@ export function SofisticarModal({ ad, onClose }: Props) {
               <div className="grid md:grid-cols-3 gap-4">
                 <ModeCard icon={<Sparkles className="w-5 h-5" />} title="⚡ SOFISTICAR"
                   desc="Existe un curso, ebook o PDF con demanda probada. Entiendes por qué vende y construyes algo MEJOR que resuelve ese dolor de forma más instantánea."
-                  cost="2 créditos" onClick={() => setMode("sofisticar")} />
+                  cost={`${CREDIT_COSTS.sofisticar} ⚡`} onClick={() => setMode("sofisticar")} />
                 <ModeCard icon={<Globe2 className="w-5 h-5" />} title="🌍 ADAPTAR A MI MERCADO"
                   desc="Este anuncio está en otro idioma o mercado. Lo adaptamos culturalmente a tu audiencia — no es traducción, es recreación."
-                  cost={`${CREDIT_COSTS.sofisticar} ⚡`}
+                  cost={`${CREDIT_COSTS.adaptar} ⚡`}
                   extra={
                     <div className="flex gap-2 mt-2">
                       <button onClick={() => { setAdaptTo("es"); setMode("adaptar"); run("adaptar"); }}
@@ -141,7 +141,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
                 />
                 <ModeCard icon={<Target className="w-5 h-5" />} title="🎯 BLUEPRINT COMPLETO"
                   desc="Análisis profundo: por qué gana, cómo clonarlo, el avatar, la estructura de la oferta y tu plan de acción."
-                  cost="3 créditos" onClick={() => { setMode("blueprint"); run("blueprint"); }} />
+                  cost={`${CREDIT_COSTS.blueprint} ⚡`} onClick={() => { setMode("blueprint"); run("blueprint"); }} />
               </div>
             </div>
           )}
@@ -168,7 +168,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
                 <button onClick={() => run("sofisticar")} disabled={loading}
                   className="btn-primary-nova w-full py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  Analizar y Sofisticar → <span className="opacity-70 text-xs">2 créditos</span>
+                  Analizar y Sofisticar → <span className="opacity-70 text-xs">{CREDIT_COSTS.sofisticar} créditos</span>
                 </button>
               </div>
               <div className="md:col-span-3 p-6 overflow-y-auto" ref={scrollRef}>

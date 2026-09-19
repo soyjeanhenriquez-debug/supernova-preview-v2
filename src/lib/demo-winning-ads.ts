@@ -132,13 +132,24 @@ export const KEYWORD_CHIPS: Record<string, string[]> = {
 };
 
 
+// Países de cada idioma. Inglés = todo lo demás (no tiene lista propia).
+// Lo usan langFromCountry y la consulta del radar: si el filtro de idioma se
+// aplicara solo en el navegador, la primera página (ordenada por score, casi
+// toda US/GB) quedaría vacía para quien entra con el navegador en español.
+export const LANG_COUNTRIES: Record<Exclude<AdLang, "en">, string[]> = {
+  es: ["ES","MX","AR","CO","CL","PE","LATAM"],
+  pt: ["BR","PT"],
+  de: ["DE","AT","CH"],
+  ru: ["RU","KZ","BY"],
+};
+export const NON_ENGLISH_COUNTRIES = Object.values(LANG_COUNTRIES).flat();
+
 // Idioma probable según el país del anuncio (para el filtro de idioma)
 export function langFromCountry(country?: string | null): AdLang {
   const c = (country ?? "").toUpperCase();
-  if (["ES","MX","AR","CO","CL","PE","LATAM"].includes(c)) return "es";
-  if (["BR","PT"].includes(c)) return "pt";
-  if (["DE","AT","CH"].includes(c)) return "de";
-  if (["RU","KZ","BY"].includes(c)) return "ru";
+  for (const [lang, list] of Object.entries(LANG_COUNTRIES)) {
+    if (list.includes(c)) return lang as AdLang;
+  }
   return "en";
 }
 

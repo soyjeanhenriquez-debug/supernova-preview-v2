@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { useProjects, PILLARS, type BrainProject } from "@/hooks/useProjects";
 import { ProjectThumb } from "@/components/ProjectThumb";
-import { useCredits } from "@/hooks/useCredits";
+import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import { ModalPortal } from "@/components/ModalPortal";
 
@@ -42,7 +42,7 @@ export function BrainPage() {
           <div className="card-surface rounded-xl py-16 text-center">
             <div className="empty-icon mb-4"><Brain className="w-9 h-9" /></div>
             <div className="font-display font-bold text-lg mb-1">Tu cerebro está listo para encender</div>
-            <div className="text-sm text-muted-foreground max-w-sm mx-auto">Cada proyecto que crees alimenta tu motor SUPERNOVA. Empieza por Buscar Ofertas Winner o Modo Crear.</div>
+            <div className="text-sm text-muted-foreground max-w-sm mx-auto">Cada proyecto que crees alimenta tu motor SUPERNOVA. Empieza por Ofertas o por el Radar de anuncios.</div>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -262,7 +262,7 @@ function PillarBlock({
         >
           {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
           {loading ? "Generando…" : "Ayuda IA"}
-          <span className="opacity-60 ml-1">15c</span>
+          <span className="opacity-60 ml-1">{CREDIT_COSTS.pillar_assist} ⚡</span>
         </button>
       </div>
 

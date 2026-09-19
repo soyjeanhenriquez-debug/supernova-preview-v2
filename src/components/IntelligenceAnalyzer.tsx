@@ -8,7 +8,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Loader2, Zap, Link as LinkIcon, Copy, Trash2, ChevronDown, History, ExternalLink, CheckCircle2, Circle, AlertCircle, Sparkles, Download, FileText, X, ArrowRight, Heart, ChevronLeft, ChevronRight, Eye } from "lucide-react";
-import { useCredits } from "@/hooks/useCredits";
+import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import { invokeErrorMessage } from "@/lib/fnAuth";
 import { useAdHistory, adKey, type AdHistoryItem } from "@/hooks/useAdHistory";
 
@@ -105,7 +105,7 @@ export function IntelligenceAnalyzer() {
             <h3 className="font-display text-xl text-foreground mt-1.5">Pega cualquier landing y la analizamos todo</h3>
             <p className="text-sm text-muted-foreground mt-1">Anuncios activos · Avatar · Ángulo · Debilidades · Blueprint 30 días · Hook listo.</p>
           </div>
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground border border-border rounded-full px-3 py-1">5 créditos · ~25 s</div>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground border border-border rounded-full px-3 py-1">{CREDIT_COSTS.landing_intelligence} créditos · ~25 s</div>
         </div>
 
         <div className="flex gap-2 items-stretch flex-col md:flex-row">
@@ -182,11 +182,11 @@ export function IntelligenceAnalyzer() {
         <DialogContent className="max-w-md border-border bg-card">
           <div className="space-y-4 pt-2">
             <h3 className="font-display text-lg">Confirmar análisis</h3>
-            <p className="text-sm text-muted-foreground">Este análisis cuesta <strong className="text-primary">5 créditos</strong>. Incluye fetch de la página, búsqueda en Ads Library y el informe IA completo (9 secciones).</p>
+            <p className="text-sm text-muted-foreground">Este análisis cuesta <strong className="text-primary">{CREDIT_COSTS.landing_intelligence} créditos</strong> (solo se cobran si el informe sale bien). Incluye fetch de la página, búsqueda en Ads Library y el informe IA completo (9 secciones).</p>
             <div className="text-xs text-muted-foreground truncate font-mono bg-background/60 border border-border rounded px-3 py-2">{url}</div>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setConfirmOpen(false)} className="text-sm px-4 py-2 rounded-lg border border-border hover:bg-secondary">Cancelar</button>
-              <button onClick={() => launch()} className="btn-primary-nova text-sm px-5 py-2 rounded-lg">Sí, analizar (5 cr)</button>
+              <button onClick={() => launch()} className="btn-primary-nova text-sm px-5 py-2 rounded-lg">Sí, analizar ({CREDIT_COSTS.landing_intelligence} cr)</button>
             </div>
           </div>
         </DialogContent>
@@ -399,12 +399,13 @@ function NextSteps() {
 
 type GenKind = "creativos" | "landing" | "avatar" | "funnel" | "master_prompt";
 
-const GEN_META: Record<GenKind, { label: string; icon: string; cost: number; credit: "gen_ad_copies" | "gen_landing" | "gen_avatar" | "gen_funnel" | "gen_master_prompt"; highlight?: boolean }> = {
-  master_prompt: { label: "Mega-Prompt Replicador", icon: "🧬", cost: 4, credit: "gen_master_prompt", highlight: true },
-  creativos:     { label: "Generar mis Creativos",  icon: "⚡", cost: 2, credit: "gen_ad_copies" },
-  landing:       { label: "Clonar esta Landing",    icon: "📄", cost: 3, credit: "gen_landing" },
-  avatar:        { label: "Avatar Profundo",        icon: "👤", cost: 2, credit: "gen_avatar" },
-  funnel:        { label: "Funnel Completo",        icon: "📦", cost: 5, credit: "gen_funnel" },
+// El precio NO va aquí: sale de CREDIT_COSTS[credit] (decía 2–5 créditos y el servidor cobraba 15–50).
+const GEN_META: Record<GenKind, { label: string; icon: string; credit: "gen_ad_copies" | "gen_landing" | "gen_avatar" | "gen_funnel" | "gen_master_prompt"; highlight?: boolean }> = {
+  master_prompt: { label: "Mega-Prompt Replicador", icon: "🧬", credit: "gen_master_prompt", highlight: true },
+  creativos:     { label: "Generar mis Creativos",  icon: "⚡", credit: "gen_ad_copies" },
+  landing:       { label: "Clonar esta Landing",    icon: "📄", credit: "gen_landing" },
+  avatar:        { label: "Avatar Profundo",        icon: "👤", credit: "gen_avatar" },
+  funnel:        { label: "Funnel Completo",        icon: "📦", credit: "gen_funnel" },
 };
 
 function OraculoGenerators({ result }: { result: IntelligenceResult }) {
@@ -477,7 +478,7 @@ function OraculoGenerators({ result }: { result: IntelligenceResult }) {
               <div className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
                 {isLoading ? <><Loader2 className="w-3 h-3 animate-spin" /> Generando…</> :
                  done ? <><CheckCircle2 className="w-3 h-3 text-success" /> Listo · regenerar</> :
-                 <>{m.cost} créditos</>}
+                 <>{CREDIT_COSTS[m.credit]} créditos</>}
               </div>
             </button>
           );

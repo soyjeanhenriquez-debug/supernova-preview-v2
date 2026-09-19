@@ -110,6 +110,26 @@ export default function AdminHealth() {
         detail: lr ? `Hace ${hoursAgo.toFixed(1)}h · ${lr.success ? "exitoso" : "falló"}` : "Sin ejecuciones recientes",
       });
 
+      // 6b. ¿Entran anuncios REALES? El scraper horario puede "tener éxito" guardando solo
+      // páginas web sueltas: entre el 14-jul y el 19-sep no entró ni un anuncio de la
+      // Biblioteca de Meta y este panel seguía en verde. Un anuncio real trae fecha de inicio.
+      // Se miran solo los 100 registros más recientes (barato: van por índice). Buscar "el
+      // último real" directamente obliga a saltarse miles de filas y pasa de los 8 s.
+      const recent = await supabase.from("winning_ads")
+        .select("scraped_at, delivery_start_time")
+        .order("scraped_at", { ascending: false }).limit(100);
+      const rows = recent.data ?? [];
+      const realOnes = rows.filter((r) => r.delivery_start_time).length;
+      out.push({
+        name: "Anuncios reales de Meta",
+        ok: !recent.error && realOnes > 0,
+        detail: recent.error
+          ? "No se pudo comprobar"
+          : realOnes > 0
+            ? `${realOnes} de los últimos ${rows.length} registros son anuncios reales`
+            : `Ninguno de los últimos ${rows.length} registros es un anuncio real de Meta: el radar no se está actualizando`,
+      });
+
       // 7. user_credits con balance
       const uc = await supabase.from("user_credits").select("user_id", { count: "exact", head: true });
       out.push({

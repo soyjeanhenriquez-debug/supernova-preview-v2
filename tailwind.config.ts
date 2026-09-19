@@ -1,5 +1,6 @@
 import type { Config } from "tailwindcss";
 import tailwindcssAnimate from "tailwindcss-animate";
+import typography from "@tailwindcss/typography";
 
 export default {
   darkMode: ["class"],
@@ -90,5 +91,7 @@ export default {
       },
     },
   },
-  plugins: [tailwindcssAnimate],
+  // `typography` da estilo a las clases `prose` de los informes de IA: estaba instalado pero
+  // sin activar, y todo el markdown (Oráculo, kits, generadores…) salía como texto plano.
+  plugins: [tailwindcssAnimate, typography],
 } satisfies Config;

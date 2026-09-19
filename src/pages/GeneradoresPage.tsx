@@ -3,6 +3,7 @@ import {
   Sparkles, Heart, Star, Globe, FileText, ShoppingBag, DollarSign,
   Youtube, Instagram, Mail, MessageSquare, BarChart2, Layers, Copy, Loader2
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCredits, generatorCost } from "@/hooks/useCredits";
@@ -376,8 +377,9 @@ export function GeneradoresPage() {
                   <h4 className="text-sm font-semibold text-foreground mb-1.5 pr-6">{gen.title}</h4>
                   <p className="text-xs text-muted-foreground leading-relaxed mb-4 flex-1">{gen.description}</p>
 
+                  <div className="flex items-center justify-between gap-2 w-full">
                   <span className="text-xs px-2.5 py-1 rounded-md bg-secondary border border-border text-muted-foreground capitalize">
-                    {gen.category === "copywriting" ? "Copywriting" : 
+                    {gen.category === "copywriting" ? "Copywriting" :
                      gen.category === "emails" ? "E-mails" :
                      gen.category === "social" ? "Redes Sociales" :
                      gen.category === "instagram" ? "Instagram" :
@@ -387,6 +389,9 @@ export function GeneradoresPage() {
                      gen.category === "messages" ? "Mensajes" :
                      gen.category === "strategy" ? "Estrategia" : gen.category}
                   </span>
+                  {/* El precio se ve ANTES de entrar: nadie debería enterarse al cobrarle. */}
+                  <span className="text-[11px] font-semibold text-primary tabular-nums whitespace-nowrap">{generatorCost(gen.id).cost} ⚡</span>
+                  </div>
                 </div>
                 );
               })}
@@ -443,7 +448,7 @@ export function GeneradoresPage() {
                   {loading ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Generando...</>
                   ) : (
-                    <><Sparkles className="w-4 h-4" /> Generar</>
+                    <><Sparkles className="w-4 h-4" /> Generar <span className="opacity-75 font-medium">· {generatorCost(selectedGen.id).cost} ⚡</span></>
                   )}
                 </button>
               </div>
@@ -461,8 +466,14 @@ export function GeneradoresPage() {
                       </button>
                     )}
                   </div>
-                  <div className="bg-secondary rounded-lg p-4 text-sm text-foreground leading-relaxed whitespace-pre-wrap min-h-[100px]">
-                    {generatorOutput || (
+                  {/* La IA responde en markdown: se pinta como texto con formato (antes salían
+                      los ** y ### en crudo). "Copiar" sigue llevándose el texto tal cual. */}
+                  <div className="bg-secondary rounded-lg p-4 text-sm text-foreground leading-relaxed min-h-[100px] overflow-x-auto">
+                    {generatorOutput ? (
+                      <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:mt-4 prose-headings:mb-2 prose-p:leading-relaxed prose-li:leading-relaxed prose-strong:text-foreground prose-blockquote:border-primary/40 prose-blockquote:not-italic">
+                        <ReactMarkdown>{generatorOutput}</ReactMarkdown>
+                      </div>
+                    ) : (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Loader2 className="w-4 h-4 animate-spin" /> Generando contenido...
                       </div>

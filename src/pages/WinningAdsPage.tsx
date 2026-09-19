@@ -3,7 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
 import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2, Bookmark, Plus, X, Check, Copy, Languages, Eye, LayoutGrid, List, Star, Info, Columns3 } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, normalizeAdsLibraryUrl, langFromCountry, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
+import { MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, normalizeAdsLibraryUrl, langFromCountry, LANG_COUNTRIES, NON_ENGLISH_COUNTRIES, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
 import { useElapsedMinutes } from "@/hooks/useElapsedMinutes";
 import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import { SofisticarModal } from "@/components/SofisticarModal";
@@ -84,7 +84,6 @@ const TIERS: Record<Tier, { label: string; cls: string; icon: string }> = {
 
 const DAY_OPTIONS = [{ v: 0, l: "Todos" }, { v: 7, l: "7+" }, { v: 14, l: "14+" }, { v: 30, l: "30+" }, { v: 60, l: "60+" }];
 const DUP_OPTIONS = [{ v: 0, l: "Todos" }, { v: 3, l: "3+" }, { v: 5, l: "5+" }, { v: 10, l: "10+" }];
-const TYPE_OPTIONS = ["Todos", "Infoproducto", "Ecommerce", "App", "Saas", "Servicio"];
 const REGION_OPTIONS = ["Todos", "LATAM", "USA", "Brasil", "España"];
 const SCORE_OPTIONS = [{ v: 0, l: "Todos" }, { v: 40, l: "40+" }, { v: 60, l: "60+" }, { v: 80, l: "80+" }];
 const SORT_OPTIONS = ["Mayor Score", "Más Recientes", "Más Duplicados", "Más Días"];
@@ -276,30 +275,23 @@ export function WinningAdsPage() {
     if (realAds.length > 0) writeAdsCache(realAds, liveStats);
   }, [realAds, liveStats]);
 
-  // 1) Stats globales (independientes del filtro) — se recalculan cada 60s
-  //    para reflejar en tiempo real los ads que el scraper va insertando.
+  // 1) Stats globales (independientes del filtro). Salen de UNA fila que refresca un
+  //    cron cada 10 min (radar_stats_cache): antes eran 5 consultas por usuario por
+  //    minuto recorriendo la tabla entera. Trae también la hora real del último scrape.
+  const [lastScrapedAt, setLastScrapedAt] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     const fetchStats = async () => {
-      const [{ count: total }, { count: mega }, { count: rising }, { count: solid }] = await Promise.all([
-        supabase.from("winning_ads").select("*", { count: "exact", head: true }),
-        supabase.from("winning_ads").select("*", { count: "exact", head: true }).eq("tier", "mega"),
-        supabase.from("winning_ads").select("*", { count: "exact", head: true }).eq("tier", "rising"),
-        supabase.from("winning_ads").select("*", { count: "exact", head: true }).eq("tier", "solid"),
-      ]);
-      if (cancelled) return;
-      // Aproximación de únicos: muestreo de 5000 (cota suficiente para UI)
-      const { data: pages } = await supabase
-        .from("winning_ads").select("page_id").not("page_id", "is", null).limit(5000);
-      if (cancelled) return;
-      const unique = new Set((pages ?? []).map((r: unknown) => r.page_id)).size;
+      const { data } = await supabase.from("radar_stats_cache").select("*").maybeSingle();
+      if (cancelled || !data) return;
       setLiveStats({
-        total: total ?? 0, unique,
-        mega: mega ?? 0, rising: rising ?? 0, solid: solid ?? 0,
+        total: data.total ?? 0, unique: data.unique_advertisers ?? 0,
+        mega: data.mega ?? 0, rising: data.rising ?? 0, solid: data.solid ?? 0,
       });
+      setLastScrapedAt(data.last_scraped_at ?? null);
     };
     fetchStats();
-    const interval = setInterval(fetchStats, 60_000);
+    const interval = setInterval(fetchStats, 5 * 60_000);
     const onVisible = () => { if (document.visibilityState === "visible") fetchStats(); };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
@@ -309,25 +301,64 @@ export function WinningAdsPage() {
     };
   }, []);
 
+  // "Actualizado hace…" con la hora REAL del último scrape (antes contaba los minutos
+  // desde que se abrió la página). `elapsed` solo fuerza el repintado cada minuto.
+  // Si el último anuncio real tiene más de 48 h no se presume de nada: el aviso no sale.
+  const updatedLabel = useMemo(() => {
+    void elapsed;
+    if (!lastScrapedAt) return null;
+    const mins = Math.max(0, Math.floor((Date.now() - new Date(lastScrapedAt).getTime()) / 60_000));
+    if (mins < 1) return "ACTUALIZADO AHORA MISMO";
+    if (mins < 60) return `ACTUALIZADO HACE ${mins} MIN`;
+    const hours = Math.floor(mins / 60);
+    return hours <= 48 ? `ACTUALIZADO HACE ${hours} H` : null;
+  }, [lastScrapedAt, elapsed]);
+
+  // El buscador filtra en la base: se espera a que el usuario deje de teclear
+  // (una consulta por tecla eran 12 recorridos de tabla para escribir "curso online").
+  const [debouncedKeyword, setDebouncedKeyword] = useState(keyword);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedKeyword(keyword), 400);
+    return () => clearTimeout(t);
+  }, [keyword]);
+
   // 2) Carga SOLO la página actual desde Supabase aplicando filtros server-side.
   //    Esto evita cargar miles de ads en memoria y dispara previews solo de los visibles.
   useEffect(() => {
     let cancelled = false;
     setLoadingReal(true);
     (async () => {
-      let q = supabase.from("winning_ads").select("*", { count: "exact" });
+      // Solo las columnas que pinta la tarjeta. El texto viaja recortado (ad_body_preview,
+      // campo calculado): hay anuncios de 35 000 caracteres y `select *` los traía enteros.
+      let q = supabase.from("winning_ads")
+        // count "estimated": exacto cuando el resultado es pequeño (una búsqueda) y la
+        // estimación del planificador cuando es grande. El conteo exacto de 26 000 filas
+        // tardaba 11 s en frío y tumbaba la consulta entera (límite del usuario: 8 s).
+        .select("id, page_id, page_name, advertiser, ad_title, ad_body:ad_body_preview, ad_url, market, days_active, duplicate_count, winner_score, tier, offer_type, publisher_platforms", { count: "estimated" });
 
-      // Filtros pusheables a SQL
-      if (regionFilter !== "Todos") {
-        const regionMap: Record<string, string[]> = {
-          LATAM: ["MX", "AR", "CO", "CL", "PE"],
-          USA: ["US"],
-          Brasil: ["BR"],
-          España: ["ES"],
-        };
-        const codes = regionMap[regionFilter];
-        if (codes?.length) q = q.in("market", codes);
+      // Filtros pusheables a SQL. Idioma y región se cruzan AQUÍ, no en el navegador:
+      // filtrando después de paginar, la página 1 salía vacía con el idioma en español.
+      const regionMap: Record<string, string[]> = {
+        LATAM: ["MX", "AR", "CO", "CL", "PE"],
+        USA: ["US"],
+        Brasil: ["BR"],
+        España: ["ES"],
+      };
+      const regionCodes = regionFilter !== "Todos" ? regionMap[regionFilter] ?? null : null;
+      const isLang = (c: string) => (market === "en" ? !NON_ENGLISH_COUNTRIES.includes(c) : (LANG_COUNTRIES[market as keyof typeof LANG_COUNTRIES] ?? []).includes(c));
+      if (regionCodes) {
+        const codes = market === "all" ? regionCodes : regionCodes.filter(isLang);
+        // Región e idioma sin países en común (p. ej. España + Portugués): nada que mostrar.
+        q = q.in("market", codes.length ? codes : ["__none__"]);
+      } else if (market === "en") {
+        q = q.not("market", "in", `(${NON_ENGLISH_COUNTRIES.join(",")})`);
+      } else if (market !== "all") {
+        q = q.in("market", LANG_COUNTRIES[market as keyof typeof LANG_COUNTRIES] ?? []);
       }
+      // Solo anuncios reales de la Biblioteca de Meta (siempre traen fecha de inicio). El
+      // scraper web guardaba además páginas sueltas de facebook.com/instagram.com como si
+      // fueran anuncios (anunciante "instagram", "help", "m"…): un 10 % de la tabla.
+      q = q.not("delivery_start_time", "is", null);
       if (minScore > 0) q = q.gte("winner_score", minScore);
       if (minDays > 0) q = q.gte("days_active", minDays);
       if (minDups > 0) q = q.gte("duplicate_count", minDups);
@@ -335,9 +366,12 @@ export function WinningAdsPage() {
         // typeFilter ej: "Infoproducto" → empieza por "info"
         q = q.ilike("offer_type", `${typeFilter.toLowerCase().slice(0, 4)}%`);
       }
-      if (keyword.trim()) {
-        const k = keyword.trim().replace(/[,()]/g, " ");
-        q = q.or(`ad_title.ilike.%${k}%,ad_body.ilike.%${k}%,page_name.ilike.%${k}%`);
+      if (debouncedKeyword.trim().length >= 3) {
+        // ad_search_text = título + anunciante + arranque del texto, con índice de trigramas.
+        // Buscar con ilike en el texto completo tardaba 50 s (límite del usuario: 8 s).
+        // Menos de 3 letras no puede usar el índice, así que no se filtra todavía.
+        const k = debouncedKeyword.trim().replace(/[%_\\]/g, " ");
+        q = q.ilike("ad_search_text", `%${k}%`);
       }
       // (filtro creativo eliminado — los ads sin body se muestran con ad_title como fallback)
 
@@ -354,7 +388,12 @@ export function WinningAdsPage() {
       const to = from + pageSize - 1;
       const { data, count, error } = await q.range(from, to);
       if (cancelled) return;
-      if (error) { setLoadingReal(false); return; }
+      if (error) {
+        // Antes se tragaba el error: la búsqueda caducaba y la lista simplemente no cambiaba.
+        setLoadingReal(false);
+        toast.error("No se pudo cargar el radar. Intenta de nuevo en unos segundos.", { id: "radar-load" });
+        return;
+      }
 
       const mapped: DemoAd[] = (data ?? []).map((r: unknown, i: number) => {
         const adMarket = (r.market ?? "US") as AdMarket;
@@ -390,10 +429,10 @@ export function WinningAdsPage() {
       setLoadingReal(false);
     })();
     return () => { cancelled = true; };
-  }, [page, pageSize, regionFilter, minScore, minDays, minDups, typeFilter, keyword, sort]);
+  }, [page, pageSize, market, regionFilter, minScore, minDays, minDups, typeFilter, debouncedKeyword, sort]);
 
   // Reset a página 1 cuando cambian filtros
-  useEffect(() => { setPage(1); }, [pageSize, regionFilter, minScore, minDays, minDups, typeFilter, keyword, sort]);
+  useEffect(() => { setPage(1); }, [pageSize, market, regionFilter, minScore, minDays, minDups, typeFilter, debouncedKeyword, sort]);
 
   // Admin: siembra masiva desde FB Ads Library
   const [seeding, setSeeding] = useState(false);
@@ -578,9 +617,10 @@ export function WinningAdsPage() {
     }
   };
 
-  // La data ya viene paginada y filtrada desde Supabase. Solo aplicamos
-  // los 2 filtros que no se pueden pushear server-side (vertical clasificado
-  // y market/lang) sobre los ads de la página actual.
+  // La data ya viene paginada y filtrada desde Supabase (idioma incluido). Aquí solo
+  // queda el filtro que no se puede pushear server-side: el vertical clasificado.
+  // Los resultados de la búsqueda en vivo no pasan por la consulta, así que el
+  // idioma se les sigue aplicando aquí (no quita nada a lo que ya vino filtrado).
   const paginated = useMemo(() => {
     let list = realAds.slice();
     if (market !== "all") list = list.filter((a) => a.lang === market);
@@ -688,13 +728,15 @@ export function WinningAdsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="page-heading font-display text-2xl text-foreground">BUSCAR OFERTAS WINNER</h2>
+          <h2 className="page-heading font-display text-2xl text-foreground">RADAR DE ANUNCIOS</h2>
           <p className="text-sm text-muted-foreground mt-3">Anuncios validados con datos reales. Encuentra, analiza, clona.</p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 pulse-hot">
-          <span className="live-dot" />
-          <span className="text-[11px] font-bold text-primary tracking-widest">JARVIS ACTUALIZÓ HACE {elapsed} MIN</span>
-        </div>
+        {updatedLabel && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 pulse-hot">
+            <span className="live-dot" />
+            <span className="text-[11px] font-bold text-primary tracking-widest">{updatedLabel}</span>
+          </div>
+        )}
       </div>
 
 
@@ -917,7 +959,7 @@ export function WinningAdsPage() {
             <Star className="w-4 h-4" />
           </button>
           <button onClick={handleSearch} disabled={loadingReal} className="btn-primary-nova px-6 py-3 rounded-lg text-sm flex items-center gap-2 whitespace-nowrap disabled:opacity-60">
-            {loadingReal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} {loadingReal ? "Buscando..." : "Buscar Anuncios"} <span className="opacity-70">· 10 créditos</span>
+            {loadingReal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} {loadingReal ? "Buscando..." : "Buscar Anuncios"} <span className="opacity-70">· {CREDIT_COSTS.search_ads} créditos</span>
           </button>
         </div>
 
@@ -1016,7 +1058,8 @@ export function WinningAdsPage() {
           <PillSelect label="Idioma" value={market} onChange={setMarket} options={MARKETS.map((m) => ({ value: m.id, label: `${m.flag} ${m.label}` }))} />
           <PillSelect label="Días mínimos" value={String(minDays)} onChange={(v) => setMinDays(Number(v))} options={DAY_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
           <PillSelect label="Repeticiones" value={String(minDups)} onChange={(v) => setMinDups(Number(v))} options={DUP_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
-          <PillSelect label="Tipo" value={typeFilter} onChange={setTypeFilter} options={TYPE_OPTIONS.map((o) => ({ value: o, label: o }))} />
+          {/* El filtro "Tipo" se quitó: la columna offer_type está vacía en todos los anuncios
+              y cualquier opción dejaba la lista en cero. Para eso están los chips de vertical. */}
           <PillSelect label="Mercado" value={regionFilter} onChange={setRegionFilter} options={REGION_OPTIONS.map((o) => ({ value: o, label: o }))} />
           <PillSelect label="Score mínimo" value={String(minScore)} onChange={(v) => setMinScore(Number(v))} options={SCORE_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
           <PillSelect label="Ordenar" value={sort} onChange={setSort} options={SORT_OPTIONS.map((o) => ({ value: o, label: o }))} />

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Sparkles, Loader2, Plus } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
-import { useCredits } from "@/hooks/useCredits";
+import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import { useProjects } from "@/hooks/useProjects";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 
@@ -114,7 +114,7 @@ export function CrearPage() {
         </div>
         <button onClick={discover} disabled={loading} className="btn-primary-nova px-5 py-2.5 rounded-lg text-sm flex items-center gap-2">
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          Descubrir Dolores <span className="opacity-70">· 2 créditos</span>
+          Descubrir Dolores <span className="opacity-70">· {CREDIT_COSTS.pain_discovery} créditos</span>
         </button>
       </div>
 

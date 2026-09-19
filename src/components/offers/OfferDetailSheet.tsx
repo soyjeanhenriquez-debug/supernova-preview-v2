@@ -165,8 +165,10 @@ function OfferFacts({ o, name, intel, phase, onSeeAds, onVerdict }: {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <Kpi icon={<Flame className="w-3.5 h-3.5" />} label="Anuncios activos" value={o.active_ads.toLocaleString("es")} hint="corriendo a la vez" />
         <Kpi icon={<CalendarDays className="w-3.5 h-3.5" />} label="Días pagando" value={o.days_active.toLocaleString("es")} hint="sin apagar la campaña" />
-        <Kpi icon={<Trophy className="w-3.5 h-3.5" />} label="Índice ganador" value={`${winnerPct(o)}%`} hint="dinero + copiabilidad" accent />
-        <Kpi icon={<Target className="w-3.5 h-3.5" />} label="Para ti" value={copy.label} hint={o.copy_score ? `${o.copy_score}/5 de copiabilidad` : "sin evaluar"} small />
+        <Kpi icon={<Trophy className="w-3.5 h-3.5" />} label="Índice ganador" value={`${winnerPct(o)}%`} hint="dinero + facilidad" accent />
+        {/* Facilidad ≠ recomendación: si el veredicto dice que no, se avisa aquí mismo. */}
+        <Kpi icon={<Target className="w-3.5 h-3.5" />} label="Replicarla" value={copy.short}
+          hint={intel?.verdict?.would_copy === "no" ? "ojo: mira el veredicto" : o.copy_score ? `${o.copy_score}/5 de facilidad` : "sin evaluar"} small />
       </div>
 
       {/* A dónde lleva y dónde cobra: lo que un principiante necesita ver con sus ojos */}

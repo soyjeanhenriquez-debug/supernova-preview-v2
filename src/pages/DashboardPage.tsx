@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Brain, ArrowRight, ArrowUpRight, Search, Sparkles, Wand2 } from "lucide-react";
-import { useCredits } from "@/hooks/useCredits";
+import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import { useProjects, PILLARS } from "@/hooks/useProjects";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGamification } from "@/hooks/useGamification";
@@ -131,9 +131,9 @@ export function DashboardPage({ onNavigate }: Props) {
         <QuickAction
           icon={<Search className="w-5 h-5" strokeWidth={1.8} />}
           tint="primary"
-          title="Buscar Ofertas Winner"
-          subtitle="Encuentra lo que está escalando ahora"
-          cost="10c"
+          title="Radar de anuncios"
+          subtitle="Explorar es gratis · búsqueda en vivo en Meta"
+          cost={`${CREDIT_COSTS.search_ads} créditos`}
           onClick={() => onNavigate("Buscar Ofertas Winner")}
         />
         <QuickAction
@@ -141,7 +141,7 @@ export function DashboardPage({ onNavigate }: Props) {
           tint="purple"
           title="Oráculo"
           subtitle="Disecciona cualquier landing en segundos"
-          cost="80c"
+          cost={`${CREDIT_COSTS.landing_intelligence} créditos`}
           onClick={() => onNavigate("Oráculo")}
         />
         <QuickAction
@@ -149,7 +149,7 @@ export function DashboardPage({ onNavigate }: Props) {
           tint="green"
           title="Sofisticar oferta"
           subtitle="Convierte un winner en tu versión superior"
-          cost="30c"
+          cost={`${CREDIT_COSTS.sofisticar} créditos`}
           onClick={() => onNavigate("Buscar Ofertas Winner")}
         />
       </section>
@@ -172,7 +172,7 @@ export function DashboardPage({ onNavigate }: Props) {
           <div className="card-surface rounded-2xl py-20 text-center">
             <div className="empty-icon mb-5"><Brain className="w-7 h-7" strokeWidth={1.4} /></div>
             <div className="font-display font-semibold text-base mb-1">Tu primer proyecto está a un click</div>
-            <div className="text-sm text-muted-foreground">Crea uno desde Buscar Ofertas Winner</div>
+            <div className="text-sm text-muted-foreground">Crea uno desde Ofertas o el Radar de anuncios</div>
           </div>
         ) : (
           <div className="grid md:grid-cols-3 gap-4">

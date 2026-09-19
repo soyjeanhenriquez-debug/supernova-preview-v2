@@ -114,12 +114,18 @@ export function flagFor(market: string | null | undefined) {
   return MARKET_FLAG[(market ?? "").toUpperCase()] ?? "🌍";
 }
 
-export function copyLabel(score: number | null | undefined): { label: string; cls: string } {
-  if (score == null) return { label: "Sin evaluar", cls: "bg-secondary text-muted-foreground" };
-  if (score >= 5) return { label: "Muy copiable", cls: "bg-success/15 text-success" };
-  if (score >= 4) return { label: "Copiable", cls: "bg-success/10 text-success" };
-  if (score >= 3) return { label: "Con inversión", cls: "bg-warning/15 text-warning" };
-  return { label: "Difícil de replicar", cls: "bg-destructive/10 text-destructive" };
+/**
+ * Qué tan FÁCIL es replicar la oferta (copy_score 1-5 del enriquecimiento). No dice si
+ * conviene: eso es el veredicto. Por eso habla de esfuerzo ("fácil de replicar") y no de
+ * recomendación: antes decía "Muy copiable" al lado de un veredicto "No la copiaría".
+ * `label` se entiende solo (insignias sueltas); `short` va junto al rótulo "Replicarla".
+ */
+export function copyLabel(score: number | null | undefined): { label: string; short: string; cls: string } {
+  if (score == null) return { label: "Sin evaluar", short: "Sin evaluar", cls: "bg-secondary text-muted-foreground" };
+  if (score >= 5) return { label: "Muy fácil de replicar", short: "Muy fácil", cls: "bg-success/15 text-success" };
+  if (score >= 4) return { label: "Fácil de replicar", short: "Fácil", cls: "bg-success/10 text-success" };
+  if (score >= 3) return { label: "Requiere inversión", short: "Con inversión", cls: "bg-warning/15 text-warning" };
+  return { label: "Difícil de replicar", short: "Difícil", cls: "bg-destructive/10 text-destructive" };
 }
 
 /** Etiqueta DR de escala: qué tan fuerte está pagando el anunciante ahora mismo. */

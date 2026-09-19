@@ -54,7 +54,7 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
 
   return (
     <aside
-      className={`relative flex flex-col min-h-screen border-r border-border bg-sidebar transition-[width] duration-200 ease-out ${isCollapsed ? "w-[68px]" : "w-[260px]"}`}
+      className={`relative flex flex-col h-screen supports-[height:100dvh]:h-[100dvh] border-r border-border bg-sidebar transition-[width] duration-200 ease-out ${isCollapsed ? "w-[68px]" : "w-[260px]"}`}
     >
       {/* Toggle (desktop only) */}
       {!mobile && (
@@ -92,7 +92,7 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
       </div>
 
       {/* Navigation */}
-      <nav className={`flex-1 py-1 space-y-px overflow-y-auto overflow-x-hidden ${isCollapsed ? "px-2" : "px-3"}`}>
+      <nav className={`flex-1 min-h-0 py-1 space-y-px overflow-y-auto overflow-x-hidden ${isCollapsed ? "px-2" : "px-3"}`}>
         {navItems.map((item) => {
           const isActive = activePage === item.key;
           const Icon = item.icon;

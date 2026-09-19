@@ -14,6 +14,14 @@ export function TopBar({ activePage, onOpenMobileNav }: TopBarProps) {
   const { balance, limit } = useCredits();
   const { t, i18n } = useTranslation();
   const low = balance < 100;
+  // Mismo nombre que en el menú (la clave interna de la página no es para mostrarla).
+  const NAV_KEY: Record<string, string> = {
+    "Dashboard": "nav.dashboard", "Ofertas": "nav.offers", "Mini Apps": "nav.kits",
+    "Buscar Ofertas Winner": "nav.winners", "Hooks": "nav.hooks", "Oráculo": "nav.oracle",
+    "Generadores": "nav.generators", "Media Studio": "nav.mediaStudio",
+    "Proyectos": "nav.projects", "Créditos": "nav.credits",
+  };
+  const title = NAV_KEY[activePage] ? t(NAV_KEY[activePage]) : activePage;
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
@@ -36,7 +44,7 @@ export function TopBar({ activePage, onOpenMobileNav }: TopBarProps) {
         )}
         <div className="min-w-0">
           <h1 className="font-display font-semibold text-[15px] md:text-[16px] text-foreground tracking-[-0.01em] truncate">
-            {activePage}
+            {title}
           </h1>
           <p className="text-[11px] text-muted-foreground/80 tracking-tight capitalize hidden sm:block">
             {dateStr}

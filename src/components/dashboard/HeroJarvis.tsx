@@ -88,7 +88,7 @@ export function HeroJarvis({ firstName }: Props) {
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
             {t("common.online")}
           </div>
-          <div className="text-[11px] text-muted-foreground mb-5">Meta Ads Library · TikTok · 4 mercados</div>
+          <div className="text-[11px] text-muted-foreground mb-5">Biblioteca de anuncios de Meta · 13 países</div>
           <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border">
             <MiniStat label="Procesados" value={adsToday === null ? "—" : adsToday.toLocaleString()} />
             <MiniStat label="Temperatura" value={fires || "—"} mono />

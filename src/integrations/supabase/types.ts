@@ -1108,6 +1108,25 @@ export type Database = {
         }
         Relationships: []
       }
+      radar_stats_cache: {
+        Row: {
+          id: boolean
+          last_scraped_at: string | null
+          mega: number
+          refreshed_at: string
+          rising: number
+          solid: number
+          total: number
+          unique_advertisers: number
+        }
+        Insert: {
+          id?: boolean
+        }
+        Update: {
+          id?: boolean
+        }
+        Relationships: []
+      }
       rate_limits: {
         Row: {
           action_type: string

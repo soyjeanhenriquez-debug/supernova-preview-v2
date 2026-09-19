@@ -112,8 +112,9 @@ const Index = () => {
 
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Desktop sidebar */}
-      <div className="hidden lg:flex">
+      {/* Desktop sidebar: fija al hacer scroll (la página entera es la que se desplaza;
+          sin esto el menú se iba hacia arriba y quedaba una columna vacía). */}
+      <div className="hidden lg:flex sticky top-0 h-screen self-start z-40">
         <Sidebar activePage={activePage} onNavigate={setActivePage} />
       </div>
 

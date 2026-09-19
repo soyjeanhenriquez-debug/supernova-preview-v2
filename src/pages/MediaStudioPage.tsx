@@ -171,11 +171,19 @@ export function MediaStudioPage() {
                     setAvatarId(a.avatar_id);
                     if (a.default_voice_id) setVoiceId(a.default_voice_id);
                   }}
-                  className={`px-3 py-2.5 rounded-lg border text-left text-sm transition-colors ${
+                  className={`px-2.5 py-2 rounded-lg border text-left text-sm transition-colors flex items-center gap-2.5 min-w-0 ${
                     avatarId === a.avatar_id ? "border-primary bg-primary/10 text-primary" : "border-border text-foreground hover:bg-secondary/60"
                   }`}
                 >
-                  {a.avatar_name}
+                  {/* La cara ayuda más que el nombre cuando hay varios looks del mismo avatar */}
+                  {a.preview_image_url ? (
+                    <img src={a.preview_image_url} alt="" loading="lazy" referrerPolicy="no-referrer"
+                      className="w-9 h-9 rounded-md object-cover shrink-0 bg-secondary"
+                      onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                  ) : (
+                    <span className="w-9 h-9 rounded-md bg-secondary shrink-0" />
+                  )}
+                  <span className="truncate">{a.avatar_name}</span>
                 </button>
               ))}
             </div>

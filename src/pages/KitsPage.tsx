@@ -89,8 +89,19 @@ export function KitsPage({ onNavigate }: { onNavigate?: (page: string) => void }
       .eq("offer_type", "saas_app").gte("copy_score", 4)
       .order("winner_index", { ascending: false, nullsFirst: false })
       .order("winner_score", { ascending: false }).order("active_ads", { ascending: false })
-      .limit(9)
-      .then(({ data, count }) => { setApps((data ?? []) as Offer[]); setAppsTotal(count ?? 0); });
+      .limit(24)
+      .then(({ data, count }) => {
+        // Una misma app puede anunciarse desde varias páginas: una tarjeta por producto.
+        const seen = new Set<string>();
+        const unique = ((data ?? []) as Offer[]).filter((o) => {
+          const key = (o.product_name || o.page_name || o.id).toLowerCase().replace(/[^a-z0-9áéíóúñü]+/gi, "");
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setApps(unique.slice(0, 9));
+        setAppsTotal(count ?? 0);
+      });
   }, []);
 
   const seeAllApps = () => { localStorage.setItem(OFFERS_TAB_KEY, "apps"); onNavigate?.("Ofertas"); };

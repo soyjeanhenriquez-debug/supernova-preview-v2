@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Flame, ExternalLink, Zap, Radar, Loader2, Gem, Layers, Globe2, Tag as TagIcon, RefreshCw } from "lucide-react";
+import { Search, Flame, ExternalLink, Zap, Radar, Loader2, Gem, Layers, Globe2, Tag as TagIcon, RefreshCw, Heart, Crosshair } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { MiniAppModal } from "@/components/MiniAppModal";
 import { AdMediaPreview } from "@/components/AdMediaPreview";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
+import { useOfferFollows } from "@/hooks/useOfferFollows";
+import { Delta, OFFERS_TAB_KEY, type FollowedRow } from "@/components/dashboard/RoiHunterWidget";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { buildAdsLibraryPageUrl, type AdMarket } from "@/lib/demo-winning-ads";
 import {
@@ -19,7 +21,7 @@ import {
  * emprendedor solo, cosa que ningún competidor hace.
  */
 
-type Tab = "todas" | "apps" | "info";
+type Tab = "todas" | "apps" | "info" | "siguiendo";
 const PAGE_SIZE = 24;
 
 const SORTS = [
@@ -33,7 +35,14 @@ const SORTS = [
 interface Stats { offers: number; active_ads: number; markets: number; niches: number; updated_at: string | null; }
 
 export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
-  const [tab, setTab] = useState<Tab>("todas");
+  // Tab inicial: el dashboard puede mandarnos directo a "Siguiendo"
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = localStorage.getItem(OFFERS_TAB_KEY);
+    if (t) localStorage.removeItem(OFFERS_TAB_KEY);
+    return t === "siguiendo" ? "siguiendo" : "todas";
+  });
+  const follows = useOfferFollows();
+  const [followed, setFollowed] = useState<FollowedRow[] | null>(null);
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [niche, setNiche] = useState("all");
@@ -55,9 +64,17 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
     supabase.rpc("get_offers_stats").then(({ data }) => { if (data) setStats(data as unknown as Stats); });
   }, []);
 
+  // Cazador de ROI: ofertas seguidas + insights (deltas de 7 días)
+  useEffect(() => {
+    if (tab !== "siguiendo") return;
+    setFollowed(null);
+    supabase.rpc("get_followed_offers").then(({ data }) => setFollowed((data ?? []) as unknown as FollowedRow[]));
+  }, [tab, follows.followingIds]);
+
   useEffect(() => {
     let alive = true;
     setLoading(true);
+    if (tab === "siguiendo") { setLoading(false); return; }
     (async () => {
       let q = supabase.from("offers").select("*", { count: "exact" }).eq("enrich_failed", false);
       if (tab === "apps") q = q.eq("offer_type", "saas_app");
@@ -123,6 +140,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
           { k: "todas", l: "Todas" },
           { k: "info", l: "🎓 Infoproductos" },
           { k: "apps", l: "🧩 Apps & SaaS" },
+          { k: "siguiendo", l: `⭐ Siguiendo${follows.followingIds.size ? ` · ${follows.followingIds.size}` : ""}` },
         ] as { k: Tab; l: string }[]).map((t) => (
           <button key={t.k} onClick={() => setTab(t.k)}
             className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
@@ -137,6 +155,9 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
         </button>
       </div>
 
+      {tab === "siguiendo" ? (
+        <FollowingList rows={followed} follows={follows} onCreate={setCreating} onNavigate={onNavigate} />
+      ) : (<>
       {/* Filtros */}
       <div className="card-surface rounded-xl p-3 grid grid-cols-1 md:grid-cols-5 gap-2">
         <div className="relative md:col-span-2">
@@ -189,7 +210,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
       ) : (
         <>
           <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {rows.map((o) => <OfferCard key={o.id} o={o} onCreate={() => setCreating(o)} onNavigate={onNavigate} />)}
+            {rows.map((o) => <OfferCard key={o.id} o={o} onCreate={() => setCreating(o)} onNavigate={onNavigate} following={follows.isFollowing(o.id)} onToggleFollow={() => follows.toggle(o)} />)}
           </div>
           {rows.length < total && (
             <div className="flex justify-center pt-2">
@@ -202,7 +223,39 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
         </>
       )}
 
+      </>)}
+
       {creating && <MiniAppModal ad={offerToDemoAd(creating)} onClose={() => setCreating(null)} />}
+    </div>
+  );
+}
+
+function FollowingList({ rows, follows, onCreate, onNavigate }: {
+  rows: FollowedRow[] | null; follows: ReturnType<typeof useOfferFollows>;
+  onCreate: (o: Offer) => void; onNavigate?: (p: string) => void;
+}) {
+  if (rows === null) {
+    return <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">{[0, 1, 2].map((i) => <div key={i} className="card-surface rounded-2xl h-[420px] animate-pulse" />)}</div>;
+  }
+  if (rows.length === 0) {
+    return (
+      <div className="card-surface rounded-2xl py-16 text-center px-6">
+        <div className="empty-icon mb-5"><Crosshair className="w-7 h-7" strokeWidth={1.4} /></div>
+        <div className="font-display font-semibold text-base mb-1">Tu Cazador de ROI está vacío</div>
+        <div className="text-sm text-muted-foreground max-w-md mx-auto">
+          Pulsa el corazón en cualquier oferta para seguirla ({CREDIT_COSTS.follow_offer} ⚡). Cada día guardamos sus anuncios activos y su score,
+          y aquí verás cuáles están escalando y cuáles se apagan — antes que todos.
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      {rows.map((r) => (
+        <OfferCard key={r.offer.id} o={r.offer} onCreate={() => onCreate(r.offer)} onNavigate={onNavigate}
+          following={follows.isFollowing(r.offer.id)} onToggleFollow={() => follows.toggle(r.offer)}
+          insight={r} />
+      ))}
     </div>
   );
 }
@@ -219,7 +272,10 @@ function StatTile({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
-function OfferCard({ o, onCreate, onNavigate }: { o: Offer; onCreate: () => void; onNavigate?: (p: string) => void }) {
+function OfferCard({ o, onCreate, onNavigate, following, onToggleFollow, insight }: {
+  o: Offer; onCreate: () => void; onNavigate?: (p: string) => void;
+  following: boolean; onToggleFollow: () => void; insight?: FollowedRow;
+}) {
   const copy = copyLabel(o.copy_score);
   const name = o.product_name || o.sample_title || o.page_name || "Oferta";
   const market = (["BR", "US", "ES", "MX", "RU"].includes(o.market) ? o.market : "LATAM") as AdMarket;
@@ -253,6 +309,12 @@ function OfferCard({ o, onCreate, onNavigate }: { o: Offer; onCreate: () => void
           {o.price_hint && <Tag accent>{o.price_hint}</Tag>}
         </div>
 
+        {insight && (
+          <div className="mt-3 rounded-lg bg-secondary/40 px-3 py-2 flex items-center justify-between text-[11px]">
+            <span className="text-muted-foreground">{insight.days_tracked > 0 ? `Últimos ${insight.days_tracked} días` : "Seguimiento desde hoy"}</span>
+            <span className="flex items-center gap-3"><Delta value={insight.ads_delta} suffix="ads" /><Delta value={insight.score_delta} suffix="score" /></span>
+          </div>
+        )}
         {o.mechanism && <p className="text-[12.5px] text-foreground/85 mt-3 leading-relaxed line-clamp-2">{o.mechanism}</p>}
         {o.target_audience && <p className="text-[11px] text-muted-foreground mt-1.5 line-clamp-1">Para: {o.target_audience}</p>}
 
@@ -272,6 +334,10 @@ function OfferCard({ o, onCreate, onNavigate }: { o: Offer; onCreate: () => void
         </div>
 
         <div className="mt-4 pt-3 border-t border-border/60 flex items-center gap-2">
+          <button onClick={onToggleFollow} title={following ? "Dejar de seguir" : `Seguir en el Cazador de ROI · ${CREDIT_COSTS.follow_offer} ⚡`}
+            className={`px-2.5 py-2 rounded-lg border transition-colors ${following ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-primary hover:border-primary/40"}`}>
+            <Heart className="w-4 h-4" fill={following ? "currentColor" : "none"} />
+          </button>
           <button onClick={onCreate} className="flex-1 btn-primary-nova py-2 rounded-lg text-[12px] font-semibold flex items-center justify-center gap-1.5">
             <Zap className="w-3.5 h-3.5" /> Crear mi versión <span className="opacity-70">· {CREDIT_COSTS.gen_master_prompt}⚡</span>
           </button>

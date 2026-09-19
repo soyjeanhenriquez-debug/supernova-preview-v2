@@ -1,15 +1,20 @@
 // SUPERNOVA — Enriquecimiento IA de la capa de ofertas (producto-primero).
 //
 // Toma ofertas sin enriquecer (offers.enriched_at IS NULL) y en UNA llamada a
-// Gemini por lote de 25 obtiene: nombre del producto, nicho (taxonomía fija),
+// Gemini por lote de 20 obtiene: nombre del producto, nicho (taxonomía fija),
 // tipo de oferta, modelo de negocio, idioma real del anuncio (el `market` es
 // dónde LLEGÓ el anuncio, no su idioma), precio si se menciona, mecanismo,
 // por qué gana, para quién y copy_score (1-5: replicable por un emprendedor
 // solo como producto digital / mini app).
 //
+// Cola por GRUPO de mercado (ES/BR/US/RU) priorizando lang_guess = idioma
+// del grupo: el top por score de cada país lo dominan anunciantes globales
+// en inglés, y gastar la IA ahí no sirve para los picks del grupo.
+//
 // Mismo patrón que extract-hooks: verify_jwt false (cron), solo escribe
 // contenido derivado con service_role. Idempotente: procesa solo pendientes.
-// Body opcional: { batches?: 1-8 (default 5), markets?: string[] }
+// Body opcional: { batches?: 1-4 (default 2), group?: "ES"|"BR"|"US"|"RU", markets?: string[] }
+// Lotes cortos a propósito: 4×25 por invocación excedía el CPU del worker.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -18,9 +23,16 @@ const corsHeaders = {
 };
 
 const BATCH_SIZE = 20;
-const MAX_BATCHES = 8;
-// Mercados foco del producto (español, portugués, inglés, ruso) primero.
-const FOCUS_MARKETS = ["ES", "MX", "AR", "CO", "BR", "PT", "US", "RU", "KZ"];
+const MAX_BATCHES = 4;
+
+const GROUPS: Record<string, { markets: string[]; lang: string }> = {
+  ES: { markets: ["ES", "MX", "AR", "CO"], lang: "es" },
+  BR: { markets: ["BR", "PT"], lang: "pt" },
+  US: { markets: ["US", "GB"], lang: "en" },
+  RU: { markets: ["RU", "KZ"], lang: "ru" },
+};
+const GROUP_ORDER = ["ES", "BR", "US", "RU"];
+const langForMarket = (m: string) => Object.values(GROUPS).find((g) => g.markets.includes(m))?.lang ?? null;
 
 export const NICHES = [
   "salud_fitness", "dinero_negocios", "marketing_ventas", "desarrollo_personal", "relaciones",
@@ -45,6 +57,11 @@ interface Enriched {
   copy_score?: number;
 }
 
+interface Row {
+  id: string; page_name: string | null; market: string; sample_title: string | null; sample_body: string | null;
+  ads_count: number; active_ads: number; days_active: number; winner_score: number;
+}
+
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
@@ -56,33 +73,55 @@ Deno.serve(async (req) => {
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-  const body = (await req.json().catch(() => ({}))) as { batches?: number; markets?: string[] };
-  const batches = Math.min(MAX_BATCHES, Math.max(1, Number(body.batches) || 5));
-  const requestedMarkets = Array.isArray(body.markets) && body.markets.length > 0
-    ? body.markets.map((m) => String(m).toUpperCase()).slice(0, 20)
-    : null;
+  const body = (await req.json().catch(() => ({}))) as { batches?: number; group?: string; markets?: string[] };
+  const batches = Math.min(MAX_BATCHES, Math.max(1, Number(body.batches) || 2));
 
-  const summary = { batches_done: 0, enriched: 0, failed: 0, note: "" };
+  // Objetivo: grupo pedido, mercados pedidos, o rotación por hora (cron)
+  let markets: string[];
+  let lang: string | null;
+  let explicit = true;
+  if (body.group && GROUPS[body.group.toUpperCase()]) {
+    ({ markets, lang } = GROUPS[body.group.toUpperCase()]);
+  } else if (Array.isArray(body.markets) && body.markets.length > 0) {
+    markets = body.markets.map((m) => String(m).toUpperCase()).slice(0, 20);
+    lang = langForMarket(markets[0]);
+  } else {
+    explicit = false;
+    ({ markets, lang } = GROUPS[GROUP_ORDER[new Date().getUTCHours() % GROUP_ORDER.length]]);
+  }
+
+  const summary: { group_markets: string[]; lang: string | null; model?: string; batches_done: number; enriched: number; failed: number; note: string } =
+    { group_markets: markets, lang, batches_done: 0, enriched: 0, failed: 0, note: "" };
+
+  const pending = async (mk: string[] | null, langFilter: "match" | "other" | "any", exclude: string[]): Promise<Row[]> => {
+    let q = admin
+      .from("offers")
+      .select("id, page_name, market, sample_title, sample_body, ads_count, active_ads, days_active, winner_score")
+      .is("enriched_at", null)
+      .eq("enrich_failed", false)
+      .not("sample_body", "is", null)
+      .order("winner_score", { ascending: false })
+      .order("active_ads", { ascending: false })
+      .limit(BATCH_SIZE);
+    if (mk) q = q.in("market", mk);
+    if (lang && langFilter === "match") q = q.eq("lang_guess", lang);
+    if (lang && langFilter === "other") q = q.or(`lang_guess.is.null,lang_guess.neq.${lang}`);
+    if (exclude.length) q = q.not("id", "in", `(${exclude.join(",")})`);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data ?? []) as Row[];
+  };
 
   try {
     for (let b = 0; b < batches; b++) {
-      // 1) Cola de pendientes: mercados pedidos (o foco), y si se agotó, el resto
-      const pending = async (markets: string[] | null) => {
-        let q = admin
-          .from("offers")
-          .select("id, page_name, market, sample_title, sample_body, ads_count, active_ads, days_active, winner_score")
-          .is("enriched_at", null)
-          .eq("enrich_failed", false)
-          .order("winner_score", { ascending: false })
-          .order("active_ads", { ascending: false })
-          .limit(BATCH_SIZE);
-        if (markets) q = q.in("market", markets);
-        const { data, error } = await q;
-        if (error) throw error;
-        return data ?? [];
-      };
-      let rows = await pending(requestedMarkets ?? FOCUS_MARKETS);
-      if (rows.length === 0 && !requestedMarkets) rows = await pending(null);
+      // 1) Cola: primero idioma del grupo, luego el resto del grupo, y si el
+      //    grupo se agotó (solo en modo cron), cualquier pendiente.
+      let rows = await pending(markets, "match", []);
+      if (rows.length < BATCH_SIZE) {
+        const more = await pending(markets, "other", rows.map((r) => r.id));
+        rows = [...rows, ...more].slice(0, BATCH_SIZE);
+      }
+      if (rows.length === 0 && !explicit) rows = await pending(null, "any", []);
       if (rows.length === 0) { summary.note = "Sin pendientes"; break; }
 
       // 2) UNA llamada a Gemini con el lote → JSON estricto
@@ -115,10 +154,12 @@ Responde SOLO con el array JSON de objetos.
 ANUNCIOS:
 ${JSON.stringify(items)}`;
 
-      // El modelo preview se satura (503 "high demand") con frecuencia:
-      // reintento con backoff y, al tercer intento, fallback al modelo estable.
-      const MODELS_TRY = ["gemini-3-flash-preview", "gemini-3-flash-preview", "gemini-2.5-flash"];
+      // Cadena de modelos: el preview se satura (503) y tiene cuota diaria
+      // baja (429); cada modelo tiene cuota propia, así que ante 429/5xx se
+      // pasa al siguiente. Solo si TODOS fallan se corta la corrida.
+      const MODELS_TRY = ["gemini-3-flash-preview", "gemini-2.5-flash", "gemini-2.5-flash-lite"];
       let aiRes: Response | null = null;
+      let lastStatus = 0;
       for (let attempt = 0; attempt < MODELS_TRY.length && !aiRes; attempt++) {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 75_000);
@@ -133,21 +174,23 @@ ${JSON.stringify(items)}`;
             }),
             signal: ctrl.signal,
           });
-          if ([500, 502, 503, 504].includes(r.status) && attempt < MODELS_TRY.length - 1) {
+          lastStatus = r.status;
+          if ([429, 500, 502, 503, 504].includes(r.status) && attempt < MODELS_TRY.length - 1) {
             await r.text();
-            await new Promise((res) => setTimeout(res, 4000 * (attempt + 1)));
+            await new Promise((res) => setTimeout(res, 1500));
             continue;
           }
           aiRes = r;
+          summary.model = MODELS_TRY[attempt];
         } catch (err) {
           if (attempt === MODELS_TRY.length - 1) throw err;
         } finally {
           clearTimeout(timer);
         }
       }
-      if (!aiRes) { summary.note = "IA saturada tras reintentos"; break; }
+      if (!aiRes) { summary.note = `IA no disponible tras reintentos (último status ${lastStatus})`; break; }
 
-      if (aiRes.status === 429) { summary.note = "Cuota de IA agotada (429); reintentar más tarde"; break; }
+      if (aiRes.status === 429) { summary.note = "Cuota de IA agotada en todos los modelos (429); reintentar más tarde"; break; }
       if (!aiRes.ok) {
         const t = await aiRes.text();
         summary.note = `AI error ${aiRes.status}: ${t.slice(0, 200)}`;

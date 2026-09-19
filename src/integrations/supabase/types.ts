@@ -832,6 +832,32 @@ export type Database = {
         }
         Relationships: []
       }
+      offer_follows: {
+        Row: {
+          created_at: string
+          offer_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          offer_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          offer_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offer_follows_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       offer_snapshots: {
         Row: {
           active_ads: number | null
@@ -1583,6 +1609,14 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      follow_offer: { Args: { p_offer_id: string }; Returns: Json }
+      get_followed_offers: {
+        Args: never
+        Returns: {
+          offer: Json; followed_at: string; ads_delta: number; score_delta: number
+          days_tracked: number; first_active_ads: number
+        }[]
       }
       get_daily_picks: {
         Args: never

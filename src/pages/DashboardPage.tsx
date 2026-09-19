@@ -12,6 +12,7 @@ import { RisingTemperatureWidget } from "@/components/RisingTemperatureWidget";
 import { CountUp } from "@/components/CountUp";
 import { HeroJarvis } from "@/components/dashboard/HeroJarvis";
 import { DailyPicksHero } from "@/components/dashboard/DailyPicksHero";
+import { RoiHunterWidget } from "@/components/dashboard/RoiHunterWidget";
 import { StreakWidget } from "@/components/dashboard/StreakWidget";
 import { StatCardSparkline } from "@/components/dashboard/StatCardSparkline";
 import { DailyMissionWidget } from "@/components/dashboard/DailyMissionWidget";
@@ -103,6 +104,9 @@ export function DashboardPage({ onNavigate }: Props) {
           footer="desde tu registro"
         />
       </section>
+
+      {/* Cazador de ROI: qué pasó esta semana con las ofertas que sigues */}
+      <RoiHunterWidget onNavigate={onNavigate} />
 
       {/* 4 + 5. Misión y XP en 2 cols */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">

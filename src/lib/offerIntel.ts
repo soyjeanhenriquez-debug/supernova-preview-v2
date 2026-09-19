@@ -10,6 +10,11 @@ import { fnHeaders, fnErrorMessage } from "@/lib/fnAuth";
 export interface OfferVerdict {
   would_copy: "si" | "con_cambios" | "no";
   score: number;
+  /** De dónde sale la nota (prueba de venta, embudo, facilidad). Veredictos antiguos no lo traen. */
+  score_basis?: string;
+  your_twist?: string;
+  ads_plan?: string;
+  organic_plan?: { platform: "instagram" | "tiktok" | "ambas"; account_idea: string; content_ideas: string[] } | null;
   headline: string;
   why_attention: string;
   whats_working: string;
@@ -114,7 +119,7 @@ export async function reportOffer(offerId: string, reason: "inactive" | "broken_
 
 /** El veredicto como texto plano, para pegar en notas o mandarlo por WhatsApp. */
 export function verdictToText(name: string, v: OfferVerdict): string {
-  const decision = v.would_copy === "si" ? "Sí, la copiaría" : v.would_copy === "no" ? "No la copiaría" : "La copiaría con cambios";
+  const decision = v.would_copy === "si" ? "Sí, véndela" : v.would_copy === "no" ? "Hoy no la vendería" : "Véndela con cambios";
   return [
     `${name} — Veredicto SUPERNOVA: ${decision} (${v.score}/10)`,
     v.headline,
@@ -122,6 +127,9 @@ export function verdictToText(name: string, v: OfferVerdict): string {
     "", "QUÉ ESTÁ FUNCIONANDO", v.whats_working,
     "", "QUÉ COPIAR", ...v.copy_this.map((x) => `• ${x}`),
     "", "QUÉ CAMBIAR", ...v.change_this.map((x) => `• ${x}`),
+    ...(v.your_twist ? ["", "HAZLA TUYA (ROBA COMO UN ARTISTA)", v.your_twist] : []),
+    ...(v.ads_plan ? ["", "CÓMO PROBARLA CON ANUNCIOS", v.ads_plan] : []),
+    ...(v.organic_plan ? ["", `PLAN ORGÁNICO (${v.organic_plan.platform.toUpperCase()})`, v.organic_plan.account_idea, ...v.organic_plan.content_ideas.map((x) => `• ${x}`)] : []),
     "", "CÓMO ADAPTARLA A LATAM", v.latam_adaptation,
     "", `PAÍSES PARA PROBAR: ${v.countries_to_test.join(", ")}`,
     `PRECIO SUGERIDO: ${v.suggested_ticket}`,

@@ -290,9 +290,9 @@ function TextBlock({ title, text }: { title: string; text: string }) {
 /* ────────────────────────────── Pestaña: Veredicto ───────────────────────────── */
 
 const DECISION: Record<OfferVerdict["would_copy"], { label: string; emoji: string; cls: string }> = {
-  si: { label: "Sí, la copiaría", emoji: "✅", cls: "bg-success/15 text-success border-success/40" },
-  con_cambios: { label: "La copiaría con cambios", emoji: "🛠️", cls: "bg-warning/15 text-warning border-warning/40" },
-  no: { label: "No la copiaría", emoji: "⛔", cls: "bg-destructive/10 text-destructive border-destructive/30" },
+  si: { label: "Sí, véndela", emoji: "✅", cls: "bg-success/15 text-success border-success/40" },
+  con_cambios: { label: "Véndela con cambios", emoji: "🛠️", cls: "bg-warning/15 text-warning border-warning/40" },
+  no: { label: "Hoy no la vendería", emoji: "⛔", cls: "bg-destructive/10 text-destructive border-destructive/30" },
 };
 
 function VerdictView({ name, verdict, phase, error, onRetry, onCreate }: {
@@ -327,17 +327,25 @@ function VerdictView({ name, verdict, phase, error, onRetry, onCreate }: {
         <div className="flex items-center gap-4">
           <ScoreRing score={verdict.score} />
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">¿La copiaría?</div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Potencial de venta</div>
             <span className={`inline-flex items-center gap-1.5 mt-1.5 rounded-full border px-3 py-1.5 text-[13px] font-bold ${d.cls}`}>{d.emoji} {d.label}</span>
           </div>
         </div>
         {verdict.headline && <p className="text-[14.5px] text-foreground leading-snug mt-3.5 font-medium">{verdict.headline}</p>}
+        {verdict.score_basis && <p className="text-[12.5px] text-muted-foreground leading-relaxed mt-2"><span className="font-semibold text-foreground/80">De dónde sale la nota: </span>{verdict.score_basis}</p>}
       </section>
 
       <Section icon={<Lightbulb className="w-4 h-4" />} title="Por qué llama la atención" text={verdict.why_attention} />
       <Section icon={<ThumbsUp className="w-4 h-4" />} title="Qué está funcionando" text={verdict.whats_working} />
       <ListSection icon={<Check className="w-4 h-4" />} title="Qué copiar" items={verdict.copy_this} tone="good" />
       <ListSection icon={<AlertTriangle className="w-4 h-4" />} title="Qué cambiar" items={verdict.change_this} tone="warn" />
+      {verdict.your_twist && <Section icon={<Sparkles className="w-4 h-4" />} title="Hazla tuya · roba como un artista" text={verdict.your_twist} />}
+      {verdict.ads_plan && <Section icon={<Target className="w-4 h-4" />} title="Cómo probarla con anuncios" text={verdict.ads_plan} />}
+      {verdict.organic_plan && (
+        <ListSection icon={<Flame className="w-4 h-4" />} tone="good"
+          title={`Véndela gratis en ${verdict.organic_plan.platform === "ambas" ? "Instagram y TikTok" : verdict.organic_plan.platform === "tiktok" ? "TikTok" : "Instagram"}`}
+          items={[verdict.organic_plan.account_idea && `Cuenta: ${verdict.organic_plan.account_idea}`, ...verdict.organic_plan.content_ideas].filter(Boolean) as string[]} />
+      )}
       <Section icon={<MapPin className="w-4 h-4" />} title="Cómo adaptarla a LATAM" text={verdict.latam_adaptation} />
 
       <div className="grid sm:grid-cols-2 gap-3">

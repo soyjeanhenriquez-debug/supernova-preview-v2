@@ -1688,6 +1688,7 @@ export type Database = {
         Args: { p_amount: number; p_label?: string; p_user_id: string }
         Returns: Json
       }
+      has_access: { Args: never; Returns: boolean }
       has_active_subscription: { Args: never; Returns: boolean }
       has_role: {
         Args: {
@@ -1698,6 +1699,7 @@ export type Database = {
       }
       is_email_approved: { Args: { p_email: string }; Returns: boolean }
       is_suspended: { Args: never; Returns: boolean }
+      touch_last_access: { Args: never; Returns: undefined }
       log_action: {
         Args: {
           p_action: string

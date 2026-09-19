@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useProjects, PILLARS, type BrainProject } from "@/hooks/useProjects";
 import { ProjectThumb } from "@/components/ProjectThumb";
 import { useCredits } from "@/hooks/useCredits";
+import { fnHeaders } from "@/lib/fnAuth";
 
 export function BrainPage() {
   const { projects, remove, togglePillar, setNote } = useProjects();
@@ -187,11 +188,7 @@ function PillarBlock({
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pillar-assist`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
+          headers: await fnHeaders(),
           body: JSON.stringify({
             projectName: proj.name,
             projectMode: proj.mode,

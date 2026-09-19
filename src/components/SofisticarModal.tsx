@@ -6,6 +6,7 @@ import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import { useProjects } from "@/hooks/useProjects";
 import type { DemoAd } from "@/lib/demo-winning-ads";
 import { OFFER_TYPE_LABEL } from "@/lib/demo-winning-ads";
+import { fnHeaders } from "@/lib/fnAuth";
 
 interface Props { ad: DemoAd; onClose: () => void; }
 
@@ -50,11 +51,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sofisticar-ad`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
+          headers: await fnHeaders(),
           body: JSON.stringify(payload),
         },
       );

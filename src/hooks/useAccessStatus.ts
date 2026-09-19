@@ -33,12 +33,9 @@ export function useAccessStatus(): Status {
       if (cancelled) return;
       if (approved === true) {
         setStatus("allowed");
-        // touch last_access (policy allows self update by email match)
-        supabase
-          .from("approved_emails")
-          .update({ last_access: new Date().toISOString() })
-          .eq("email", email)
-          .then(() => {});
+        // Marca el último acceso. Va por RPC: el usuario ya no puede escribir su
+        // fila de approved_emails (con ese permiso se reactivaba tras cancelar).
+        supabase.rpc("touch_last_access").then(() => {});
       } else {
         setStatus("pending");
       }

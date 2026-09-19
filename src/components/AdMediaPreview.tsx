@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ExternalLink, Loader2, ImageOff } from "lucide-react";
+import { fnHeaders } from "@/lib/fnAuth";
 
 interface AdMediaPreviewProps {
   snapshotUrl?: string;
@@ -96,7 +97,10 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title }: 
     if (!visible || !adId || state !== "idle") return;
     setState("loading");
     const projectId = (import.meta.env.VITE_SUPABASE_PROJECT_ID as string) || "krfdoofwhtcxbyhkjoik";
-    fetch(`https://${projectId}.supabase.co/functions/v1/meta-ad-proxy?id=${adId}`)
+    // Con sesión: un anuncio sin caché dispara un scrape de pago y la función
+    // solo lo hace para un usuario con acceso (lo cacheado responde igual).
+    fnHeaders()
+      .then((headers) => fetch(`https://${projectId}.supabase.co/functions/v1/meta-ad-proxy?id=${adId}`, { headers }))
       .then((r) => r.json())
       .then((data) => {
         if (!data?.success || (!data.imageUrl && !data.videoUrl)) {

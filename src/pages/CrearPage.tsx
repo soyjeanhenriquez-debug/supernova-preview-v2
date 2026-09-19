@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { useCredits } from "@/hooks/useCredits";
 import { useProjects } from "@/hooks/useProjects";
+import { fnHeaders } from "@/lib/fnAuth";
 
 export function CrearPage() {
   const { consume, canAfford } = useCredits();
@@ -49,11 +50,7 @@ export function CrearPage() {
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pain-discovery`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
+          headers: await fnHeaders(),
           body: JSON.stringify({ keyword, suggestions: sugg, sources }),
         },
       );

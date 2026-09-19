@@ -6,6 +6,7 @@ import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import { useProjects } from "@/hooks/useProjects";
 import { useMediaCredits, MEDIA_COST_PER_VIDEO } from "@/hooks/useMediaCredits";
 import { listAvatars, generateVideo, extractHookFromScript } from "@/lib/heygen";
+import { fnHeaders } from "@/lib/fnAuth";
 import type { DemoAd } from "@/lib/demo-winning-ads";
 import { OFFER_TYPE_LABEL } from "@/lib/demo-winning-ads";
 
@@ -14,12 +15,6 @@ interface Props { ad: DemoAd; onClose: () => void; }
 type Phase = "idle" | "blueprint" | "miniapp" | "done" | "error";
 type Tab = "blueprint" | "miniapp" | "vender";
 type SalesPath = "whatsapp" | "vsl";
-
-const FN_HEADERS = {
-  "Content-Type": "application/json",
-  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-  Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-};
 
 const COUNTRIES = [
   { code: "CO", label: "🇨🇴 Colombia · COP" },
@@ -73,7 +68,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
       const bpResp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/winner-blueprint`,
         {
-          method: "POST", headers: FN_HEADERS,
+          method: "POST", headers: await fnHeaders(),
           body: JSON.stringify({
             ad: {
               ad_title: ad.title, ad_body: ad.body, page_name: ad.pageName,
@@ -111,7 +106,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
       const mpResp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/oraculo-generate`,
         {
-          method: "POST", headers: FN_HEADERS,
+          method: "POST", headers: await fnHeaders(),
           body: JSON.stringify({ kind: "master_prompt", brand: ad.pageName, analysis: bp }),
         },
       );
@@ -154,7 +149,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/oraculo-generate`,
         {
-          method: "POST", headers: FN_HEADERS,
+          method: "POST", headers: await fnHeaders(),
           body: JSON.stringify(
             path === "whatsapp"
               ? { kind: "whatsapp_script", brand: ad.pageName, analysis: blueprint, country }
@@ -216,7 +211,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
       const prompt = `Anuncio para "${ad.pageName}": ${ad.title}. ${blueprint.slice(0, 300)}`;
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-ad-creative`,
-        { method: "POST", headers: FN_HEADERS, body: JSON.stringify({ prompt, aspectRatio: "1:1" }) },
+        { method: "POST", headers: await fnHeaders(), body: JSON.stringify({ prompt, aspectRatio: "1:1" }) },
       );
       const data = await resp.json();
       if (!resp.ok || !data.image) throw new Error(data.error || "Error generando la imagen");

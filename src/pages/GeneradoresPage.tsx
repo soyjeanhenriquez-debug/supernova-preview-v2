@@ -6,6 +6,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCredits, generatorCost } from "@/hooks/useCredits";
+import { fnHeaders } from "@/lib/fnAuth";
 
 const categories = [
   { icon: Sparkles, label: "Todos", id: "all" },
@@ -234,10 +235,7 @@ export function GeneradoresPage() {
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
+          headers: await fnHeaders(),
           body: JSON.stringify({
             messages: [
               {

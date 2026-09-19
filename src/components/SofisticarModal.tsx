@@ -6,7 +6,7 @@ import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import { useProjects } from "@/hooks/useProjects";
 import type { DemoAd } from "@/lib/demo-winning-ads";
 import { OFFER_TYPE_LABEL } from "@/lib/demo-winning-ads";
-import { fnHeaders } from "@/lib/fnAuth";
+import { fnHeaders, fnErrorMessage } from "@/lib/fnAuth";
 
 interface Props { ad: DemoAd; onClose: () => void; }
 
@@ -55,7 +55,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
           body: JSON.stringify(payload),
         },
       );
-      if (!resp.ok || !resp.body) throw new Error("Error de análisis");
+      if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "Error de análisis"));
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";

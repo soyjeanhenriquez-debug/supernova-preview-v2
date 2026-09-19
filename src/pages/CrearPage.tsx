@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { useCredits } from "@/hooks/useCredits";
 import { useProjects } from "@/hooks/useProjects";
-import { fnHeaders } from "@/lib/fnAuth";
+import { fnHeaders, fnErrorMessage } from "@/lib/fnAuth";
 
 export function CrearPage() {
   const { consume, canAfford } = useCredits();
@@ -54,7 +54,7 @@ export function CrearPage() {
           body: JSON.stringify({ keyword, suggestions: sugg, sources }),
         },
       );
-      if (!resp.ok || !resp.body) throw new Error("Error análisis");
+      if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "Error análisis"));
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";

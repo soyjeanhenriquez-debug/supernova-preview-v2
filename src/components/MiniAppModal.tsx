@@ -6,7 +6,7 @@ import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import { useProjects } from "@/hooks/useProjects";
 import { useMediaCredits, MEDIA_COST_PER_VIDEO } from "@/hooks/useMediaCredits";
 import { listAvatars, generateVideo, extractHookFromScript } from "@/lib/heygen";
-import { fnHeaders } from "@/lib/fnAuth";
+import { fnHeaders, fnErrorMessage } from "@/lib/fnAuth";
 import type { DemoAd } from "@/lib/demo-winning-ads";
 import { OFFER_TYPE_LABEL } from "@/lib/demo-winning-ads";
 
@@ -49,6 +49,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
   const [country, setCountry] = useState(() => localStorage.getItem("supernova_country") || "CO");
   const scrollRef = useRef<HTMLDivElement>(null);
   const startedRef = useRef(false);
+  const chargedRef = useRef(false);
   const projectIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -57,9 +58,14 @@ export function MiniAppModal({ ad, onClose }: Props) {
 
   const run = async () => {
     if (startedRef.current) return;
-    if (!canAfford("gen_master_prompt")) { toast.error("Sin créditos suficientes"); return; }
+    // Se cobra UNA vez por Mi App. Antes, "Reintentar" tras un fallo volvía a
+    // cobrar, y el mensaje de error decía que los créditos "seguían ahí".
+    if (!chargedRef.current) {
+      if (!canAfford("gen_master_prompt")) { toast.error("Sin créditos suficientes"); return; }
+      consume("gen_master_prompt", `Mi App · ${ad.title.slice(0, 40)}`);
+      chargedRef.current = true;
+    }
     startedRef.current = true;
-    consume("gen_master_prompt", `Mi App · ${ad.title.slice(0, 40)}`);
 
     try {
       // Fase 1 — Blueprint (streaming)
@@ -78,7 +84,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
           }),
         },
       );
-      if (!bpResp.ok || !bpResp.body) throw new Error("Error analizando el anuncio");
+      if (!bpResp.ok || !bpResp.body) throw new Error(await fnErrorMessage(bpResp, "Error analizando el anuncio"));
       const reader = bpResp.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";
@@ -332,7 +338,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
 
           {phase === "error" && (
             <div className="h-full flex flex-col items-center justify-center gap-3">
-              <p className="text-sm text-muted-foreground">Algo falló. Tus créditos siguen ahí si el análisis no se completó.</p>
+              <p className="text-sm text-muted-foreground">Algo falló. Reintentar no te vuelve a cobrar: esta Mi App ya está pagada.</p>
               <button onClick={() => { startedRef.current = false; run(); }} className="text-primary text-sm hover:underline">
                 Reintentar
               </button>

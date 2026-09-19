@@ -6,7 +6,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCredits, generatorCost } from "@/hooks/useCredits";
-import { fnHeaders } from "@/lib/fnAuth";
+import { fnHeaders, fnErrorMessage } from "@/lib/fnAuth";
 
 const categories = [
   { icon: Sparkles, label: "Todos", id: "all" },
@@ -249,7 +249,7 @@ export function GeneradoresPage() {
         }
       );
 
-      if (!resp.ok || !resp.body) throw new Error("Error al generar");
+      if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "Error al generar"));
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();

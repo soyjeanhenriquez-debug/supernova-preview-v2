@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useProjects, PILLARS, type BrainProject } from "@/hooks/useProjects";
 import { ProjectThumb } from "@/components/ProjectThumb";
 import { useCredits } from "@/hooks/useCredits";
-import { fnHeaders } from "@/lib/fnAuth";
+import { fnHeaders, fnErrorMessage } from "@/lib/fnAuth";
 
 export function BrainPage() {
   const { projects, remove, togglePillar, setNote } = useProjects();
@@ -201,7 +201,7 @@ function PillarBlock({
           }),
         },
       );
-      if (!resp.ok || !resp.body) throw new Error("Error de IA");
+      if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "Error de IA"));
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";

@@ -9,6 +9,9 @@ const WHOP_PACKS: Record<string, string> = {
   boost: "https://whop.com/checkout/plan_ogd3Tq3dhAPU0",
   power: "https://whop.com/checkout/plan_MmMIIQFDwfLFg",
   nuclear: "https://whop.com/checkout/plan_iLopCOOcLRFGb",
+  "media-starter": "https://whop.com/checkout/plan_Om5ryuOj3N6ny",
+  "media-pro": "https://whop.com/checkout/plan_LUqedwz8eidhm",
+  "media-scale": "https://whop.com/checkout/plan_8TEzDcA67omY8",
 };
 
 type CheckoutBody =

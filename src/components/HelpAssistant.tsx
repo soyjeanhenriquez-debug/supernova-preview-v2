@@ -30,7 +30,7 @@ Funciones de la app que conoces (menú lateral):
 
 7. **Generadores**: plantillas de copy (hooks, captions, emails, guiones, VSL, landing). Cuestan ${CREDIT_COSTS.gen_light}, ${CREDIT_COSTS.gen_medium} o ${CREDIT_COSTS.gen_heavy} créditos según el tamaño; el precio se ve antes de generar y se cobra solo si sale bien.
 
-8. **Media Studio**: videos con avatar de IA a partir de un guion. Usa **Media Credits** (saldo aparte): 10 por video. Si el video falla, se devuelven solos. Packs: Starter 50/$12, Pro 150/$29, Scale 400/$69.
+8. **Media Studio**: videos con avatar de IA a partir de un guion. Usa **Media Credits** (saldo aparte): 10 por video. Si el video falla, se devuelven solos. Packs: Starter 50/$10, Pro 150/$29.99, Scale 400/$69.99.
 
 9. **Proyectos / SUPERNOVA BRAIN**: 6 pilares (Detectar, Analizar, Diseñar, Producir, Lanzar, Escalar) para llevar una campaña de principio a fin. Cada pilar tiene "Ayuda IA" (${CREDIT_COSTS.pillar_assist} créditos).
 

@@ -15,9 +15,9 @@ const PACKS = [
 // Pool separado del de texto: el costo real de video con avatar IA (HeyGen,
 // ~$1 USD/min) es órdenes de magnitud mayor al de un generador de texto.
 const MEDIA_PACKS = [
-  { id: "media-starter", name: "STARTER", credits: 50,  price: 12, tagline: "~5 videos para probar el hook de hoy", save: null },
-  { id: "media-pro",     name: "PRO",     credits: 150, price: 29, tagline: "~15 videos — ritmo de testing semanal", save: null, popular: true },
-  { id: "media-scale",   name: "SCALE",   credits: 400, price: 69, tagline: "~40 videos para escalar creativos", save: null },
+  { id: "media-starter", name: "STARTER", credits: 50,  price: 10, tagline: "~5 videos para probar el hook de hoy", save: null },
+  { id: "media-pro",     name: "PRO",     credits: 150, price: 29.99, tagline: "~15 videos — ritmo de testing semanal", save: null, popular: true },
+  { id: "media-scale",   name: "SCALE",   credits: 400, price: 69.99, tagline: "~40 videos para escalar creativos", save: null },
 ];
 
 export function CreditsPage() {
@@ -214,7 +214,9 @@ export function CreditsPage() {
                 <tr key={i} className="border-b border-border/40">
                   <td className="px-5 py-2 text-muted-foreground text-xs">{new Date(h.date).toLocaleString("es-ES")}</td>
                   <td className="px-5 py-2">{h.label}{h.meta && <span className="text-muted-foreground"> · {h.meta.slice(0, 40)}</span>}</td>
-                  <td className="px-5 py-2 text-right text-primary font-bold">-{h.cost}</td>
+                  {h.granted
+                    ? <td className="px-5 py-2 text-right text-success font-bold">+{h.granted.toLocaleString()}</td>
+                    : <td className="px-5 py-2 text-right text-primary font-bold">-{h.cost}</td>}
                 </tr>
               ))}
             </tbody>

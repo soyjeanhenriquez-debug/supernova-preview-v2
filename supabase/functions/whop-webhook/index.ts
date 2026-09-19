@@ -140,15 +140,20 @@ function mapEvent(rawType: string, data: Record<string, unknown>): SubStatus | n
 
 // Packs de recarga: productos de pago único en whop.com/digitalizados/<ruta>. Se reconocen por
 // la ruta o el título del producto dentro del payload (no dependen de un id que cambie).
-const PACKS = [
+const PACKS: Array<{ id: string; name: string; credits: number; plan: string; re?: RegExp; media?: boolean }> = [
   { id: "boost", name: "Boost 500", credits: 500, plan: "plan_ogd3Tq3dhAPU0", re: /boost[\s-]*500/i },
   { id: "power", name: "Power 2,000", credits: 2000, plan: "plan_MmMIIQFDwfLFg", re: /power[\s-]*2[\s.,-]*000/i },
   { id: "nuclear", name: "Nuclear 4,500", credits: 4500, plan: "plan_iLopCOOcLRFGb", re: /nuclear[\s-]*4[\s.,-]*500/i },
+  // Media Credits (video con avatar): saldo aparte. Solo por id de plan: "Starter"/"Pro" son
+  // nombres demasiado genéricos para reconocerlos por título (chocarían con los planes).
+  { id: "media-starter", name: "Media Starter 50", credits: 50, plan: "plan_Om5ryuOj3N6ny", media: true },
+  { id: "media-pro", name: "Media Pro 150", credits: 150, plan: "plan_LUqedwz8eidhm", media: true },
+  { id: "media-scale", name: "Media Scale 400", credits: 400, plan: "plan_8TEzDcA67omY8", media: true },
 ];
 function detectPack(data: Record<string, unknown>) {
   const hay = JSON.stringify([data.product, data.plan, data.access_pass, data.membership, data.product_title, data.plan_title, data.title, data.name, data.route, data.metadata]);
   const planId = String((data.plan as Record<string, unknown>)?.id ?? data.plan_id ?? "");
-  return PACKS.find((p) => p.plan === planId) ?? PACKS.find((p) => p.re.test(hay)) ?? null;
+  return PACKS.find((p) => p.plan === planId) ?? PACKS.find((p) => p.re?.test(hay)) ?? null;
 }
 
 /** Busca el email en las rutas conocidas del payload de Whop (User expandido). */
@@ -241,7 +246,9 @@ serve(async (req) => {
     if (dup) {
       return new Response(JSON.stringify({ ok: true, duplicate: true }), { headers: { "Content-Type": "application/json" } });
     }
-    const { error: grantErr } = await db.rpc("grant_purchased_credits", { p_user_id: buyerId, p_amount: pack.credits, p_label: `Recarga ${pack.name} (Whop)` });
+    const { error: grantErr } = pack.media
+      ? await db.rpc("grant_media_credits", { p_user_id: buyerId, p_amount: pack.credits, p_reason: `Recarga ${pack.name} (Whop)` })
+      : await db.rpc("grant_purchased_credits", { p_user_id: buyerId, p_amount: pack.credits, p_label: `Recarga ${pack.name} (Whop)` });
     if (grantErr) {
       await db.from("stripe_events").delete().eq("id", key); // que el reintento pueda acreditar
       console.error("grant_purchased_credits:", grantErr.message);

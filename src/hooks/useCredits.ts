@@ -68,6 +68,8 @@ export const ACTION_HOURS: Record<CreditAction, number> = {
 
 export interface CreditHistoryEntry {
   date: string; action: CreditAction; label: string; cost: number; meta?: string;
+  /** Recargas y bonos: créditos que ENTRARON (se pintan como +N en el historial). */
+  granted?: number;
 }
 
 function readHistory(): CreditHistoryEntry[] {
@@ -140,6 +142,7 @@ export function useCredits() {
         action: t.action as CreditAction,
         label: t.label || ACTION_LABEL[t.action as CreditAction] || t.action,
         cost: t.cost,
+        granted: (t.meta as { granted?: number } | null)?.granted,
         meta: (t.meta as { note?: string } | null)?.note,
       }));
       setHistory(mapped);

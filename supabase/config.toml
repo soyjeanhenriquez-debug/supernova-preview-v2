@@ -1,19 +1,41 @@
 project_id = "krfdoofwhtcxbyhkjoik"
 
+# verify_jwt = false SOLO donde quien llama no puede traer un JWT de usuario.
+# Ninguna queda abierta: cada una se autentica por su cuenta dentro del código.
+# (Todas las demás funciones usan el valor por defecto, verify_jwt = true, y
+# además exigen un USUARIO real con acceso: la llave pública del bundle también
+# es un JWT válido para el gateway.)
+
+# Proxy de previews: lo cacheado es público; un anuncio sin caché (scrape de
+# pago) exige usuario con acceso dentro de la función.
 [functions.meta-ad-proxy]
 verify_jwt = false
 
-[functions.oraculo-generate]
-verify_jwt = false
-
+# Invocadas por pg_cron → cabecera x-cron-secret (Vault) o admin con sesión.
 [functions.master-rotate]
-verify_jwt = false
-
-[functions.stripe-webhook]
 verify_jwt = false
 
 [functions.enrich-offers]
 verify_jwt = false
 
 [functions.generate-kit]
+verify_jwt = false
+
+[functions.extract-hooks]
+verify_jwt = false
+
+[functions.send-daily-digest]
+verify_jwt = false
+
+# Webhooks de terceros.
+# Stripe: no se confía en el cuerpo; se vuelve a pedir el evento a Stripe por id.
+[functions.stripe-webhook]
+verify_jwt = false
+
+# Whop: firma HMAC (Standard Webhooks) con WHOP_WEBHOOK_SECRET.
+[functions.whop-webhook]
+verify_jwt = false
+
+# HeyGen: no firma sus webhooks; solo actualiza un job nuestro por video_id.
+[functions.heygen-webhook]
 verify_jwt = false

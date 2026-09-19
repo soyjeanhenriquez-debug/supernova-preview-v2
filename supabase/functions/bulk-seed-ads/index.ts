@@ -3,6 +3,7 @@
 // guarda todo en winning_ads. Pensado para inflar el catálogo a miles de anuncios.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
 // eslint-disable @typescript-eslint/no-explicit-any
 
 const FB_FIELDS = [
@@ -123,8 +124,40 @@ const SEED_KEYWORDS = [
 
 const SEED_COUNTRIES = ["US", "ES", "BR", "MX", "AR", "CO", "PT", "GB", "DE", "AT", "CH", "RU", "KZ"];
 
+// ── Compuerta interna ───────────────────────────────────────────────────
+// verify_jwt del gateway NO basta: la llave pública (anon) del bundle también
+// es un JWT válido. Esta función es de operación: solo pasa un admin con
+// sesión, el secreto de cron (se compara dentro de la base) o, si se indica,
+// otra función nuestra que se identifica con la service role.
+async function authorizeInternal(req: Request, allowServiceRole = false): Promise<boolean> {
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const guard = createGuardClient(Deno.env.get("SUPABASE_URL")!, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const secret = req.headers.get("x-cron-secret");
+  if (secret) {
+    const { data } = await guard.rpc("verify_cron_secret", { p_secret: secret });
+    if (data === true) return true;
+  }
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;
+  if (allowServiceRole && token.length === serviceKey.length) {
+    let diff = 0;
+    for (let i = 0; i < token.length; i++) diff |= token.charCodeAt(i) ^ serviceKey.charCodeAt(i);
+    if (diff === 0) return true;
+  }
+  const { data } = await guard.auth.getUser(token);
+  const uid = data?.user?.id;
+  if (!uid) return false;
+  const { data: role } = await guard.from("user_roles").select("role").eq("user_id", uid).eq("role", "admin").maybeSingle();
+  return !!role;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (!(await authorizeInternal(req))) {
+    return new Response(JSON.stringify({ error: "No autorizado" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
 
   try {
     const token = Deno.env.get("FACEBOOK_ACCESS_TOKEN");

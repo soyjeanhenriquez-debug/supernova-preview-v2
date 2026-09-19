@@ -34,6 +34,17 @@ export interface Offer {
   target_audience: string | null;
   copy_score: number | null;
   enriched_at: string | null;
+  /** Índice 0-100 de la curaduría (mitad prueba de dinero, mitad copiabilidad). Solo lo tienen las ganadoras. */
+  winner_index?: number | null;
+  is_winner?: boolean;
+  /** Otros países donde el mismo anunciante corre la oferta. */
+  markets?: string[] | null;
+}
+
+/** El número que se enseña como "índice ganador": el curado si existe, si no el score de anuncios. */
+export function winnerPct(o: Pick<Offer, "winner_index" | "winner_score">): number {
+  const v = o.winner_index != null ? Number(o.winner_index) : o.winner_score;
+  return Math.max(0, Math.min(100, Math.round(v)));
 }
 
 export const NICHE_LABEL: Record<string, string> = {
@@ -87,12 +98,16 @@ export const MARKET_GROUP: Record<string, { label: string; flag: string; markets
 export const MARKET_FLAG: Record<string, string> = {
   US: "🇺🇸", GB: "🇬🇧", ES: "🇪🇸", MX: "🇲🇽", AR: "🇦🇷", CO: "🇨🇴", PE: "🇵🇪", CL: "🇨🇱",
   BR: "🇧🇷", PT: "🇵🇹", DE: "🇩🇪", AT: "🇦🇹", CH: "🇨🇭", RU: "🇷🇺", KZ: "🇰🇿", FR: "🇫🇷", IT: "🇮🇹",
+  EC: "🇪🇨", DO: "🇩🇴", GT: "🇬🇹", CR: "🇨🇷", PA: "🇵🇦", UY: "🇺🇾", PY: "🇵🇾", BO: "🇧🇴", VE: "🇻🇪",
+  SV: "🇸🇻", HN: "🇭🇳", NI: "🇳🇮", PR: "🇵🇷",
 };
 
 export const MARKET_NAME: Record<string, string> = {
   US: "Estados Unidos", GB: "Reino Unido", ES: "España", MX: "México", AR: "Argentina", CO: "Colombia",
   PE: "Perú", CL: "Chile", BR: "Brasil", PT: "Portugal", DE: "Alemania", AT: "Austria", CH: "Suiza",
   RU: "Rusia", KZ: "Kazajistán", FR: "Francia", IT: "Italia",
+  EC: "Ecuador", DO: "Rep. Dominicana", GT: "Guatemala", CR: "Costa Rica", PA: "Panamá", UY: "Uruguay",
+  PY: "Paraguay", BO: "Bolivia", VE: "Venezuela", SV: "El Salvador", HN: "Honduras", NI: "Nicaragua", PR: "Puerto Rico",
 };
 
 export function flagFor(market: string | null | undefined) {

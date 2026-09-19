@@ -57,7 +57,8 @@ const SLUG_PAGE: Record<string, string> = {
 function pageFromHash(): string {
   // Un hash que no es nuestro (p. ej. el #access_token=… de un enlace de acceso) se ignora.
   let slug = "";
-  try { slug = decodeURIComponent(window.location.hash.replace(/^#\/?/, "")); } catch { /* hash malformado */ }
+  // Solo el primer tramo decide la pantalla: "#/ofertas/<id>" sigue siendo Ofertas.
+  try { slug = decodeURIComponent(window.location.hash.replace(/^#\/?/, "")).split("/")[0]; } catch { /* hash malformado */ }
   return SLUG_PAGE[slug] ?? "Dashboard";
 }
 

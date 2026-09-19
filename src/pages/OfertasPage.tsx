@@ -1,17 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
-import { Search, Flame, ExternalLink, Zap, Radar, Loader2, Gem, Layers, Globe2, Tag as TagIcon, RefreshCw, Heart, Crosshair } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Search, Loader2, Gem, Layers, Globe2, Tag as TagIcon, RefreshCw, Crosshair } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { MiniAppModal } from "@/components/MiniAppModal";
-import { AdMediaPreview } from "@/components/AdMediaPreview";
+import { OfferCard } from "@/components/offers/OfferCard";
+import { OfferDetailSheet } from "@/components/offers/OfferDetailSheet";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { useOfferFollows } from "@/hooks/useOfferFollows";
-import { Delta, OFFERS_TAB_KEY, type FollowedRow } from "@/components/dashboard/RoiHunterWidget";
+import { OFFERS_TAB_KEY, type FollowedRow } from "@/components/dashboard/RoiHunterWidget";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { buildAdsLibraryPageUrl, type AdMarket } from "@/lib/demo-winning-ads";
-import {
-  type Offer, NICHE_LABEL, OFFER_TYPE_LABEL, MODEL_LABEL, MARKET_GROUP, MARKET_NAME,
-  flagFor, copyLabel, scaleLabel, offerToDemoAd, openOfferAdsInRadar,
-} from "@/lib/offers";
+import { type Offer, NICHE_LABEL, MODEL_LABEL, MARKET_GROUP, offerToDemoAd, openOfferAdsInRadar } from "@/lib/offers";
+
+// La ficha abierta vive en la dirección (#/ofertas/<id>): se puede compartir y,
+// sobre todo, el botón "atrás" del teléfono CIERRA la ficha en vez de sacarte de
+// la pantalla (en móvil es el gesto natural para salir de algo que se abrió).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const offerIdFromHash = () => {
+  const id = window.location.hash.replace(/^#\/?/, "").split("/")[1] ?? "";
+  return UUID_RE.test(id) ? id : null;
+};
 
 /**
  * Catálogo producto-primero (lo que Escala Ads llama "ofertas" y SwipeSaaS
@@ -59,6 +65,34 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<Stats | null>(null);
   const [creating, setCreating] = useState<Offer | null>(null);
+  const [detail, setDetail] = useState<Offer | null>(null);
+
+  const openDetail = useCallback((o: Offer) => {
+    setDetail(o);
+    if (offerIdFromHash() !== o.id) window.history.pushState({ offer: o.id }, "", `${window.location.pathname}${window.location.search}#/ofertas/${o.id}`);
+  }, []);
+  // Cerrar = volver atrás: consume la entrada que abrió la ficha. Si se llegó por
+  // un enlace directo no hay entrada previa nuestra: se limpia la dirección.
+  const closeDetail = useCallback(() => {
+    if (offerIdFromHash() && window.history.state?.offer) window.history.back();
+    else {
+      setDetail(null);
+      if (offerIdFromHash()) window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#/ofertas`);
+    }
+  }, []);
+  useEffect(() => {
+    const sync = () => { if (!offerIdFromHash()) setDetail(null); };
+    window.addEventListener("popstate", sync);
+    return () => window.removeEventListener("popstate", sync);
+  }, []);
+  // Enlace directo a una oferta
+  useEffect(() => {
+    const id = offerIdFromHash();
+    if (!id) return;
+    supabase.from("offers").select("*").eq("id", id).is("excluded_reason", null).maybeSingle()
+      .then(({ data }) => { if (data) setDetail(data as unknown as Offer); else closeDetail(); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => { const t = setTimeout(() => setDebounced(search.trim()), 300); return () => clearTimeout(t); }, [search]);
   useEffect(() => { setPage(0); }, [tab, debounced, niche, group, model, onlyCopiable, sort]);
@@ -176,7 +210,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
       </div>
 
       {tab === "siguiendo" ? (
-        <FollowingList rows={followed} follows={follows} onCreate={setCreating} onNavigate={onNavigate} />
+        <FollowingList rows={followed} follows={follows} onCreate={setCreating} onOpen={openDetail} />
       ) : (<>
       {/* Filtros */}
       <div className="card-surface rounded-xl p-3 grid grid-cols-1 md:grid-cols-5 gap-2">
@@ -234,7 +268,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
       ) : (
         <>
           <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {rows.map((o) => <OfferCard key={o.id} o={o} onCreate={() => setCreating(o)} onNavigate={onNavigate} following={follows.isFollowing(o.id)} onToggleFollow={() => follows.toggle(o)} />)}
+            {rows.map((o) => <OfferCard key={o.id} o={o} onOpen={() => openDetail(o)} onCreate={() => setCreating(o)} following={follows.isFollowing(o.id)} onToggleFollow={() => follows.toggle(o)} />)}
           </div>
           {rows.length < total && (
             <div className="flex justify-center pt-2">
@@ -249,14 +283,24 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
 
       </>)}
 
+      {detail && (
+        <OfferDetailSheet
+          offer={detail}
+          following={follows.isFollowing(detail.id)}
+          onToggleFollow={() => follows.toggle(detail)}
+          onCreate={() => setCreating(detail)}
+          onSeeAds={() => openOfferAdsInRadar(detail, onNavigate)}
+          onClose={closeDetail}
+        />
+      )}
       {creating && <MiniAppModal ad={offerToDemoAd(creating)} onClose={() => setCreating(null)} />}
     </div>
   );
 }
 
-function FollowingList({ rows, follows, onCreate, onNavigate }: {
+function FollowingList({ rows, follows, onCreate, onOpen }: {
   rows: FollowedRow[] | null; follows: ReturnType<typeof useOfferFollows>;
-  onCreate: (o: Offer) => void; onNavigate?: (p: string) => void;
+  onCreate: (o: Offer) => void; onOpen: (o: Offer) => void;
 }) {
   if (rows === null) {
     return <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">{[0, 1, 2].map((i) => <div key={i} className="card-surface rounded-2xl h-[420px] animate-pulse" />)}</div>;
@@ -276,7 +320,7 @@ function FollowingList({ rows, follows, onCreate, onNavigate }: {
   return (
     <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
       {rows.map((r) => (
-        <OfferCard key={r.offer.id} o={r.offer} onCreate={() => onCreate(r.offer)} onNavigate={onNavigate}
+        <OfferCard key={r.offer.id} o={r.offer} onOpen={() => onOpen(r.offer)} onCreate={() => onCreate(r.offer)}
           following={follows.isFollowing(r.offer.id)} onToggleFollow={() => follows.toggle(r.offer)}
           insight={r} />
       ))}
@@ -293,105 +337,5 @@ function StatTile({ icon, label, value }: { icon: React.ReactNode; label: string
         <div className="text-[11px] text-muted-foreground mt-1">{label}</div>
       </div>
     </div>
-  );
-}
-
-function OfferCard({ o, onCreate, onNavigate, following, onToggleFollow, insight }: {
-  o: Offer; onCreate: () => void; onNavigate?: (p: string) => void;
-  following: boolean; onToggleFollow: () => void; insight?: FollowedRow;
-}) {
-  const copy = copyLabel(o.copy_score);
-  const name = o.product_name || o.sample_title || o.page_name || "Oferta";
-  const market = (["BR", "US", "ES", "MX", "RU"].includes(o.market) ? o.market : "LATAM") as AdMarket;
-  const metaUrl = buildAdsLibraryPageUrl(o.page_id, market);
-  const score = Math.max(0, Math.min(100, o.winner_score));
-
-  return (
-    <article className="card-surface rounded-2xl overflow-hidden flex flex-col ad-card-hover">
-      {/* Creativo del anuncio representativo (lazy, se cachea vía meta-ad-proxy) */}
-      <div className="relative h-44 bg-secondary/40 overflow-hidden">
-        <AdMediaPreview adUrl={o.sample_ad_url ?? undefined} pageId={o.page_id} pageName={o.page_name ?? name} title={name} />
-        <div className="absolute top-2 left-2 flex gap-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-1 bg-background/80 backdrop-blur text-foreground border border-border">
-            {flagFor(o.market)} {MARKET_NAME[o.market] ?? o.market}
-          </span>
-          <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-1 bg-primary text-primary-foreground">
-            🔥 {scaleLabel(o)}
-          </span>
-        </div>
-        <span className={`absolute top-2 right-2 text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-1 backdrop-blur ${copy.cls}`}>{copy.label}</span>
-      </div>
-
-      <div className="p-4 flex flex-col flex-1">
-        <h4 className="font-display font-semibold text-[15px] leading-snug text-foreground line-clamp-2">{name}</h4>
-        <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{o.page_name}</p>
-
-        <div className="flex flex-wrap gap-1.5 mt-3">
-          {o.niche && <Tag>{NICHE_LABEL[o.niche] ?? o.niche}</Tag>}
-          {o.offer_type && <Tag>{OFFER_TYPE_LABEL[o.offer_type] ?? o.offer_type}</Tag>}
-          {o.business_model && o.business_model !== "otro" && <Tag>{MODEL_LABEL[o.business_model]}</Tag>}
-          {o.price_hint && <Tag accent>{o.price_hint}</Tag>}
-        </div>
-
-        {insight && (
-          <div className="mt-3 rounded-lg bg-secondary/40 px-3 py-2 flex items-center justify-between text-[11px]">
-            <span className="text-muted-foreground">{insight.days_tracked > 0 ? `Últimos ${insight.days_tracked} días` : "Seguimiento desde hoy"}</span>
-            <span className="flex items-center gap-3"><Delta value={insight.ads_delta} suffix="ads" /><Delta value={insight.score_delta} suffix="score" /></span>
-          </div>
-        )}
-        {o.mechanism && <p className="text-[12.5px] text-foreground/85 mt-3 leading-relaxed line-clamp-2">{o.mechanism}</p>}
-        {o.target_audience && <p className="text-[11px] text-muted-foreground mt-1.5 line-clamp-1">Para: {o.target_audience}</p>}
-
-        {/* Performance score */}
-        <div className="mt-3">
-          <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-            <span>Performance score</span><span className="text-success font-bold">{score}%</span>
-          </div>
-          <div className="w-full h-[3px] bg-secondary rounded-full overflow-hidden">
-            <div className="h-full bg-success" style={{ width: `${score}%` }} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 mt-3">
-          <Metric label="Anuncios activos" value={<><Flame className="w-3 h-3 inline text-primary" /> {o.active_ads}</>} />
-          <Metric label="Días pagando" value={o.days_active} />
-        </div>
-
-        <div className="mt-4 pt-3 border-t border-border/60 flex items-center gap-2">
-          <button onClick={onToggleFollow} title={following ? "Dejar de seguir" : `Seguir en el Cazador de ROI · ${CREDIT_COSTS.follow_offer} ⚡`}
-            className={`px-2.5 py-2 rounded-lg border transition-colors ${following ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-primary hover:border-primary/40"}`}>
-            <Heart className="w-4 h-4" fill={following ? "currentColor" : "none"} />
-          </button>
-          <button onClick={onCreate} className="flex-1 btn-primary-nova py-2 rounded-lg text-[12px] font-semibold flex items-center justify-center gap-1.5">
-            <Zap className="w-3.5 h-3.5" /> Crear mi versión <span className="opacity-70">· {CREDIT_COSTS.gen_master_prompt}⚡</span>
-          </button>
-          <button onClick={() => openOfferAdsInRadar(o, onNavigate)} title="Ver todos sus anuncios en el radar"
-            className="px-2.5 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/40">
-            <Radar className="w-4 h-4" />
-          </button>
-          <a href={metaUrl} target="_blank" rel="noopener noreferrer" title="Ver en Meta Ads Library"
-            className="px-2.5 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/40">
-            <ExternalLink className="w-4 h-4" />
-          </a>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="rounded-lg bg-secondary/40 px-3 py-2 text-center">
-      <div className="font-display font-bold text-[15px] text-foreground tabular-nums">{value}</div>
-      <div className="text-[10px] text-muted-foreground">{label}</div>
-    </div>
-  );
-}
-
-function Tag({ children, accent }: { children: React.ReactNode; accent?: boolean }) {
-  return (
-    <span className={`text-[10px] font-semibold rounded-md px-2 py-0.5 ${accent ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground"}`}>
-      {children}
-    </span>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 /**
@@ -13,19 +13,32 @@ import { createPortal } from "react-dom";
  *
  * De paso: bloquea el scroll del fondo mientras está abierto y cierra con Esc.
  */
+// Pila de modales abiertos: con uno encima de otro (la ficha de una oferta y,
+// sobre ella, "Crear mi versión"), Esc cierra solo el de arriba.
+const openModals: symbol[] = [];
+
 export function ModalPortal({ children, onClose }: { children: ReactNode; onClose?: () => void }) {
+  const id = useRef(Symbol("modal")).current;
+
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
-  }, []);
+    openModals.push(id);
+    return () => {
+      document.body.style.overflow = prev;
+      const i = openModals.indexOf(id);
+      if (i >= 0) openModals.splice(i, 1);
+    };
+  }, [id]);
 
   useEffect(() => {
     if (!onClose) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && openModals[openModals.length - 1] === id) onClose();
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, id]);
 
   return createPortal(children, document.body);
 }

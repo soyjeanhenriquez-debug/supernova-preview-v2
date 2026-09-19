@@ -858,6 +858,71 @@ export type Database = {
           },
         ]
       }
+      offer_intel: {
+        Row: {
+          ad_library_id: string | null
+          attempts: number
+          checkout_platform: string | null
+          checkout_url: string | null
+          created_at: string
+          error: string | null
+          funnel_type: string | null
+          landing_checked_at: string | null
+          landing_domain: string | null
+          landing_title: string | null
+          landing_url: string | null
+          offer_id: string
+          price_text: string | null
+          status: string
+          updated_at: string
+          verdict: Json | null
+          verdict_at: string | null
+          verdict_model: string | null
+        }
+        Insert: {
+          offer_id: string
+        }
+        Update: {
+          offer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offer_intel_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: true
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offer_reports: {
+        Row: {
+          created_at: string
+          id: string
+          offer_id: string
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          offer_id: string
+          reason?: string
+          user_id?: string
+        }
+        Update: {
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offer_reports_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       offer_snapshots: {
         Row: {
           active_ads: number | null

@@ -39,3 +39,8 @@ verify_jwt = false
 # HeyGen: no firma sus webhooks; solo actualiza un job nuestro por video_id.
 [functions.heygen-webhook]
 verify_jwt = false
+
+# Ficha de oferta: la abre el usuario y también pg_cron (precalienta ganadoras).
+# Compuerta propia dentro del código: usuario con acceso + tope, o secreto de cron.
+[functions.offer-intel]
+verify_jwt = false

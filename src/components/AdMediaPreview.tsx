@@ -8,6 +8,10 @@ interface AdMediaPreviewProps {
   pageId?: string;
   pageName: string;
   title?: string;
+  /** Rellena al contenedor padre (que pone la proporción) en vez de imponer su 4:5. */
+  fill?: boolean;
+  /** "contain" enseña el creativo entero (ficha); "cover" lo recorta para llenar (tarjetas). */
+  fit?: "cover" | "contain";
 }
 
 // ============================================================
@@ -63,7 +67,8 @@ function extractAdId(url?: string): string | null {
   return m ? m[1] : null;
 }
 
-export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title }: AdMediaPreviewProps) {
+export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title, fill, fit = "cover" }: AdMediaPreviewProps) {
+  const fitCls = fit === "contain" ? "object-contain" : "object-cover";
   const adId = extractAdId(snapshotUrl) || extractAdId(adUrl);
   const [state, setState] = useState<"idle" | "loading" | "ready" | "failed">("idle");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -122,7 +127,9 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title }: 
   return (
     <div
       ref={containerRef}
-      className="relative w-full rounded-lg overflow-hidden border border-border/60 bg-secondary/40 aspect-[4/5] group"
+      className={fill
+        ? "absolute inset-0 w-full h-full overflow-hidden bg-secondary/40 group"
+        : "relative w-full rounded-lg overflow-hidden border border-border/60 bg-secondary/40 aspect-[4/5] group"}
     >
       {/* Poster fallback siempre detrás */}
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4 text-center bg-gradient-to-br from-secondary/80 via-secondary/40 to-secondary/80">
@@ -160,7 +167,7 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title }: 
           controls
           playsInline
           preload="metadata"
-          className="absolute inset-0 w-full h-full object-cover bg-black"
+          className={`absolute inset-0 w-full h-full ${fitCls} bg-black`}
         />
       )}
 
@@ -171,7 +178,7 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title }: 
           alt={`Preview – ${pageName}`}
           loading="lazy"
           referrerPolicy="no-referrer"
-          className="absolute inset-0 w-full h-full object-cover bg-black"
+          className={`absolute inset-0 w-full h-full ${fitCls} bg-black`}
         />
       )}
 
@@ -180,7 +187,7 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title }: 
         href={adId ? `https://www.facebook.com/ads/library/?id=${adId}` : (snapshotUrl || adUrl || "#")}
         target="_blank"
         rel="noopener noreferrer"
-        className="absolute top-2 right-2 z-10 px-2.5 py-1 rounded-full bg-background/90 backdrop-blur text-foreground text-[10px] font-bold inline-flex items-center gap-1 shadow-lg border border-border/60 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary hover:text-primary-foreground"
+        className={`absolute ${fill ? "bottom-2 right-2" : "top-2 right-2"} z-10 px-2.5 py-1 rounded-full bg-background/90 backdrop-blur text-foreground text-[10px] font-bold inline-flex items-center gap-1 shadow-lg border border-border/60 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary hover:text-primary-foreground`}
       >
         <ExternalLink className="w-3 h-3" /> HD
       </a>

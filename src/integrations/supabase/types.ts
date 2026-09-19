@@ -1798,6 +1798,20 @@ export type Database = {
         }
         Returns: undefined
       }
+      radar_search: {
+        Args: {
+          p_keyword: string
+          p_markets?: string[] | null
+          p_exclude_markets?: string[] | null
+          p_min_score?: number
+          p_min_days?: number
+          p_min_dups?: number
+          p_sort?: string
+          p_offset?: number
+          p_limit?: number
+        }
+        Returns: Json
+      }
       recompute_advertiser_scale: { Args: never; Returns: number }
       register_daily_login: { Args: never; Returns: Json }
       reject_access_request: {

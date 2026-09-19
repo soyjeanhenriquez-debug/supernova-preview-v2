@@ -199,7 +199,6 @@ export function WinningAdsPage() {
   });
   const [minDays, setMinDays] = useState(0);
   const [minDups, setMinDups] = useState(0);
-  const [typeFilter, setTypeFilter] = useState("Todos");
   const [regionFilter, setRegionFilter] = useState("Todos");
   const [minScore, setMinScore] = useState(0);
   const [sort, setSort] = useState("Mayor Score");
@@ -328,16 +327,8 @@ export function WinningAdsPage() {
     let cancelled = false;
     setLoadingReal(true);
     (async () => {
-      // Solo las columnas que pinta la tarjeta. El texto viaja recortado (ad_body_preview,
-      // campo calculado): hay anuncios de 35 000 caracteres y `select *` los traía enteros.
-      let q = supabase.from("winning_ads")
-        // count "estimated": exacto cuando el resultado es pequeño (una búsqueda) y la
-        // estimación del planificador cuando es grande. El conteo exacto de 26 000 filas
-        // tardaba 11 s en frío y tumbaba la consulta entera (límite del usuario: 8 s).
-        .select("id, page_id, page_name, advertiser, ad_title, ad_body:ad_body_preview, ad_url, market, days_active, duplicate_count, winner_score, tier, offer_type, publisher_platforms", { count: "estimated" });
-
-      // Filtros pusheables a SQL. Idioma y región se cruzan AQUÍ, no en el navegador:
-      // filtrando después de paginar, la página 1 salía vacía con el idioma en español.
+      // Idioma y región se cruzan AQUÍ (en la consulta), no en el navegador: filtrando
+      // después de paginar, la página 1 salía vacía con el idioma en español.
       const regionMap: Record<string, string[]> = {
         LATAM: ["MX", "AR", "CO", "CL", "PE"],
         USA: ["US"],
@@ -346,49 +337,68 @@ export function WinningAdsPage() {
       };
       const regionCodes = regionFilter !== "Todos" ? regionMap[regionFilter] ?? null : null;
       const isLang = (c: string) => (market === "en" ? !NON_ENGLISH_COUNTRIES.includes(c) : (LANG_COUNTRIES[market as keyof typeof LANG_COUNTRIES] ?? []).includes(c));
+      let marketsIn: string[] | null = null;     // solo estos países
+      let marketsNotIn: string[] | null = null;  // "inglés" = todo lo que no sea otro idioma
       if (regionCodes) {
         const codes = market === "all" ? regionCodes : regionCodes.filter(isLang);
         // Región e idioma sin países en común (p. ej. España + Portugués): nada que mostrar.
-        q = q.in("market", codes.length ? codes : ["__none__"]);
+        marketsIn = codes.length ? codes : ["__none__"];
       } else if (market === "en") {
-        q = q.not("market", "in", `(${NON_ENGLISH_COUNTRIES.join(",")})`);
+        marketsNotIn = NON_ENGLISH_COUNTRIES;
       } else if (market !== "all") {
-        q = q.in("market", LANG_COUNTRIES[market as keyof typeof LANG_COUNTRIES] ?? []);
-      }
-      // Solo anuncios reales de la Biblioteca de Meta (siempre traen fecha de inicio). El
-      // scraper web guardaba además páginas sueltas de facebook.com/instagram.com como si
-      // fueran anuncios (anunciante "instagram", "help", "m"…): un 10 % de la tabla.
-      q = q.not("delivery_start_time", "is", null);
-      if (minScore > 0) q = q.gte("winner_score", minScore);
-      if (minDays > 0) q = q.gte("days_active", minDays);
-      if (minDups > 0) q = q.gte("duplicate_count", minDups);
-      if (typeFilter !== "Todos") {
-        // typeFilter ej: "Infoproducto" → empieza por "info"
-        q = q.ilike("offer_type", `${typeFilter.toLowerCase().slice(0, 4)}%`);
-      }
-      if (debouncedKeyword.trim().length >= 3) {
-        // ad_search_text = título + anunciante + arranque del texto, con índice de trigramas.
-        // Buscar con ilike en el texto completo tardaba 50 s (límite del usuario: 8 s).
-        // Menos de 3 letras no puede usar el índice, así que no se filtra todavía.
-        const k = debouncedKeyword.trim().replace(/[%_\\]/g, " ");
-        q = q.ilike("ad_search_text", `%${k}%`);
-      }
-      // (filtro creativo eliminado — los ads sin body se muestran con ad_title como fallback)
-
-
-      // Orden
-      switch (sort) {
-        case "Más Duplicados": q = q.order("duplicate_count", { ascending: false, nullsFirst: false }); break;
-        case "Más Días": q = q.order("days_active", { ascending: false, nullsFirst: false }); break;
-        case "Más Recientes": q = q.order("scraped_at", { ascending: false }); break;
-        default: q = q.order("winner_score", { ascending: false, nullsFirst: false });
+        marketsIn = LANG_COUNTRIES[market as keyof typeof LANG_COUNTRIES] ?? [];
       }
 
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
-      const { data, count, error } = await q.range(from, to);
+      const kw = debouncedKeyword.trim();
+      let data: unknown[] | null = null;
+      let count: number | null = null;
+      let failed = false;
+
+      if (kw.length >= 3) {
+        // Con palabra clave se busca por RPC (radar_search): con RLS activa PostgREST no
+        // puede usar el índice de trigramas (ILIKE no es "leakproof"), filtraba 26 000
+        // filas una a una y caducaba a los 8 s. La función lleva la misma compuerta de acceso.
+        const sortKey = sort === "Más Duplicados" ? "dups" : sort === "Más Días" ? "days" : sort === "Más Recientes" ? "recent" : "score";
+        const { data: res, error } = await supabase.rpc("radar_search", {
+          p_keyword: kw, p_markets: marketsIn, p_exclude_markets: marketsNotIn,
+          p_min_score: minScore, p_min_days: minDays, p_min_dups: minDups,
+          p_sort: sortKey, p_offset: from, p_limit: pageSize,
+        });
+        const r = res as { rows?: unknown[]; total?: number; error?: string } | null;
+        failed = !!error || !r || !!r.error;
+        data = r?.rows ?? [];
+        count = r?.total ?? 0;
+      } else {
+        // Solo las columnas que pinta la tarjeta. El texto viaja recortado (ad_body_preview,
+        // campo calculado): hay anuncios de 35 000 caracteres y `select *` los traía enteros.
+        // count "estimated": el conteo exacto de 26 000 filas tardaba 11 s en frío y tumbaba
+        // la consulta entera (límite del usuario: 8 s).
+        let q = supabase.from("winning_ads")
+          .select("id, page_id, page_name, advertiser, ad_title, ad_body:ad_body_preview, ad_url, market, days_active, duplicate_count, winner_score, tier, offer_type, publisher_platforms", { count: "estimated" });
+        if (marketsIn) q = q.in("market", marketsIn);
+        if (marketsNotIn) q = q.not("market", "in", `(${marketsNotIn.join(",")})`);
+        // Solo anuncios reales de la Biblioteca de Meta (siempre traen fecha de inicio). El
+        // scraper web guardaba además páginas sueltas de facebook.com/instagram.com como si
+        // fueran anuncios (anunciante "instagram", "help", "m"…): un 10 % de la tabla.
+        q = q.not("delivery_start_time", "is", null);
+        if (minScore > 0) q = q.gte("winner_score", minScore);
+        if (minDays > 0) q = q.gte("days_active", minDays);
+        if (minDups > 0) q = q.gte("duplicate_count", minDups);
+        switch (sort) {
+          case "Más Duplicados": q = q.order("duplicate_count", { ascending: false, nullsFirst: false }); break;
+          case "Más Días": q = q.order("days_active", { ascending: false, nullsFirst: false }); break;
+          case "Más Recientes": q = q.order("scraped_at", { ascending: false }); break;
+          default: q = q.order("winner_score", { ascending: false, nullsFirst: false });
+        }
+        const res = await q.range(from, to);
+        failed = !!res.error;
+        data = res.data;
+        count = res.count;
+      }
       if (cancelled) return;
-      if (error) {
+      if (failed) {
         // Antes se tragaba el error: la búsqueda caducaba y la lista simplemente no cambiaba.
         setLoadingReal(false);
         toast.error("No se pudo cargar el radar. Intenta de nuevo en unos segundos.", { id: "radar-load" });
@@ -429,10 +439,10 @@ export function WinningAdsPage() {
       setLoadingReal(false);
     })();
     return () => { cancelled = true; };
-  }, [page, pageSize, market, regionFilter, minScore, minDays, minDups, typeFilter, debouncedKeyword, sort]);
+  }, [page, pageSize, market, regionFilter, minScore, minDays, minDups, debouncedKeyword, sort]);
 
   // Reset a página 1 cuando cambian filtros
-  useEffect(() => { setPage(1); }, [pageSize, market, regionFilter, minScore, minDays, minDups, typeFilter, debouncedKeyword, sort]);
+  useEffect(() => { setPage(1); }, [pageSize, market, regionFilter, minScore, minDays, minDups, debouncedKeyword, sort]);
 
   // Admin: siembra masiva desde FB Ads Library
   const [seeding, setSeeding] = useState(false);
@@ -1120,7 +1130,7 @@ export function WinningAdsPage() {
           </div>
         ) : (
           <>
-            <HeatMap onSelectNiche={(niche) => setTypeFilter(niche)} />
+            <HeatMap />
             <PaginationBar
               total={filteredTotal}
               page={currentPage}

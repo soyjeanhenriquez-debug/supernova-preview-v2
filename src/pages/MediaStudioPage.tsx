@@ -89,6 +89,10 @@ export function MediaStudioPage() {
     }
   };
 
+  const selectedAvatar = avatars.find((a) => a.avatar_id === avatarId);
+  const selectedPreview = selectedAvatar?.preview_image_url ?? null;
+  const selectedAvatarName = selectedAvatar?.avatar_name ?? "tu avatar";
+
   const words = wordCount(script);
   const overLimit = words > MAX_WORDS;
   const canGenerate = !generating && script.trim().length > 0 && !overLimit && avatarId && voiceId && balance >= MEDIA_COST_PER_VIDEO;
@@ -97,7 +101,6 @@ export function MediaStudioPage() {
     if (!canGenerate) return;
     setGenerating(true);
     try {
-      const selectedAvatar = avatars.find((a) => a.avatar_id === avatarId);
       const res = await generateVideo({ script: script.trim(), avatar_id: avatarId, voice_id: voiceId, kind: selectedAvatar?.kind });
       toast.success(res.dry_run ? "🎬 Video simulado generado (modo demo)" : "🎬 Generando tu video — listo en 1-3 min");
       setScript("");
@@ -171,19 +174,11 @@ export function MediaStudioPage() {
                     setAvatarId(a.avatar_id);
                     if (a.default_voice_id) setVoiceId(a.default_voice_id);
                   }}
-                  className={`px-2.5 py-2 rounded-lg border text-left text-sm transition-colors flex items-center gap-2.5 min-w-0 ${
+                  className={`px-3 py-2.5 rounded-lg border text-left text-sm transition-colors truncate ${
                     avatarId === a.avatar_id ? "border-primary bg-primary/10 text-primary" : "border-border text-foreground hover:bg-secondary/60"
                   }`}
                 >
-                  {/* La cara ayuda más que el nombre cuando hay varios looks del mismo avatar */}
-                  {a.preview_image_url ? (
-                    <img src={a.preview_image_url} alt="" loading="lazy" referrerPolicy="no-referrer"
-                      className="w-9 h-9 rounded-md object-cover shrink-0 bg-secondary"
-                      onError={(e) => { e.currentTarget.style.display = "none"; }} />
-                  ) : (
-                    <span className="w-9 h-9 rounded-md bg-secondary shrink-0" />
-                  )}
-                  <span className="truncate">{a.avatar_name}</span>
+                  {a.avatar_name}
                 </button>
               ))}
             </div>
@@ -198,6 +193,18 @@ export function MediaStudioPage() {
             >
               {voices.map((v) => <option key={v.voice_id} value={v.voice_id}>{v.name}</option>)}
             </select>
+            {/* Solo la cara del avatar ELEGIDO: las vistas previas de HeyGen pesan
+                ~500 KB cada una; cargar las de toda la lista serían ~10 MB en un teléfono. */}
+            {selectedPreview && (
+              <div className="mt-3 flex items-center gap-3">
+                <img key={selectedPreview} src={selectedPreview} alt="" referrerPolicy="no-referrer"
+                  className="w-20 h-28 rounded-lg object-cover border border-border bg-secondary shrink-0"
+                  onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Así se ve <span className="text-foreground font-medium">{selectedAvatarName}</span>. El video sale vertical (9:16), listo para Reels, TikTok y Stories.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

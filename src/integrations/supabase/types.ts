@@ -1611,6 +1611,17 @@ export type Database = {
         }
       }
       follow_offer: { Args: { p_offer_id: string }; Returns: Json }
+      get_kits: {
+        Args: never
+        Returns: {
+          id: string; slug: string; title: string; tagline: string | null; niche: string | null
+          market_group: string | null; offer_id: string | null; cover_emoji: string | null
+          summary: string | null; whats_inside: Json; proof: Json; price_credits: number
+          published_at: string; unlocked: boolean
+        }[]
+      }
+      get_kit_content: { Args: { p_kit_id: string }; Returns: Json }
+      unlock_kit: { Args: { p_kit_id: string }; Returns: Json }
       get_followed_offers: {
         Args: never
         Returns: {

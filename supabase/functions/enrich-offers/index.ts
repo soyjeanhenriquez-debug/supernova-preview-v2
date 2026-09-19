@@ -59,7 +59,7 @@ interface Enriched {
 
 interface Row {
   id: string; page_name: string | null; market: string; sample_title: string | null; sample_body: string | null;
-  ads_count: number; active_ads: number; days_active: number; winner_score: number;
+  ads_count: number; active_ads: number; days_active: number; winner_score: number; enrich_attempts: number;
 }
 
 const json = (data: unknown, status = 200) =>
@@ -73,7 +73,15 @@ Deno.serve(async (req) => {
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-  const body = (await req.json().catch(() => ({}))) as { batches?: number; group?: string; markets?: string[] };
+  const body = (await req.json().catch(() => ({}))) as { batches?: number; group?: string; markets?: string[]; diag?: boolean };
+
+  // Diagnóstico: qué modelos ve esta llave (Google retira modelos sin aviso)
+  if (body.diag) {
+    const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/models", { headers: { Authorization: `Bearer ${apiKey}` } });
+    const d = await r.json().catch(() => ({}));
+    const ids = ((d?.data ?? []) as Array<{ id: string }>).map((m) => m.id).filter((id) => /flash|pro/i.test(id));
+    return json({ status: r.status, models: ids });
+  }
   const batches = Math.min(MAX_BATCHES, Math.max(1, Number(body.batches) || 2));
 
   // Objetivo: grupo pedido, mercados pedidos, o rotación por hora (cron)
@@ -96,7 +104,7 @@ Deno.serve(async (req) => {
   const pending = async (mk: string[] | null, langFilter: "match" | "other" | "any", exclude: string[]): Promise<Row[]> => {
     let q = admin
       .from("offers")
-      .select("id, page_name, market, sample_title, sample_body, ads_count, active_ads, days_active, winner_score")
+      .select("id, page_name, market, sample_title, sample_body, ads_count, active_ads, days_active, winner_score, enrich_attempts")
       .is("enriched_at", null)
       .eq("enrich_failed", false)
       .not("sample_body", "is", null)
@@ -135,7 +143,7 @@ Deno.serve(async (req) => {
         days_active: r.days_active,
       }));
 
-      const system = `Eres un analista senior de direct response marketing que estudia anuncios ganadores reales de Meta Ads Library para emprendedores de LATAM que quieren replicar productos digitales que ya venden. Devuelves SOLO un array JSON válido, sin markdown ni preámbulos.`;
+      const system = `Eres un analista senior de direct response marketing que estudia anuncios ganadores reales de Meta Ads Library para emprendedores de LATAM que quieren replicar productos digitales que ya venden. Devuelves SOLO un objeto JSON válido con la forma {"items": [...]}, sin markdown ni preámbulos.`;
       const userPrompt = `Para cada anuncio ganador del array, devuelve un objeto con:
 - "index": índice del anuncio.
 - "product_name": nombre del producto/oferta si se deduce del anuncio (en su idioma original, máx 60 caracteres). Si no se deduce, usa el nombre del anunciante.
@@ -149,15 +157,15 @@ Deno.serve(async (req) => {
 - "target_audience": en ESPAÑOL, máx 80 caracteres: para quién es.
 - "copy_score": entero 1-5. Qué tan replicable es como PRODUCTO DIGITAL o MINI APP por un emprendedor solo con poco capital: 5 = infoproducto/plantilla/mini app de nicho claramente copiable (quiz + plan, desafío de 7 días, guía, curso corto, herramienta simple); 3 = requiere cierta inversión, equipo o marca; 1-2 = NO replicable: apps de lectura de novelas, dramas cortos, juegos móviles, apps con cientos de anuncios activos, marcas globales, producto físico con logística. Sé estricto: si dudas entre 4 y 2, pon 2.
 
-Responde SOLO con el array JSON de objetos.
+Responde SOLO con un objeto JSON: {"items": [ {...}, {...} ]} — un objeto por anuncio.
 
 ANUNCIOS:
 ${JSON.stringify(items)}`;
 
-      // Cadena de modelos: el preview se satura (503) y tiene cuota diaria
-      // baja (429); cada modelo tiene cuota propia, así que ante 429/5xx se
-      // pasa al siguiente. Solo si TODOS fallan se corta la corrida.
-      const MODELS_TRY = ["gemini-3-flash-preview", "gemini-2.5-flash", "gemini-2.5-flash-lite"];
+      // Cadena de modelos: cada uno tiene cuota propia y Google retira
+      // modelos (404 "no longer available"); ante 404/429/5xx se pasa al
+      // siguiente. Solo si TODOS fallan se corta la corrida.
+      const MODELS_TRY = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3-flash-preview"];
       let aiRes: Response | null = null;
       let lastStatus = 0;
       for (let attempt = 0; attempt < MODELS_TRY.length && !aiRes; attempt++) {
@@ -170,12 +178,13 @@ ${JSON.stringify(items)}`;
             body: JSON.stringify({
               model: MODELS_TRY[attempt],
               max_tokens: 8192, // 20 fichas × 10 campos; el cirílico gasta más tokens
+              response_format: { type: "json_object" },
               messages: [{ role: "system", content: system }, { role: "user", content: userPrompt }],
             }),
             signal: ctrl.signal,
           });
           lastStatus = r.status;
-          if ([429, 500, 502, 503, 504].includes(r.status) && attempt < MODELS_TRY.length - 1) {
+          if ([404, 429, 500, 502, 503, 504].includes(r.status) && attempt < MODELS_TRY.length - 1) {
             await r.text();
             await new Promise((res) => setTimeout(res, 1500));
             continue;
@@ -199,22 +208,23 @@ ${JSON.stringify(items)}`;
       const aiData = await aiRes.json();
       const content: string = aiData?.choices?.[0]?.message?.content ?? "[]";
 
-      // Parseo defensivo: markdown fences y, si la salida vino truncada,
-      // rescatar hasta el último objeto completo (el resto se marca fallido).
+      // Parseo defensivo: objeto {"items":[...]} (o array, por si el modelo
+      // ignora la forma) y, si la salida vino truncada, rescatar hasta el
+      // último objeto completo (el resto vuelve a la cola).
       let parsed: Enriched[] = [];
       const cleaned = content.replace(/```json?/g, "").replace(/```/g, "").trim();
+      const asArray = (v: unknown): Enriched[] =>
+        Array.isArray(v) ? v as Enriched[] : (v && typeof v === "object" && Array.isArray((v as { items?: unknown }).items) ? (v as { items: Enriched[] }).items : []);
       try {
-        const arr = JSON.parse(cleaned);
-        if (Array.isArray(arr)) parsed = arr;
+        parsed = asArray(JSON.parse(cleaned));
       } catch {
         const start = cleaned.indexOf("[");
         const lastObj = cleaned.lastIndexOf("}");
         try {
-          const arr = start >= 0 && lastObj > start ? JSON.parse(cleaned.slice(start, lastObj + 1) + "]") : [];
-          if (Array.isArray(arr)) parsed = arr;
+          parsed = start >= 0 && lastObj > start ? asArray(JSON.parse(cleaned.slice(start, lastObj + 1) + "]")) : [];
         } catch { /* sin rescate posible */ }
-        if (parsed.length === 0) { summary.note = `Respuesta no parseable: ${content.slice(0, 120)}`; break; }
       }
+      if (parsed.length === 0) { summary.note = `Respuesta no parseable: ${content.slice(0, 120)}`; break; }
 
       // 3) Validar y persistir; lo que la IA no devolvió se marca fallido
       //    para que la cola avance (el catálogo lo muestra con fallback).
@@ -227,7 +237,12 @@ ${JSON.stringify(items)}`;
 
       const updates = rows.map((r, i) => {
         const e = byIndex.get(i);
-        if (!e) return admin.from("offers").update({ enrich_failed: true }).eq("id", r.id).then(() => "failed" as const);
+        if (!e) {
+          // La IA omitió esta ficha (o la salida se cortó): reintentar en otro
+          // lote; solo al tercer intento se descarta.
+          const attempts = (r.enrich_attempts ?? 0) + 1;
+          return admin.from("offers").update({ enrich_attempts: attempts, enrich_failed: attempts >= 3 }).eq("id", r.id).then(() => "failed" as const);
+        }
         const copy = Number(e.copy_score);
         return admin.from("offers").update({
           product_name: clip(e.product_name, 80) ?? r.page_name,

@@ -12,7 +12,7 @@ export type CreditAction =
   | "blueprint" | "adaptar" | "pain_discovery" | "chat_message" | "ai_intel"
   | "gen_landing" | "gen_ad_copies" | "gen_avatar" | "gen_funnel"
   | "gen_master_prompt" | "pillar_assist" | "gen_light" | "gen_medium" | "gen_heavy"
-  | "gen_ad_image" | "follow_offer";
+  | "gen_ad_image" | "follow_offer" | "unlock_kit";
 
 // Precios calibrados para uso DIARIO: 2000/mes alcanza para ~1 mes de uso
 // intenso; explorar el radar es gratis, las acciones ligeras casi gratis.
@@ -23,6 +23,7 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   gen_funnel: 50, gen_master_prompt: 50, gen_light: 15, gen_medium: 30, gen_heavy: 75,
   gen_ad_image: 25,
   follow_offer: 5, // se cobra server-side en la RPC follow_offer (Cazador de ROI)
+  unlock_kit: 150, // se cobra server-side en la RPC unlock_kit (Mini Apps Rentables)
 };
 
 export const ACTION_LABEL: Record<CreditAction, string> = {
@@ -37,6 +38,7 @@ export const ACTION_LABEL: Record<CreditAction, string> = {
   gen_medium: "Generador", gen_heavy: "Generador",
   gen_ad_image: "Creativo de anuncio (imagen IA)",
   follow_offer: "Seguir oferta (Cazador de ROI)",
+  unlock_kit: "Desbloquear Mini App Rentable",
 };
 
 const GEN_LIGHT_IDS = new Set(["captions-ig","yt-titles","hooks-meta","hooks-tiktok","reels-script","dm-script","whatsapp-sequence"]);
@@ -54,7 +56,7 @@ export const ACTION_HOURS: Record<CreditAction, number> = {
   pillar_assist: 1, sofisticar: 2, gen_ad_copies: 2, gen_avatar: 2, pain_discovery: 2,
   blueprint: 4, gen_landing: 4, landing_intelligence: 4, gen_funnel: 8,
   gen_master_prompt: 6, gen_light: 1, gen_medium: 3, gen_heavy: 6, gen_ad_image: 1,
-  follow_offer: 0.5,
+  follow_offer: 0.5, unlock_kit: 12,
 };
 
 export interface CreditHistoryEntry {

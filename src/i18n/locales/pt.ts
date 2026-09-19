@@ -21,6 +21,7 @@ export default {
   nav: {
     dashboard: "Painel",
     offers: "Ofertas",
+    kits: "Mini Apps",
     winners: "Radar de anúncios",
     hooks: "Hooks",
     oracle: "Oráculo",

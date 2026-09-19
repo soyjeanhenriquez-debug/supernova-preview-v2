@@ -20,7 +20,8 @@ export default {
   },
   nav: {
     dashboard: "Dashboard",
-    winners: "Find Winning Offers",
+    offers: "Offers",
+    winners: "Ads radar",
     hooks: "Hooks",
     oracle: "Oracle",
     generators: "Generators",

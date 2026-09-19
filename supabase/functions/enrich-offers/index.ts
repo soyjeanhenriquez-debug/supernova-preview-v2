@@ -1,0 +1,213 @@
+// SUPERNOVA — Enriquecimiento IA de la capa de ofertas (producto-primero).
+//
+// Toma ofertas sin enriquecer (offers.enriched_at IS NULL) y en UNA llamada a
+// Gemini por lote de 25 obtiene: nombre del producto, nicho (taxonomía fija),
+// tipo de oferta, modelo de negocio, idioma real del anuncio (el `market` es
+// dónde LLEGÓ el anuncio, no su idioma), precio si se menciona, mecanismo,
+// por qué gana, para quién y copy_score (1-5: replicable por un emprendedor
+// solo como producto digital / mini app).
+//
+// Mismo patrón que extract-hooks: verify_jwt false (cron), solo escribe
+// contenido derivado con service_role. Idempotente: procesa solo pendientes.
+// Body opcional: { batches?: 1-8 (default 5), markets?: string[] }
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const BATCH_SIZE = 20;
+const MAX_BATCHES = 8;
+// Mercados foco del producto (español, portugués, inglés, ruso) primero.
+const FOCUS_MARKETS = ["ES", "MX", "AR", "CO", "BR", "PT", "US", "RU", "KZ"];
+
+export const NICHES = [
+  "salud_fitness", "dinero_negocios", "marketing_ventas", "desarrollo_personal", "relaciones",
+  "educacion_idiomas", "tecnologia_ia", "belleza_moda", "hogar_mascotas", "espiritualidad",
+  "infantil_familia", "gastronomia_recetas", "inmobiliaria", "finanzas_trading", "software_saas",
+  "servicios_locales", "entretenimiento", "viajes", "otro",
+] as const;
+const OFFER_TYPES = ["infoproducto", "ecommerce", "saas_app", "servicio", "comunidad", "evento", "otro"] as const;
+const MODELS = ["pago_unico", "suscripcion", "freemium", "lead_gratis", "otro"] as const;
+
+interface Enriched {
+  index: number;
+  product_name?: string;
+  niche?: string;
+  offer_type?: string;
+  business_model?: string;
+  language?: string;
+  price_hint?: string | null;
+  mechanism?: string;
+  why_wins?: string;
+  target_audience?: string;
+  copy_score?: number;
+}
+
+const json = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const apiKey = Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY");
+  if (!apiKey) return json({ error: "Missing GEMINI_API_KEY" }, 500);
+
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+  const body = (await req.json().catch(() => ({}))) as { batches?: number; markets?: string[] };
+  const batches = Math.min(MAX_BATCHES, Math.max(1, Number(body.batches) || 5));
+  const requestedMarkets = Array.isArray(body.markets) && body.markets.length > 0
+    ? body.markets.map((m) => String(m).toUpperCase()).slice(0, 20)
+    : null;
+
+  const summary = { batches_done: 0, enriched: 0, failed: 0, note: "" };
+
+  try {
+    for (let b = 0; b < batches; b++) {
+      // 1) Cola de pendientes: mercados pedidos (o foco), y si se agotó, el resto
+      const pending = async (markets: string[] | null) => {
+        let q = admin
+          .from("offers")
+          .select("id, page_name, market, sample_title, sample_body, ads_count, active_ads, days_active, winner_score")
+          .is("enriched_at", null)
+          .eq("enrich_failed", false)
+          .order("winner_score", { ascending: false })
+          .order("active_ads", { ascending: false })
+          .limit(BATCH_SIZE);
+        if (markets) q = q.in("market", markets);
+        const { data, error } = await q;
+        if (error) throw error;
+        return data ?? [];
+      };
+      let rows = await pending(requestedMarkets ?? FOCUS_MARKETS);
+      if (rows.length === 0 && !requestedMarkets) rows = await pending(null);
+      if (rows.length === 0) { summary.note = "Sin pendientes"; break; }
+
+      // 2) UNA llamada a Gemini con el lote → JSON estricto
+      const items = rows.map((r, i) => ({
+        index: i,
+        advertiser: (r.page_name ?? "").slice(0, 80),
+        reached_market: r.market,
+        title: (r.sample_title ?? "").slice(0, 150),
+        body: (r.sample_body ?? "").slice(0, 600),
+        active_ads: r.active_ads,
+        days_active: r.days_active,
+      }));
+
+      const system = `Eres un analista senior de direct response marketing que estudia anuncios ganadores reales de Meta Ads Library para emprendedores de LATAM que quieren replicar productos digitales que ya venden. Devuelves SOLO un array JSON válido, sin markdown ni preámbulos.`;
+      const userPrompt = `Para cada anuncio ganador del array, devuelve un objeto con:
+- "index": índice del anuncio.
+- "product_name": nombre del producto/oferta si se deduce del anuncio (en su idioma original, máx 60 caracteres). Si no se deduce, usa el nombre del anunciante.
+- "niche": exactamente uno de: ${NICHES.join(", ")}.
+- "offer_type": exactamente uno de: ${OFFER_TYPES.join(", ")}. (infoproducto = curso/ebook/método/mentoría/webinar; saas_app = software, app móvil, plataforma; ecommerce = producto físico; servicio = agencia/consultoría/servicio profesional; comunidad = membresía/grupo; evento = evento en vivo.)
+- "business_model": exactamente uno de: ${MODELS.join(", ")}. (lead_gratis = el anuncio regala algo para captar el contacto.)
+- "language": código ISO del IDIOMA DEL TEXTO del anuncio (es, pt, en, de, ru, pl, fr, it...). NO el país donde llegó.
+- "price_hint": precio mencionado tal cual con moneda (ej. "R$ 97", "$27/mes", "19,90 €") o null si no aparece.
+- "mechanism": en ESPAÑOL, máx 120 caracteres: el mecanismo/promesa central de la oferta.
+- "why_wins": en ESPAÑOL, máx 140 caracteres: por qué este anuncio convierte (ángulo, gancho, prueba, urgencia...).
+- "target_audience": en ESPAÑOL, máx 80 caracteres: para quién es.
+- "copy_score": entero 1-5. Qué tan replicable es como PRODUCTO DIGITAL o MINI APP por un emprendedor solo con poco capital: 5 = infoproducto/plantilla/mini app de nicho claramente copiable (quiz + plan, desafío de 7 días, guía, curso corto, herramienta simple); 3 = requiere cierta inversión, equipo o marca; 1-2 = NO replicable: apps de lectura de novelas, dramas cortos, juegos móviles, apps con cientos de anuncios activos, marcas globales, producto físico con logística. Sé estricto: si dudas entre 4 y 2, pon 2.
+
+Responde SOLO con el array JSON de objetos.
+
+ANUNCIOS:
+${JSON.stringify(items)}`;
+
+      // El modelo preview se satura (503 "high demand") con frecuencia:
+      // reintento con backoff y, al tercer intento, fallback al modelo estable.
+      const MODELS_TRY = ["gemini-3-flash-preview", "gemini-3-flash-preview", "gemini-2.5-flash"];
+      let aiRes: Response | null = null;
+      for (let attempt = 0; attempt < MODELS_TRY.length && !aiRes; attempt++) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 75_000);
+        try {
+          const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: MODELS_TRY[attempt],
+              max_tokens: 8192, // 20 fichas × 10 campos; el cirílico gasta más tokens
+              messages: [{ role: "system", content: system }, { role: "user", content: userPrompt }],
+            }),
+            signal: ctrl.signal,
+          });
+          if ([500, 502, 503, 504].includes(r.status) && attempt < MODELS_TRY.length - 1) {
+            await r.text();
+            await new Promise((res) => setTimeout(res, 4000 * (attempt + 1)));
+            continue;
+          }
+          aiRes = r;
+        } catch (err) {
+          if (attempt === MODELS_TRY.length - 1) throw err;
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+      if (!aiRes) { summary.note = "IA saturada tras reintentos"; break; }
+
+      if (aiRes.status === 429) { summary.note = "Cuota de IA agotada (429); reintentar más tarde"; break; }
+      if (!aiRes.ok) {
+        const t = await aiRes.text();
+        summary.note = `AI error ${aiRes.status}: ${t.slice(0, 200)}`;
+        break;
+      }
+      const aiData = await aiRes.json();
+      const content: string = aiData?.choices?.[0]?.message?.content ?? "[]";
+
+      // Parseo defensivo: markdown fences y, si la salida vino truncada,
+      // rescatar hasta el último objeto completo (el resto se marca fallido).
+      let parsed: Enriched[] = [];
+      const cleaned = content.replace(/```json?/g, "").replace(/```/g, "").trim();
+      try {
+        const arr = JSON.parse(cleaned);
+        if (Array.isArray(arr)) parsed = arr;
+      } catch {
+        const start = cleaned.indexOf("[");
+        const lastObj = cleaned.lastIndexOf("}");
+        try {
+          const arr = start >= 0 && lastObj > start ? JSON.parse(cleaned.slice(start, lastObj + 1) + "]") : [];
+          if (Array.isArray(arr)) parsed = arr;
+        } catch { /* sin rescate posible */ }
+        if (parsed.length === 0) { summary.note = `Respuesta no parseable: ${content.slice(0, 120)}`; break; }
+      }
+
+      // 3) Validar y persistir; lo que la IA no devolvió se marca fallido
+      //    para que la cola avance (el catálogo lo muestra con fallback).
+      const byIndex = new Map<number, Enriched>();
+      for (const e of parsed) if (typeof e?.index === "number") byIndex.set(e.index, e);
+
+      const pick = <T extends readonly string[]>(v: unknown, allowed: T, fallback: T[number]) =>
+        typeof v === "string" && (allowed as readonly string[]).includes(v) ? v : fallback;
+      const clip = (v: unknown, n: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, n) : null);
+
+      const updates = rows.map((r, i) => {
+        const e = byIndex.get(i);
+        if (!e) return admin.from("offers").update({ enrich_failed: true }).eq("id", r.id).then(() => "failed" as const);
+        const copy = Number(e.copy_score);
+        return admin.from("offers").update({
+          product_name: clip(e.product_name, 80) ?? r.page_name,
+          niche: pick(e.niche, NICHES, "otro"),
+          offer_type: pick(e.offer_type, OFFER_TYPES, "otro"),
+          business_model: pick(e.business_model, MODELS, "otro"),
+          language: clip(e.language, 8)?.toLowerCase() ?? null,
+          price_hint: clip(e.price_hint, 40),
+          mechanism: clip(e.mechanism, 160),
+          why_wins: clip(e.why_wins, 180),
+          target_audience: clip(e.target_audience, 120),
+          copy_score: Number.isFinite(copy) ? Math.min(5, Math.max(1, Math.round(copy))) : null,
+          enriched_at: new Date().toISOString(),
+        }).eq("id", r.id).then(({ error }) => (error ? "failed" : "ok") as "failed" | "ok");
+      });
+      const results = await Promise.all(updates);
+      summary.enriched += results.filter((x) => x === "ok").length;
+      summary.failed += results.filter((x) => x === "failed").length;
+      summary.batches_done += 1;
+    }
+
+    return json(summary);
+  } catch (e) {
+    return json({ ...summary, error: e instanceof Error ? e.message : "Unknown" }, 500);
+  }
+});

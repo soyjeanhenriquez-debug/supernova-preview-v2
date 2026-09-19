@@ -425,6 +425,41 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_picks: {
+        Row: {
+          created_at: string
+          market_group: string
+          offer_id: string
+          pick_date: string
+          slot: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          market_group: string
+          offer_id: string
+          pick_date?: string
+          slot: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          market_group?: string
+          offer_id?: string
+          pick_date?: string
+          slot?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_picks_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hook_favorites: {
         Row: {
           created_at: string
@@ -794,6 +829,140 @@ export type Database = {
           user_id?: string
           whatsapp_opt_in?: boolean
           whatsapp_phone?: string | null
+        }
+        Relationships: []
+      }
+      offer_snapshots: {
+        Row: {
+          active_ads: number | null
+          ads_count: number | null
+          days_active: number | null
+          offer_id: string
+          snap_date: string
+          winner_score: number | null
+        }
+        Insert: {
+          active_ads?: number | null
+          ads_count?: number | null
+          days_active?: number | null
+          offer_id: string
+          snap_date?: string
+          winner_score?: number | null
+        }
+        Update: {
+          active_ads?: number | null
+          ads_count?: number | null
+          days_active?: number | null
+          offer_id?: string
+          snap_date?: string
+          winner_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offer_snapshots_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offers: {
+        Row: {
+          active_ads: number
+          ads_count: number
+          business_model: string | null
+          copy_score: number | null
+          created_at: string
+          days_active: number
+          duplicate_count: number
+          enrich_failed: boolean
+          enriched_at: string | null
+          first_seen: string | null
+          id: string
+          language: string | null
+          last_seen: string | null
+          market: string
+          mechanism: string | null
+          niche: string | null
+          offer_type: string | null
+          page_id: string
+          page_name: string | null
+          price_hint: string | null
+          product_name: string | null
+          sample_ad_id: string | null
+          sample_ad_url: string | null
+          sample_body: string | null
+          sample_title: string | null
+          target_audience: string | null
+          tier: string | null
+          updated_at: string
+          why_wins: string | null
+          winner_score: number
+        }
+        Insert: {
+          active_ads?: number
+          ads_count?: number
+          business_model?: string | null
+          copy_score?: number | null
+          created_at?: string
+          days_active?: number
+          duplicate_count?: number
+          enrich_failed?: boolean
+          enriched_at?: string | null
+          first_seen?: string | null
+          id?: string
+          language?: string | null
+          last_seen?: string | null
+          market: string
+          mechanism?: string | null
+          niche?: string | null
+          offer_type?: string | null
+          page_id: string
+          page_name?: string | null
+          price_hint?: string | null
+          product_name?: string | null
+          sample_ad_id?: string | null
+          sample_ad_url?: string | null
+          sample_body?: string | null
+          sample_title?: string | null
+          target_audience?: string | null
+          tier?: string | null
+          updated_at?: string
+          why_wins?: string | null
+          winner_score?: number
+        }
+        Update: {
+          active_ads?: number
+          ads_count?: number
+          business_model?: string | null
+          copy_score?: number | null
+          created_at?: string
+          days_active?: number
+          duplicate_count?: number
+          enrich_failed?: boolean
+          enriched_at?: string | null
+          first_seen?: string | null
+          id?: string
+          language?: string | null
+          last_seen?: string | null
+          market?: string
+          mechanism?: string | null
+          niche?: string | null
+          offer_type?: string | null
+          page_id?: string
+          page_name?: string | null
+          price_hint?: string | null
+          product_name?: string | null
+          sample_ad_id?: string | null
+          sample_ad_url?: string | null
+          sample_body?: string | null
+          sample_title?: string | null
+          target_audience?: string | null
+          tier?: string | null
+          updated_at?: string
+          why_wins?: string | null
+          winner_score?: number
         }
         Relationships: []
       }
@@ -1415,6 +1584,11 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_daily_picks: {
+        Args: never
+        Returns: { slot: number; market_group: string; offer: Json }[]
+      }
+      get_offers_stats: { Args: never; Returns: Json }
       get_market_trends: {
         Args: never
         Returns: {

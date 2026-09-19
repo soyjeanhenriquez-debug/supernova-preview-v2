@@ -187,7 +187,12 @@ export function WinningAdsPage() {
     return ["es","pt","de","ru","en"].includes(nav) ? nav : "all";
   });
   useEffect(() => { localStorage.setItem("supernova_market", market); }, [market]);
-  const [keyword, setKeyword] = useState("");
+  // Prefill desde Ofertas / picks del día ("ver sus anuncios"): se consume una sola vez
+  const [keyword, setKeyword] = useState(() => {
+    const prefill = localStorage.getItem("supernova_radar_prefill");
+    if (prefill) { localStorage.removeItem("supernova_radar_prefill"); return prefill; }
+    return "";
+  });
   const [urlInput, setUrlInput] = useState("");
   const [minDays, setMinDays] = useState(0);
   const [minDups, setMinDups] = useState(0);

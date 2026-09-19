@@ -11,6 +11,7 @@ import { FloatingWinnerButton } from "@/components/FloatingWinnerButton";
 // baja el Dashboard, el resto llega bajo demanda al navegar.
 const DashboardPage = lazy(() => import("@/pages/DashboardPage").then(m => ({ default: m.DashboardPage })));
 const WinningAdsPage = lazy(() => import("@/pages/WinningAdsPage").then(m => ({ default: m.WinningAdsPage })));
+const OfertasPage = lazy(() => import("@/pages/OfertasPage").then(m => ({ default: m.OfertasPage })));
 const OraculoPage = lazy(() => import("@/pages/OraculoPage").then(m => ({ default: m.OraculoPage })));
 const GeneradoresPage = lazy(() => import("@/pages/GeneradoresPage").then(m => ({ default: m.GeneradoresPage })));
 const MediaStudioPage = lazy(() => import("@/pages/MediaStudioPage").then(m => ({ default: m.MediaStudioPage })));
@@ -33,6 +34,7 @@ const Index = () => {
   const renderPage = () => {
     switch (activePage) {
       case "Dashboard": return <DashboardPage onNavigate={setActivePage} />;
+      case "Ofertas": return <OfertasPage onNavigate={setActivePage} />;
       case "Buscar Ofertas Winner": return <WinningAdsPage />;
       case "Anuncios Ganadores": return <WinningAdsPage />;
       case "Oráculo": return <OraculoPage />;

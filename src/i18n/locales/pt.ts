@@ -20,7 +20,8 @@ export default {
   },
   nav: {
     dashboard: "Painel",
-    winners: "Buscar Ofertas Winner",
+    offers: "Ofertas",
+    winners: "Radar de anúncios",
     hooks: "Hooks",
     oracle: "Oráculo",
     generators: "Geradores",

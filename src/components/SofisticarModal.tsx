@@ -78,7 +78,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
       }
       toast.success("✓ Análisis completado");
     } catch (e: unknown) {
-      toast.error(e.message || "Error generando análisis");
+      toast.error(e instanceof Error && e.message ? e.message : "Error generando análisis");
     } finally { setLoading(false); }
   };
 

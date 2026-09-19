@@ -221,7 +221,7 @@ function KitModal({ kit, onClose, onUnlock, busy }: { kit: Kit; onClose: () => v
               {kit.tagline && <p className="text-[12px] text-muted-foreground truncate">{kit.tagline}</p>}
             </div>
           </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} aria-label="Cerrar" className="text-muted-foreground hover:text-foreground p-2 -m-1 shrink-0"><X className="w-5 h-5" /></button>
         </div>
 
         {!kit.unlocked ? (
@@ -237,10 +237,11 @@ function KitModal({ kit, onClose, onUnlock, busy }: { kit: Kit; onClose: () => v
           </div>
         ) : (
           <>
-            <div className="px-5 pt-3 flex flex-wrap gap-1.5 border-b border-border pb-3">
+            {/* En móvil las 8 secciones van en una sola fila deslizable: envueltas en 3 líneas se comían media pantalla. */}
+            <div className="px-5 pt-3 flex flex-nowrap sm:flex-wrap gap-1.5 border-b border-border pb-3 overflow-x-auto sm:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {SECTIONS.map((s) => (
                 <button key={s.k} onClick={() => setSection(s.k)}
-                  className={`px-3 py-1.5 rounded-full text-[11.5px] font-semibold border transition-colors ${
+                  className={`px-3 py-1.5 rounded-full text-[11.5px] font-semibold border transition-colors shrink-0 whitespace-nowrap ${
                     section === s.k ? "bg-primary text-primary-foreground border-primary" : "bg-secondary/40 text-muted-foreground border-border hover:text-foreground"}`}>
                   {s.l}
                 </button>
@@ -256,13 +257,13 @@ function KitModal({ kit, onClose, onUnlock, busy }: { kit: Kit; onClose: () => v
               )}
             </div>
             <div className="px-5 py-3 border-t border-border flex items-center gap-2 flex-wrap">
-              <button onClick={copy} disabled={!content} className="px-4 py-2 rounded-lg border border-border text-[12px] text-foreground hover:border-primary/40 inline-flex items-center gap-1.5">
+              <button onClick={copy} disabled={!content} className="flex-1 sm:flex-none justify-center px-3 sm:px-4 py-2 rounded-lg border border-border text-[12px] text-foreground hover:border-primary/40 inline-flex items-center gap-1.5">
                 {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />} Copiar esta sección
               </button>
-              <button onClick={saveToBrain} disabled={!content || saved} className="px-4 py-2 rounded-lg border border-border text-[12px] text-foreground hover:border-primary/40 inline-flex items-center gap-1.5 disabled:opacity-60">
+              <button onClick={saveToBrain} disabled={!content || saved} className="flex-1 sm:flex-none justify-center px-3 sm:px-4 py-2 rounded-lg border border-border text-[12px] text-foreground hover:border-primary/40 inline-flex items-center gap-1.5 disabled:opacity-60">
                 <Save className="w-3.5 h-3.5" /> {saved ? "Guardado en Proyectos" : "Guardar en Proyectos"}
               </button>
-              <span className="ml-auto text-[11px] text-muted-foreground">
+              <span className="w-full sm:w-auto sm:ml-auto text-[11px] text-muted-foreground">
                 Fuente real: {kit.proof?.source_product ?? "oferta ganadora"} · {kit.proof?.days_active ?? "—"} días pagando anuncios
               </span>
             </div>

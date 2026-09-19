@@ -12,59 +12,69 @@ type Step = {
   placement?: "right" | "left" | "bottom" | "center";
 };
 
+// Mismo orden que el menú y los precios REALES (tabla credit_prices): un tour
+// que promete otra cosa de la que el usuario encuentra le quita confianza el
+// primer minuto.
 const STEPS: Step[] = [
   {
     title: "Bienvenido a SUPERNOVA",
-    page: "Tour interactivo · 1 min",
-    body: "Te muestro los módulos clave resaltando cada uno en el menú. Tienes <strong>2,000 créditos gratis al mes</strong>. Empecemos.",
+    page: "Tour de 1 minuto",
+    body: "Aquí no empiezas de cero: cada día te damos <strong>negocios digitales que ya están vendiendo</strong>, listos para copiar. Tienes <strong>2,000 créditos gratis al mes</strong>.",
     placement: "center",
   },
   {
     target: "nav-Dashboard",
     title: "Dashboard",
-    page: "Tu centro de mando",
-    body: "Métricas reales: créditos consumidos, proyectos activos, anuncios analizados y actividad reciente.",
+    page: "Tus 3 negocios de hoy",
+    body: "Cada día, <strong>3 ofertas ganadoras nuevas</strong> (mercado español, brasileño, americano o ruso) que nunca se repiten. Pulsa <strong>Copiar este negocio</strong> y te armamos el análisis, el prompt de tu mini app y el guion de venta.",
+    placement: "right",
+  },
+  {
+    target: "nav-Ofertas",
+    title: "Ofertas",
+    page: "Las 300 ganadoras",
+    body: "El catálogo curado: ofertas con prueba real (semanas pagando anuncios) y fáciles de replicar. Verlas es gratis. Puedes <strong>seguir</strong> una oferta (5 créditos) para vigilar si escala.",
+    placement: "right",
+  },
+  {
+    target: "nav-Mini Apps",
+    title: "Mini Apps",
+    page: "2 kits nuevos cada semana",
+    body: "Negocios completos para copiar y cobrar: blueprint, prompt para construir la app, guiones de WhatsApp y VSL, anuncios, landing y precios por país. Se desbloquean con créditos y son tuyos para siempre.",
     placement: "right",
   },
   {
     target: "nav-Buscar Ofertas Winner",
-    title: "Buscar Ofertas Winner",
-    page: "Anuncios ganadores",
-    body: "Scraper automático de Meta Ads Library. Detecta ofertas con mayor temperatura (1-6). <strong>Cuesta 10 créditos</strong> por búsqueda.",
-    placement: "right",
-  },
-  {
-    target: "nav-Oráculo",
-    title: "Oráculo",
-    page: "Insights estratégicos",
-    body: "Predicciones DR basadas en patrones reales del mercado.",
+    title: "Radar de anuncios",
+    page: "Los anuncios detrás de cada oferta",
+    body: "Mira qué anuncios está pagando cada anunciante y cuánto llevan activos. Explorar es gratis; la <strong>búsqueda en vivo</strong> en Meta cuesta 5 créditos.",
     placement: "right",
   },
   {
     target: "nav-Generadores",
-    title: "Generadores",
-    page: "18 templates de copy",
-    body: "Landing pages, ad copies, avatares, funnels y master prompts. Cada uno descuenta créditos al ejecutarse.",
+    title: "Generadores y Oráculo",
+    page: "Tu copy en minutos",
+    body: "Hooks, anuncios, landings, emails y guiones con plantillas de respuesta directa. El <strong>Oráculo</strong> analiza la landing de cualquier competidor. Solo pagas si la IA te entrega el resultado.",
     placement: "right",
   },
   {
     target: "nav-brain",
     title: "SUPERNOVA BRAIN",
     page: "6 pilares por proyecto",
-    body: "Detectar → Analizar → Diseñar → Producir → Lanzar → Escalar. Cada pilar tiene <strong>Ayuda IA (15c)</strong> que te guía paso a paso.",
+    body: "Detectar → Analizar → Diseñar → Producir → Lanzar → Escalar. Cada pilar tiene <strong>Ayuda IA (10 créditos)</strong> que te guía paso a paso.",
     placement: "right",
   },
   {
     target: "nav-Créditos",
     title: "Créditos",
     page: "Cómo funcionan",
-    body: "<strong>2,000 gratis al mes</strong> (renuevan en tu aniversario, no acumulan). Packs extra desde $10 que nunca expiran.",
+    body: "<strong>2,000 gratis al mes</strong> (se renuevan en tu aniversario, no se acumulan). Si la IA falla, el crédito vuelve solo. Packs extra desde $10 que nunca expiran.",
     placement: "right",
   },
   {
     title: "¿Dudas?",
-    page: "Asistente IA siempre activo",
-    body: "Mira el <strong>botón flotante abajo a la derecha</strong> 💬. Pregúntale cualquier cosa sobre la app.",
+    page: "Asistente siempre activo",
+    body: "Usa el <strong>botón flotante abajo a la derecha</strong> 💬. Pregúntale cualquier cosa sobre la app: es gratis.",
     placement: "center",
   },
 ];
@@ -93,7 +103,10 @@ export function OnboardingTour() {
 
     let raf = 0;
     const measure = () => {
-      const el = document.querySelector<HTMLElement>(`[data-tour="${s.target}"]`);
+      // En móvil el menú vive en un cajón cerrado: el destino existe pero mide 0.
+      // Sin destino visible el paso se muestra centrado, sin foco en una esquina.
+      const el = Array.from(document.querySelectorAll<HTMLElement>(`[data-tour="${s.target}"]`))
+        .find((n) => { const r = n.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
       if (el) {
         el.scrollIntoView({ block: "nearest", behavior: "smooth" });
         setRect(el.getBoundingClientRect());
@@ -128,7 +141,7 @@ export function OnboardingTour() {
   if (centered) {
     tipStyle = { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
   } else if (rect) {
-    const tipW = 340;
+    const tipW = Math.min(340, window.innerWidth - 32);
     const placement = s.placement ?? "right";
     if (placement === "right") {
       tipStyle = {
@@ -202,7 +215,7 @@ export function OnboardingTour() {
       {/* Tooltip card */}
       <div
         ref={tooltipRef}
-        className="absolute w-[340px] bg-card border border-border rounded-xl shadow-2xl overflow-hidden pointer-events-auto animate-fade-in"
+        className="absolute w-[340px] max-w-[calc(100vw-32px)] bg-card border border-border rounded-xl shadow-2xl overflow-hidden pointer-events-auto animate-fade-in"
         style={tipStyle}
       >
         <button

@@ -109,7 +109,7 @@ export function useCredits() {
 
     // Otorgar mensual si toca (idempotente)
     await supabase.rpc("grant_monthly_if_due").then(({ data }) => {
-      if ((data as unknown)?.granted) {
+      if ((data as { granted?: boolean } | null)?.granted) {
         toast("✨ Créditos mensuales renovados", { description: `+${DEFAULT_BALANCE} créditos disponibles` });
       }
     });
@@ -140,7 +140,7 @@ export function useCredits() {
         action: t.action as CreditAction,
         label: t.label || ACTION_LABEL[t.action as CreditAction] || t.action,
         cost: t.cost,
-        meta: (t.meta as unknown)?.note,
+        meta: (t.meta as { note?: string } | null)?.note,
       }));
       setHistory(mapped);
       localStorage.setItem(HIST_KEY, JSON.stringify(mapped));

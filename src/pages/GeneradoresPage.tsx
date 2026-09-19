@@ -286,7 +286,7 @@ export function GeneradoresPage() {
       }
       toast.success("¡Contenido generado!");
     } catch (err: unknown) {
-      toast.error(err.message || "Error al generar contenido");
+      toast.error(err instanceof Error && err.message ? err.message : "Error al generar contenido");
     } finally {
       setLoading(false);
     }
@@ -295,14 +295,15 @@ export function GeneradoresPage() {
   const selectedGen = generators.find((g) => g.id === activeGenerator);
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] gap-0 -m-6 lg:-m-8">
-      {/* Category sidebar */}
-      <div className="w-56 flex-shrink-0 border-r border-border bg-card/50 p-4 overflow-auto">
-        <h3 className="font-display font-bold text-foreground text-base mb-4 px-2">Generadores</h3>
-        <nav className="space-y-0.5">
+    <div className="flex flex-col md:flex-row md:h-[calc(100vh-8rem)] gap-0 -m-4 md:-m-6 lg:-m-8">
+      {/* Categorías: barra lateral en escritorio, fila de chips deslizable en móvil
+          (antes la barra fija de 224px dejaba el contenido en ~170px en un teléfono). */}
+      <div className="md:w-56 flex-shrink-0 border-b md:border-b-0 md:border-r border-border bg-card/50 p-3 md:p-4 md:overflow-auto">
+        <h3 className="hidden md:block font-display font-bold text-foreground text-base mb-4 px-2">Generadores</h3>
+        <nav className="flex md:block gap-1.5 md:space-y-0.5 overflow-x-auto md:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {categories.map((cat, i) => {
             if ('divider' in cat && cat.divider) {
-              return <div key={`div-${i}`} className="my-3 border-t border-border" />;
+              return <div key={`div-${i}`} className="hidden md:block my-3 border-t border-border" />;
             }
             const Icon = cat.icon!;
             const isActive = activeCategory === cat.id;
@@ -310,7 +311,7 @@ export function GeneradoresPage() {
               <button
                 key={cat.id}
                 onClick={() => { setActiveCategory(cat.id!); setActiveGenerator(null); }}
-                className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm transition-all ${
+                className={`flex items-center gap-2.5 flex-shrink-0 whitespace-nowrap md:w-full px-3 py-2 rounded-lg text-sm transition-all ${
                   isActive
                     ? "bg-primary/10 text-primary font-medium"
                     : "text-muted-foreground hover:text-foreground hover:bg-secondary"
@@ -325,13 +326,13 @@ export function GeneradoresPage() {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 overflow-auto p-6 lg:p-8">
+      <div className="flex-1 min-w-0 md:overflow-auto p-4 md:p-6 lg:p-8">
         {!activeGenerator ? (
           <>
             {/* Hero banner */}
             <div className="relative rounded-2xl overflow-hidden mb-8 bg-gradient-to-r from-card via-secondary to-card border border-border">
               <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-primary/10 to-accent/5" />
-              <div className="relative px-8 py-10 text-center">
+              <div className="relative px-5 py-8 md:px-8 md:py-10 text-center">
                 <h2 className="font-display font-bold text-2xl text-foreground mb-2">
                   Generadores de Contenido con IA
                 </h2>

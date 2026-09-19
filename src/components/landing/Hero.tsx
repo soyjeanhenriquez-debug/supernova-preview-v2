@@ -14,7 +14,10 @@ export function Hero() {
         className="pointer-events-none absolute left-1/4 top-1/3 h-[480px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#C5A880] opacity-[0.05] blur-[140px]"
       />
 
-      <div className="mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[1.1fr_0.9fr]">
+      {/* grid-cols-1 = minmax(0,1fr): sin él la columna implícita es "auto" y crece
+          hasta el texto sin cortes del live feed (415px), sacando el titular y el
+          botón de la pantalla en un teléfono. */}
+      <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-14 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="text-center lg:text-left">
           <motion.p
             initial={{ opacity: 0 }}
@@ -78,7 +81,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 0.45, ease }}
-          className="mx-auto lg:mx-0"
+          className="mx-auto w-full min-w-0 max-w-md lg:mx-0"
         >
           <LiveFeed />
         </motion.div>

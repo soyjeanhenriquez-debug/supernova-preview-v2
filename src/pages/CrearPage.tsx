@@ -76,7 +76,7 @@ export function CrearPage() {
       }
       toast.success("✓ Dolores descubiertos");
     } catch (e: unknown) {
-      toast.error(e.message || "Error en Pain Discovery");
+      toast.error(e instanceof Error && e.message ? e.message : "Error en Pain Discovery");
     } finally { setLoading(false); }
   };
 

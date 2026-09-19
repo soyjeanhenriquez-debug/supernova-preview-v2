@@ -29,6 +29,15 @@ async function requireUser(req: Request, fn: string, maxHour: number, maxDay: nu
   return { userId };
 }
 
+// La búsqueda en vivo depende de Meta. Cuando Meta falla (token vencido, caída)
+// el usuario no tiene nada que arreglar: se le dice claro y se le da una salida.
+function unavailable(code: string): Response {
+  return new Response(JSON.stringify({
+    error: "La búsqueda en vivo de Meta está en mantenimiento. Mientras vuelve, usa Ofertas: ahí están los ganadores ya analizados.",
+    code,
+  }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const gate = await requireUser(req, "facebook-ads", 120, 800);
@@ -37,9 +46,8 @@ Deno.serve(async (req) => {
   try {
     const token = Deno.env.get("FACEBOOK_ACCESS_TOKEN");
     if (!token) {
-      return new Response(JSON.stringify({ error: "Missing FACEBOOK_ACCESS_TOKEN" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.error("facebook-ads: falta el token de Meta en los secretos");
+      return unavailable("fb_not_configured");
     }
 
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
@@ -92,18 +100,24 @@ Deno.serve(async (req) => {
     }
 
     if (!r.ok) {
-      console.error("FB error:", data);
-      return new Response(JSON.stringify({ error: "Facebook API error", detail: data }), {
-        status: r.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      // El detalle de Meta se queda en el log: al usuario le llega un mensaje
+      // que entiende y un código para que el panel admin sepa qué arreglar.
+      const fb = data?.error ?? {};
+      console.error("FB error:", JSON.stringify({ code: fb.code, subcode: fb.error_subcode, type: fb.type, message: fb.message }));
+      if (fb.code === 190 || fb.type === "OAuthException") return unavailable("fb_token_expired");
+      if ([4, 17, 32, 613].includes(Number(fb.code))) {
+        return new Response(JSON.stringify({ error: "Meta está limitando las búsquedas en este momento. Intenta de nuevo en unos minutos.", code: "fb_rate_limited" }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return unavailable("fb_error");
     }
 
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("facebook-ads:", e instanceof Error ? e.message : e);
+    return unavailable("fb_error");
   }
 });

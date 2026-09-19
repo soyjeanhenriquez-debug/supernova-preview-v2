@@ -99,8 +99,8 @@ Deno.serve(async (req) => {
   }
 
   // prompt/completion/total_tokens: uso REAL reportado por la API → costo medible
-  const summary: { group_markets: string[]; lang: string | null; model?: string; batches_done: number; enriched: number; failed: number; prompt_tokens: number; completion_tokens: number; total_tokens: number; note: string } =
-    { group_markets: markets, lang, batches_done: 0, enriched: 0, failed: 0, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, note: "" };
+  const summary: { group_markets: string[]; lang: string | null; model?: string; batches_done: number; enriched: number; failed: number; prompt_tokens: number; completion_tokens: number; total_tokens: number; ai_calls: number; write_errors: number; note: string } =
+    { group_markets: markets, lang, batches_done: 0, enriched: 0, failed: 0, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, ai_calls: 0, write_errors: 0, note: "" };
 
   const pending = async (mk: string[] | null, langFilter: "match" | "other" | "any", exclude: string[]): Promise<Row[]> => {
     let q = admin
@@ -108,6 +108,10 @@ Deno.serve(async (req) => {
       .select("id, page_name, market, sample_title, sample_body, ads_count, active_ads, days_active, winner_score, enrich_attempts")
       .is("enriched_at", null)
       .eq("enrich_failed", false)
+      // Prefiltro (flag_excluded_offers): adultos y apps de dramas/novelas no
+      // gastan tokens — además eran las fichas que el modelo omitía y que
+      // arrastraban a sus vecinas de lote hacia el descarte.
+      .is("excluded_reason", null)
       .not("sample_body", "is", null)
       .order("winner_score", { ascending: false })
       .order("active_ads", { ascending: false })
@@ -121,31 +125,23 @@ Deno.serve(async (req) => {
     return (data ?? []) as Row[];
   };
 
-  try {
-    for (let b = 0; b < batches; b++) {
-      // 1) Cola: primero idioma del grupo, luego el resto del grupo, y si el
-      //    grupo se agotó (solo en modo cron), cualquier pendiente.
-      let rows = await pending(markets, "match", []);
-      if (rows.length < BATCH_SIZE) {
-        const more = await pending(markets, "other", rows.map((r) => r.id));
-        rows = [...rows, ...more].slice(0, BATCH_SIZE);
-      }
-      if (rows.length === 0 && !explicit) rows = await pending(null, "any", []);
-      if (rows.length === 0) { summary.note = "Sin pendientes"; break; }
+  type AiResult = { kind: "ok"; map: Map<number, Enriched> } | { kind: "quota" } | { kind: "fail"; note: string };
 
-      // 2) UNA llamada a Gemini con el lote → JSON estricto
-      const items = rows.map((r, i) => ({
-        index: i,
-        advertiser: (r.page_name ?? "").slice(0, 80),
-        reached_market: r.market,
-        title: (r.sample_title ?? "").slice(0, 150),
-        body: (r.sample_body ?? "").slice(0, 600),
-        active_ads: r.active_ads,
-        days_active: r.days_active,
-      }));
+  // Una llamada a Gemini para un conjunto de filas. Los tokens se suman SIEMPRE
+  // (también en reintentos) para que el costo reportado sea el real.
+  const callAI = async (rows: Row[]): Promise<AiResult> => {
+    const items = rows.map((r, i) => ({
+      index: i,
+      advertiser: (r.page_name ?? "").slice(0, 80),
+      reached_market: r.market,
+      title: (r.sample_title ?? "").slice(0, 150),
+      body: (r.sample_body ?? "").slice(0, 600),
+      active_ads: r.active_ads,
+      days_active: r.days_active,
+    }));
 
-      const system = `Eres un analista senior de direct response marketing que estudia anuncios ganadores reales de Meta Ads Library para emprendedores de LATAM que quieren replicar productos digitales que ya venden. Devuelves SOLO un objeto JSON válido con la forma {"items": [...]}, sin markdown ni preámbulos.`;
-      const userPrompt = `Para cada anuncio ganador del array, devuelve un objeto con:
+    const system = `Eres un analista senior de direct response marketing que estudia anuncios ganadores reales de Meta Ads Library para emprendedores de LATAM que quieren replicar productos digitales que ya venden. Devuelves SOLO un objeto JSON válido con la forma {"items": [...]}, sin markdown ni preámbulos.`;
+    const userPrompt = `Para cada anuncio ganador del array, devuelve un objeto con:
 - "index": índice del anuncio.
 - "product_name": nombre del producto/oferta si se deduce del anuncio (en su idioma original, máx 60 caracteres). Si no se deduce, usa el nombre del anunciante.
 - "niche": exactamente uno de: ${NICHES.join(", ")}.
@@ -163,113 +159,160 @@ Responde SOLO con un objeto JSON: {"items": [ {...}, {...} ]} — un objeto por 
 ANUNCIOS:
 ${JSON.stringify(items)}`;
 
-      // Cadena de modelos: cada uno tiene cuota propia y Google retira
-      // modelos (404 "no longer available"); ante 404/429/5xx se pasa al
-      // siguiente. Solo si TODOS fallan se corta la corrida.
-      // LITE PRIMERO: el saldo prepago de Gemini es compartido con las acciones
-      // de los usuarios (si llega a 0, toda la IA de la app se detiene). Los lite
-      // ya probaron calidad suficiente para fichar ofertas y cuestan ~2.5-3x menos
-      // (3.1-flash-lite $0.25/$1.50 por 1M vs 3.8-flash $0.75/$3.75; medido:
-      // ~$0.0044 por lote de 20, sin tokens de razonamiento facturados aparte).
-      const MODELS_TRY = ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash", "gemini-3-flash-preview"];
-      let aiRes: Response | null = null;
-      let lastStatus = 0;
-      for (let attempt = 0; attempt < MODELS_TRY.length && !aiRes; attempt++) {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 75_000);
-        try {
-          const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model: MODELS_TRY[attempt],
-              max_tokens: 8192, // 20 fichas × 10 campos; el cirílico gasta más tokens
-              response_format: { type: "json_object" },
-              messages: [{ role: "system", content: system }, { role: "user", content: userPrompt }],
-            }),
-            signal: ctrl.signal,
-          });
-          lastStatus = r.status;
-          if ([404, 429, 500, 502, 503, 504].includes(r.status) && attempt < MODELS_TRY.length - 1) {
-            await r.text();
-            await new Promise((res) => setTimeout(res, 1500));
-            continue;
-          }
-          aiRes = r;
-          summary.model = MODELS_TRY[attempt];
-        } catch (err) {
-          if (attempt === MODELS_TRY.length - 1) throw err;
-        } finally {
-          clearTimeout(timer);
-        }
-      }
-      if (!aiRes) { summary.note = `IA no disponible tras reintentos (último status ${lastStatus})`; break; }
-
-      if (aiRes.status === 429) { summary.note = "Cuota de IA agotada en todos los modelos (429); reintentar más tarde"; break; }
-      if (!aiRes.ok) {
-        const t = await aiRes.text();
-        summary.note = `AI error ${aiRes.status}: ${t.slice(0, 200)}`;
-        break;
-      }
-      const aiData = await aiRes.json();
-      summary.prompt_tokens += Number(aiData?.usage?.prompt_tokens) || 0;
-      summary.completion_tokens += Number(aiData?.usage?.completion_tokens) || 0;
-      summary.total_tokens += Number(aiData?.usage?.total_tokens) || 0;
-      const content: string = aiData?.choices?.[0]?.message?.content ?? "[]";
-
-      // Parseo defensivo: objeto {"items":[...]} (o array, por si el modelo
-      // ignora la forma) y, si la salida vino truncada, rescatar hasta el
-      // último objeto completo (el resto vuelve a la cola).
-      let parsed: Enriched[] = [];
-      const cleaned = content.replace(/```json?/g, "").replace(/```/g, "").trim();
-      const asArray = (v: unknown): Enriched[] =>
-        Array.isArray(v) ? v as Enriched[] : (v && typeof v === "object" && Array.isArray((v as { items?: unknown }).items) ? (v as { items: Enriched[] }).items : []);
+    // Cadena de modelos: cada uno tiene cuota propia y Google retira
+    // modelos (404 "no longer available"); ante 404/429/5xx se pasa al
+    // siguiente. Solo si TODOS fallan se corta la corrida.
+    // LITE PRIMERO: el saldo prepago de Gemini es compartido con las acciones
+    // de los usuarios (si llega a 0, toda la IA de la app se detiene). Los lite
+    // ya probaron calidad suficiente para fichar ofertas y cuestan ~2.5-3x menos
+    // (3.1-flash-lite $0.25/$1.50 por 1M vs 3.8-flash $0.75/$3.75; medido:
+    // ~$0.0044 por lote de 20, sin tokens de razonamiento facturados aparte).
+    const MODELS_TRY = ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash", "gemini-3-flash-preview"];
+    let aiRes: Response | null = null;
+    let lastStatus = 0;
+    for (let attempt = 0; attempt < MODELS_TRY.length && !aiRes; attempt++) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 75_000);
       try {
-        parsed = asArray(JSON.parse(cleaned));
-      } catch {
-        const start = cleaned.indexOf("[");
-        const lastObj = cleaned.lastIndexOf("}");
-        try {
-          parsed = start >= 0 && lastObj > start ? asArray(JSON.parse(cleaned.slice(start, lastObj + 1) + "]")) : [];
-        } catch { /* sin rescate posible */ }
-      }
-      if (parsed.length === 0) { summary.note = `Respuesta no parseable: ${content.slice(0, 120)}`; break; }
-
-      // 3) Validar y persistir; lo que la IA no devolvió se marca fallido
-      //    para que la cola avance (el catálogo lo muestra con fallback).
-      const byIndex = new Map<number, Enriched>();
-      for (const e of parsed) if (typeof e?.index === "number") byIndex.set(e.index, e);
-
-      const pick = <T extends readonly string[]>(v: unknown, allowed: T, fallback: T[number]) =>
-        typeof v === "string" && (allowed as readonly string[]).includes(v) ? v : fallback;
-      const clip = (v: unknown, n: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, n) : null);
-
-      const updates = rows.map((r, i) => {
-        const e = byIndex.get(i);
-        if (!e) {
-          // La IA omitió esta ficha (o la salida se cortó): reintentar en otro
-          // lote; solo al tercer intento se descarta.
-          const attempts = (r.enrich_attempts ?? 0) + 1;
-          return admin.from("offers").update({ enrich_attempts: attempts, enrich_failed: attempts >= 3 }).eq("id", r.id).then(() => "failed" as const);
+        const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: MODELS_TRY[attempt],
+            max_tokens: 8192, // 20 fichas × 10 campos; el cirílico gasta más tokens
+            response_format: { type: "json_object" },
+            messages: [{ role: "system", content: system }, { role: "user", content: userPrompt }],
+          }),
+          signal: ctrl.signal,
+        });
+        lastStatus = r.status;
+        if ([404, 429, 500, 502, 503, 504].includes(r.status) && attempt < MODELS_TRY.length - 1) {
+          await r.text();
+          await new Promise((res) => setTimeout(res, 1500));
+          continue;
         }
-        const copy = Number(e.copy_score);
-        return admin.from("offers").update({
-          product_name: clip(e.product_name, 80) ?? r.page_name,
-          niche: pick(e.niche, NICHES, "otro"),
-          offer_type: pick(e.offer_type, OFFER_TYPES, "otro"),
-          business_model: pick(e.business_model, MODELS, "otro"),
-          language: clip(e.language, 8)?.toLowerCase() ?? null,
-          price_hint: clip(e.price_hint, 40),
-          mechanism: clip(e.mechanism, 160),
-          why_wins: clip(e.why_wins, 180),
-          target_audience: clip(e.target_audience, 120),
-          copy_score: Number.isFinite(copy) ? Math.min(5, Math.max(1, Math.round(copy))) : null,
-          enriched_at: new Date().toISOString(),
-        }).eq("id", r.id).then(({ error }) => (error ? "failed" : "ok") as "failed" | "ok");
-      });
-      const results = await Promise.all(updates);
-      summary.enriched += results.filter((x) => x === "ok").length;
-      summary.failed += results.filter((x) => x === "failed").length;
+        aiRes = r;
+        summary.model = MODELS_TRY[attempt];
+      } catch (err) {
+        if (attempt === MODELS_TRY.length - 1) throw err;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    if (!aiRes) return { kind: "fail", note: `IA no disponible tras reintentos (último status ${lastStatus})` };
+    if (aiRes.status === 429) return { kind: "quota" };
+    if (!aiRes.ok) return { kind: "fail", note: `AI error ${aiRes.status}: ${(await aiRes.text()).slice(0, 200)}` };
+
+    const aiData = await aiRes.json();
+    summary.prompt_tokens += Number(aiData?.usage?.prompt_tokens) || 0;
+    summary.completion_tokens += Number(aiData?.usage?.completion_tokens) || 0;
+    summary.total_tokens += Number(aiData?.usage?.total_tokens) || 0;
+    summary.ai_calls += 1;
+    const content: string = aiData?.choices?.[0]?.message?.content ?? "";
+
+    // Parseo defensivo: objeto {"items":[...]} (o array, por si el modelo
+    // ignora la forma) y, si la salida vino truncada, rescatar hasta el
+    // último objeto completo (el resto vuelve a la cola).
+    let parsed: Enriched[] = [];
+    const cleaned = content.replace(/```json?/g, "").replace(/```/g, "").trim();
+    const asArray = (v: unknown): Enriched[] =>
+      Array.isArray(v) ? v as Enriched[] : (v && typeof v === "object" && Array.isArray((v as { items?: unknown }).items) ? (v as { items: Enriched[] }).items : []);
+    try {
+      parsed = asArray(JSON.parse(cleaned));
+    } catch {
+      const start = cleaned.indexOf("[");
+      const lastObj = cleaned.lastIndexOf("}");
+      try {
+        parsed = start >= 0 && lastObj > start ? asArray(JSON.parse(cleaned.slice(start, lastObj + 1) + "]")) : [];
+      } catch { /* sin rescate posible */ }
+    }
+    if (parsed.length === 0) return { kind: "fail", note: `Respuesta no parseable: ${content.slice(0, 120)}` };
+    const map = new Map<number, Enriched>();
+    for (const e of parsed) if (typeof e?.index === "number") map.set(e.index, e);
+    return { kind: "ok", map };
+  };
+
+  const pick = <T extends readonly string[]>(v: unknown, allowed: T, fallback: T[number]) =>
+    typeof v === "string" && (allowed as readonly string[]).includes(v) ? v : fallback;
+  const clip = (v: unknown, n: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, n) : null);
+
+  // Suma un intento fallido; al tercero la ficha sale de la cola.
+  const bumpAttempts = async (rows: Row[]) => {
+    await Promise.all(rows.map((r) => {
+      const attempts = (r.enrich_attempts ?? 0) + 1;
+      return admin.from("offers").update({ enrich_attempts: attempts, enrich_failed: attempts >= 3 }).eq("id", r.id);
+    }));
+    summary.failed += rows.length;
+  };
+
+  // Guarda las fichas devueltas y DEVUELVE las omitidas sin penalizarlas:
+  // quien llama decide si merecen reintento aislado o un intento fallido.
+  const persist = async (rows: Row[], map: Map<number, Enriched>): Promise<Row[]> => {
+    const omitted: Row[] = [];
+    await Promise.all(rows.map(async (r, i) => {
+      const e = map.get(i);
+      if (!e) { omitted.push(r); return; }
+      const copy = Number(e.copy_score);
+      const { error } = await admin.from("offers").update({
+        product_name: clip(e.product_name, 80) ?? r.page_name,
+        niche: pick(e.niche, NICHES, "otro"),
+        offer_type: pick(e.offer_type, OFFER_TYPES, "otro"),
+        business_model: pick(e.business_model, MODELS, "otro"),
+        language: clip(e.language, 8)?.toLowerCase() ?? null,
+        price_hint: clip(e.price_hint, 40),
+        mechanism: clip(e.mechanism, 160),
+        why_wins: clip(e.why_wins, 180),
+        target_audience: clip(e.target_audience, 120),
+        copy_score: Number.isFinite(copy) ? Math.min(5, Math.max(1, Math.round(copy))) : null,
+        enriched_at: new Date().toISOString(),
+      }).eq("id", r.id);
+      // Un fallo de escritura NO es una omisión del modelo: no se reenvía a la
+      // IA ni suma intento. La fila sigue pendiente y entra en otra corrida.
+      if (error) summary.write_errors += 1; else summary.enriched += 1;
+    }));
+    return omitted;
+  };
+
+  try {
+    for (let b = 0; b < batches; b++) {
+      // 1) Cola: primero idioma del grupo, luego el resto del grupo, y si el
+      //    grupo se agotó (solo en modo cron), cualquier pendiente.
+      let rows = await pending(markets, "match", []);
+      if (rows.length < BATCH_SIZE) {
+        const more = await pending(markets, "other", rows.map((r) => r.id));
+        rows = [...rows, ...more].slice(0, BATCH_SIZE);
+      }
+      if (rows.length === 0 && !explicit) rows = await pending(null, "any", []);
+      if (rows.length === 0) { summary.note = "Sin pendientes"; break; }
+
+      // 2) Lote completo
+      const first = await callAI(rows);
+      if (first.kind === "quota") { summary.note = "Cuota de IA agotada en todos los modelos (429); reintentar más tarde"; break; }
+
+      if (first.kind === "ok") {
+        // 3a) Fichas omitidas: UN reintento aislado antes de contarles un fallo.
+        //     Así una ficha que el modelo bloquea no arrastra a sus vecinas.
+        const omitted = await persist(rows, first.map);
+        if (omitted.length > 0) {
+          const retry = await callAI(omitted);
+          if (retry.kind === "quota") { summary.note = "Cuota de IA agotada durante un reintento"; break; }
+          await bumpAttempts(retry.kind === "ok" ? await persist(omitted, retry.map) : omitted);
+        }
+      } else {
+        // 3b) Lote ilegible entero: antes se salía sin registrar nada y la
+        //     cabeza de la cola quedaba bloqueada para siempre. Se parte en dos
+        //     mitades; la mitad que vuelva a fallar suma un intento.
+        summary.note = first.note;
+        const mid = Math.ceil(rows.length / 2);
+        let quota = false;
+        for (const half of [rows.slice(0, mid), rows.slice(mid)]) {
+          if (half.length === 0) continue;
+          const r2 = await callAI(half);
+          if (r2.kind === "quota") { quota = true; break; }
+          await bumpAttempts(r2.kind === "ok" ? await persist(half, r2.map) : half);
+        }
+        if (quota) { summary.note = "Cuota de IA agotada durante la división del lote"; break; }
+      }
       summary.batches_done += 1;
     }
 

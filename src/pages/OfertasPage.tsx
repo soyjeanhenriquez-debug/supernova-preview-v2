@@ -76,7 +76,9 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
     setLoading(true);
     if (tab === "siguiendo") { setLoading(false); return; }
     (async () => {
-      let q = supabase.from("offers").select("*", { count: "exact" }).eq("enrich_failed", false);
+      // excluded_reason (flag_excluded_offers): contenido adulto y apps de
+      // dramas/novelas no se muestran NUNCA en el catálogo, con ningún filtro.
+      let q = supabase.from("offers").select("*", { count: "exact" }).eq("enrich_failed", false).is("excluded_reason", null);
       if (tab === "apps") q = q.eq("offer_type", "saas_app");
       if (tab === "info") q = q.eq("offer_type", "infoproducto");
       if (niche !== "all") q = q.eq("niche", niche);

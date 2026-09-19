@@ -902,13 +902,19 @@ export type Database = {
           created_at: string
           days_active: number
           duplicate_count: number
+          enrich_attempts: number
           enrich_failed: boolean
           enriched_at: string | null
+          excluded_reason: string | null
           first_seen: string | null
           id: string
+          is_primary: boolean
+          is_winner: boolean
+          lang_guess: string | null
           language: string | null
           last_seen: string | null
           market: string
+          markets: string[] | null
           mechanism: string | null
           niche: string | null
           offer_type: string | null
@@ -924,6 +930,7 @@ export type Database = {
           tier: string | null
           updated_at: string
           why_wins: string | null
+          winner_index: number | null
           winner_score: number
         }
         Insert: {
@@ -934,13 +941,19 @@ export type Database = {
           created_at?: string
           days_active?: number
           duplicate_count?: number
+          enrich_attempts?: number
           enrich_failed?: boolean
           enriched_at?: string | null
+          excluded_reason?: string | null
           first_seen?: string | null
           id?: string
+          is_primary?: boolean
+          is_winner?: boolean
+          lang_guess?: string | null
           language?: string | null
           last_seen?: string | null
           market: string
+          markets?: string[] | null
           mechanism?: string | null
           niche?: string | null
           offer_type?: string | null
@@ -956,6 +969,7 @@ export type Database = {
           tier?: string | null
           updated_at?: string
           why_wins?: string | null
+          winner_index?: number | null
           winner_score?: number
         }
         Update: {
@@ -966,13 +980,19 @@ export type Database = {
           created_at?: string
           days_active?: number
           duplicate_count?: number
+          enrich_attempts?: number
           enrich_failed?: boolean
           enriched_at?: string | null
+          excluded_reason?: string | null
           first_seen?: string | null
           id?: string
+          is_primary?: boolean
+          is_winner?: boolean
+          lang_guess?: string | null
           language?: string | null
           last_seen?: string | null
           market?: string
+          markets?: string[] | null
           mechanism?: string | null
           niche?: string | null
           offer_type?: string | null
@@ -988,6 +1008,7 @@ export type Database = {
           tier?: string | null
           updated_at?: string
           why_wins?: string | null
+          winner_index?: number | null
           winner_score?: number
         }
         Relationships: []

@@ -4,10 +4,10 @@ import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { useCredits } from "@/hooks/useCredits";
 import { useProjects } from "@/hooks/useProjects";
-import { fnHeaders, fnErrorMessage } from "@/lib/fnAuth";
+import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 
 export function CrearPage() {
-  const { consume, canAfford } = useCredits();
+  const { applyServerCharge, canAfford } = useCredits();
   const { create } = useProjects();
   const [keyword, setKeyword] = useState("");
   const [sources, setSources] = useState({ reddit: true, google: true, ph: true });
@@ -39,7 +39,6 @@ export function CrearPage() {
   const discover = async () => {
     if (!keyword.trim()) { toast.error("Escribe un nicho o keyword"); return; }
     if (!canAfford("pain_discovery")) { toast.error("Sin créditos suficientes"); return; }
-    consume("pain_discovery", keyword);
 
     setLoading(true); setAnalysis(""); setSuggestions([]);
     const sugg = await fetchAutocomplete(keyword);
@@ -55,6 +54,7 @@ export function CrearPage() {
         },
       );
       if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "Error análisis"));
+      applyServerCharge("pain_discovery", readBilling(resp), keyword); // lo cobró el servidor
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";

@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const HIST_KEY = "supernova_credits_history_v1";
+/** Cada pantalla tiene su propia instancia del hook: este evento las mantiene con el mismo saldo. */
+const SYNC_EVENT = "supernova_credits_sync";
 const MILESTONES_KEY = "supernova_milestones_v1";
 const DEFAULT_BALANCE = 2000;
 const DEFAULT_LIMIT = 2000;
@@ -16,6 +18,11 @@ export type CreditAction =
 
 // Precios calibrados para uso DIARIO: 2000/mes alcanza para ~1 mes de uso
 // intenso; explorar el radar es gratis, las acciones ligeras casi gratis.
+//
+// OJO: esto es SOLO para mostrar el precio y avisar antes si no alcanza. Quien
+// cobra es el servidor con la tabla `credit_prices` (las acciones de IA dentro
+// de su edge function; seguir/desbloquear en su RPC). Si cambias un precio,
+// cámbialo en los dos sitios.
 export const CREDIT_COSTS: Record<CreditAction, number> = {
   search_ads: 5, analyze_url: 5, chat_message: 2, adaptar: 5, ai_intel: 5,
   pillar_assist: 10, sofisticar: 15, gen_ad_copies: 15, gen_avatar: 15,
@@ -144,8 +151,31 @@ export function useCredits() {
     refreshFromDB();
     const { data: sub } = supabase.auth.onAuthStateChange(() => refreshFromDB());
     const iv = window.setInterval(refreshFromDB, 60_000);
-    return () => { sub.subscription.unsubscribe(); window.clearInterval(iv); };
+    const onSync = (e: Event) => {
+      const b = (e as CustomEvent<{ balance?: number }>).detail?.balance;
+      if (typeof b === "number") setBalance(b);
+    };
+    window.addEventListener(SYNC_EVENT, onSync);
+    return () => { sub.subscription.unsubscribe(); window.clearInterval(iv); window.removeEventListener(SYNC_EVENT, onSync); };
   }, [refreshFromDB]);
+
+  /**
+   * El servidor ya cobró (edge function): refleja el cargo en la interfaz.
+   * No descuenta nada por su cuenta: usa el saldo que devolvió el servidor.
+   */
+  const applyServerCharge = useCallback((action: CreditAction, billing: { charged: number; balance: number | null }, meta?: string) => {
+    if (typeof billing.balance === "number") {
+      window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { balance: billing.balance } }));
+    }
+    if (!billing.charged) return; // cubierto por un recibo (paso de un flujo ya pagado)
+    const entry: CreditHistoryEntry = {
+      date: new Date().toISOString(), action, label: ACTION_LABEL[action], cost: billing.charged, meta,
+    };
+    setHistory(h => [entry, ...h].slice(0, 200));
+    toast(`-${billing.charged} ⚡`, { description: ACTION_LABEL[action], duration: 1800 });
+    window.dispatchEvent(new CustomEvent("supernova_credit_spent", { detail: { cost: billing.charged, action, label: ACTION_LABEL[action] } }));
+    if (typeof billing.balance === "number") checkMilestones(billing.balance + billing.charged, billing.balance, DEFAULT_LIMIT);
+  }, []);
 
   const consume = useCallback((action: CreditAction, meta?: string): boolean => {
     const cost = CREDIT_COSTS[action];
@@ -170,13 +200,14 @@ export function useCredits() {
       p_label: ACTION_LABEL[action],
       p_meta: meta ? { note: meta } : {},
     }).then(({ data, error }) => {
-      const result = data as unknown;
+      const result = data as { success?: boolean; error?: string; balance?: number } | null;
       if (error || !result?.success) {
         // Rollback si falla
         setBalance(prev);
         toast.error(result?.error || "No se pudo consumir créditos");
       } else if (typeof result.balance === "number") {
-        setBalance(result.balance);
+        // El precio real lo puso el servidor: este saldo es el que vale.
+        window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { balance: result.balance } }));
       }
     });
     return true;
@@ -192,6 +223,8 @@ export function useCredits() {
     renewalDate,
     history,
     consume,
+    applyServerCharge,
+    refresh: refreshFromDB,
     canAfford,
   };
 }

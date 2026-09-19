@@ -6,7 +6,7 @@ import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import { useProjects } from "@/hooks/useProjects";
 import type { DemoAd } from "@/lib/demo-winning-ads";
 import { OFFER_TYPE_LABEL } from "@/lib/demo-winning-ads";
-import { fnHeaders, fnErrorMessage } from "@/lib/fnAuth";
+import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 
 interface Props { ad: DemoAd; onClose: () => void; }
 
@@ -17,7 +17,7 @@ const HAS_PRODUCT = ["Sí", "No, voy a crear uno"];
 const BUDGETS = ["< $500", "$500-$2K", "> $2K"];
 
 export function SofisticarModal({ ad, onClose }: Props) {
-  const { consume, canAfford } = useCredits();
+  const { applyServerCharge, canAfford } = useCredits();
   const { create } = useProjects();
   const [mode, setMode] = useState<Mode>("choose");
   const [streamText, setStreamText] = useState("");
@@ -35,7 +35,6 @@ export function SofisticarModal({ ad, onClose }: Props) {
   const run = async (action: "sofisticar" | "adaptar" | "blueprint") => {
     if (!canAfford(action as "sofisticar" | "adaptar" | "blueprint")) { toast.error("Sin créditos suficientes"); return; }
     setLoading(true); setStreamText("");
-    consume(action as "sofisticar" | "adaptar" | "blueprint", ad.title);
 
     try {
       const payload = {
@@ -56,6 +55,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
         },
       );
       if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "Error de análisis"));
+      applyServerCharge(action, readBilling(resp), ad.title); // lo cobró el servidor
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";

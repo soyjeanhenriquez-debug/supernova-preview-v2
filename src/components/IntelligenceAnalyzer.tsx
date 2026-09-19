@@ -9,6 +9,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Loader2, Zap, Link as LinkIcon, Copy, Trash2, ChevronDown, History, ExternalLink, CheckCircle2, Circle, AlertCircle, Sparkles, Download, FileText, X, ArrowRight, Heart, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { useCredits } from "@/hooks/useCredits";
+import { invokeErrorMessage } from "@/lib/fnAuth";
 import { useAdHistory, adKey, type AdHistoryItem } from "@/hooks/useAdHistory";
 
 interface SavedRow {
@@ -409,23 +410,26 @@ const GEN_META: Record<GenKind, { label: string; icon: string; cost: number; cre
 function OraculoGenerators({ result }: { result: IntelligenceResult }) {
   const [loading, setLoading] = useState<GenKind | null>(null);
   const [outputs, setOutputs] = useState<Partial<Record<GenKind, string>>>({});
-  const { consume, canAfford } = useCredits();
+  const { applyServerCharge, canAfford } = useCredits();
 
   const run = async (kind: GenKind) => {
     const meta = GEN_META[kind];
     if (!canAfford(meta.credit)) { toast.error("Sin créditos suficientes"); return; }
     setLoading(kind);
     try {
-      const { data, error } = await supabase.functions.invoke<{ content?: string; error?: string }>("oraculo-generate", {
+      const { data, error } = await supabase.functions.invoke<{
+        content?: string; error?: string; billing?: { charged: number; balance: number | null };
+      }>("oraculo-generate", {
         body: { kind, analysis: result.analysis, brand: result.brandName, url: result.url },
       });
       if (error || data?.error) {
-        toast.error(data?.error || error?.message || "Error generando");
+        toast.error(data?.error || await invokeErrorMessage(error, "Error generando"));
         return;
       }
       const content = data?.content ?? "";
       if (!content.trim()) { toast.error("Respuesta vacía"); return; }
-      consume(meta.credit, kind);
+      // Lo cobró el servidor (y lo devuelve solo si la IA falla).
+      if (data?.billing) applyServerCharge(meta.credit, data.billing, kind);
       setOutputs((p) => ({ ...p, [kind]: content }));
       toast.success(`✓ ${meta.label} listo`);
       // scroll al output

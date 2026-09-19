@@ -18,6 +18,7 @@ import { TemperatureBlock } from "@/components/TemperatureBlock";
 import { HeatMap } from "@/components/HeatMap";
 import { getAutoSearchKeywords, TOTAL_DR_KEYWORDS } from "@/lib/dr-keywords";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { invokeErrorMessage } from "@/lib/fnAuth";
 
 // Mapa estático → Tailwind necesita clases completas en el bundle
 const GRID_COLS_CLASS: Record<number, string> = {
@@ -197,7 +198,6 @@ export function WinningAdsPage() {
     if (prefill) { localStorage.removeItem("supernova_radar_prefill"); return prefill; }
     return "";
   });
-  const [urlInput, setUrlInput] = useState("");
   const [minDays, setMinDays] = useState(0);
   const [minDups, setMinDups] = useState(0);
   const [typeFilter, setTypeFilter] = useState("Todos");
@@ -595,15 +595,16 @@ export function WinningAdsPage() {
 
   const handleSearch = async () => {
     if (!canAfford("search_ads")) { toast.error("Sin créditos suficientes"); return; }
-    consume("search_ads", keyword || market);
     setLoadingReal(true);
     toast.info(`Buscando "${keyword || "todos"}" en ${searchCountry} (${searchStatus}, límite ${searchLimit})...`);
     try {
       const { data, error } = await supabase.functions.invoke<FacebookAdsResponse>("facebook-ads", {
         body: { search_terms: keyword || "ad", country: searchCountry, limit: searchLimit, ad_active_status: searchStatus },
       });
-      if (error) throw error;
+      if (error) throw new Error(await invokeErrorMessage(error, "La búsqueda en vivo de Meta no está disponible en este momento."));
       const items = data?.data ?? [];
+      // Se cobra cuando Meta YA respondió: una búsqueda fallida no cuesta nada.
+      consume("search_ads", keyword || market);
       // Agrupar por page_id para contar duplicados reales por anunciante
       const dupByPage = new Map<string, number>();
       items.forEach((it) => {
@@ -653,18 +654,10 @@ export function WinningAdsPage() {
       toast.success(`✓ ${grouped.length} anunciantes únicos (${mapped.length} anuncios)`);
     } catch (e: unknown) {
       console.error(e);
-      toast.error(`Error Facebook: ${e instanceof Error ? e.message : "desconocido"}`);
+      toast.error(e instanceof Error ? e.message : "La búsqueda en vivo no está disponible.", { description: "No se te cobró. Mientras tanto puedes explorar el catálogo guardado." });
     } finally {
       setLoadingReal(false);
     }
-  };
-
-  const handleAnalyzeUrl = () => {
-    if (!urlInput.trim()) { toast.error("Pega una URL del Ads Library"); return; }
-    if (!canAfford("analyze_url")) { toast.error("Sin créditos suficientes"); return; }
-    consume("analyze_url", urlInput);
-    toast.success("✓ URL en análisis...");
-    setUrlInput("");
   };
 
   const toggleSave = (id: string) => {

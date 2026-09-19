@@ -6,7 +6,7 @@ import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import { useProjects } from "@/hooks/useProjects";
 import { useMediaCredits, MEDIA_COST_PER_VIDEO } from "@/hooks/useMediaCredits";
 import { listAvatars, generateVideo, extractHookFromScript } from "@/lib/heygen";
-import { fnHeaders, fnErrorMessage } from "@/lib/fnAuth";
+import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import type { DemoAd } from "@/lib/demo-winning-ads";
 import { OFFER_TYPE_LABEL } from "@/lib/demo-winning-ads";
 
@@ -31,7 +31,7 @@ const COUNTRIES = [
  *  Claude), escalar con anuncios y armar el embudo. Precio único.
  */
 export function MiniAppModal({ ad, onClose }: Props) {
-  const { consume, canAfford } = useCredits();
+  const { applyServerCharge, canAfford } = useCredits();
   const { create, update } = useProjects();
   const { balance: mediaBalance, canAfford: canAffordVideo } = useMediaCredits();
   const [videoState, setVideoState] = useState<"idle" | "loading" | "done" | "error">("idle");
@@ -49,7 +49,9 @@ export function MiniAppModal({ ad, onClose }: Props) {
   const [country, setCountry] = useState(() => localStorage.getItem("supernova_country") || "CO");
   const scrollRef = useRef<HTMLDivElement>(null);
   const startedRef = useRef(false);
-  const chargedRef = useRef(false);
+  // Recibo del cobro de "Mi App": lo emite el servidor al cobrar el blueprint y
+  // cubre el mega-prompt, el guion de venta y cualquier reintento.
+  const receiptRef = useRef<string | null>(null);
   const projectIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -58,13 +60,10 @@ export function MiniAppModal({ ad, onClose }: Props) {
 
   const run = async () => {
     if (startedRef.current) return;
-    // Se cobra UNA vez por Mi App. Antes, "Reintentar" tras un fallo volvía a
-    // cobrar, y el mensaje de error decía que los créditos "seguían ahí".
-    if (!chargedRef.current) {
-      if (!canAfford("gen_master_prompt")) { toast.error("Sin créditos suficientes"); return; }
-      consume("gen_master_prompt", `Mi App · ${ad.title.slice(0, 40)}`);
-      chargedRef.current = true;
-    }
+    // Cobra el SERVIDOR, una sola vez por Mi App. Si la IA falla devuelve el
+    // crédito; si ya hay recibo, reintentar no cuesta nada. Aquí solo se avisa
+    // antes cuando a todas luces no alcanza.
+    if (!receiptRef.current && !canAfford("gen_master_prompt")) { toast.error("Sin créditos suficientes"); return; }
     startedRef.current = true;
 
     try {
@@ -81,10 +80,14 @@ export function MiniAppModal({ ad, onClose }: Props) {
               days_active: ad.daysActive, duplicate_count: ad.duplicates,
               market: ad.marketLabel,
             },
+            receipt: receiptRef.current,
           }),
         },
       );
       if (!bpResp.ok || !bpResp.body) throw new Error(await fnErrorMessage(bpResp, "Error analizando el anuncio"));
+      const bpBilling = readBilling(bpResp);
+      if (bpBilling.receipt) receiptRef.current = bpBilling.receipt;
+      applyServerCharge("gen_master_prompt", bpBilling, `Mi App · ${ad.title.slice(0, 40)}`);
       const reader = bpResp.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";
@@ -113,11 +116,12 @@ export function MiniAppModal({ ad, onClose }: Props) {
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/oraculo-generate`,
         {
           method: "POST", headers: await fnHeaders(),
-          body: JSON.stringify({ kind: "master_prompt", brand: ad.pageName, analysis: bp }),
+          body: JSON.stringify({ kind: "master_prompt", brand: ad.pageName, analysis: bp, receipt: receiptRef.current }),
         },
       );
       const mp = await mpResp.json();
       if (!mpResp.ok || !mp.content) throw new Error(mp.error || "Error generando la Mini App");
+      applyServerCharge("gen_master_prompt", readBilling(mpResp)); // cubierto por el recibo: solo sincroniza el saldo
       setMiniapp(mp.content);
       setPhase("done");
       // Auto-guardado: en cuanto está lista, se persiste en Proyectos para que
@@ -158,13 +162,16 @@ export function MiniAppModal({ ad, onClose }: Props) {
           method: "POST", headers: await fnHeaders(),
           body: JSON.stringify(
             path === "whatsapp"
-              ? { kind: "whatsapp_script", brand: ad.pageName, analysis: blueprint, country }
-              : { kind: "vsl_prompt", brand: ad.pageName, analysis: blueprint },
+              ? { kind: "whatsapp_script", brand: ad.pageName, analysis: blueprint, country, receipt: receiptRef.current }
+              : { kind: "vsl_prompt", brand: ad.pageName, analysis: blueprint, receipt: receiptRef.current },
           ),
         },
       );
       const data = await resp.json();
       if (!resp.ok || !data.content) throw new Error(data.error || "Error generando el guion de venta");
+      // Incluido en el pago de Mi App (el recibo lo cubre hasta 3 veces); si se
+      // agotó, el servidor lo cobra como generador y aquí se refleja.
+      applyServerCharge(path === "whatsapp" ? "gen_light" : "gen_medium", readBilling(resp), path === "whatsapp" ? "Guion de WhatsApp" : "Guion de VSL");
       setSalesScript(data.content);
       if (projectIdRef.current) {
         update(projectIdRef.current, { context: { ad, blueprint, miniapp, salesPath: path, salesScript: data.content } });
@@ -212,7 +219,6 @@ export function MiniAppModal({ ad, onClose }: Props) {
     if (imageState === "loading" || !blueprint) return;
     if (!canAfford("gen_ad_image")) { toast.error("Sin créditos suficientes"); return; }
     setImageState("loading");
-    consume("gen_ad_image", `Creativo · ${ad.title.slice(0, 40)}`);
     try {
       const prompt = `Anuncio para "${ad.pageName}": ${ad.title}. ${blueprint.slice(0, 300)}`;
       const resp = await fetch(
@@ -221,6 +227,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
       );
       const data = await resp.json();
       if (!resp.ok || !data.image) throw new Error(data.error || "Error generando la imagen");
+      applyServerCharge("gen_ad_image", readBilling(resp), `Creativo · ${ad.title.slice(0, 40)}`);
       setAdImage(data.image);
       setImageState("done");
       if (projectIdRef.current) {
@@ -338,7 +345,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
 
           {phase === "error" && (
             <div className="h-full flex flex-col items-center justify-center gap-3">
-              <p className="text-sm text-muted-foreground">Algo falló. Reintentar no te vuelve a cobrar: esta Mi App ya está pagada.</p>
+              <p className="text-sm text-muted-foreground">Algo falló, pero no pagas dos veces: si la IA no respondió se te devolvió el crédito, y reintentar usa el mismo pago.</p>
               <button onClick={() => { startedRef.current = false; run(); }} className="text-primary text-sm hover:underline">
                 Reintentar
               </button>

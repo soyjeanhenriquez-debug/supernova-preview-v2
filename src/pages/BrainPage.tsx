@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useProjects, PILLARS, type BrainProject } from "@/hooks/useProjects";
 import { ProjectThumb } from "@/components/ProjectThumb";
 import { useCredits } from "@/hooks/useCredits";
-import { fnHeaders, fnErrorMessage } from "@/lib/fnAuth";
+import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 
 export function BrainPage() {
   const { projects, remove, togglePillar, setNote } = useProjects();
@@ -171,7 +171,7 @@ function PillarBlock({
   togglePillar: (id: string, p: number) => void;
   setNote: (id: string, p: number, n: string) => void;
 }) {
-  const { consume, canAfford } = useCredits();
+  const { applyServerCharge, canAfford } = useCredits();
   const done = proj.completedPillars.includes(pillar.id);
   const [aiText, setAiText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -181,7 +181,6 @@ function PillarBlock({
     if (loading) return;
     if (!canAfford("pillar_assist")) { toast.error("Sin créditos suficientes"); return; }
     setLoading(true); setAiText("");
-    consume("pillar_assist", `Pilar ${pillar.id} · ${proj.name}`);
 
     try {
       const resp = await fetch(
@@ -202,6 +201,7 @@ function PillarBlock({
         },
       );
       if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "Error de IA"));
+      applyServerCharge("pillar_assist", readBilling(resp), `Pilar ${pillar.id} · ${proj.name}`); // lo cobró el servidor
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";

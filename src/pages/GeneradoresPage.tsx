@@ -6,7 +6,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCredits, generatorCost } from "@/hooks/useCredits";
-import { fnHeaders, fnErrorMessage } from "@/lib/fnAuth";
+import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 
 const categories = [
   { icon: Sparkles, label: "Todos", id: "all" },
@@ -194,7 +194,7 @@ export function GeneradoresPage() {
   const [generatorInput, setGeneratorInput] = useState("");
   const [generatorOutput, setGeneratorOutput] = useState("");
   const [loading, setLoading] = useState(false);
-  const { consume, canAfford } = useCredits();
+  const { applyServerCharge, canAfford } = useCredits();
 
   const filteredGenerators = generators.filter((g) => {
     if (activeCategory === "all") return true;
@@ -222,10 +222,8 @@ export function GeneradoresPage() {
       });
       return;
     }
-    // Descontar con label específico para que aparezca en el historial
-    // como "Generador: <título> · -Nc"
-    const ok = consume(action, generator.title);
-    if (!ok) return;
+    // Cobra el servidor: con generator_id decide el nivel (ligero/medio/pesado)
+    // y devuelve el crédito si la IA falla.
 
     setLoading(true);
     setGeneratorOutput("");
@@ -237,6 +235,8 @@ export function GeneradoresPage() {
           method: "POST",
           headers: await fnHeaders(),
           body: JSON.stringify({
+            generator_id: generator.id,
+            generator_title: generator.title,
             messages: [
               {
                 role: "user",
@@ -250,6 +250,7 @@ export function GeneradoresPage() {
       );
 
       if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "Error al generar"));
+      applyServerCharge(action, readBilling(resp), generator.title);
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();

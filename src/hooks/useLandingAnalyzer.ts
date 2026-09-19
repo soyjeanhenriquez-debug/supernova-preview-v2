@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCredits } from "@/hooks/useCredits";
+import { invokeErrorMessage } from "@/lib/fnAuth";
 
 export type Step =
   | "validate"
@@ -48,7 +49,7 @@ const AD_COUNTRIES = ["MX", "CO", "AR", "ES", "US", "BR"];
 
 export function useLandingAnalyzer() {
   const { user } = useAuth();
-  const { consume, canAfford } = useCredits();
+  const { applyServerCharge, canAfford } = useCredits();
   const [running, setRunning] = useState(false);
   const [steps, setSteps] = useState<Record<Step, StepState>>({
     validate: "idle", fetch: "idle", ads: "idle", analyze: "idle", save: "idle", done: "idle",
@@ -80,11 +81,11 @@ export function useLandingAnalyzer() {
       const domain = parsed.hostname.replace(/^www\./, "");
       mark("validate", "done");
 
-      // Credits check (consume now)
+      // Aviso temprano. El cobro (50) lo hace el servidor en el paso de análisis:
+      // si falla la lectura de la landing o la búsqueda de anuncios, no se paga nada.
       if (!canAfford("landing_intelligence")) {
-        throw new Error("Sin créditos suficientes. Necesitas 5 créditos.");
+        throw new Error("Sin créditos suficientes. El Oráculo completo cuesta 50 créditos.");
       }
-      consume("landing_intelligence", domain);
 
       // 2. Fetch landing (or use manual text)
       mark("fetch", "running");
@@ -136,7 +137,7 @@ export function useLandingAnalyzer() {
       // 4. AI analysis
       mark("analyze", "running");
       const { data: aiData, error: aiErr } = await supabase.functions.invoke<{
-        analysis?: string; error?: string;
+        analysis?: string; error?: string; billing?: { charged: number; balance: number | null };
       }>("analyze-landing", {
         body: {
           landingUrl: parsed.toString(),
@@ -148,8 +149,9 @@ export function useLandingAnalyzer() {
       });
       if (aiErr || !aiData?.analysis) {
         mark("analyze", "error");
-        throw new Error(aiData?.error || aiErr?.message || "Fallo al generar análisis");
+        throw new Error(aiData?.error || await invokeErrorMessage(aiErr, "Fallo al generar análisis"));
       }
+      if (aiData.billing) applyServerCharge("landing_intelligence", aiData.billing, domain);
       const analysis = aiData.analysis;
       mark("analyze", "done");
 
@@ -198,7 +200,7 @@ export function useLandingAnalyzer() {
     } finally {
       setRunning(false);
     }
-  }, [user?.id, canAfford, consume]);
+  }, [user?.id, canAfford, applyServerCharge]);
 
   return { analyze, running, steps, result, error, reset, setResult };
 }

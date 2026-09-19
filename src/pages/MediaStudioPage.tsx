@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Video, Loader2, Sparkles, AlertTriangle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useMediaCredits, MEDIA_COST_PER_VIDEO } from "@/hooks/useMediaCredits";
-import { listAvatars, generateVideo, fetchRecentJobs, type HeygenAvatar, type HeygenVoice, type MediaJob } from "@/lib/heygen";
+import { listAvatars, generateVideo, fetchRecentJobs, refreshJob, type HeygenAvatar, type HeygenVoice, type MediaJob } from "@/lib/heygen";
 
 const MAX_WORDS = 160;
 
@@ -60,9 +60,27 @@ export function MediaStudioPage() {
 
     const hasPending = list.some((j) => j.status === "pending" || j.status === "processing");
     if (hasPending && !pollRef.current) {
+      let tick = 0;
       pollRef.current = window.setInterval(async () => {
-        const fresh = await fetchRecentJobs();
-        setJobs(fresh);
+        tick++;
+        let fresh = await fetchRecentJobs();
+        // Respaldo: si el aviso de HeyGen no llega, cada ~20s se le pregunta el
+        // estado real de los videos que llevan más de un minuto generándose.
+        if (tick % 4 === 0) {
+          const stuck = fresh.filter((j) => j.status === "processing" && !j.dry_run && Date.now() - new Date(j.created_at).getTime() > 60_000);
+          if (stuck.length) {
+            await Promise.all(stuck.slice(0, 3).map((j) => refreshJob(j.id)));
+            fresh = await fetchRecentJobs();
+          }
+        }
+        setJobs((prev) => {
+          const justFailed = fresh.find((j) => j.status === "failed" && prev.some((p) => p.id === j.id && p.status !== "failed"));
+          if (justFailed) {
+            toast.error("HeyGen no pudo generar ese video", { description: "Te devolvimos tus Media Credits." });
+            refreshCredits();
+          }
+          return fresh;
+        });
         if (!fresh.some((j) => j.status === "pending" || j.status === "processing") && pollRef.current) {
           window.clearInterval(pollRef.current);
           pollRef.current = null;
@@ -87,6 +105,9 @@ export function MediaStudioPage() {
       await loadJobs();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error generando el video");
+      // Si HeyGen rechazó el video, el servidor ya devolvió los Media Credits.
+      await refreshCredits();
+      await loadJobs();
     } finally {
       setGenerating(false);
     }
@@ -217,6 +238,17 @@ const STATUS_CLASS: Record<MediaJob["status"], string> = {
 };
 
 function JobRow({ job }: { job: MediaJob }) {
+  // El enlace del video es prefirmado y caduca: si deja de cargar se pide uno
+  // nuevo al servidor (una sola vez por tarjeta, para no entrar en bucle).
+  const [videoUrl, setVideoUrl] = useState(job.video_url);
+  const renewedRef = useRef(false);
+  useEffect(() => { setVideoUrl(job.video_url); }, [job.video_url]);
+  const renewUrl = async () => {
+    if (renewedRef.current || job.dry_run) return;
+    renewedRef.current = true;
+    const fresh = await refreshJob(job.id);
+    if (fresh?.video_url) setVideoUrl(fresh.video_url);
+  };
   return (
     <div className="px-5 py-3 flex items-start gap-4">
       <div className="flex-1 min-w-0">
@@ -236,8 +268,8 @@ function JobRow({ job }: { job: MediaJob }) {
           <p className="text-xs text-muted-foreground mt-1">Modo simulado: no se generó un video real (falta configurar HEYGEN_API_KEY).</p>
         )}
       </div>
-      {job.video_url && (
-        <video src={job.video_url} controls className="w-24 rounded-lg border border-border shrink-0" />
+      {videoUrl && (
+        <video src={videoUrl} controls onError={renewUrl} className="w-24 rounded-lg border border-border shrink-0" />
       )}
     </div>
   );

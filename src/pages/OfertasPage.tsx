@@ -38,11 +38,11 @@ const SORTS = [
 interface Stats { offers: number; active_ads: number; markets: number; niches: number; updated_at: string | null; }
 
 export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
-  // Tab inicial: el dashboard puede mandarnos directo a "Siguiendo"
+  // Tab inicial: el dashboard puede mandarnos directo a "Siguiendo" y Mini Apps a "Apps & SaaS"
   const [tab, setTab] = useState<Tab>(() => {
     const t = localStorage.getItem(OFFERS_TAB_KEY);
     if (t) localStorage.removeItem(OFFERS_TAB_KEY);
-    return t === "siguiendo" ? "siguiendo" : "ganadoras";
+    return t === "siguiendo" || t === "apps" ? t : "ganadoras";
   });
   const follows = useOfferFollows();
   const [followed, setFollowed] = useState<FollowedRow[] | null>(null);

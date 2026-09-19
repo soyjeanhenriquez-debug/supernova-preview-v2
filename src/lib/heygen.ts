@@ -2,7 +2,9 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface HeygenAvatar {
   avatar_id: string; avatar_name: string; preview_image_url: string | null;
-  default_voice_id?: string | null; kind?: "talking_photo" | "avatar";
+  default_voice_id?: string | null;
+  /** Herencia de la API v2 (en v3 todos los avatares se piden igual). */
+  kind?: "talking_photo" | "avatar";
 }
 export interface HeygenVoice { voice_id: string; name: string; language: string | null }
 export interface MediaJob {
@@ -50,6 +52,21 @@ export async function generateVideo(params: { script: string; avatar_id: string;
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Error generando el video");
   return data;
+}
+
+/** Pregunta a HeyGen (vía servidor) el estado real de un video propio. Respaldo
+ *  por si el aviso de HeyGen no llega, y renueva el enlace del video, que caduca. */
+export async function refreshJob(jobId: string): Promise<{ id: string; status: MediaJob["status"]; video_url?: string | null } | null> {
+  try {
+    const res = await fetch(FN_URL("heygen-generate-video"), {
+      method: "POST",
+      headers: await authHeaders(),
+      body: JSON.stringify({ action: "refresh", job_id: jobId }),
+    });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Extrae un hook hablable (texto plano, sin Markdown) de las primeras ~150

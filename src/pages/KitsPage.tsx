@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { Boxes, Lock, Unlock, Copy, Check, Save, X, Flame, ShieldCheck, Sparkles, Loader2, CalendarClock } from "lucide-react";
+import { Boxes, Lock, Unlock, Copy, Check, Save, X, Flame, ShieldCheck, Sparkles, Loader2, CalendarClock, RefreshCw, ArrowRight, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { useProjects } from "@/hooks/useProjects";
-import { NICHE_LABEL, MARKET_GROUP, flagFor, MARKET_NAME } from "@/lib/offers";
+import { NICHE_LABEL, MARKET_GROUP, flagFor, MARKET_NAME, copyLabel, scaleLabel, offerToDemoAd, openOfferAdsInRadar, type Offer } from "@/lib/offers";
 import { ModalPortal } from "@/components/ModalPortal";
+import { MiniAppModal } from "@/components/MiniAppModal";
+import { OFFERS_TAB_KEY } from "@/components/dashboard/RoiHunterWidget";
 
 /**
  * Mini Apps Rentables: negocios digitales listos para copiar y cobrar.
@@ -15,7 +17,30 @@ import { ModalPortal } from "@/components/ModalPortal";
  * guiones de venta, anuncios, landing, hooks y precios por país.
  * "2 nuevos cada semana" es automático (generate-kit por cron, lunes y jueves).
  * Ver el catálogo es gratis; desbloquear un kit cobra créditos server-side.
+ * Debajo de los kits va "Apps que están escalando ahora": las apps y SaaS que
+ * detecta NUESTRO radar (tabla offers), para que la página siempre tenga
+ * material nuevo entre un lanzamiento y otro.
  */
+
+// generate-kit corre lunes y jueves a las 10:00 UTC (cron supernova-generate-kit-twice-weekly).
+const KIT_DAYS = [1, 4];
+const KIT_HOUR_UTC = 10;
+const NEW_KIT_DAYS = 7;
+
+/** Próximo lanzamiento automático, en palabras ("hoy", "mañana", "el lunes"). */
+function nextKitLabel(now = new Date()): string {
+  for (let i = 0; i < 8; i++) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + i, KIT_HOUR_UTC));
+    if (!KIT_DAYS.includes(d.getUTCDay()) || d.getTime() <= now.getTime()) continue;
+    const days = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+      - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86_400_000);
+    if (days <= 0) return "hoy";
+    if (days === 1) return "mañana";
+    return `el ${d.toLocaleDateString("es", { weekday: "long" })}`;
+  }
+  return "esta semana";
+}
+const isNewKit = (publishedAt: string) => Date.now() - new Date(publishedAt).getTime() < NEW_KIT_DAYS * 86_400_000;
 
 interface KitProof {
   days_active?: number; active_ads?: number; winner_score?: number; market?: string;
@@ -41,14 +66,34 @@ const SECTIONS: { k: Section; l: string }[] = [
 
 export function KitsPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const [kits, setKits] = useState<Kit[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [open, setOpen] = useState<Kit | null>(null);
   const [unlocking, setUnlocking] = useState<string | null>(null);
+  const [apps, setApps] = useState<Offer[] | null>(null);
+  const [appsTotal, setAppsTotal] = useState(0);
+  const [creating, setCreating] = useState<Offer | null>(null);
 
+  // Un fallo de red no es "todavía no hay kits": se dice y se deja reintentar.
   const load = async () => {
-    const { data } = await supabase.rpc("get_kits");
+    setLoadError(false);
+    const { data, error } = await supabase.rpc("get_kits");
+    if (error) { setLoadError(true); setKits([]); return; }
     setKits(((data ?? []) as unknown as Kit[]).map((k) => ({ ...k, whats_inside: Array.isArray(k.whats_inside) ? k.whats_inside : [] })));
   };
   useEffect(() => { load(); }, []);
+
+  // Apps & SaaS de nuestro radar, las más copiables primero (mismas reglas que Ofertas).
+  useEffect(() => {
+    supabase.from("offers").select("*", { count: "exact" })
+      .eq("enrich_failed", false).is("excluded_reason", null).eq("is_primary", true)
+      .eq("offer_type", "saas_app").gte("copy_score", 4)
+      .order("winner_index", { ascending: false, nullsFirst: false })
+      .order("winner_score", { ascending: false }).order("active_ads", { ascending: false })
+      .limit(9)
+      .then(({ data, count }) => { setApps((data ?? []) as Offer[]); setAppsTotal(count ?? 0); });
+  }, []);
+
+  const seeAllApps = () => { localStorage.setItem(OFFERS_TAB_KEY, "apps"); onNavigate?.("Ofertas"); };
 
   const unlock = async (kit: Kit) => {
     setUnlocking(kit.id);
@@ -89,13 +134,20 @@ export function KitsPage({ onNavigate }: { onNavigate?: (page: string) => void }
             <ShieldCheck className="w-3.5 h-3.5" /> Licencia comercial incluida
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 bg-secondary/60 text-foreground border border-border font-semibold">
-            <CalendarClock className="w-3.5 h-3.5 text-primary" /> 2 nuevos cada semana
+            <CalendarClock className="w-3.5 h-3.5 text-primary" /> 2 nuevos cada semana · próximo {nextKitLabel()}
           </span>
         </div>
       </div>
 
       {kits === null ? (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">{[0, 1, 2].map((i) => <div key={i} className="card-surface rounded-2xl h-[380px] animate-pulse" />)}</div>
+      ) : loadError ? (
+        <div className="card-surface rounded-2xl py-16 text-center px-6">
+          <div className="empty-icon mb-5"><RefreshCw className="w-7 h-7" strokeWidth={1.4} /></div>
+          <div className="font-display font-semibold text-base mb-1">No pudimos cargar los kits</div>
+          <div className="text-sm text-muted-foreground max-w-md mx-auto">Suele ser la conexión. Tus kits desbloqueados siguen siendo tuyos.</div>
+          <button onClick={load} className="btn-primary-nova px-4 py-2 rounded-lg text-[13px] mt-5">Reintentar</button>
+        </div>
       ) : kits.length === 0 ? (
         <div className="card-surface rounded-2xl py-20 text-center px-6">
           <div className="empty-icon mb-5"><Boxes className="w-7 h-7" strokeWidth={1.4} /></div>
@@ -109,8 +161,65 @@ export function KitsPage({ onNavigate }: { onNavigate?: (page: string) => void }
         </div>
       )}
 
+      {/* Apps que nuestro radar ve escalar: material nuevo entre un kit y el siguiente */}
+      {apps && apps.length > 0 && (
+        <section className="pt-4 space-y-4">
+          <div className="flex items-end justify-between flex-wrap gap-3">
+            <div>
+              <h3 className="font-display text-lg text-foreground">Apps que están escalando ahora</h3>
+              <p className="text-[13px] text-muted-foreground mt-1 max-w-2xl">
+                Apps y SaaS que nuestro radar ve pagando anuncios hoy, ordenadas por lo fácil que es replicarlas.
+                Elige una y te armamos tu versión: análisis, prompt para construirla y guion de venta.
+              </p>
+            </div>
+            <button onClick={seeAllApps} className="text-[12.5px] font-semibold text-primary hover:underline inline-flex items-center gap-1">
+              Ver las {appsTotal.toLocaleString("es")} apps <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {apps.map((o) => <AppCard key={o.id} o={o} onCreate={() => setCreating(o)} onSeeAds={() => openOfferAdsInRadar(o, onNavigate)} />)}
+          </div>
+        </section>
+      )}
+
       {open && <KitModal kit={open} onClose={() => setOpen(null)} onUnlock={() => unlock(open)} busy={unlocking === open.id} />}
+      {creating && <MiniAppModal ad={offerToDemoAd(creating)} onClose={() => setCreating(null)} />}
     </div>
+  );
+}
+
+function AppCard({ o, onCreate, onSeeAds }: { o: Offer; onCreate: () => void; onSeeAds: () => void }) {
+  const copy = copyLabel(o.copy_score);
+  return (
+    <article className="card-surface rounded-xl p-4 flex flex-col">
+      <div className="flex items-start justify-between gap-2">
+        <h4 className="font-display font-semibold text-[14.5px] leading-snug text-foreground min-w-0">
+          {o.product_name || o.page_name || "App sin nombre"}
+        </h4>
+        <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-1 ${copy.cls}`}>{copy.label}</span>
+      </div>
+      <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+        <span>{flagFor(o.market)} {MARKET_NAME[o.market] ?? o.market}</span>
+        {o.niche && <span>· {NICHE_LABEL[o.niche] ?? o.niche}</span>}
+        {o.price_hint && <span>· {o.price_hint}</span>}
+      </div>
+      {(o.mechanism || o.why_wins) && (
+        <p className="text-[12.5px] text-foreground/80 mt-2.5 leading-relaxed line-clamp-3 flex-1">{o.mechanism || o.why_wins}</p>
+      )}
+      <div className="mt-3 pt-3 border-t border-border/60 text-[11px] text-muted-foreground flex items-center gap-3 flex-wrap">
+        <span className="inline-flex items-center gap-1 text-primary font-semibold"><Flame className="w-3 h-3" /> {o.days_active} días pagando</span>
+        <span>{o.active_ads} anuncios · {scaleLabel(o)}</span>
+      </div>
+      <div className="mt-3 flex gap-2">
+        <button onClick={onCreate} className="flex-1 btn-primary-nova py-2 rounded-lg text-[12.5px] font-semibold inline-flex items-center justify-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5" /> Crear mi versión · {CREDIT_COSTS.gen_master_prompt}⚡
+        </button>
+        <button onClick={onSeeAds} aria-label="Ver sus anuncios" title="Ver sus anuncios"
+          className="px-3 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 inline-flex items-center justify-center">
+          <Eye className="w-4 h-4" />
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -121,7 +230,8 @@ function KitCard({ kit, busy, onUnlock, onOpen }: { kit: Kit; busy: boolean; onU
     <article className="card-surface rounded-2xl overflow-hidden flex flex-col ad-card-hover">
       <div className="h-36 bg-gradient-to-br from-primary/20 via-secondary/40 to-background flex items-center justify-center relative">
         <span className="text-6xl drop-shadow">{kit.cover_emoji || "🧩"}</span>
-        <div className="absolute top-2 left-2 flex gap-1.5">
+        <div className="absolute top-2 left-2 flex gap-1.5 flex-wrap pr-16">
+          {isNewKit(kit.published_at) && <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-1 bg-primary text-primary-foreground">Nuevo</span>}
           {kit.niche && <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-1 bg-background/80 backdrop-blur text-foreground border border-border">{NICHE_LABEL[kit.niche] ?? kit.niche}</span>}
           {group && <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-1 bg-background/80 backdrop-blur text-foreground border border-border">{group.flag} {group.label.replace("Mercado ", "")}</span>}
         </div>

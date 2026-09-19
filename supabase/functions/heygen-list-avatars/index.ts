@@ -1,16 +1,22 @@
-// SUPERNOVA — Media Studio: lista de avatares/voces de HeyGen para el picker.
+// SUPERNOVA — Media Studio: avatares y voces de HeyGen para el selector.
 // Sin HEYGEN_API_KEY responde en modo simulado (dry_run) con una lista fija,
 // para poder desarrollar y probar todo el flujo sin gastar dinero real.
 //
-// El endpoint plano /v2/avatars nunca responde en cuentas reales probadas
-// (timeout, aparentemente devuelve el catálogo público entero). El flujo que
-// SÍ funciona (confirmado con la cuenta real) es por grupos:
-//   GET /v2/avatar_group.list                      → grupos del usuario
-//   GET /v2/avatar_group/{group_id}/avatars         → looks/avatares del grupo
-// Cada avatar trae su default_voice_id, así el usuario no necesita elegir
-// voz aparte (aunque se sigue exponiendo /v2/voices por si quiere cambiarla).
+// API v3 (HeyGen apaga v1/v2 el 2026-10-31):
+//   GET /v3/avatars?ownership=private             → grupos propios (el nombre que el usuario reconoce)
+//   GET /v3/avatars/looks?group_id=…              → "looks" de cada grupo: su id es el avatar_id de POST /v3/videos
+//   GET /v3/voices                           → voces (clonadas primero, luego español)
+// Cada look trae su default_voice_id, así el usuario no tiene que elegir voz.
+// Todas las listas van paginadas y con tope: el catálogo público entero nos
+// colgaba la petición en v2.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
+
+const HEYGEN_API = "https://api.heygen.com";
+const MAX_GROUPS = 10;      // grupos propios que se muestran
+const LOOKS_PER_GROUP = 4;  // un grupo con 15 looks no debe tapar a los demás
+const MAX_AVATARS = 24;
+const MAX_VOICES = 80;
 
 const DRY_RUN_AVATARS = [
   { avatar_id: "dryrun_avatar_male_1", avatar_name: "Carlos (demo)", preview_image_url: null, gender: "male", default_voice_id: null },
@@ -21,7 +27,8 @@ const DRY_RUN_VOICES = [
   { voice_id: "dryrun_voice_en_1", name: "English US (demo)", language: "en" },
 ];
 
-const MAX_GROUPS = 8; // suficiente para un picker de UI, evita N llamadas innecesarias
+const json = (status: number, body: unknown) =>
+  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 // ── Compuerta de usuario ────────────────────────────────────────────────
 // verify_jwt del gateway NO basta: la llave pública (anon) que viaja en el
@@ -29,25 +36,27 @@ const MAX_GROUPS = 8; // suficiente para un picker de UI, evita N llamadas innec
 // esta función sin cuenta y sin gastar créditos. Aquí se exige un USUARIO real
 // con acceso vigente y se aplica un tope de uso por usuario (RPC edge_guard).
 async function requireUser(req: Request, fn: string, maxHour: number, maxDay: number): Promise<{ userId: string } | Response> {
-  const deny = (status: number, error: string) =>
-    new Response(JSON.stringify({ error }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
-  if (!token) return deny(401, "Inicia sesión para usar esta función.");
+  if (!token) return json(401, { error: "Inicia sesión para usar esta función." });
   const guard = createGuardClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { data } = await guard.auth.getUser(token);
   const userId = data?.user?.id;
-  if (!userId) return deny(401, "Sesión inválida o expirada. Vuelve a iniciar sesión.");
+  if (!userId) return json(401, { error: "Sesión inválida o expirada. Vuelve a iniciar sesión." });
   const { data: g, error } = await guard.rpc("edge_guard", { p_user_id: userId, p_fn: fn, p_max_hour: maxHour, p_max_day: maxDay });
-  if (error) return deny(503, "No se pudo verificar el acceso. Intenta de nuevo.");
+  if (error) return json(503, { error: "No se pudo verificar el acceso. Intenta de nuevo." });
   if (g?.ok !== true) {
     return g?.reason === "rate_limited"
-      ? deny(429, "Alcanzaste el límite de uso de esta función. Intenta más tarde.")
-      : deny(403, "Tu cuenta no tiene acceso activo.");
+      ? json(429, { error: "Alcanzaste el límite de uso de esta función. Intenta más tarde." })
+      : json(403, { error: "Tu cuenta no tiene acceso activo." });
   }
   return { userId };
 }
+
+type Row = Record<string, unknown>;
+const httpsOrNull = (v: unknown) => (typeof v === "string" && /^https:\/\//i.test(v) && v.length < 2000 ? v : null);
+const strOrNull = (v: unknown) => (typeof v === "string" && v ? v : null);
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -55,84 +64,105 @@ Deno.serve(async (req) => {
   if (gate instanceof Response) return gate;
 
   const apiKey = Deno.env.get("HEYGEN_API_KEY");
-  if (!apiKey) {
-    return new Response(JSON.stringify({ avatars: DRY_RUN_AVATARS, voices: DRY_RUN_VOICES, dry_run: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  if (!apiKey) return json(200, { avatars: DRY_RUN_AVATARS, voices: DRY_RUN_VOICES, dry_run: true });
 
-  // Timeout duro por request: si HeyGen no responde, fallar rápido con un
-  // error claro en vez de colgar la función indefinidamente.
-  const withTimeout = async (url: string, ms = 12000) => {
+  // Una página de una lista v3 ({ data: [...] }). Timeout duro por petición: si
+  // HeyGen no responde se falla rápido en vez de colgar la función. null = falló.
+  const list = async (path: string, ms = 12000): Promise<Row[] | null> => {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), ms);
+    const timer = setTimeout(() => ctrl.abort(), ms);
     try {
-      return await fetch(url, { headers: { "X-Api-Key": apiKey, Accept: "application/json" }, signal: ctrl.signal });
+      const r = await fetch(`${HEYGEN_API}${path}`, { headers: { "x-api-key": apiKey, Accept: "application/json" }, signal: ctrl.signal });
+      if (!r.ok) {
+        console.error("heygen-list-avatars:", path.split("?")[0], "→", r.status, (await r.text()).slice(0, 200));
+        return null;
+      }
+      const body = await r.json().catch(() => null);
+      return Array.isArray(body?.data) ? (body.data as Row[]) : [];
+    } catch (e) {
+      console.error("heygen-list-avatars:", path.split("?")[0], "→", e instanceof Error ? e.name : e);
+      return null;
     } finally {
-      clearTimeout(t);
+      clearTimeout(timer);
     }
   };
 
-  try {
-    const groupsRes = await withTimeout("https://api.heygen.com/v2/avatar_group.list");
-    if (!groupsRes.ok) {
-      const detail = await groupsRes.text();
-      return new Response(JSON.stringify({ error: "Error listando grupos de avatares", detail: detail.slice(0, 500) }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+  const usable = (l: Row) => !l.status || l.status === "completed";
+  const [groups, ownVoices, esVoices, anyVoices] = await Promise.all([
+    list("/v3/avatars?ownership=private&limit=50"),
+    list("/v3/voices?type=private&limit=50"),
+    list("/v3/voices?type=public&language=Spanish&limit=40"),
+    list("/v3/voices?type=public&limit=30"),
+  ]);
+  if (groups === null) return json(502, { error: "HeyGen no respondió. Intenta de nuevo en un momento." });
+
+  // Looks por grupo y repartidos por turnos (el 1º de cada grupo, luego el 2º…):
+  // así aparecen todos los avatares del usuario y no solo el grupo más grande.
+  const shownGroups = groups.filter(usable).slice(0, MAX_GROUPS);
+  const perGroup = await Promise.all(shownGroups.map((g) =>
+    list(`/v3/avatars/looks?ownership=private&group_id=${encodeURIComponent(String(g.id))}&limit=${LOOKS_PER_GROUP * 2}`)));
+  let looks: Row[] = [];
+  for (let i = 0; i < LOOKS_PER_GROUP; i++) {
+    for (const arr of perGroup) {
+      const l = (arr ?? []).filter(usable)[i];
+      if (l) looks.push(l);
     }
-    const groupsData = await groupsRes.json();
-    const groups = (groupsData?.data?.avatar_group_list ?? []).slice(0, MAX_GROUPS) as Array<Record<string, unknown>>;
-
-    const avatarLists = await Promise.all(
-      groups.map((g) =>
-        withTimeout(`https://api.heygen.com/v2/avatar_group/${g.id}/avatars`)
-          .then((r) => (r.ok ? r.json() : null))
-          .catch(() => null),
-      ),
-    );
-
-    // Los grupos de esta ruta (avatar_group.list → .../avatars) son "Photo
-    // Avatars" (business_type "uploaded") — en la API de HeyGen esto es un
-    // talking_photo, con su propio formato en video/generate (no "avatar").
-    const avatars: Array<{ avatar_id: string; avatar_name: string; preview_image_url: string | null; default_voice_id: string | null; kind: "talking_photo" | "avatar" }> = [];
-    groups.forEach((g, i) => {
-      const list = (avatarLists[i]?.data?.avatar_list ?? []) as Array<Record<string, unknown>>;
-      const usable = list.find((a) => a.status === "completed") ?? list[0];
-      if (usable) {
-        avatars.push({
-          avatar_id: String(usable.id),
-          avatar_name: String(g.name ?? usable.name ?? "Avatar"),
-          preview_image_url: (usable.image_url as string) ?? (g.preview_image as string) ?? null,
-          default_voice_id: (usable.default_voice_id as string) ?? null,
-          kind: "talking_photo",
-        });
-      }
-    });
-
-    const voicesRes = await withTimeout("https://api.heygen.com/v2/voices");
-    let voices: Array<{ voice_id: string; name: string; language: string | null }> = [];
-    if (voicesRes.ok) {
-      const voicesData = await voicesRes.json();
-      const rawVoices = (voicesData?.data?.voices ?? []) as Array<Record<string, unknown>>;
-      voices = rawVoices.slice(0, 30).map((v) => ({
-        voice_id: String(v.voice_id), name: String(v.name ?? v.voice_id), language: (v.language as string) ?? null,
-      }));
-    }
-
-    if (avatars.length === 0) {
-      return new Response(JSON.stringify({ error: "No se encontraron avatares en tu cuenta de HeyGen" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(JSON.stringify({ avatars, voices, dry_run: false }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (e) {
-    const timedOut = e instanceof Error && e.name === "AbortError";
-    return new Response(JSON.stringify({ error: timedOut ? "HeyGen no respondió a tiempo" : (e instanceof Error ? e.message : "Unknown") }), {
-      status: timedOut ? 504 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
   }
+  // Sin avatares propios: unos cuantos del catálogo para que el selector no quede vacío.
+  if (looks.length === 0) {
+    looks = ((await list("/v3/avatars/looks?ownership=public&limit=12")) ?? []).filter(usable);
+  }
+
+  const groupById = new Map<string, Row>(groups.map((g) => [String(g.id), g]));
+  const seenInGroup = new Map<string, number>();
+  const GENERIC = /^(photo avatar|avatar|look|untitled|sin t[ií]tulo)$/i;
+
+  const avatars = looks.slice(0, MAX_AVATARS).map((l) => {
+    const gid = String(l.group_id ?? "");
+    const group = groupById.get(gid);
+    const groupName = strOrNull(group?.name);
+    const lookName = strOrNull(l.name);
+    const n = (seenInGroup.get(gid) ?? 0) + 1;
+    seenInGroup.set(gid, n);
+    // El 1º de cada grupo lleva el nombre que el usuario le puso al grupo; los
+    // demás, el nombre del look si dice algo, o un número.
+    const name = !groupName
+      ? (lookName ?? "Avatar")
+      : n === 1 ? groupName
+      : (lookName && lookName !== groupName && !GENERIC.test(lookName) ? `${groupName} · ${lookName}` : `${groupName} · ${n}`);
+    return {
+      avatar_id: String(l.id),
+      avatar_name: name,
+      preview_image_url: httpsOrNull(l.preview_image_url) ?? httpsOrNull(group?.preview_image_url),
+      default_voice_id: strOrNull(l.default_voice_id) ?? strOrNull(group?.default_voice_id),
+      gender: strOrNull(l.gender),
+      // Compatibilidad con el cliente: en v3 todos los avatares se piden igual.
+      kind: "avatar" as const,
+    };
+  });
+
+  if (avatars.length === 0) {
+    return json(404, { error: "No se encontraron avatares en la cuenta de HeyGen." });
+  }
+
+  // Voces: primero las clonadas del dueño de la cuenta, luego español, luego el resto.
+  const seen = new Set<string>();
+  const voices: Array<{ voice_id: string; name: string; language: string | null }> = [];
+  for (const v of [...(ownVoices ?? []), ...(esVoices ?? []), ...(anyVoices ?? [])]) {
+    const id = strOrNull(v.voice_id);
+    if (!id || seen.has(id) || voices.length >= MAX_VOICES) continue;
+    seen.add(id);
+    voices.push({ voice_id: id, name: strOrNull(v.name) ?? id, language: strOrNull(v.language) });
+  }
+
+  // La voz recomendada de cada avatar siempre debe poder elegirse, aunque no
+  // haya salido en las páginas de voces pedidas arriba.
+  for (const a of avatars) {
+    if (a.default_voice_id && !seen.has(a.default_voice_id)) {
+      seen.add(a.default_voice_id);
+      voices.unshift({ voice_id: a.default_voice_id, name: `Voz de ${a.avatar_name}`, language: null });
+    }
+  }
+
+  return json(200, { avatars, voices, dry_run: false });
 });

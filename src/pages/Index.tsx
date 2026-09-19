@@ -7,6 +7,7 @@ import { HelpAssistant } from "@/components/HelpAssistant";
 import { OnboardingTour } from "@/components/OnboardingTour";
 import { FloatingWinnerButton } from "@/components/FloatingWinnerButton";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useVersionCheck, updateIsReady } from "@/hooks/useVersionCheck";
 
 // Carga diferida: cada pantalla es su propio chunk → la primera carga solo
 // baja el Dashboard, el resto llega bajo demanda al navegar.
@@ -73,7 +74,12 @@ const Index = () => {
       }
     }
     window.scrollTo({ top: 0 }); // cada pantalla empieza arriba, no a media página
+    // Hay un deploy más nuevo: cambiar de pantalla es el momento seguro para
+    // cargarlo (la dirección ya apunta a la pantalla pedida).
+    if (updateIsReady()) window.location.reload();
   }, []);
+
+  useVersionCheck();
 
   useEffect(() => {
     const sync = () => setActivePageState(pageFromHash());

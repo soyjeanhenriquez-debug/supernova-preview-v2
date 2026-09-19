@@ -8,6 +8,8 @@ import { useProjects } from "@/hooks/useProjects";
 import { NICHE_LABEL, MARKET_GROUP, flagFor, MARKET_NAME, copyLabel, scaleLabel, offerToDemoAd, openOfferAdsInRadar, type Offer } from "@/lib/offers";
 import { ModalPortal } from "@/components/ModalPortal";
 import { MiniAppModal } from "@/components/MiniAppModal";
+import { OfferDetailSheet } from "@/components/offers/OfferDetailSheet";
+import { useOfferFollows } from "@/hooks/useOfferFollows";
 import { OFFERS_TAB_KEY } from "@/components/dashboard/RoiHunterWidget";
 
 /**
@@ -72,6 +74,8 @@ export function KitsPage({ onNavigate }: { onNavigate?: (page: string) => void }
   const [apps, setApps] = useState<Offer[] | null>(null);
   const [appsTotal, setAppsTotal] = useState(0);
   const [creating, setCreating] = useState<Offer | null>(null);
+  const [detail, setDetail] = useState<Offer | null>(null);
+  const follows = useOfferFollows();
 
   // Un fallo de red no es "todavía no hay kits": se dice y se deja reintentar.
   const load = async () => {
@@ -188,18 +192,28 @@ export function KitsPage({ onNavigate }: { onNavigate?: (page: string) => void }
             </button>
           </div>
           <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
-            {apps.map((o) => <AppCard key={o.id} o={o} onCreate={() => setCreating(o)} onSeeAds={() => openOfferAdsInRadar(o, onNavigate)} />)}
+            {apps.map((o) => <AppCard key={o.id} o={o} onCreate={() => setCreating(o)} onOpen={() => setDetail(o)} />)}
           </div>
         </section>
       )}
 
       {open && <KitModal kit={open} onClose={() => setOpen(null)} onUnlock={() => unlock(open)} busy={unlocking === open.id} />}
+      {detail && (
+        <OfferDetailSheet
+          offer={detail}
+          following={follows.isFollowing(detail.id)}
+          onToggleFollow={() => follows.toggle(detail)}
+          onCreate={() => setCreating(detail)}
+          onSeeAds={() => openOfferAdsInRadar(detail, onNavigate)}
+          onClose={() => setDetail(null)}
+        />
+      )}
       {creating && <MiniAppModal ad={offerToDemoAd(creating)} onClose={() => setCreating(null)} />}
     </div>
   );
 }
 
-function AppCard({ o, onCreate, onSeeAds }: { o: Offer; onCreate: () => void; onSeeAds: () => void }) {
+function AppCard({ o, onCreate, onOpen }: { o: Offer; onCreate: () => void; onOpen: () => void }) {
   const copy = copyLabel(o.copy_score);
   return (
     <article className="card-surface rounded-xl p-4 flex flex-col">
@@ -225,8 +239,8 @@ function AppCard({ o, onCreate, onSeeAds }: { o: Offer; onCreate: () => void; on
         <button onClick={onCreate} className="flex-1 btn-primary-nova py-2 rounded-lg text-[12.5px] font-semibold inline-flex items-center justify-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5" /> Crear mi versión · {CREDIT_COSTS.gen_master_prompt}⚡
         </button>
-        <button onClick={onSeeAds} aria-label="Ver sus anuncios" title="Ver sus anuncios"
-          className="px-3 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 inline-flex items-center justify-center">
+        <button onClick={onOpen} aria-label="Ver detalles y veredicto" title="Ver detalles y veredicto"
+          className="px-3 min-w-11 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 inline-flex items-center justify-center">
           <Eye className="w-4 h-4" />
         </button>
       </div>

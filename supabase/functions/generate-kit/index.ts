@@ -65,10 +65,17 @@ Deno.serve(async (req) => {
       let offer: OfferRow | null = null;
       if (body.offer_id && n === 0) {
         const { data } = await admin.from("offers").select("*").eq("id", body.offer_id).maybeSingle();
+        // La función no exige JWT: un offer_id explícito NO puede saltarse el
+        // prefiltro. Se rechaza en vez de elegir otra oferta en silencio.
+        const excluded = (data as { excluded_reason?: string | null } | null)?.excluded_reason;
+        if (excluded) { results.push({ offer_id: body.offer_id, error: `Oferta excluida (${excluded}): no se genera kit` }); break; }
         offer = data as OfferRow | null;
       } else {
         let q = admin.from("offers").select("*")
           .not("enriched_at", "is", null).eq("enrich_failed", false)
+          // Nunca un kit desde una oferta excluida (contenido adulto / apps de
+          // dramas): los kits son lo que se vende, sería la peor fuga posible.
+          .is("excluded_reason", null)
           .gte("copy_score", 4)
           .in("offer_type", ["infoproducto", "saas_app", "servicio", "comunidad"])
           .in("language", ["es", "pt", "en", "ru"])

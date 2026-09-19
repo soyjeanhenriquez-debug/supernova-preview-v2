@@ -344,16 +344,26 @@ export function GeneradoresPage() {
 
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filteredGenerators.map((gen) => (
-                <button
+              {filteredGenerators.map((gen) => {
+                const openGenerator = () => { setActiveGenerator(gen.id); setGeneratorOutput(""); setGeneratorInput(""); };
+                return (
+                // div con rol de botón: dentro va el botón de favorito y un <button>
+                // no puede contener otro. flex-col + items-start alinea arriba todas
+                // las tarjetas de la fila (un <button> centra su contenido en vertical).
+                <div
                   key={gen.id}
-                  onClick={() => { setActiveGenerator(gen.id); setGeneratorOutput(""); setGeneratorInput(""); }}
-                  className="card-surface rounded-xl p-5 text-left hover:border-primary/30 transition-all group relative"
+                  role="button"
+                  tabIndex={0}
+                  onClick={openGenerator}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openGenerator(); } }}
+                  className="card-surface rounded-xl p-5 text-left hover:border-primary/30 transition-all group relative cursor-pointer flex flex-col items-start focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   {/* Favorite */}
                   <button
                     onClick={(e) => { e.stopPropagation(); toggleFavorite(gen.id); }}
-                    className="absolute top-4 right-4 text-muted-foreground hover:text-warning transition-colors"
+                    onKeyDown={(e) => e.stopPropagation()}
+                    aria-label={favorites.includes(gen.id) ? "Quitar de favoritos" : "Marcar como favorito"}
+                    className="absolute top-3 right-3 p-1.5 text-muted-foreground hover:text-warning transition-colors"
                   >
                     <Star className={`w-4 h-4 ${favorites.includes(gen.id) ? "fill-warning text-warning" : ""}`} />
                   </button>
@@ -364,7 +374,7 @@ export function GeneradoresPage() {
                   </div>
 
                   <h4 className="text-sm font-semibold text-foreground mb-1.5 pr-6">{gen.title}</h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed mb-4">{gen.description}</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed mb-4 flex-1">{gen.description}</p>
 
                   <span className="text-xs px-2.5 py-1 rounded-md bg-secondary border border-border text-muted-foreground capitalize">
                     {gen.category === "copywriting" ? "Copywriting" : 
@@ -377,8 +387,9 @@ export function GeneradoresPage() {
                      gen.category === "messages" ? "Mensajes" :
                      gen.category === "strategy" ? "Estrategia" : gen.category}
                   </span>
-                </button>
-              ))}
+                </div>
+                );
+              })}
 
               {filteredGenerators.length === 0 && (
                 <div className="col-span-full py-16 text-center">

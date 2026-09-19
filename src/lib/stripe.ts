@@ -6,9 +6,9 @@ import { checkoutUrl } from "@/lib/plans";
 // precios y validación viven en las edge functions (stripe-checkout / stripe-portal).
 
 const WHOP_PACKS: Record<string, string> = {
-  boost: "https://whop.com/digitalizados/boost-500",
-  power: "https://whop.com/digitalizados/power-2-000",
-  nuclear: "https://whop.com/digitalizados/nuclear-4-500",
+  boost: "https://whop.com/checkout/plan_ogd3Tq3dhAPU0",
+  power: "https://whop.com/checkout/plan_MmMIIQFDwfLFg",
+  nuclear: "https://whop.com/checkout/plan_iLopCOOcLRFGb",
 };
 
 type CheckoutBody =

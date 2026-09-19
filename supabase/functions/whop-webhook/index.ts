@@ -141,13 +141,14 @@ function mapEvent(rawType: string, data: Record<string, unknown>): SubStatus | n
 // Packs de recarga: productos de pago único en whop.com/digitalizados/<ruta>. Se reconocen por
 // la ruta o el título del producto dentro del payload (no dependen de un id que cambie).
 const PACKS = [
-  { id: "boost", name: "Boost 500", credits: 500, re: /boost[\s-]*500/i },
-  { id: "power", name: "Power 2,000", credits: 2000, re: /power[\s-]*2[\s.,-]*000/i },
-  { id: "nuclear", name: "Nuclear 4,500", credits: 4500, re: /nuclear[\s-]*4[\s.,-]*500/i },
+  { id: "boost", name: "Boost 500", credits: 500, plan: "plan_ogd3Tq3dhAPU0", re: /boost[\s-]*500/i },
+  { id: "power", name: "Power 2,000", credits: 2000, plan: "plan_MmMIIQFDwfLFg", re: /power[\s-]*2[\s.,-]*000/i },
+  { id: "nuclear", name: "Nuclear 4,500", credits: 4500, plan: "plan_iLopCOOcLRFGb", re: /nuclear[\s-]*4[\s.,-]*500/i },
 ];
 function detectPack(data: Record<string, unknown>) {
   const hay = JSON.stringify([data.product, data.plan, data.access_pass, data.membership, data.product_title, data.plan_title, data.title, data.name, data.route, data.metadata]);
-  return PACKS.find((p) => p.re.test(hay)) ?? null;
+  const planId = String((data.plan as Record<string, unknown>)?.id ?? data.plan_id ?? "");
+  return PACKS.find((p) => p.plan === planId) ?? PACKS.find((p) => p.re.test(hay)) ?? null;
 }
 
 /** Busca el email en las rutas conocidas del payload de Whop (User expandido). */
@@ -211,13 +212,18 @@ serve(async (req) => {
   // Rastro sin datos personales: qué producto/plan trae cada evento (para diagnosticar packs).
   console.log(`evento ${eventType} · product=${String((data.product as Record<string, unknown>)?.id ?? data.product_id ?? "?")} · plan=${String((data.plan as Record<string, unknown>)?.id ?? data.plan_id ?? "?")} · pack=${pack?.id ?? "no"}`);
   if (pack) {
+    // Se acredita al ACTIVARSE el acceso al pack (membership.activated / went_valid): ese
+    // evento llega tanto en compras pagadas como con cupón del 100 % (visto en producción:
+    // con cupón no hay evento de pago). Los eventos de pago del pack se ignoran para no
+    // acreditar dos veces; el resto (expiración, cancelación) no toca nada.
     const t = eventType.toLowerCase().replace(/[._-]/g, " ");
-    const paid = (t.includes("payment") || t.includes("invoice")) && (t.includes("succeed") || t.includes("paid"));
-    if (!paid) {
+    const activated = t.includes("membership") && (t.includes("activat") || t.includes("valid")) && !t.includes("invalid") && !t.includes("deactivat");
+    if (!activated) {
       return new Response(JSON.stringify({ ok: true, skipped: `pack:${eventType}` }), { headers: { "Content-Type": "application/json" } });
     }
     const packEmail = extractEmail(data);
-    const paymentId = String(data.id ?? "");
+    // Una acreditación por membresía y día: cubre los reintentos de Whop sin bloquear una recompra posterior.
+    const paymentId = data.id ? `${String(data.id)}:${new Date().toISOString().slice(0, 10)}` : "";
     if (!packEmail || !paymentId) {
       console.error(`Pack ${pack.id}: pago sin email o sin id`);
       return new Response(JSON.stringify({ error: "Pack payment without email/id" }), { status: 422, headers: { "Content-Type": "application/json" } });

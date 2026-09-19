@@ -21,10 +21,13 @@ import {
  * emprendedor solo, cosa que ningún competidor hace.
  */
 
-type Tab = "todas" | "apps" | "info" | "siguiendo";
+// "ganadoras" = lista curada (is_winner, top 300 por winner_index): es lo único
+// que se carga al entrar. "todas" = Explorar todo, solo bajo demanda.
+type Tab = "ganadoras" | "todas" | "apps" | "info" | "siguiendo";
 const PAGE_SIZE = 24;
 
 const SORTS = [
+  { v: "rank", l: "Mejor ranking" },
   { v: "score", l: "Mayor score" },
   { v: "copy", l: "Más copiable" },
   { v: "ads", l: "Más anuncios activos" },
@@ -39,7 +42,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const [tab, setTab] = useState<Tab>(() => {
     const t = localStorage.getItem(OFFERS_TAB_KEY);
     if (t) localStorage.removeItem(OFFERS_TAB_KEY);
-    return t === "siguiendo" ? "siguiendo" : "todas";
+    return t === "siguiendo" ? "siguiendo" : "ganadoras";
   });
   const follows = useOfferFollows();
   const [followed, setFollowed] = useState<FollowedRow[] | null>(null);
@@ -49,7 +52,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const [group, setGroup] = useState("all");
   const [model, setModel] = useState("all");
   const [onlyCopiable, setOnlyCopiable] = useState(true);
-  const [sort, setSort] = useState("copy");
+  const [sort, setSort] = useState("rank");
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState<Offer[]>([]);
   const [total, setTotal] = useState(0);
@@ -79,6 +82,11 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
       // excluded_reason (flag_excluded_offers): contenido adulto y apps de
       // dramas/novelas no se muestran NUNCA en el catálogo, con ningún filtro.
       let q = supabase.from("offers").select("*", { count: "exact" }).eq("enrich_failed", false).is("excluded_reason", null);
+      // Ganadoras: la lista curada (curate_offers → top 300 por winner_index).
+      // El resto de pestañas son "explorar": una tarjeta por ANUNCIANTE
+      // (is_primary), no una por país. Ambas columnas las mantiene curate_offers.
+      if (tab === "ganadoras") q = q.eq("is_winner", true);
+      else q = q.eq("is_primary", true);
       if (tab === "apps") q = q.eq("offer_type", "saas_app");
       if (tab === "info") q = q.eq("offer_type", "infoproducto");
       if (niche !== "all") q = q.eq("niche", niche);
@@ -87,12 +95,17 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
         if (g) q = q.in("market", g.markets).or(`language.eq.${g.lang},language.is.null`);
       }
       if (model !== "all") q = q.eq("business_model", model);
-      if (onlyCopiable) q = q.gte("copy_score", 4);
+      // En Ganadoras el botón está oculto (la lista ya exige copiabilidad): un
+      // filtro que el usuario no ve no debe recortarla.
+      if (onlyCopiable && tab !== "ganadoras") q = q.gte("copy_score", 4);
       if (debounced) {
         const k = debounced.replace(/[,()%]/g, " ");
         q = q.or(`product_name.ilike.%${k}%,page_name.ilike.%${k}%,mechanism.ilike.%${k}%,target_audience.ilike.%${k}%`);
       }
       switch (sort) {
+        // Índice 50/50 (prueba de dinero + copiabilidad). Fuera de Ganadoras
+        // casi nada tiene índice: los NULL van al final, ordenados por score.
+        case "rank": q = q.order("winner_index", { ascending: false, nullsFirst: false }).order("winner_score", { ascending: false }).order("active_ads", { ascending: false }); break;
         case "copy": q = q.order("copy_score", { ascending: false, nullsFirst: false }).order("winner_score", { ascending: false }); break;
         case "ads": q = q.order("active_ads", { ascending: false }); break;
         case "days": q = q.order("days_active", { ascending: false }); break;
@@ -130,7 +143,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatTile icon={<Gem className="w-4 h-4" />} label="Ofertas ganadoras" value={stats?.offers} />
+        <StatTile icon={<Gem className="w-4 h-4" />} label="Ofertas en el radar" value={stats?.offers} />
         <StatTile icon={<Layers className="w-4 h-4" />} label="Anuncios activos" value={stats?.active_ads} />
         <StatTile icon={<Globe2 className="w-4 h-4" />} label="Países" value={stats?.markets} />
         <StatTile icon={<TagIcon className="w-4 h-4" />} label="Nichos" value={stats?.niches} />
@@ -139,7 +152,8 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
       {/* Tabs */}
       <div className="flex flex-wrap gap-2">
         {([
-          { k: "todas", l: "Todas" },
+          { k: "ganadoras", l: "🏆 Ganadoras" },
+          { k: "todas", l: "🔎 Explorar todo" },
           { k: "info", l: "🎓 Infoproductos" },
           { k: "apps", l: "🧩 Apps & SaaS" },
           { k: "siguiendo", l: `⭐ Siguiendo${follows.followingIds.size ? ` · ${follows.followingIds.size}` : ""}` },
@@ -150,11 +164,15 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
             {t.l}
           </button>
         ))}
-        <button onClick={() => setOnlyCopiable((v) => !v)}
-          className={`ml-auto px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-            onlyCopiable ? "bg-success/15 text-success border-success/40" : "bg-secondary/40 text-muted-foreground border-border hover:text-foreground"}`}>
-          ✓ Solo copiables por un emprendedor
-        </button>
+        {/* Solo en las pestañas de exploración: en Ganadoras la lista ya exige
+            copiabilidad y en Siguiendo no aplica — un botón que no hace nada confunde. */}
+        {tab !== "ganadoras" && tab !== "siguiendo" && (
+          <button onClick={() => setOnlyCopiable((v) => !v)}
+            className={`ml-auto px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+              onlyCopiable ? "bg-success/15 text-success border-success/40" : "bg-secondary/40 text-muted-foreground border-border hover:text-foreground"}`}>
+            ✓ Solo copiables por un emprendedor
+          </button>
+        )}
       </div>
 
       {tab === "siguiendo" ? (
@@ -207,7 +225,11 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
         <div className="card-surface rounded-2xl py-20 text-center">
           <div className="empty-icon mb-5"><Gem className="w-7 h-7" strokeWidth={1.4} /></div>
           <div className="font-display font-semibold text-base mb-1">Sin ofertas con esos filtros</div>
-          <div className="text-sm text-muted-foreground">Prueba quitando "solo copiables" o cambiando de mercado.</div>
+          <div className="text-sm text-muted-foreground">
+            {tab === "ganadoras"
+              ? "Ninguna ganadora coincide. Quita algún filtro o mira en Explorar todo."
+              : "Prueba quitando \"solo copiables\" o cambiando de mercado."}
+          </div>
         </div>
       ) : (
         <>

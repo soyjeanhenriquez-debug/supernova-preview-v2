@@ -87,10 +87,17 @@ Deno.serve(async (req) => {
     }
   };
 
+  // Los avatares y voces PRIVADOS de la cuenta de HeyGen son la cara y la voz clonada del
+  // dueño: solo los ve un admin. Un cliente recibe el catálogo público (si no, cualquiera
+  // podía hacer videos con la cara y la voz de Jean).
+  const guard = createGuardClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data: adminRole } = await guard.from("user_roles").select("role").eq("user_id", gate.userId).eq("role", "admin").maybeSingle();
+  const isAdmin = !!adminRole;
+
   const usable = (l: Row) => !l.status || l.status === "completed";
   const [groups, ownVoices, esVoices, anyVoices] = await Promise.all([
-    list("/v3/avatars?ownership=private&limit=50"),
-    list("/v3/voices?type=private&limit=50"),
+    isAdmin ? list("/v3/avatars?ownership=private&limit=50") : Promise.resolve([] as Row[]),
+    isAdmin ? list("/v3/voices?type=private&limit=50") : Promise.resolve([] as Row[]),
     list("/v3/voices?type=public&language=Spanish&limit=40"),
     list("/v3/voices?type=public&limit=30"),
   ]);
@@ -110,7 +117,7 @@ Deno.serve(async (req) => {
   }
   // Sin avatares propios: unos cuantos del catálogo para que el selector no quede vacío.
   if (looks.length === 0) {
-    looks = ((await list("/v3/avatars/looks?ownership=public&limit=12")) ?? []).filter(usable);
+    looks = ((await list(`/v3/avatars/looks?ownership=public&limit=${MAX_AVATARS}`)) ?? []).filter(usable);
   }
 
   const groupById = new Map<string, Row>(groups.map((g) => [String(g.id), g]));

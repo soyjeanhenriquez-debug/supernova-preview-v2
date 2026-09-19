@@ -155,7 +155,7 @@ async function authorizeInternal(req: Request, allowServiceRole = false): Promis
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (!(await authorizeInternal(req))) {
+  if (!(await authorizeInternal(req, true))) { // true: master-rotate la llama con la service role
     return new Response(JSON.stringify({ error: "No autorizado" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
@@ -192,13 +192,10 @@ Deno.serve(async (req) => {
     jobs.sort(() => Math.random() - 0.5);
     const slice = jobs.slice(0, maxJobs);
 
-    // Existing ad_urls to dedupe (load up to 5000 latest)
-    const { data: existing } = await supabase
-      .from("winning_ads")
-      .select("ad_url")
-      .order("scraped_at", { ascending: false })
-      .limit(5000);
-    const seenUrls = new Set<string>((existing ?? []).map((r) => r.ad_url).filter(Boolean) as string[]);
+    // Solo se evita repetir dentro de esta ejecución. Los anuncios YA conocidos se vuelven a
+    // guardar a propósito: el upsert les refresca scraped_at (= última vez visto activo) y
+    // los días. Antes se saltaban y nadie sabía si un anuncio de julio seguía vivo.
+    const seenUrls = new Set<string>();
 
     let totalInserted = 0;
     let totalFetched = 0;
@@ -232,7 +229,9 @@ Deno.serve(async (req) => {
         if (r.err) { totalErrors++; continue; }
         totalFetched += r.items.length;
         for (const it of r.items) {
-          const body = (it.ad_creative_bodies?.[0] ?? "").toString();
+          // Tope de 5 000 caracteres: hay anuncios-novela de 35 000 que inflaban la base
+          // (el 12 % de las filas pesaba el 85 % de la tabla) sin que nada los use enteros.
+          const body = (it.ad_creative_bodies?.[0] ?? "").toString().slice(0, 5000);
           const title = (it.ad_creative_link_titles?.[0] ?? it.page_name ?? "Anuncio").toString();
           // `ad_snapshot_url` trae nuestro access_token pegado: jamás se guarda
           // (estas filas las leen los usuarios). Misma forma que las filas ya
@@ -253,7 +252,7 @@ Deno.serve(async (req) => {
             page_id: it.page_id ?? null,
             page_name: it.page_name ?? null,
             ad_title: title,
-            ad_description: body,
+            ad_description: null, // era una copia exacta de ad_body: el doble de espacio para nada
             ad_body: body,
             ad_url: adUrl,
             platform: "Meta",

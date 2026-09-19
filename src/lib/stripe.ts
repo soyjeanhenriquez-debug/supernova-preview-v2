@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { checkoutUrl } from "@/lib/plans";
 
 // Cobro principal: Stripe. Esta lib solo pide URLs al backend y redirige —
 // precios y validación viven en las edge functions (stripe-checkout / stripe-portal).
@@ -13,6 +14,14 @@ export async function startCheckout(body: CheckoutBody): Promise<boolean> {
     body: { ...body, return_url: window.location.origin + "/" },
   });
   if (error || !data?.url) {
+    // Respaldo: si Stripe no está disponible (falta la llave o falla), la membresía se cobra
+    // por Whop. Su webhook activa el acceso por CORREO, por eso el checkout va con el correo
+    // de la cuenta ya puesto. Los packs de créditos solo existen en Stripe.
+    if (body.action === "subscribe") {
+      const { data: u } = await supabase.auth.getUser();
+      window.location.href = checkoutUrl(body.plan, u.user?.email ?? undefined);
+      return true;
+    }
     toast.error("No se pudo abrir el pago", {
       description: data?.error || "Inténtalo de nuevo en un momento.",
     });

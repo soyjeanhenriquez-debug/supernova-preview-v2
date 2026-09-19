@@ -1,5 +1,5 @@
 // Master keyword rotation engine — called by pg_cron every hour
-// Picks N least-recently-run keywords from master_keyword_state, calls search-winning-ads, updates stats.
+// Picks N least-recently-run keywords from master_keyword_state, calls bulk-seed-ads (Meta Ad Library API), updates stats.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 // eslint-disable @typescript-eslint/no-explicit-any
@@ -36,6 +36,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const BATCH_SIZE = 5; // keywords per hourly run
+// Mercados del público de SUPERNOVA primero. 5 palabras × 6 países = 30 llamadas/hora a Meta.
+const ROTATE_COUNTRIES = ["ES", "MX", "CO", "AR", "BR", "US"];
 
 // Master DR keyword library — mirror of src/lib/dr-keywords.ts (server-side copy)
 const MASTER: Record<string, string[]> = {
@@ -124,15 +126,24 @@ serve(async (req) => {
   let scrapeOk = false;
   let scrapeErr: string | null = null;
   try {
-    const resp = await fetch(`${SUPABASE_URL}/functions/v1/search-winning-ads`, {
+    // Anuncios REALES de la Biblioteca de Meta (API gratuita, con fecha de inicio). Antes se
+    // llamaba a search-winning-ads: una búsqueda web de pago que guardaba páginas sueltas de
+    // facebook.com como si fueran anuncios; desde julio no entraba ni un anuncio real.
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/bulk-seed-ads`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_ROLE}` },
-      body: JSON.stringify({ keywords }),
+      body: JSON.stringify({ keywords, countries: ROTATE_COUNTRIES, limit: 50, max_jobs: keywords.length * ROTATE_COUNTRIES.length }),
     });
     scrapeOk = resp.ok;
     if (!resp.ok) scrapeErr = `scraper ${resp.status}: ${await resp.text()}`;
   } catch (e: unknown) {
     scrapeErr = e.message;
+  }
+
+  // Lo recién guardado entra con una nota provisional: se re-puntúa ya con la fórmula real.
+  if (scrapeOk) {
+    const { error: scoreErr } = await admin.rpc("score_unscored_ads");
+    if (scoreErr) console.error("score_unscored_ads:", scoreErr.message);
   }
 
   // compute deltas & update per-keyword stats

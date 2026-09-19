@@ -226,6 +226,30 @@ Deno.serve(async (req) => {
     if (script.length > 4000) return json(400, { error: "El guion es demasiado largo." });
     if (!ID_RE.test(avatarId) || !ID_RE.test(voiceId)) return json(400, { error: "Falta elegir el avatar o la voz." });
 
+    // Los avatares y voces PRIVADOS de la cuenta son la cara y la voz clonada del dueño:
+    // solo un admin genera con ellos. No basta con no listarlos: el id se puede mandar a
+    // mano. Si HeyGen no deja comprobarlo, se rechaza (falla cerrado) y no se cobra nada.
+    if (heygenKey) {
+      const { data: adminRole } = await admin.from("user_roles").select("role").eq("user_id", gate.userId).eq("role", "admin").maybeSingle();
+      if (!adminRole) {
+        const ids = async (path: string, key: string): Promise<Set<string> | null> => {
+          try {
+            const r = await heygen(path, heygenKey, {}, 12000);
+            if (!r.ok) return null;
+            const b = await r.json().catch(() => null);
+            return new Set<string>((Array.isArray(b?.data) ? b.data : []).map((x: Record<string, unknown>) => String(x[key] ?? "")));
+          } catch { return null; }
+        };
+        const [groups, voices] = await Promise.all([ids("/v3/avatars?ownership=private&limit=50", "id"), ids("/v3/voices?type=private&limit=100", "voice_id")]);
+        if (!groups || !voices) return json(503, { error: "No pudimos validar el avatar. Intenta de nuevo en un momento." });
+        const looks = await Promise.all([...groups].filter(Boolean).map((g) => ids(`/v3/avatars/looks?ownership=private&group_id=${encodeURIComponent(g)}&limit=100`, "id")));
+        if (looks.some((l) => l === null)) return json(503, { error: "No pudimos validar el avatar. Intenta de nuevo en un momento." });
+        if (groups.has(avatarId) || looks.some((l) => l!.has(avatarId)) || voices.has(voiceId)) {
+          return json(403, { error: "Ese avatar o esa voz no están disponibles. Recarga la página y elige otro." });
+        }
+      }
+    }
+
     // Antes de cobrar: ¿existe el avatar y con qué motor se puede generar?
     let engine: string | null = null;
     if (heygenKey) {

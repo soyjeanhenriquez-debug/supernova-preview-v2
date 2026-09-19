@@ -100,7 +100,7 @@ serve(async (req) => {
                   page_id: extractAdvertiser(item.url || ""),
                   page_name: extractAdvertiser(item.url || ""),
                   ad_title: item.title || "Sin título",
-                  ad_description: body,
+                  ad_description: null, // era una copia exacta de ad_body
                   ad_body: body,
                   ad_url: item.url || "",
                   platform: platforms[0] === "facebook" ? "Meta" : "Web",

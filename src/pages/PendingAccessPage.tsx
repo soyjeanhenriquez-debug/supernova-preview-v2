@@ -37,7 +37,7 @@ export default function PendingAccessPage() {
           </div>
           <h1 className="font-display font-semibold text-2xl text-foreground mb-2">Activa tu membresía</h1>
           <p className="text-sm text-muted-foreground">
-            Tu cuenta está lista. Elige tu plan y empieza con <span className="text-foreground font-medium">7 días gratis</span>.
+            Tu cuenta está lista. Elige tu plan y entra hoy. <span className="text-foreground font-medium">Paga con este mismo correo</span>: tu acceso se activa solo en cuanto se confirma el pago.
           </p>
         </div>
 

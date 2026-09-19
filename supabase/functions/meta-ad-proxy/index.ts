@@ -49,6 +49,21 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Hasta aquí todo salió de la caché: dato público, se sirve a cualquiera.
+    // Un anuncio SIN caché cuesta un scrape de Firecrawl, y antes cualquiera
+    // pedía ?id=1…N y cada uno gastaba un crédito. Eso ahora solo se hace para
+    // un usuario real con acceso, y con tope de uso.
+    const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+    const { data: who } = token ? await admin.auth.getUser(token) : { data: null };
+    const userId = who?.user?.id;
+    if (!userId) return json({ success: false, id, reason: "auth_required" }, 401);
+    const { data: g, error: gErr } = await admin.rpc("edge_guard", {
+      p_user_id: userId, p_fn: "meta-ad-proxy", p_max_hour: 200, p_max_day: 1500,
+    });
+    if (gErr || g?.ok !== true) {
+      return json({ success: false, id, reason: g?.reason ?? "guard_error" }, g?.reason === "rate_limited" ? 429 : 403);
+    }
+
     const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
     if (!apiKey) return json({ error: "FIRECRAWL_API_KEY not configured" }, 500);
 
@@ -146,12 +161,15 @@ function unescapeUrl(u: string): string {
 }
 
 function json(body: unknown, status = 200) {
+  // Caché larga solo para un resultado bueno: un 401/429/fallo guardado un día
+  // en el navegador dejaría esa tarjeta sin preview aunque ya se pueda resolver.
+  const cacheable = status === 200 && (body as { success?: boolean } | null)?.success === true;
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       ...corsHeaders,
       "Content-Type": "application/json",
-      "Cache-Control": "public, max-age=86400",
+      "Cache-Control": cacheable ? "public, max-age=86400" : "no-store",
     },
   });
 }

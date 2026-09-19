@@ -17,6 +17,7 @@ import { AdMediaPreview } from "@/components/AdMediaPreview";
 import { TemperatureBlock } from "@/components/TemperatureBlock";
 import { HeatMap } from "@/components/HeatMap";
 import { getAutoSearchKeywords, TOTAL_DR_KEYWORDS } from "@/lib/dr-keywords";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 // Mapa estático → Tailwind necesita clases completas en el bundle
 const GRID_COLS_CLASS: Record<number, string> = {
@@ -73,7 +74,6 @@ const STATUS_OPTIONS: { value: "ACTIVE" | "INACTIVE" | "ALL"; label: string; dot
   { value: "ALL", label: "Todos", dot: "bg-muted-foreground" },
 ];
 
-const ADMIN_EMAIL = "soyjeanhenriquez@gmail.com";
 
 const TIERS: Record<Tier, { label: string; cls: string; icon: string }> = {
   mega:   { label: "MEGA WINNER",  cls: "tier-mega",  icon: "🏆" },
@@ -178,7 +178,11 @@ export function WinningAdsPage() {
   const elapsed = useElapsedMinutes();
   const { consume, canAfford } = useCredits();
   const { user } = useAuth();
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  // Rol real (tabla user_roles). Antes: un correo fijo en el bundle público y,
+  // más abajo, user_metadata.role, que el propio usuario puede editar. Es solo
+  // UX: el servidor ya exige admin en bulk-seed-ads.
+  const { isAdmin: isAdminRole } = useIsAdmin();
+  const isAdmin = isAdminRole === true;
 
   const [market, setMarket] = useState<string>(() => {
     const saved = localStorage.getItem("supernova_market");
@@ -1033,7 +1037,6 @@ export function WinningAdsPage() {
       {/* Ofertas escalando */}
       <div>
         {(() => {
-          const isAdmin = user?.email === "demo@supernova.test" || (user?.user_metadata as { role?: string } | undefined)?.role === "admin";
           return (
             <>
               <div className="flex items-end justify-between mb-3 flex-wrap gap-2">

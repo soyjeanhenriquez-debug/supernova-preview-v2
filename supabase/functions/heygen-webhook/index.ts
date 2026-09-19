@@ -32,18 +32,37 @@ Deno.serve(async (req) => {
   const videoId = (eventData.video_id ?? payload.video_id) as string | undefined;
   const eventType = String(payload.event_type ?? "");
   const explicitStatus = String(eventData.status ?? "");
-  const videoUrl = (eventData.url ?? eventData.video_url ?? null) as string | null;
+  const rawVideoUrl = eventData.url ?? eventData.video_url ?? null;
 
-  if (!videoId) {
+  if (!videoId || typeof videoId !== "string" || !/^[A-Za-z0-9_-]{8,80}$/.test(videoId)) {
     return new Response(JSON.stringify({ ok: true, skipped: "no video_id" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
+  // El webhook no viene firmado: la URL del video se muestra en la app, así que
+  // solo se acepta si es https y de un dominio de HeyGen. Cualquier otra cosa
+  // (un enlace puesto por un tercero que conozca el video_id) se descarta.
+  let videoUrl: string | null = null;
+  if (typeof rawVideoUrl === "string" && rawVideoUrl.length <= 2000) {
+    try {
+      const u = new URL(rawVideoUrl);
+      if (u.protocol === "https:" && /(^|\.)heygen\.(ai|com)$/i.test(u.hostname)) videoUrl = u.toString();
+      else console.error("heygen-webhook: URL de video rechazada (dominio no permitido):", u.hostname);
+    } catch { /* URL inválida → se ignora */ }
+  }
+
   const failed = eventType.includes("fail") || explicitStatus === "failed";
   const status = failed ? "failed" : (videoUrl ? "completed" : "processing");
 
-  const { error } = await admin.from("media_generation_jobs")
+  // Solo se avanza, nunca se retrocede: un evento sin URL no borra un video ya
+  // terminado, y un "failed" tardío (o falso) no pisa un job completado.
+  if (status === "processing") {
+    return new Response(JSON.stringify({ ok: true, video_id: videoId, status, skipped: "sin cambios" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  let update = admin.from("media_generation_jobs")
     .update({
       status,
       video_url: videoUrl,
@@ -51,6 +70,8 @@ Deno.serve(async (req) => {
       updated_at: new Date().toISOString(),
     })
     .eq("heygen_video_id", videoId);
+  if (failed) update = update.neq("status", "completed");
+  const { error } = await update;
 
   if (error) {
     console.error("Error actualizando job:", error);

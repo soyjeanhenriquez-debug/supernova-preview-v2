@@ -73,14 +73,33 @@ Deno.serve(async (req) => {
       }
     };
 
-    // 2) Buscar el customer de Stripe por el email verificado
-    const custRes = await stripeFetch(`/v1/customers?email=${encodeURIComponent(email)}&limit=3`);
-    if (!custRes.ok) {
-      const detail = (await custRes.text()).slice(0, 300);
-      return json({ error: `Error consultando Stripe (${custRes.status})`, detail }, 502);
+    // 2) Customer de Stripe. Primero el que NUESTRO webhook ató a este usuario
+    //    (subscriptions.user_id → stripe_customer_id): no depende del correo.
+    //    La búsqueda por correo queda de respaldo (compras por Payment Link sin
+    //    user_id) y SOLO con el correo confirmado: sin eso, registrarse con el
+    //    correo de otra persona abriría SU portal de facturación.
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: own } = await admin.from("subscriptions")
+      .select("stripe_customer_id").eq("user_id", user.id).not("stripe_customer_id", "is", null)
+      .order("updated_at", { ascending: false }).limit(1).maybeSingle();
+
+    let customers: Array<{ id: string }> = [];
+    if (own?.stripe_customer_id) {
+      customers = [{ id: own.stripe_customer_id as string }];
+    } else {
+      if (!user.email_confirmed_at) {
+        return json({ found: false, note: "Confirma tu correo para vincular tu suscripción" });
+      }
+      const custRes = await stripeFetch(`/v1/customers?email=${encodeURIComponent(email)}&limit=3`);
+      if (!custRes.ok) {
+        console.error("stripe customers error:", custRes.status, (await custRes.text()).slice(0, 300));
+        return json({ error: `Error consultando Stripe (${custRes.status})` }, 502);
+      }
+      const custData = await custRes.json();
+      customers = (custData?.data ?? []) as Array<{ id: string }>;
     }
-    const custData = await custRes.json();
-    const customers = (custData?.data ?? []) as Array<{ id: string }>;
     if (customers.length === 0) {
       return json({ found: false, note: "Sin customer de Stripe para este correo" });
     }

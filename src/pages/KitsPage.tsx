@@ -12,7 +12,7 @@ import { NICHE_LABEL, MARKET_GROUP, flagFor, MARKET_NAME } from "@/lib/offers";
  * Cada kit nace de una oferta REAL que está pagando anuncios ahora mismo
  * (no de una idea): blueprint, mega-prompt para construir la mini app,
  * guiones de venta, anuncios, landing, hooks y precios por país.
- * "2 nuevos cada mes" es automático (generate-kit por cron los días 1 y 15).
+ * "2 nuevos cada semana" es automático (generate-kit por cron, lunes y jueves).
  * Ver el catálogo es gratis; desbloquear un kit cobra créditos server-side.
  */
 
@@ -88,7 +88,7 @@ export function KitsPage({ onNavigate }: { onNavigate?: (page: string) => void }
             <ShieldCheck className="w-3.5 h-3.5" /> Licencia comercial incluida
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 bg-secondary/60 text-foreground border border-border font-semibold">
-            <CalendarClock className="w-3.5 h-3.5 text-primary" /> 2 nuevos cada mes
+            <CalendarClock className="w-3.5 h-3.5 text-primary" /> 2 nuevos cada semana
           </span>
         </div>
       </div>

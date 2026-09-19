@@ -3,6 +3,7 @@
 // No requiere API oficial de TikTok.
 
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
 
 interface ScrapedAd {
   advertiserName?: string;
@@ -14,10 +15,38 @@ interface ScrapedAd {
   impressionsRange?: string;
 }
 
+// ── Compuerta de usuario ────────────────────────────────────────────────
+// verify_jwt del gateway NO basta: la llave pública (anon) que viaja en el
+// bundle de la web también es un JWT válido, y con ella cualquiera llamaba a
+// esta función sin cuenta y sin gastar créditos. Aquí se exige un USUARIO real
+// con acceso vigente y se aplica un tope de uso por usuario (RPC edge_guard).
+async function requireUser(req: Request, fn: string, maxHour: number, maxDay: number): Promise<{ userId: string } | Response> {
+  const deny = (status: number, error: string) =>
+    new Response(JSON.stringify({ error }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (!token) return deny(401, "Inicia sesión para usar esta función.");
+  const guard = createGuardClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data } = await guard.auth.getUser(token);
+  const userId = data?.user?.id;
+  if (!userId) return deny(401, "Sesión inválida o expirada. Vuelve a iniciar sesión.");
+  const { data: g, error } = await guard.rpc("edge_guard", { p_user_id: userId, p_fn: fn, p_max_hour: maxHour, p_max_day: maxDay });
+  if (error) return deny(503, "No se pudo verificar el acceso. Intenta de nuevo.");
+  if (g?.ok !== true) {
+    return g?.reason === "rate_limited"
+      ? deny(429, "Alcanzaste el límite de uso de esta función. Intenta más tarde.")
+      : deny(403, "Tu cuenta no tiene acceso activo.");
+  }
+  return { userId };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+  const gate = await requireUser(req, "tiktok-search", 30, 200);
+  if (gate instanceof Response) return gate;
 
   try {
     const apiKey = Deno.env.get("FIRECRAWL_API_KEY");

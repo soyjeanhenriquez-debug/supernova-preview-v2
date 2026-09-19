@@ -1,4 +1,9 @@
-# Propuesta: pipeline de datos del Radar (pendiente de aprobar)
+# Pipeline de datos del Radar — APROBADO por Jean y aplicado el 2026-09-19
+
+> Estado: puntos 2, 3 y 5 aplicados (puntuación solo donde cambia, rotación horaria contra la API de Meta,
+> relleno borrado, texto sin duplicar y con tope de 5 000 caracteres, compactación programada).
+> Pendientes: punto 1 (plan Pro, lo hace Jean), 4 (días hasta "última vez visto", tras una vuelta completa
+> de la rotación) y 6 (idioma real del anuncio).
 
 Salió de la prueba de usuario del 19-sep-2026. **Nada de esto está aplicado**: son cambios
 sobre datos y tareas automáticas de producción, así que esperan el visto bueno de Jean.

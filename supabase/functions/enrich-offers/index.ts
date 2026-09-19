@@ -98,8 +98,9 @@ Deno.serve(async (req) => {
     ({ markets, lang } = GROUPS[GROUP_ORDER[new Date().getUTCHours() % GROUP_ORDER.length]]);
   }
 
-  const summary: { group_markets: string[]; lang: string | null; model?: string; batches_done: number; enriched: number; failed: number; note: string } =
-    { group_markets: markets, lang, batches_done: 0, enriched: 0, failed: 0, note: "" };
+  // prompt/completion/total_tokens: uso REAL reportado por la API → costo medible
+  const summary: { group_markets: string[]; lang: string | null; model?: string; batches_done: number; enriched: number; failed: number; prompt_tokens: number; completion_tokens: number; total_tokens: number; note: string } =
+    { group_markets: markets, lang, batches_done: 0, enriched: 0, failed: 0, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, note: "" };
 
   const pending = async (mk: string[] | null, langFilter: "match" | "other" | "any", exclude: string[]): Promise<Row[]> => {
     let q = admin
@@ -165,7 +166,12 @@ ${JSON.stringify(items)}`;
       // Cadena de modelos: cada uno tiene cuota propia y Google retira
       // modelos (404 "no longer available"); ante 404/429/5xx se pasa al
       // siguiente. Solo si TODOS fallan se corta la corrida.
-      const MODELS_TRY = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3-flash-preview"];
+      // LITE PRIMERO: el saldo prepago de Gemini es compartido con las acciones
+      // de los usuarios (si llega a 0, toda la IA de la app se detiene). Los lite
+      // ya probaron calidad suficiente para fichar ofertas y cuestan ~2.5-3x menos
+      // (3.1-flash-lite $0.25/$1.50 por 1M vs 3.8-flash $0.75/$3.75; medido:
+      // ~$0.0044 por lote de 20, sin tokens de razonamiento facturados aparte).
+      const MODELS_TRY = ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash", "gemini-3-flash-preview"];
       let aiRes: Response | null = null;
       let lastStatus = 0;
       for (let attempt = 0; attempt < MODELS_TRY.length && !aiRes; attempt++) {
@@ -206,6 +212,9 @@ ${JSON.stringify(items)}`;
         break;
       }
       const aiData = await aiRes.json();
+      summary.prompt_tokens += Number(aiData?.usage?.prompt_tokens) || 0;
+      summary.completion_tokens += Number(aiData?.usage?.completion_tokens) || 0;
+      summary.total_tokens += Number(aiData?.usage?.total_tokens) || 0;
       const content: string = aiData?.choices?.[0]?.message?.content ?? "[]";
 
       // Parseo defensivo: objeto {"items":[...]} (o array, por si el modelo

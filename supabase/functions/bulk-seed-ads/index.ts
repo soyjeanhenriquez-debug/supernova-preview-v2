@@ -160,17 +160,19 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const token = Deno.env.get("FACEBOOK_ACCESS_TOKEN");
-    if (!token) {
-      return new Response(JSON.stringify({ error: "Missing FACEBOOK_ACCESS_TOKEN" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    // El token vigente vive en Vault (lo renueva fb-token-keeper); el secreto es la semilla.
+    const { data: vaultToken } = await supabase.rpc("get_fb_token");
+    const token = (typeof vaultToken === "string" && vaultToken.length > 20 ? vaultToken : null) ?? Deno.env.get("FACEBOOK_ACCESS_TOKEN");
+    if (!token) {
+      return new Response(JSON.stringify({ error: "Falta el token de Meta" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const keywords: string[] = Array.isArray(body.keywords) && body.keywords.length

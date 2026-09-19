@@ -183,7 +183,9 @@ async function resolveSnapshot(admin: Admin, adId: string): Promise<Snapshot | n
 
   // Camino gratis: la vista oficial del anuncio (render_ad) con NUESTRO token de
   // Meta. El token solo viaja a facebook.com y nunca se guarda ni se devuelve.
-  const fbToken = Deno.env.get("FACEBOOK_ACCESS_TOKEN");
+  // El token vigente vive en Vault (lo renueva fb-token-keeper); el secreto es la semilla.
+  const { data: vaultToken } = await admin.rpc("get_fb_token");
+  const fbToken = (typeof vaultToken === "string" && vaultToken.length > 20 ? vaultToken : null) ?? Deno.env.get("FACEBOOK_ACCESS_TOKEN");
   if (fbToken) {
     const ctrlFb = new AbortController();
     const timerFb = setTimeout(() => ctrlFb.abort(), 12_000);

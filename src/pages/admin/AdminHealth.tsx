@@ -1,12 +1,56 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle2, XCircle, HeartPulse } from "lucide-react";
+import { fnHeaders } from "@/lib/fnAuth";
+import { CheckCircle2, XCircle, HeartPulse, RefreshCw, Loader2 } from "lucide-react";
 
 interface Check { name: string; ok: boolean; detail: string }
+
+// Estado del token de Meta (RPC fb_token_status): nunca trae el token, solo metadatos.
+interface FbTokenStatus {
+  configured?: boolean; is_valid?: boolean | null; works?: boolean | null; token_type?: string | null;
+  expires_at?: string | null; days_left?: number | null; renewed_at?: string | null; checked_at?: string | null; last_error?: string | null;
+}
+
+function fbTokenCheck(st: FbTokenStatus): Check {
+  const name = "Token de Meta (búsqueda en vivo)";
+  if (!st.configured) return { name, ok: false, detail: "Aún no se ha revisado. Pulsa «Revisar y renovar»." };
+  if (!st.works) return { name, ok: false, detail: st.last_error ? `No funciona: ${st.last_error}` : "No funciona. Genera un token nuevo y pégalo en FACEBOOK_ACCESS_TOKEN." };
+  const left = st.days_left;
+  const when = left == null ? "no caduca" : `le quedan ${left} días`;
+  const auto = st.last_error ? ` · ${st.last_error}` : " · se renueva solo";
+  return { name, ok: left == null || left > 10, detail: `Funciona, ${when}${auto}` };
+}
 
 export default function AdminHealth() {
   const [checks, setChecks] = useState<Check[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fbCheck, setFbCheck] = useState<Check | null>(null);
+  const [renewing, setRenewing] = useState(false);
+
+  const loadFbToken = useCallback(async () => {
+    const { data } = await supabase.rpc("fb_token_status");
+    setFbCheck(fbTokenCheck((data ?? {}) as FbTokenStatus));
+  }, []);
+  useEffect(() => { loadFbToken(); }, [loadFbToken]);
+
+  // Pide al servidor que revise el token y lo canjee por uno de 60 días.
+  const renewFbToken = async () => {
+    setRenewing(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fb-token-keeper`, {
+        method: "POST", headers: await fnHeaders(), body: JSON.stringify({ action: "renew" }),
+      });
+      const out = (await res.json().catch(() => ({}))) as { works?: boolean; renewed?: boolean; days_left?: number | null; error?: string | null; todo?: string };
+      if (out.works) toast.success(out.renewed ? `Token renovado: ${out.days_left ?? "—"} días` : "El token funciona", { description: out.error ?? out.todo ?? undefined });
+      else toast.error("El token de Meta no funciona", { description: out.todo ?? out.error ?? "Genera uno nuevo y pégalo en los secretos." });
+    } catch {
+      toast.error("No se pudo contactar al servidor");
+    } finally {
+      await loadFbToken();
+      setRenewing(false);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -93,7 +137,7 @@ export default function AdminHealth() {
         <div className="text-sm text-muted-foreground">Ejecutando diagnóstico…</div>
       ) : (
         <div className="grid sm:grid-cols-2 gap-3">
-          {checks.map(c => (
+          {(fbCheck ? [...checks, fbCheck] : checks).map(c => (
             <div key={c.name} className={`rounded-xl border p-4 ${c.ok ? "border-emerald-500/30 bg-emerald-500/5" : "border-destructive/30 bg-destructive/5"}`}>
               <div className="flex items-center gap-2">
                 {c.ok
@@ -102,6 +146,12 @@ export default function AdminHealth() {
                 <div className="font-medium text-[14px]">{c.name}</div>
               </div>
               <div className="text-[12px] text-muted-foreground mt-1.5 ml-7">{c.detail}</div>
+              {c === fbCheck && (
+                <button onClick={renewFbToken} disabled={renewing}
+                  className="ml-7 mt-2.5 text-[12px] font-semibold text-primary inline-flex items-center gap-1.5 disabled:opacity-60">
+                  {renewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Revisar y renovar
+                </button>
+              )}
             </div>
           ))}
         </div>

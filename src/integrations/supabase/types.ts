@@ -1765,6 +1765,7 @@ export type Database = {
       is_email_approved: { Args: { p_email: string }; Returns: boolean }
       is_suspended: { Args: never; Returns: boolean }
       touch_last_access: { Args: never; Returns: undefined }
+      fb_token_status: { Args: never; Returns: Json }
       unsubscribe_digest: { Args: { p_token: string }; Returns: boolean }
       log_action: {
         Args: {

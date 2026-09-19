@@ -29,6 +29,19 @@ async function requireUser(req: Request, fn: string, maxHour: number, maxDay: nu
   return { userId };
 }
 
+// El token vigente vive en Vault: lo renueva fb-token-keeper antes de que venza.
+// El secreto FACEBOOK_ACCESS_TOKEN es solo la semilla (y el respaldo).
+async function currentFbToken(): Promise<string | null> {
+  try {
+    const c = createGuardClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data } = await c.rpc("get_fb_token");
+    if (typeof data === "string" && data.length > 20) return data;
+  } catch { /* cae a la semilla */ }
+  return Deno.env.get("FACEBOOK_ACCESS_TOKEN") ?? null;
+}
+
 // La búsqueda en vivo depende de Meta. Cuando Meta falla (token vencido, caída)
 // el usuario no tiene nada que arreglar: se le dice claro y se le da una salida.
 function unavailable(code: string): Response {
@@ -44,7 +57,7 @@ Deno.serve(async (req) => {
   if (gate instanceof Response) return gate;
 
   try {
-    const token = Deno.env.get("FACEBOOK_ACCESS_TOKEN");
+    const token = await currentFbToken();
     if (!token) {
       console.error("facebook-ads: falta el token de Meta en los secretos");
       return unavailable("fb_not_configured");

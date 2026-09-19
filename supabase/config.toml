@@ -44,3 +44,7 @@ verify_jwt = false
 # Compuerta propia dentro del código: usuario con acceso + tope, o secreto de cron.
 [functions.offer-intel]
 verify_jwt = false
+
+# Renueva el token de Meta (lo llama pg_cron a diario). Compuerta propia: secreto de cron o admin.
+[functions.fb-token-keeper]
+verify_jwt = false

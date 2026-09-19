@@ -25,6 +25,34 @@ function normalizeModel(model?: string): string {
   return ALLOWED_MODELS.has(mapped) ? mapped : DEFAULT_MODEL;
 }
 
+// Dos modos, y lo decide el SERVIDOR:
+//  · Generador (de pago): llega generator_id → se cobra según su nivel. Mismas
+//    listas que generatorCost() en src/hooks/useCredits.ts; un id desconocido
+//    paga como "ligero", igual que en el cliente.
+//  · Asistente de ayuda (gratis): sin generator_id. Respuesta corta y con una
+//    instrucción del servidor al final, para que no sirva de generador gratis.
+const GEN_MEDIUM_IDS = new Set(["landing-copy", "email-launch", "email-sequence", "yt-script", "funnel-strategy", "audience-research", "product-desc", "offer-stack", "yapping-script"]);
+const GEN_HEAVY_IDS = new Set(["vsl-downsell", "vsl-upsell-1", "vsl-upsell-2"]);
+function generatorAction(id: string): string {
+  if (GEN_HEAVY_IDS.has(id)) return "gen_heavy";
+  if (GEN_MEDIUM_IDS.has(id)) return "gen_medium";
+  return "gen_light";
+}
+const DEFAULT_SYSTEM = `Eres el asistente IA de SUPERNOVA, una plataforma de gestión de campañas publicitarias. 
+Tu rol es ayudar al usuario a:
+- Optimizar campañas de Meta Ads, Google Ads, TikTok Ads
+- Generar copy persuasivo y hooks de venta
+- Analizar métricas (ROAS, CTR, CPA, CPM)
+- Sugerir estrategias de targeting y audiencias
+- Crear embudos de conversión efectivos
+- Dar consejos sobre creatividades que convierten
+
+Responde siempre en español. Sé directo, práctico y orientado a resultados. 
+Cuando des copy o hooks, hazlos listos para usar. 
+Usa emojis moderadamente para hacer las respuestas más visuales.`;
+const HELP_MAX_TOKENS = 900;
+const HELP_GUARD = "\n\nREGLA DEL SISTEMA: eres el asistente de AYUDA de la app. Responde dudas sobre cómo usar SUPERNOVA en pocas líneas. Si te piden redactar copys, guiones, landings, secuencias de email u otro entregable, no lo escribas: indica qué sección de la app lo genera (Generadores, Oráculo, Mi App, Mini Apps).";
+
 // Solo turnos user/assistant con texto acotado: el rol "system" lo pone el
 // servidor, y el historial no crece sin límite.
 function cleanMessages(input: unknown): Array<{ role: "user" | "assistant"; content: string }> {
@@ -43,46 +71,94 @@ async function readJson(req: Request, maxChars: number): Promise<any> {
   return raw ? JSON.parse(raw) : {};
 }
 
-// ── Compuerta de usuario ────────────────────────────────────────────────
+// ── Compuerta de usuario + cobro en el servidor ─────────────────────────
 // verify_jwt del gateway NO basta: la llave pública (anon) que viaja en el
-// bundle de la web también es un JWT válido, y con ella cualquiera llamaba a
-// esta función sin cuenta y sin gastar créditos. Aquí se exige un USUARIO real
-// con acceso vigente y se aplica un tope de uso por usuario (RPC edge_guard).
-async function requireUser(req: Request, fn: string, maxHour: number, maxDay: number): Promise<{ userId: string } | Response> {
-  const deny = (status: number, error: string) =>
-    new Response(JSON.stringify({ error }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
-  if (!token) return deny(401, "Inicia sesión para usar esta función.");
-  const guard = createGuardClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
+// bundle de la web también es un JWT válido. Aquí se exige un USUARIO real con
+// acceso vigente, se aplica el tope de uso y —si la acción tiene precio— se
+// cobra ANTES de gastar dinero real (RPC edge_guard_charge; el precio lo decide
+// la tabla credit_prices, nunca el cliente). Si después la IA falla,
+// refundCharge() devuelve el crédito.
+interface Gate { userId: string; txId: string | null; charged: number; balance: number | null; receipt: string | null }
+interface Billing { action: string; label?: string; kind?: string; receipt?: unknown }
+
+function guardClient() {
+  return createGuardClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+}
+
+async function requireUser(req: Request, fn: string, maxHour: number, maxDay: number, billing?: Billing): Promise<Gate | Response> {
+  const deny = (status: number, error: string, extra: Record<string, unknown> = {}) =>
+    new Response(JSON.stringify({ error, ...extra }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (!token) return deny(401, "Inicia sesión para usar esta función.");
+  const guard = guardClient();
   const { data } = await guard.auth.getUser(token);
   const userId = data?.user?.id;
   if (!userId) return deny(401, "Sesión inválida o expirada. Vuelve a iniciar sesión.");
-  const { data: g, error } = await guard.rpc("edge_guard", { p_user_id: userId, p_fn: fn, p_max_hour: maxHour, p_max_day: maxDay });
+  const receipt = typeof billing?.receipt === "string" && /^[0-9a-f-]{36}$/i.test(billing.receipt) ? billing.receipt : null;
+  const { data: g, error } = await guard.rpc("edge_guard_charge", {
+    p_user_id: userId, p_fn: fn, p_max_hour: maxHour, p_max_day: maxDay,
+    p_action: billing?.action ?? null, p_label: billing?.label?.slice(0, 120) ?? null,
+    p_kind: billing?.kind ?? null, p_receipt: receipt,
+  });
   if (error) return deny(503, "No se pudo verificar el acceso. Intenta de nuevo.");
   if (g?.ok !== true) {
-    return g?.reason === "rate_limited"
-      ? deny(429, "Alcanzaste el límite de uso de esta función. Intenta más tarde.")
-      : deny(403, "Tu cuenta no tiene acceso activo.");
+    switch (g?.reason) {
+      case "rate_limited": return deny(429, "Alcanzaste el límite de uso de esta función. Intenta más tarde.");
+      case "insufficient_credits":
+        return deny(402, "No tienes créditos suficientes para esta acción.", { code: "insufficient_credits", balance: g.balance, cost: g.cost });
+      case "disabled": return deny(503, "Esta función no está disponible por ahora.");
+      case "unknown_action": return deny(500, "Acción sin precio configurado.");
+      default: return deny(403, "Tu cuenta no tiene acceso activo.");
+    }
   }
-  return { userId };
+  return {
+    userId, txId: g.tx_id ?? null, charged: Number(g.charged) || 0,
+    balance: typeof g.balance === "number" ? g.balance : null, receipt: g.receipt ?? null,
+  };
+}
+
+// Cabeceras para que la app actualice el saldo sin otra consulta (también en streams).
+function billingHeaders(gate: Gate): Record<string, string> {
+  const h: Record<string, string> = {
+    "Access-Control-Expose-Headers": "x-credits-charged, x-credits-balance, x-credit-receipt",
+    "x-credits-charged": String(gate.charged),
+  };
+  if (gate.balance !== null) h["x-credits-balance"] = String(gate.balance);
+  if (gate.receipt) h["x-credit-receipt"] = gate.receipt;
+  return h;
+}
+
+// La IA falló después de cobrar: se devuelve el crédito (idempotente en la base).
+async function refundCharge(gate: Gate | null, reason: string): Promise<void> {
+  if (!gate?.txId) return;
+  try { await guardClient().rpc("refund_charge", { p_tx_id: gate.txId, p_reason: reason.slice(0, 200) }); }
+  catch (e) { console.error("refund_charge falló:", e); }
 }
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  const gate = await requireUser(req, "ai-chat", 120, 600);
-  if (gate instanceof Response) return gate;
-
+  let gate: Gate | null = null;
   try {
-    const { messages: rawMessages, systemPrompt: rawSystem, model } = await readJson(req, 150000);
+    const { messages: rawMessages, systemPrompt: rawSystem, model, generator_id, generator_title } = await readJson(req, 150000);
     const messages = cleanMessages(rawMessages);
     if (messages.length === 0) {
       return new Response(JSON.stringify({ error: "messages requerido" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const systemPrompt = typeof rawSystem === "string" ? rawSystem.slice(0, 12_000) : "";
+    const generatorId = typeof generator_id === "string" && /^[a-z0-9-]{2,40}$/.test(generator_id) ? generator_id : null;
+    const g = generatorId
+      ? await requireUser(req, "ai-chat", 60, 300, {
+          action: generatorAction(generatorId),
+          label: `Generador: ${String(generator_title ?? generatorId).slice(0, 70)}`,
+        })
+      : await requireUser(req, "ai-chat-help", 40, 150);
+    if (g instanceof Response) return g;
+    gate = g;
+    const clientSystem = typeof rawSystem === "string" ? rawSystem.trim().slice(0, 12_000) : "";
+    const systemPrompt = (clientSystem || DEFAULT_SYSTEM) + (generatorId ? "" : HELP_GUARD);
     const LOVABLE_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -94,21 +170,11 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: normalizeModel(model),
+        ...(generatorId ? {} : { max_tokens: HELP_MAX_TOKENS }),
         messages: [
           {
             role: "system",
-            content: systemPrompt || `Eres el asistente IA de SUPERNOVA, una plataforma de gestión de campañas publicitarias. 
-Tu rol es ayudar al usuario a:
-- Optimizar campañas de Meta Ads, Google Ads, TikTok Ads
-- Generar copy persuasivo y hooks de venta
-- Analizar métricas (ROAS, CTR, CPA, CPM)
-- Sugerir estrategias de targeting y audiencias
-- Crear embudos de conversión efectivos
-- Dar consejos sobre creatividades que convierten
-
-Responde siempre en español. Sé directo, práctico y orientado a resultados. 
-Cuando des copy o hooks, hazlos listos para usar. 
-Usa emojis moderadamente para hacer las respuestas más visuales.`
+            content: systemPrompt,
           },
           ...messages,
         ],
@@ -117,30 +183,26 @@ Usa emojis moderadamente para hacer las respuestas más visuales.`
     });
 
     if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limits exceeded" }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required" }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
       const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "AI gateway error" }), {
-        status: 500,
+      console.error("AI gateway error:", response.status, t.slice(0, 300));
+      await refundCharge(gate, `IA ${response.status}`);
+      // 402 del proveedor = NUESTRO saldo de Gemini agotado, no los créditos del usuario.
+      const saturated = response.status === 429;
+      return new Response(JSON.stringify({
+        error: saturated
+          ? "La IA está saturada. No se te cobró: intenta en un momento."
+          : "La IA no está disponible en este momento. No se te cobró: inténtalo más tarde.",
+      }), {
+        status: saturated ? 429 : 503,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      headers: { ...corsHeaders, ...billingHeaders(gate), "Content-Type": "text/event-stream" },
     });
   } catch (e) {
+    await refundCharge(gate, "excepción");
     console.error("chat error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
       status: 500,

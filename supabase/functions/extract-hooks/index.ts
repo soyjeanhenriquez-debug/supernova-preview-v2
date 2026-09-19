@@ -3,8 +3,9 @@
 //
 // La prueba de calidad no son views: es que el anunciante siguió PAGANDO
 // (days_active × duplicate_count). Corre por cron diario o invocación manual
-// (mismo patrón que master-rotate: verify_jwt false, solo escribe contenido
-// derivado con service_role — no toca datos de usuarios).
+// de un admin. verify_jwt false (la invoca pg_cron) + compuerta interna:
+// secreto de cron o admin con sesión. Solo escribe contenido derivado con
+// service_role — no toca datos de usuarios.
 //
 // Idempotente: dedup_hash = sha256(page_id + inicio del body). Reinvocar
 // procesa solo candidatos nuevos.
@@ -12,6 +13,29 @@
 // jsr:@std/crypto hacía fallar el boot del worker en Supabase.)
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+
+// ── Compuerta interna ───────────────────────────────────────────────────
+// Esta función corre sin JWT porque la invoca pg_cron. Solo pasa quien trae el
+// secreto de cron (vive en Vault y se compara DENTRO de la base: aquí nunca se
+// conoce) o un admin con sesión. Sin esto, cualquiera con la URL la ejecutaba.
+// deno-lint-ignore no-explicit-any
+async function authorizeInternal(req: Request, admin: any): Promise<boolean> {
+  const secret = req.headers.get("x-cron-secret");
+  if (secret) {
+    const { data } = await admin.rpc("verify_cron_secret", { p_secret: secret });
+    if (data === true) return true;
+  }
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (token) {
+    const { data } = await admin.auth.getUser(token);
+    const uid = data?.user?.id;
+    if (uid) {
+      const { data: role } = await admin.from("user_roles").select("role").eq("user_id", uid).eq("role", "admin").maybeSingle();
+      if (role) return true;
+    }
+  }
+  return false;
+}
 
 const BATCH_SIZE = 40;      // ads por invocación → 1 sola llamada a Gemini
 const MIN_BODY_LEN = 40;
@@ -48,6 +72,9 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
+  if (!(await authorizeInternal(req, admin))) {
+    return new Response(JSON.stringify({ error: "No autorizado" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
 
   try {
     // 1) Candidatos: top ads por score. Se trae un colchón (x5) porque la

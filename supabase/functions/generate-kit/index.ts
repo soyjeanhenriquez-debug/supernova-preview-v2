@@ -1,20 +1,50 @@
 // SUPERNOVA — Mini Apps Rentables: genera un KIT completo (negocio digital
 // listo para copiar y cobrar) a partir de una oferta real que está pagando
-// anuncios ahora mismo. Es la versión automatizada de "2 nuevos Mini SaaS
-// cada mes": corre por cron los días 1 y 15, o a mano para sembrar.
+// anuncios ahora mismo. Es la versión automatizada de "2 mini apps nuevas
+// cada semana": corre por cron lunes y jueves (un kit por corrida), o la
+// lanza un admin para sembrar.
+//
+// Nunca repetidas: no reutiliza una oferta NI un anunciante que ya tenga kit
+// (el mismo anunciante en otro país es el mismo producto). Fuente preferida:
+// las ganadoras curadas (offers.is_winner) — prueba real de ≥30 días y ≥3
+// anuncios, solo tipos digitales. Si se agotan, cae al catálogo copiable.
 //
 // Contenido privado (se desbloquea con créditos vía unlock_kit): blueprint,
 // mega-prompt para construir la mini app, guion WhatsApp, guion VSL, 3 anuncios,
 // copy de landing, 5 hooks y precios sugeridos por país.
 //
-// Patrón extract-hooks: verify_jwt false (cron), escribe con service_role.
+// verify_jwt false (la invoca pg_cron) + compuerta interna: secreto de cron o
+// admin con sesión. Escribe con service_role.
 // Body opcional: { count?: 1-3, offer_id?: string, niche?: string, group?: "ES"|"BR"|"US"|"RU" }
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
+
+// ── Compuerta interna ───────────────────────────────────────────────────
+// Esta función corre sin JWT porque la invoca pg_cron. Solo pasa quien trae el
+// secreto de cron (vive en Vault y se compara DENTRO de la base: aquí nunca se
+// conoce) o un admin con sesión. Sin esto, cualquiera con la URL la ejecutaba.
+// deno-lint-ignore no-explicit-any
+async function authorizeInternal(req: Request, admin: any): Promise<boolean> {
+  const secret = req.headers.get("x-cron-secret");
+  if (secret) {
+    const { data } = await admin.rpc("verify_cron_secret", { p_secret: secret });
+    if (data === true) return true;
+  }
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (token) {
+    const { data } = await admin.auth.getUser(token);
+    const uid = data?.user?.id;
+    if (uid) {
+      const { data: role } = await admin.from("user_roles").select("role").eq("user_id", uid).eq("role", "admin").maybeSingle();
+      if (role) return true;
+    }
+  }
+  return false;
+}
 
 const LANG_TO_GROUP: Record<string, string> = { es: "ES", pt: "BR", en: "US", ru: "RU" };
 // De mejor a peor; los lite al final: tienen cuota propia más amplia en el
@@ -29,7 +59,7 @@ const EMOJI_BY_NICHE: Record<string, string> = {
 };
 
 interface OfferRow {
-  id: string; page_name: string | null; market: string; product_name: string | null; niche: string | null;
+  id: string; page_id: string | null; page_name: string | null; market: string; product_name: string | null; niche: string | null;
   offer_type: string | null; business_model: string | null; language: string | null; price_hint: string | null;
   mechanism: string | null; why_wins: string | null; target_audience: string | null; copy_score: number | null;
   sample_title: string | null; sample_body: string | null; days_active: number; active_ads: number; winner_score: number;
@@ -48,17 +78,29 @@ Deno.serve(async (req) => {
   const apiKey = Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) return json({ error: "Missing GEMINI_API_KEY" }, 500);
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  if (!(await authorizeInternal(req, admin))) return json({ error: "No autorizado" }, 401);
 
   const body = (await req.json().catch(() => ({}))) as { count?: number; offer_id?: string; niche?: string; group?: string };
   const count = Math.min(3, Math.max(1, Number(body.count) || 1));
   const results: Array<{ kit_id?: string; title?: string; offer_id?: string; error?: string }> = [];
 
   try {
-    // Nichos y ofertas ya usados → variedad (el kit nuevo prefiere un nicho sin kit)
-    const { data: existing } = await admin.from("mini_app_kits").select("offer_id, niche");
+    // Ofertas, anunciantes, nichos y mercados ya usados → nunca repetir y variar
+    // (el kit nuevo prefiere un nicho sin kit y, a igualdad, un mercado con menos).
+    const { data: existing } = await admin.from("mini_app_kits").select("offer_id, niche, market_group");
     const usedOffers = new Set((existing ?? []).map((k) => k.offer_id).filter(Boolean) as string[]);
+    const usedPages = new Set<string>();
+    if (usedOffers.size > 0) {
+      const { data: src } = await admin.from("offers").select("page_id").in("id", [...usedOffers]);
+      for (const o of src ?? []) if (o.page_id) usedPages.add(o.page_id as string);
+    }
     const nicheCount = new Map<string, number>();
-    for (const k of existing ?? []) if (k.niche) nicheCount.set(k.niche, (nicheCount.get(k.niche) ?? 0) + 1);
+    const groupCount = new Map<string, number>();
+    for (const k of existing ?? []) {
+      if (k.niche) nicheCount.set(k.niche, (nicheCount.get(k.niche) ?? 0) + 1);
+      if (k.market_group) groupCount.set(k.market_group, (groupCount.get(k.market_group) ?? 0) + 1);
+    }
+    const groupOf = (o: OfferRow) => LANG_TO_GROUP[o.language ?? ""] ?? "ES";
 
     for (let n = 0; n < count; n++) {
       // 1) Oferta fuente: la más copiable no usada (copy_score 5, luego 4)
@@ -71,27 +113,34 @@ Deno.serve(async (req) => {
         if (excluded) { results.push({ offer_id: body.offer_id, error: `Oferta excluida (${excluded}): no se genera kit` }); break; }
         offer = data as OfferRow | null;
       } else {
-        let q = admin.from("offers").select("*")
-          .not("enriched_at", "is", null).eq("enrich_failed", false)
-          // Nunca un kit desde una oferta excluida (contenido adulto / apps de
-          // dramas): los kits son lo que se vende, sería la peor fuga posible.
-          .is("excluded_reason", null)
-          .gte("copy_score", 4)
-          .in("offer_type", ["infoproducto", "saas_app", "servicio", "comunidad"])
-          .in("language", ["es", "pt", "en", "ru"])
-          .not("sample_body", "is", null)
-          .order("copy_score", { ascending: false }).order("winner_score", { ascending: false }).order("active_ads", { ascending: false })
-          .limit(60);
-        if (body.niche) q = q.eq("niche", body.niche);
-        if (body.group) {
-          const lang = Object.entries(LANG_TO_GROUP).find(([, g]) => g === body.group!.toUpperCase())?.[0];
-          if (lang) q = q.eq("language", lang);
-        }
-        const { data } = await q;
-        const candidates = ((data ?? []) as OfferRow[]).filter((o) => !usedOffers.has(o.id));
-        // Variedad: nicho con menos kits primero, luego copiabilidad/score
+        const candidatesFrom = async (winnersOnly: boolean): Promise<OfferRow[]> => {
+          let q = admin.from("offers").select("*")
+            .not("enriched_at", "is", null).eq("enrich_failed", false)
+            // Nunca un kit desde una oferta excluida (contenido adulto / apps de
+            // dramas): los kits son lo que se vende, sería la peor fuga posible.
+            .is("excluded_reason", null)
+            .gte("copy_score", 4)
+            // Solo tipos digitales (misma regla que las ganadoras del catálogo).
+            .in("offer_type", ["infoproducto", "saas_app", "comunidad"])
+            .in("language", ["es", "pt", "en", "ru"])
+            .not("sample_body", "is", null)
+            .order("copy_score", { ascending: false }).order("winner_score", { ascending: false }).order("active_ads", { ascending: false })
+            .limit(200);
+          if (winnersOnly) q = q.eq("is_winner", true);
+          if (body.niche) q = q.eq("niche", body.niche);
+          if (body.group) {
+            const lang = Object.entries(LANG_TO_GROUP).find(([, g]) => g === body.group!.toUpperCase())?.[0];
+            if (lang) q = q.eq("language", lang);
+          }
+          const { data } = await q;
+          return ((data ?? []) as OfferRow[]).filter((o) => !usedOffers.has(o.id) && !(o.page_id && usedPages.has(o.page_id)));
+        };
+        let candidates = await candidatesFrom(true);
+        if (candidates.length === 0) candidates = await candidatesFrom(false);
+        // Variedad: nicho con menos kits, luego mercado con menos kits, luego copiabilidad/score
         candidates.sort((a, b) =>
           (nicheCount.get(a.niche ?? "otro") ?? 0) - (nicheCount.get(b.niche ?? "otro") ?? 0)
+          || (groupCount.get(groupOf(a)) ?? 0) - (groupCount.get(groupOf(b)) ?? 0)
           || (b.copy_score ?? 0) - (a.copy_score ?? 0) || b.winner_score - a.winner_score);
         offer = candidates[0] ?? null;
       }
@@ -214,7 +263,9 @@ Todo en español (excepto nombres propios). Sé específico al nicho y al mecani
       if (insErr) { results.push({ offer_id: offer.id, error: insErr.message }); continue; }
 
       usedOffers.add(offer.id);
+      if (offer.page_id) usedPages.add(offer.page_id);
       nicheCount.set(offer.niche ?? "otro", (nicheCount.get(offer.niche ?? "otro") ?? 0) + 1);
+      groupCount.set(groupOf(offer), (groupCount.get(groupOf(offer)) ?? 0) + 1);
       results.push({ kit_id: inserted.id, title, offer_id: offer.id });
     }
 

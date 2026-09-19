@@ -6,8 +6,31 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
+
+// ── Compuerta interna ───────────────────────────────────────────────────
+// Esta función corre sin JWT porque la invoca pg_cron. Solo pasa quien trae el
+// secreto de cron (vive en Vault y se compara DENTRO de la base: aquí nunca se
+// conoce) o un admin con sesión. Sin esto, cualquiera con la URL la ejecutaba.
+// deno-lint-ignore no-explicit-any
+async function authorizeInternal(req: Request, admin: any): Promise<boolean> {
+  const secret = req.headers.get("x-cron-secret");
+  if (secret) {
+    const { data } = await admin.rpc("verify_cron_secret", { p_secret: secret });
+    if (data === true) return true;
+  }
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (token) {
+    const { data } = await admin.auth.getUser(token);
+    const uid = data?.user?.id;
+    if (uid) {
+      const { data: role } = await admin.from("user_roles").select("role").eq("user_id", uid).eq("role", "admin").maybeSingle();
+      if (role) return true;
+    }
+  }
+  return false;
+}
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -54,6 +77,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+  if (!(await authorizeInternal(req, admin))) {
+    return new Response(JSON.stringify({ error: "No autorizado" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
   let body: unknown = {};
   try { body = await req.json(); } catch (e) { console.error("JSON parse error:", e); }
   const batchSize = Math.min(20, Math.max(1, Number(body.batch_size) || BATCH_SIZE));

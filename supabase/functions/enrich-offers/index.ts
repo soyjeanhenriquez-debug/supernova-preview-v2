@@ -11,16 +11,40 @@
 // del grupo: el top por score de cada país lo dominan anunciantes globales
 // en inglés, y gastar la IA ahí no sirve para los picks del grupo.
 //
-// Mismo patrón que extract-hooks: verify_jwt false (cron), solo escribe
-// contenido derivado con service_role. Idempotente: procesa solo pendientes.
+// verify_jwt false (la invoca pg_cron) + compuerta interna: secreto de cron o
+// admin con sesión. Solo escribe contenido derivado con service_role.
+// Idempotente: procesa solo pendientes.
 // Body opcional: { batches?: 1-4 (default 2), group?: "ES"|"BR"|"US"|"RU", markets?: string[] }
 // Lotes cortos a propósito: 4×25 por invocación excedía el CPU del worker.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
+
+// ── Compuerta interna ───────────────────────────────────────────────────
+// Esta función corre sin JWT porque la invoca pg_cron. Solo pasa quien trae el
+// secreto de cron (vive en Vault y se compara DENTRO de la base: aquí nunca se
+// conoce) o un admin con sesión. Sin esto, cualquiera con la URL la ejecutaba.
+// deno-lint-ignore no-explicit-any
+async function authorizeInternal(req: Request, admin: any): Promise<boolean> {
+  const secret = req.headers.get("x-cron-secret");
+  if (secret) {
+    const { data } = await admin.rpc("verify_cron_secret", { p_secret: secret });
+    if (data === true) return true;
+  }
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (token) {
+    const { data } = await admin.auth.getUser(token);
+    const uid = data?.user?.id;
+    if (uid) {
+      const { data: role } = await admin.from("user_roles").select("role").eq("user_id", uid).eq("role", "admin").maybeSingle();
+      if (role) return true;
+    }
+  }
+  return false;
+}
 
 const BATCH_SIZE = 20;
 const MAX_BATCHES = 4;
@@ -72,6 +96,7 @@ Deno.serve(async (req) => {
   if (!apiKey) return json({ error: "Missing GEMINI_API_KEY" }, 500);
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  if (!(await authorizeInternal(req, admin))) return json({ error: "No autorizado" }, 401);
 
   const body = (await req.json().catch(() => ({}))) as { batches?: number; group?: string; markets?: string[]; diag?: boolean };
 

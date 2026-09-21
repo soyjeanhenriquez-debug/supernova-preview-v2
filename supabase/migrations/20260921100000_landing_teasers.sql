@@ -40,7 +40,7 @@ AS $$
     ) d ORDER BY h LIMIT 3
   ),
   scan AS (
-    SELECT * FROM shuffled WHERE id NOT IN (SELECT id FROM deck) ORDER BY h DESC LIMIT 7
+    SELECT * FROM shuffled WHERE id NOT IN (SELECT id FROM deck) ORDER BY h DESC LIMIT 12
   )
   SELECT jsonb_build_object(
     'date', current_date,
@@ -49,7 +49,8 @@ AS $$
         'index', round(winner_index)::int, 'ads', active_ads, 'days', days_active,
         'why', left(why_wins, 220), 'type', offer_type, 'model', business_model) ORDER BY h), '[]'::jsonb) FROM deck),
     'scan', (SELECT coalesce(jsonb_agg(jsonb_build_object(
-        'name', left(product_name, 40), 'market', market, 'days', days_active) ORDER BY h DESC), '[]'::jsonb) FROM scan),
+        'name', left(product_name, 40), 'market', market, 'days', days_active,
+        'ads', active_ads, 'niche', niche) ORDER BY h DESC), '[]'::jsonb) FROM scan),
     'stats', (SELECT jsonb_build_object(
         'offers', count(*), 'ads', coalesce(sum(active_ads), 0),
         'markets', count(DISTINCT market), 'niches', count(DISTINCT niche))
@@ -59,3 +60,5 @@ $$;
 
 REVOKE ALL ON FUNCTION public.landing_teasers() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.landing_teasers() TO anon, authenticated, service_role;
+
+-- 2026-09-21: scan amplió a 12 filas y sumó ads/niche (ticker de actividad real, ver 20260921140000).

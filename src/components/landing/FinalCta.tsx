@@ -12,7 +12,7 @@ export function FinalCta() {
           <span className="italic text-[#C5A880]">empieza esta semana.</span>
         </h2>
         <p className="mx-auto mt-8 max-w-md font-[Inter,sans-serif] text-sm font-light leading-relaxed text-[#86868B]">
-          $29/mes · 3 días gratis · Cobra en tu moneda desde el día 1. Sin contrato.
+          $29,99/mes · 3 días gratis · Cobra en tu moneda desde el día 1. Sin contrato.
         </p>
         <div className="mt-12">
           <LuxButton to="/signup">Empezar mi negocio recurrente</LuxButton>

@@ -2,9 +2,9 @@
 export const PLANS = {
   pro: {
     name: "SUPERNOVA PRO",
-    price: 29,
+    price: 29.99,
     period: "/mes",
-    checkout: "https://whop.com/checkout/plan_aOgrR07rPdFgp",
+    checkout: "https://whop.com/checkout/plan_ukBjctlEKufto",
     tagline: "El radar completo",
     features: ["Radar de ofertas 24/7", "Tiers MEGA · RISING · SOLID", "2000 créditos/mes", "Generadores de copy"],
   },

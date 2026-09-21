@@ -61,7 +61,7 @@ export function Hero() {
             transition={{ duration: 1, delay: 0.55, ease }}
             className="mt-12 flex flex-col items-center gap-4 sm:flex-row lg:justify-start"
           >
-            <LuxButton to="/signup">Entrar gratis 3 días · $29/mes</LuxButton>
+            <LuxButton to="/signup">Entrar gratis 3 días · $29,99/mes</LuxButton>
             <LuxButton to="/auth" variant="ghost">
               Ver cómo funciona
             </LuxButton>

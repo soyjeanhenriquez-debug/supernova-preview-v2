@@ -3,17 +3,23 @@ import { supabase } from "@/integrations/supabase/client";
 
 type State = "working" | "done" | "invalid";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
- * Baja del correo diario, a un clic y sin iniciar sesión: el enlace del correo
- * trae un token aleatorio por usuario (notification_prefs.unsub_token).
+ * Baja a un clic y sin iniciar sesión. Dos orígenes, cada uno con su token y su RPC:
+ * ?t=  → correo diario del ganador del día (notification_prefs.unsub_token)
+ * ?tl= → correo del popup de salida de /fundador/ (landing_leads.unsub_token)
  */
 export default function UnsubscribePage() {
   const [state, setState] = useState<State>("working");
 
   useEffect(() => {
-    const token = new URLSearchParams(window.location.search).get("t") ?? "";
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token)) { setState("invalid"); return; }
-    supabase.rpc("unsubscribe_digest", { p_token: token })
+    const params = new URLSearchParams(window.location.search);
+    const digestToken = params.get("t") ?? "";
+    const leadToken = params.get("tl") ?? "";
+    const [token, rpc] = leadToken ? [leadToken, "unsubscribe_lead"] : [digestToken, "unsubscribe_digest"];
+    if (!UUID_RE.test(token)) { setState("invalid"); return; }
+    supabase.rpc(rpc, { p_token: token })
       .then(({ data, error }) => setState(!error && data === true ? "done" : "invalid"));
   }, []);
 

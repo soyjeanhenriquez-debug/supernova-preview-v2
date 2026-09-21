@@ -48,3 +48,7 @@ verify_jwt = false
 # Renueva el token de Meta (lo llama pg_cron a diario). Compuerta propia: secreto de cron o admin.
 [functions.fb-token-keeper]
 verify_jwt = false
+
+# Correo con las 3 ofertas del popup de salida de /fundador/ (lo llama pg_cron cada 15 min).
+[functions.landing-lead-welcome]
+verify_jwt = false

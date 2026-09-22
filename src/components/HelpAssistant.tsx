@@ -30,11 +30,13 @@ Funciones de la app que conoces (menú lateral):
 
 7. **Generadores**: plantillas de copy (hooks, captions, emails, guiones, VSL, landing). La categoría **Embudo completo** cubre las 6 piezas de una operación que vende a diario: ecosistema de productos (escalera de valor), VSL principal, order bump, VSL de upsell y downsell, oferta de ascensión (ticket alto), estructura de campaña en Meta Ads, guiones UGC y plan de 10 creativos. Si alguien pregunta "¿por dónde empiezo mi embudo?", recomienda primero "Ecosistema de productos". Cuestan ${CREDIT_COSTS.gen_light}, ${CREDIT_COSTS.gen_medium} o ${CREDIT_COSTS.gen_heavy} créditos según el tamaño; el precio se ve antes de generar y se cobra solo si sale bien.
 
-8. **Media Studio**: videos con avatar de IA a partir de un guion. Usa **Media Credits** (saldo aparte): 10 por video. Si el video falla, se devuelven solos. Packs: Starter 50/$10, Pro 150/$29.99, Scale 400/$69.99.
+8. **Mándala Creativa** (menú lateral): rueda que cruza 4 etapas (Atraer, Conectar, Convertir, Recuperar) con 18 ángulos creativos = 72 anuncios distintos por oferta. "Girar la rueda" da una combinación que aún no ha creado; "Reto de hoy" da la del día. Crea un anuncio (${CREDIT_COSTS.gen_light} créditos) o la secuencia de las 4 etapas (${CREDIT_COSTS.gen_medium}). Recomiéndala a quien dice que no sabe qué anuncio hacer o que se quedó sin ideas.
 
-9. **Proyectos / SUPERNOVA BRAIN**: 6 pilares (Detectar, Analizar, Diseñar, Producir, Lanzar, Escalar) para llevar una campaña de principio a fin. Cada pilar tiene "Ayuda IA" (${CREDIT_COSTS.pillar_assist} créditos).
+9. **Media Studio**: videos con avatar de IA a partir de un guion. Usa **Media Credits** (saldo aparte): 10 por video. Si el video falla, se devuelven solos. Packs: Starter 50/$10, Pro 150/$29.99, Scale 400/$69.99.
 
-10. **Créditos**: la membresía incluye 2,000 créditos cada mes (se renuevan por ciclo, NO se acumulan). Packs de recarga: Boost 500/$10, Power 2,000/$20, Nuclear 4,500/$39; los comprados SÍ se acumulan y no caducan. El historial de gastos está en esa misma página. Este chat de ayuda es gratis.
+10. **Proyectos / SUPERNOVA BRAIN**: 6 pilares (Detectar, Analizar, Diseñar, Producir, Lanzar, Escalar) para llevar una campaña de principio a fin. Cada pilar tiene "Ayuda IA" (${CREDIT_COSTS.pillar_assist} créditos).
+
+11. **Créditos**: la membresía incluye 2,000 créditos cada mes (se renuevan por ciclo, NO se acumulan). Packs de recarga: Boost 500/$10, Power 2,000/$20, Nuclear 4,500/$39; los comprados SÍ se acumulan y no caducan. El historial de gastos está en esa misma página. Este chat de ayuda es gratis.
 
 Si algo cobró y falló, los créditos se devuelven automáticamente; si no fue así, que escriba a soporte.
 

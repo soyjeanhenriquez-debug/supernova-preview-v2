@@ -3,10 +3,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { PLANS, type PlanKey } from "@/lib/plans";
 import { startCheckout } from "@/lib/stripe";
 import { LogOut, Mail, Loader2, Sparkles } from "lucide-react";
+import { PlanFeatures } from "@/components/PlanFeatures";
 
 // El usuario ya tiene cuenta pero no membresía activa: este es el punto de
-// activación. Cobro principal: Stripe (checkout con su correo del JWT, 7 días
-// de trial). "Comunidad" sigue siendo externo (Skool).
+// activación. Cobro: Stripe si está configurado; si no, Whop con el correo y el código
+// FUNDADOR ya puestos (checkoutUrl). "Comunidad" sigue siendo externo (Skool).
 export default function PendingAccessPage() {
   const { user, signOut } = useAuth();
   const [starting, setStarting] = useState<string | null>(null);
@@ -68,7 +69,8 @@ export default function PendingAccessPage() {
                     ${p.price}<span className="text-xs text-muted-foreground font-normal">{p.period}</span>
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">{p.tagline} · {p.features.slice(0, 3).join(" · ")}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{p.tagline}</p>
+                <PlanFeatures plan={key} />
                 {starting === key && (
                   <p className="mt-2 text-xs text-primary flex items-center gap-1.5">
                     <Loader2 className="w-3 h-3 animate-spin" /> Abriendo pago seguro…
@@ -91,6 +93,7 @@ export default function PendingAccessPage() {
               </span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">{PLANS.comunidad.tagline}</p>
+            <PlanFeatures plan="comunidad" />
           </a>
         </div>
 

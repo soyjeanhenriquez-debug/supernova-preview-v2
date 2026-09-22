@@ -1786,6 +1786,16 @@ export type Database = {
       touch_last_access: { Args: never; Returns: undefined }
       fb_token_status: { Args: never; Returns: Json }
       unsubscribe_digest: { Args: { p_token: string }; Returns: boolean }
+      log_client_error: {
+        Args: {
+          p_path: string
+          p_message: string
+          p_stack?: string | null
+          p_component?: string | null
+          p_user_agent?: string | null
+        }
+        Returns: undefined
+      }
       log_action: {
         Args: {
           p_action: string

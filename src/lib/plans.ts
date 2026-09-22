@@ -28,6 +28,17 @@ export const PLANS = {
 
 export type PlanKey = keyof typeof PLANS;
 
+/**
+ * Separa "Todo lo de PRO" (lo que el plan hereda) de lo que añade. Feedback del primer
+ * usuario real: en los planes 2 y 3 quiere ver primero, resaltado, que incluye el plan
+ * anterior, y después solo lo nuevo — no una lista plana donde todo pesa igual.
+ */
+export function planFeatureParts(plan: PlanKey): { inherits: string | null; extras: string[] } {
+  const f = PLANS[plan].features as readonly string[];
+  if (f.length && /^todo lo de/i.test(f[0])) return { inherits: f[0], extras: f.slice(1) };
+  return { inherits: null, extras: [...f] };
+}
+
 // Cupón de fundador: vive en Whop (plan STARTER solamente), primer mes a $19,99. Caduca
 // con la campaña — quitar esta línea (o vaciar FOUNDER_PROMO) cuando Jean cierre el cupón.
 const FOUNDER_PROMO: Partial<Record<PlanKey, string>> = { pro: "FUNDADOR" };

@@ -53,10 +53,14 @@ function AppRoutes() {
   }
 
   if (!user) {
+    // Un enlace de correo caducado vuelve a "/" con el error en la URL. Antes caía en la
+    // landing sin explicación (el primer usuario real pensó que la app estaba rota): ahora
+    // va al login, que explica qué pasó y deja entrar con contraseña.
+    const authLinkError = /error_code=|error=access_denied/.test(window.location.hash + window.location.search);
     return (
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={authLinkError ? <AuthPage /> : <LandingPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="*" element={<AuthPage />} />
         </Routes>

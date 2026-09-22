@@ -39,6 +39,17 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: ErrorInfo) {
     if (isChunkLoadError(error) && reloadOnceForNewVersion()) return;
     console.error("[SUPERNOVA] error de interfaz:", error, info.componentStack);
+    // Que el error llegue a nosotros y no solo a la consola del usuario. Solo la ruta:
+    // la query y el hash pueden llevar tokens de sesión o de recuperación.
+    void import("@/integrations/supabase/client").then(({ supabase }) =>
+      supabase.rpc("log_client_error", {
+        p_path: window.location.pathname,
+        p_message: `${error?.name ?? "Error"}: ${error?.message ?? String(error)}`,
+        p_stack: error?.stack ?? null,
+        p_component: info.componentStack ?? null,
+        p_user_agent: navigator.userAgent,
+      }),
+    ).catch(() => {});
   }
 
   componentDidUpdate(prev: Props) {

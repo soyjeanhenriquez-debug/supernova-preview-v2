@@ -6,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PLANS, checkoutUrl, type PlanKey } from "@/lib/plans";
 import { Turnstile } from "@/components/Turnstile";
+import { PlanFeatures } from "@/components/PlanFeatures";
+import { authErrorMessage } from "./AuthPage";
 
 const CAPTCHA_ENABLED = Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY);
 
@@ -85,6 +87,18 @@ export default function SignupPage() {
   const [done, setDone] = useState<"session" | "confirm" | null>(null);
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaResetKey, setCaptchaResetKey] = useState(0);
+  // Whop devuelve aquí al comprador tras pagar (?checkout_status=success&receipt_id=...).
+  // Antes la página le volvía a pedir "Elige tu nivel" como si no hubiera pagado — el
+  // primer usuario real pagó y se encontró con los planes otra vez. Se recuerda en la
+  // sesión para que no se pierda al avanzar por los pasos.
+  const [paid] = useState(() => {
+    const q = new URLSearchParams(window.location.search);
+    const fromCheckout = q.get("checkout_status") === "success" || q.has("receipt_id");
+    try {
+      if (fromCheckout) sessionStorage.setItem("sn_paid", "1");
+      return fromCheckout || sessionStorage.getItem("sn_paid") === "1";
+    } catch { return fromCheckout; }
+  });
 
   const startQuiz = (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,16 +132,25 @@ export default function SignupPage() {
     });
     setLoading(false);
 
-    if (error) {
-      toast.error(error.message === "User already registered"
-        ? "Ese email ya tiene cuenta. Inicia sesión."
-        : error.message);
+    // Supabase no da error si el correo ya existe y está confirmado: devuelve un usuario
+    // sin identidades. Hay que detectarlo o la persona espera un correo que nunca llega.
+    const alreadyRegistered = !error && data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0;
+    if (error || alreadyRegistered) {
+      toast.error(
+        alreadyRegistered || error?.message === "User already registered"
+          ? "Ese correo ya tiene cuenta. Entra con tu correo y tu contraseña."
+          : authErrorMessage(error),
+        { duration: 9000 },
+      );
       setCaptchaToken("");
       setCaptchaResetKey((k) => k + 1);
+      if (alreadyRegistered) { window.location.href = "/auth"; return; }
       setStep(0);
       return;
     }
 
+    // Con sesión (confirmación de correo desactivada) y ya pagado: directo a la app.
+    if (data.session && paid) { window.location.href = "/"; return; }
     setDone(data.session ? "session" : "confirm");
     setStep(QUESTIONS.length + 1);
   };
@@ -160,8 +183,13 @@ export default function SignupPage() {
           {/* Paso 0: datos */}
           {step === 0 && (
             <motion.div key="datos" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.5 }}>
+              {paid && (
+                <div className="mb-6 rounded-lg border border-[#22c55e]/40 bg-[#22c55e]/10 px-4 py-3 font-[Inter,sans-serif] text-sm leading-relaxed text-[#F5F5F7]">
+                  ✅ <b>Pago recibido.</b> Ahora crea tu cuenta con el <b>mismo correo</b> que usaste al pagar: así tu acceso se activa solo.
+                </div>
+              )}
               <p className="mb-5 font-[Inter,sans-serif] text-[10px] uppercase tracking-[0.35em] text-[#C5A880]">
-                — Cuenta gratis
+                {paid ? "— Último paso" : "— Cuenta gratis"}
               </p>
               <h1 className="font-['Playfair_Display',serif] text-4xl font-medium leading-[1.1] sm:text-5xl">
                 Tu negocio recurrente
@@ -235,8 +263,34 @@ export default function SignupPage() {
             </motion.div>
           )}
 
-          {/* Paso final: escalera de planes */}
-          {step === QUESTIONS.length + 1 && (
+          {/* Paso final (ya pagó): nada de volver a elegir plan, solo cómo entrar */}
+          {step === QUESTIONS.length + 1 && paid && (
+            <motion.div key="final-paid" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+              <p className="mb-5 text-center font-[Inter,sans-serif] text-[10px] uppercase tracking-[0.35em] text-[#22c55e]">
+                — Pago recibido · cuenta creada
+              </p>
+              <h1 className="text-center font-['Playfair_Display',serif] text-4xl font-medium leading-[1.1]">
+                Ya casi estás dentro.
+              </h1>
+              <div className="mt-8 space-y-4 rounded-xl border border-[#ffffff15] bg-[#141416] p-5 font-[Inter,sans-serif] text-sm leading-relaxed text-[#d4d4d8]">
+                <p><b className="text-[#F5F5F7]">1.</b> Abre el correo de confirmación que te mandamos a <b className="text-[#F5F5F7]">{email}</b>. Si no está en la bandeja, mira en Spam o Promociones.</p>
+                <p><b className="text-[#F5F5F7]">2.</b> Usa <b className="text-[#F5F5F7]">solo el último</b> correo: si pides otro, el anterior deja de funcionar.</p>
+                <p><b className="text-[#F5F5F7]">3.</b> Después entra con tu correo y la contraseña que acabas de crear.</p>
+              </div>
+              <a
+                href="/auth"
+                className="mt-8 flex w-full items-center justify-center gap-2 border border-[#C5A880] bg-[#C5A880] px-8 py-4 font-[Inter,sans-serif] text-sm font-medium uppercase tracking-[0.14em] text-black transition-all duration-500 hover:bg-transparent hover:text-[#C5A880]"
+              >
+                Ya confirmé · entrar <ArrowRight className="h-4 w-4" />
+              </a>
+              <p className="mt-5 text-center font-[Inter,sans-serif] text-[11px] text-[#86868B]">
+                ¿No te llega en 5 minutos? Escríbenos y te activamos a mano: <a href="mailto:soyjeanhenriquez@gmail.com" className="text-[#C5A880] hover:underline">soyjeanhenriquez@gmail.com</a>
+              </p>
+            </motion.div>
+          )}
+
+          {/* Paso final (sin pagar): escalera de planes con checkout real */}
+          {step === QUESTIONS.length + 1 && !paid && (
             <motion.div key="final" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <p className="mb-5 text-center font-[Inter,sans-serif] text-[10px] uppercase tracking-[0.35em] text-[#C5A880]">
                 — Tu cuenta está creada
@@ -246,7 +300,7 @@ export default function SignupPage() {
               </h1>
               <p className="mx-auto mt-4 max-w-sm text-center font-[Inter,sans-serif] text-sm font-light leading-relaxed text-[#86868B]">
                 {done === "confirm"
-                  ? `Te enviamos un enlace de confirmación a ${email}.`
+                  ? `Paga con ${email} y confirma tu correo con el enlace que te mandamos (solo vale el último).`
                   : "Desbloquea el radar completo con 3 días gratis."}
               </p>
 
@@ -255,12 +309,11 @@ export default function SignupPage() {
                   const p = PLANS[key];
                   const featured = key === "proMax";
                   return (
-                    // Cobro principal Stripe: PRO/PRO MAX se activan dentro de
-                    // la cuenta (checkout con el correo del JWT, 7 días gratis).
-                    // Solo Comunidad sigue siendo checkout externo (Skool).
+                    // Antes PRO y PRO MAX llevaban a "/" (no cobraban nada). Ahora van al
+                    // checkout de Whop con el correo y el código de fundador ya puestos.
                     <a
                       key={key}
-                      href={key === "comunidad" ? checkoutUrl(key, email) : "/"}
+                      href={checkoutUrl(key, email.trim().toLowerCase())}
                       className={`block rounded-xl border p-5 transition-all duration-500 ${
                         featured
                           ? "border-[#C5A880]/60 bg-[#C5A880]/5 hover:bg-[#C5A880]/10"
@@ -281,9 +334,8 @@ export default function SignupPage() {
                           <span className="font-[Inter,sans-serif] text-xs text-[#86868B]">{p.period}</span>
                         </span>
                       </div>
-                      <p className="mt-1 font-[Inter,sans-serif] text-xs text-[#86868B]">
-                        {p.tagline} · {p.features.join(" · ")}
-                      </p>
+                      <p className="mt-1 font-[Inter,sans-serif] text-xs text-[#86868B]">{p.tagline}</p>
+                      <PlanFeatures plan={key} accent="text-[#C5A880]" />
                     </a>
                   );
                 })}
@@ -291,7 +343,7 @@ export default function SignupPage() {
 
               <div className="mt-8 text-center">
                 <Link
-                  to="/"
+                  to="/auth"
                   className="font-[Inter,sans-serif] text-xs text-[#86868B] underline-offset-4 transition-colors hover:text-[#C5A880] hover:underline"
                 >
                   {done === "confirm"
@@ -300,7 +352,7 @@ export default function SignupPage() {
                 </Link>
                 <p className="mt-5 flex items-center justify-center gap-1.5 font-[Inter,sans-serif] text-[11px] text-[#86868B]">
                   <Lock className="h-3 w-3" />
-                  7 días gratis en planes PRO · Pago seguro vía Whop · Cancela cuando quieras
+                  3 días gratis en planes PRO · Pago seguro vía Whop · Cancela cuando quieras
                 </p>
               </div>
             </motion.div>

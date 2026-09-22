@@ -5,19 +5,76 @@ import { toast } from "sonner";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Turnstile } from "@/components/Turnstile";
 
-type Step = "email" | "code" | "denied" | "requested";
+type Step = "password" | "email" | "code" | "denied" | "requested";
 
 const CAPTCHA_ENABLED = Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY);
 
+/**
+ * Errores de Supabase Auth en español y con lo que hay que HACER. El primer usuario real
+ * (22-sep) se quedó fuera por "email rate limit exceeded": el correo integrado de Supabase
+ * solo manda 2 correos por hora para todo el proyecto, y cada código nuevo anula el anterior.
+ */
+export function authErrorMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String((err as { message?: string })?.message ?? err ?? "");
+  if (/rate limit|over_email_send_rate_limit|429/i.test(raw))
+    return "El correo está saturado ahora mismo. Entra con tu correo y tu contraseña (no necesita correo), o prueba el código en una hora.";
+  if (/email not confirmed/i.test(raw))
+    return "Tu correo aún no está confirmado. Abre el ÚLTIMO correo que te llegó (cada correo nuevo anula el anterior) o escríbenos por WhatsApp y te activamos al momento.";
+  if (/invalid login credentials/i.test(raw))
+    return "Correo o contraseña incorrectos. Si no recuerdas la contraseña, entra con un código por correo.";
+  if (/token has expired|otp.*expired|invalid.*token|token.*invalid/i.test(raw))
+    return "Ese código ya no vale. Usa el del último correo que te llegó.";
+  if (/captcha/i.test(raw)) return "La verificación de seguridad caducó. Márcala de nuevo y vuelve a intentarlo.";
+  return raw || "Algo falló. Inténtalo de nuevo.";
+}
+
+/** Si venimos de un enlace de correo caducado, Supabase deja el error en el hash o la query. */
+function linkErrorNotice(): string | null {
+  const s = `${window.location.hash} ${window.location.search}`;
+  if (/error_code=otp_expired|link is invalid or has expired/i.test(decodeURIComponent(s.replace(/\+/g, " "))))
+    return "Ese enlace ya no vale: cada correo nuevo anula al anterior. No hace falta otro enlace: entra aquí con tu correo y tu contraseña.";
+  if (/error_code=/.test(s)) return "Ese enlace no funcionó. Entra aquí con tu correo y tu contraseña.";
+  return null;
+}
+
 export function AuthPage() {
-  const [step, setStep] = useState<Step>("email");
+  const [step, setStep] = useState<Step>("password");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [requestName, setRequestName] = useState("");
   const [requestMessage, setRequestMessage] = useState("");
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaResetKey, setCaptchaResetKey] = useState(0);
+  const [notice] = useState(linkErrorNotice);
+
+  const resetCaptcha = () => { setCaptchaToken(""); setCaptchaResetKey((k) => k + 1); };
+
+  // Entrar con contraseña: no manda ningún correo, así que no puede chocar con el límite.
+  const handlePasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const normalized = email.trim().toLowerCase();
+    if (!normalized || !password) return;
+    if (CAPTCHA_ENABLED && !captchaToken) { toast.error("Completa la verificación de seguridad"); return; }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: normalized,
+        password,
+        options: { captchaToken: CAPTCHA_ENABLED ? captchaToken : undefined },
+      });
+      if (error) throw error;
+      // Limpia el hash del enlace caducado, si lo había.
+      if (window.location.hash) window.history.replaceState({}, "", window.location.pathname);
+      toast.success("¡Bienvenido! 🚀");
+    } catch (err: unknown) {
+      toast.error(authErrorMessage(err), { duration: 8000 });
+      resetCaptcha();
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,13 +108,12 @@ export function AuthPage() {
         },
       });
       if (error) throw error;
-      toast.success("Código enviado. Revisa tu correo 📩");
+      toast.success("Código enviado. Revisa tu correo 📩 — usa solo el último que te llegue.");
       setEmail(normalized);
       setStep("code");
     } catch (err: unknown) {
-      toast.error(err.message || "No se pudo enviar el código");
-      setCaptchaToken("");
-      setCaptchaResetKey((k) => k + 1);
+      toast.error(authErrorMessage(err), { duration: 8000 });
+      resetCaptcha();
     } finally {
       setLoading(false);
     }
@@ -75,7 +131,7 @@ export function AuthPage() {
       if (error) throw error;
       toast.success("¡Acceso concedido! 🚀");
     } catch (err: unknown) {
-      toast.error(err.message || "Código inválido o expirado");
+      toast.error(authErrorMessage(err), { duration: 8000 });
     } finally {
       setLoading(false);
     }
@@ -94,7 +150,7 @@ export function AuthPage() {
       if (error && error.code !== "23505") throw error;
       setStep("requested");
     } catch (err: unknown) {
-      toast.error(err.message || "No se pudo enviar la solicitud");
+      toast.error(authErrorMessage(err) || "No se pudo enviar la solicitud");
     } finally {
       setLoading(false);
     }
@@ -120,11 +176,70 @@ export function AuthPage() {
         </div>
 
         <div className="card-surface rounded-2xl p-8 animate-fade-up delay-100" style={{ animationFillMode: "forwards" }}>
-          {step === "email" && (
+          {notice && (step === "password" || step === "email") && (
+            <div className="mb-5 rounded-lg border border-primary/30 bg-primary/10 px-3.5 py-3 text-xs leading-relaxed text-foreground">
+              {notice}
+            </div>
+          )}
+
+          {step === "password" && (
             <>
               <h2 className="font-display font-semibold text-xl text-foreground mb-1">Iniciar sesión</h2>
               <p className="text-sm text-muted-foreground mb-6">
-                Usa el email con el que te registraste en la comunidad.
+                Con el correo y la contraseña que pusiste al crear tu cuenta.
+              </p>
+
+              <form onSubmit={handlePasswordLogin} className="space-y-4">
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="email" autoComplete="email" placeholder="tu@email.com" value={email}
+                    onChange={(e) => setEmail(e.target.value)} required autoFocus
+                    className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                  />
+                </div>
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="password" autoComplete="current-password" placeholder="Tu contraseña" value={password}
+                    onChange={(e) => setPassword(e.target.value)} required
+                    className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                  />
+                </div>
+                {CAPTCHA_ENABLED && (
+                  <Turnstile onVerify={setCaptchaToken} resetKey={captchaResetKey} />
+                )}
+                <button
+                  type="submit" disabled={loading || (CAPTCHA_ENABLED && !captchaToken)}
+                  className="w-full gradient-brand text-primary-foreground py-3 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 glow-primary disabled:opacity-60"
+                >
+                  {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Entrando...</> : <><Sparkles className="w-4 h-4" /> Entrar</>}
+                </button>
+              </form>
+              <button
+                type="button"
+                onClick={() => { setStep("email"); resetCaptcha(); }}
+                className="mt-4 w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                ¿No tienes contraseña o la olvidaste? <span className="text-primary">Entra con un código por correo</span>
+              </button>
+              <p className="mt-3 text-center text-xs text-muted-foreground">
+                ¿Aún no tienes cuenta? <a href="/signup" className="text-primary hover:underline">Créala aquí</a>
+              </p>
+            </>
+          )}
+
+          {step === "email" && (
+            <>
+              <button
+                type="button" onClick={() => { setStep("password"); resetCaptcha(); }}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 mb-4"
+              >
+                <ArrowLeft className="w-3 h-3" /> Entrar con contraseña
+              </button>
+              <h2 className="font-display font-semibold text-xl text-foreground mb-1">Entrar con un código</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Te mandamos un código de 6 dígitos. Pídelo una sola vez: cada código nuevo anula el anterior.
               </p>
 
               <form onSubmit={handleSendCode} className="space-y-4">
@@ -239,7 +354,7 @@ export function AuthPage() {
                 Revisaremos y te contactaremos pronto.
               </p>
               <button
-                type="button" onClick={() => { setStep("email"); setEmail(""); setRequestName(""); setRequestMessage(""); }}
+                type="button" onClick={() => { setStep("password"); setEmail(""); setRequestName(""); setRequestMessage(""); }}
                 className="text-xs text-primary hover:underline"
               >
                 ← Volver al inicio

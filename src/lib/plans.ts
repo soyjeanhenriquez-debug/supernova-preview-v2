@@ -28,9 +28,23 @@ export const PLANS = {
 
 export type PlanKey = keyof typeof PLANS;
 
-/** Whop permite prellenar el email del comprador vía query param. */
+// Cupón de fundador: vive en Whop (plan STARTER solamente), primer mes a $19,99. Caduca
+// con la campaña — quitar esta línea (o vaciar FOUNDER_PROMO) cuando Jean cierre el cupón.
+const FOUNDER_PROMO: Partial<Record<PlanKey, string>> = { pro: "FUNDADOR" };
+
+/**
+ * Whop permite prellenar el checkout por URL: el correo del comprador y el código
+ * promocional. Sin `promoCode` la persona ve el precio normal y tiene que encontrar
+ * sola el botón "Código promocional y detalles" para escribirlo a mano — es la fricción
+ * que hacía que la gente llegara al checkout y no completara (visto en producción).
+ */
 export function checkoutUrl(plan: PlanKey, email?: string) {
   const base = PLANS[plan].checkout;
-  if (!email || !base.includes("whop.com")) return base;
-  return `${base}?email=${encodeURIComponent(email)}`;
+  if (!base.includes("whop.com")) return base;
+  const params = new URLSearchParams();
+  if (email) params.set("email", email);
+  const promo = FOUNDER_PROMO[plan];
+  if (promo) params.set("promoCode", promo);
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
 }

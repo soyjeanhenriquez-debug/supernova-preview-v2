@@ -32,7 +32,13 @@ const OCASIONES = ["Black Friday", "Navidad", "Día de Reyes", "San Valentín", 
 type Idea = { id: string; nombre: string; texto: string; para: string; precio: string };
 
 function prompt(cat: string, pub: string, oca: string, visto: string, previas: string[]) {
-  return `Eres un estratega de productos digitales para emprendedores de Latinoamérica que venden por WhatsApp. Conviertes lo que ya se vende en Etsy en productos que una persona puede crear esta semana, en español, y vender a su comunidad.
+  // La IA no sabe qué día es: sin esto propone "Agenda 2025" en septiembre de 2026.
+  const hoy = new Date();
+  const fecha = hoy.toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" });
+  const proximo = hoy.getMonth() >= 8 ? hoy.getFullYear() + 1 : hoy.getFullYear();
+  return `FECHA DE HOY: ${fecha}. Si un producto lleva año (agendas, calendarios, planificadores anuales), usa ${proximo}.
+
+Eres un estratega de productos digitales para emprendedores de Latinoamérica que venden por WhatsApp. Conviertes lo que ya se vende en Etsy en productos que una persona puede crear esta semana, en español, y vender a su comunidad.
 
 PATRONES OBSERVADOS EN LA VITRINA PÚBLICA DE ETSY:
 ${PATRONES_ETSY}
@@ -51,7 +57,7 @@ Entrega EXACTAMENTE 5 ideas, con este formato exacto para cada una:
 **Precio:** en USD, con su equivalente aproximado en pesos mexicanos y colombianos.
 **Venta por WhatsApp:** el texto para el estado de WhatsApp, la respuesta cuando alguien pregunta, cómo cobrar (enlace de pago o transferencia) y cómo entregar (PDF por WhatsApp o enlace de descarga).
 **Order bump:** un extra barato para ofrecer justo antes de cobrar.
-**Ojo:** el riesgo legal o práctico de esta idea.
+**Ojo:** el riesgo legal o práctico concreto de ESTA idea. No hables de garantías aquí.
 
 REGLAS:
 - Solo productos que se puedan hacer en menos de una semana, sin inventario o con muy poco.

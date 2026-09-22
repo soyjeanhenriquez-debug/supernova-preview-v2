@@ -412,7 +412,7 @@ export default function AdminMercado() {
       <div className="card-surface rounded-2xl p-5 text-sm text-muted-foreground space-y-2">
         <p className="font-semibold text-foreground">De dónde sale cada archivo</p>
         <p><b className="text-foreground">ClickBank:</b> dentro de tu cuenta, el feed diario del marketplace (XML). Solo se descarga con la sesión abierta.</p>
-        <p><b className="text-foreground">Awin (programa de afiliados de Etsy):</b> Toolbox → Create-a-Feed, elige categorías y descarga el CSV.</p>
+        <p><b className="text-foreground">Awin (programa de afiliados de Etsy):</b> Toolbox → Create-a-Feed, elige categorías y descarga el CSV. El feed trae TU enlace de afiliado (aw_deep_link): si lo emparejas, los clics de tus usuarios generan comisión para ti, y la app lo indica en la tarjeta. Si prefieres que cada usuario gane la suya, empareja solo merchant_deep_link como URL del producto.</p>
         <p><b className="text-foreground">Digistore24:</b> exporta el marketplace desde tu cuenta de afiliado.</p>
         <p className="text-xs">Sube solo catálogos que tu programa de afiliados te autorice a usar. Cada carga actualiza los productos que ya estaban.</p>
       </div>

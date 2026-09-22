@@ -174,9 +174,17 @@ export function MercadoPage({ onNavigate }: { onNavigate?: (page: string) => voi
           <p className="text-xs text-muted-foreground mt-1">Prueba con otra fuente o quita la búsqueda.</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {rows.map(r => <Card key={r.id} r={r} onVender={() => vender(r)} />)}
-        </div>
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {rows.map(r => <Card key={r.id} r={r} onVender={() => vender(r)} />)}
+          </div>
+          {rows.some(r => r.affiliate_url) && (
+            <p className="text-[11px] text-muted-foreground">
+              Para cobrar tus comisiones, date de alta como afiliado en la red del producto y usa tu propio enlace.
+              Los botones de "ver producto" marcados como enlace de afiliado son de SUPERNOVA.
+            </p>
+          )}
+        </>
       )}
     </div>
   );
@@ -229,7 +237,8 @@ function Card({ r, onVender }: { r: Row; onVender: () => void }) {
           {(r.affiliate_url || r.product_url) && (
             <a href={r.affiliate_url || r.product_url || "#"} target="_blank" rel="noopener noreferrer nofollow"
               className="inline-flex items-center justify-center rounded-lg border border-border px-3 py-2.5 text-muted-foreground hover:text-foreground hover:border-primary/60"
-              aria-label="Ver el producto en su sitio">
+              aria-label={r.affiliate_url ? "Ver el producto (enlace de afiliado de SUPERNOVA)" : "Ver el producto en su sitio"}
+              title={r.affiliate_url ? "Enlace de afiliado de SUPERNOVA" : "Ver el producto en su sitio"}>
               <ExternalLink className="w-4 h-4" />
             </a>
           )}

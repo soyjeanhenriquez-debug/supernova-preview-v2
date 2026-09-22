@@ -50,6 +50,9 @@ Tu rol es ayudar al usuario a:
 Responde siempre en español. Sé directo, práctico y orientado a resultados. 
 Cuando des copy o hooks, hazlos listos para usar. 
 Usa emojis moderadamente para hacer las respuestas más visuales.`;
+// Para generadores: el entregable va directo (sin "¡Hola! Soy tu asistente…") y con las reglas
+// de publicidad honesta que piden Meta/TikTok, sea cual sea el generador.
+const GENERATOR_GUARD = "\n\nREGLAS DEL SISTEMA PARA ESTE ENTREGABLE: empieza directamente con el primer título del entregable, sin saludos, sin presentarte y sin frases como 'aquí tienes'. Publicidad honesta: nunca garantices resultados (empleo, ingresos, salud, físico); la única garantía que se nombra es la de reembolso y se escribe así ('garantía de reembolso de 7 días'), nunca 'garantizado' junto a un resultado. No inventes testimonios, cifras ni plazos.";
 const HELP_MAX_TOKENS = 900;
 const HELP_GUARD = "\n\nREGLA DEL SISTEMA: eres el asistente de AYUDA de la app. Responde dudas sobre cómo usar SUPERNOVA en pocas líneas. Si te piden redactar copys, guiones, landings, secuencias de email u otro entregable, no lo escribas: indica qué sección de la app lo genera (Generadores, Oráculo, Mi App, Mini Apps).";
 
@@ -158,7 +161,7 @@ serve(async (req) => {
     if (g instanceof Response) return g;
     gate = g;
     const clientSystem = typeof rawSystem === "string" ? rawSystem.trim().slice(0, 12_000) : "";
-    const systemPrompt = (clientSystem || DEFAULT_SYSTEM) + (generatorId ? "" : HELP_GUARD);
+    const systemPrompt = (clientSystem || DEFAULT_SYSTEM) + (generatorId ? GENERATOR_GUARD : HELP_GUARD);
     const LOVABLE_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 

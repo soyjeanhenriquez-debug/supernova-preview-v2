@@ -132,7 +132,7 @@ Cumple las políticas de anuncios: no afirmes atributos personales de quien mira
 function platformHint(p: Platform) {
   return p === "organico"
     ? "PLATAFORMA: orgánico, sin pagar anuncios (Reels, TikTok, Shorts, historias). En \"Cómo publicarlo\" da hora, formato, hashtags mínimos y la llamada a la acción (link en la bio o palabra clave por DM). Nada de presupuestos."
-    : `PLATAFORMA: ${PLATFORMS.find(x => x.id === p)?.label}. En "Cómo publicarlo" usa los nombres de objetivos que tenga la plataforma hoy y un presupuesto de prueba en USD pensado para alguien que empieza (bajo).`;
+    : `PLATAFORMA: ${PLATFORMS.find(x => x.id === p)?.label}. En "Cómo publicarlo" usa los nombres de objetivos que tenga la plataforma hoy y un presupuesto diario de prueba en USD pensado para alguien que empieza (bajo), durante 3 días.`;
 }
 
 function adPrompt(stage: Stage, angle: Angle, format: string, platform: Platform) {
@@ -150,11 +150,15 @@ ${/video|avatar/i.test(format) ? "Guion hablado con marcas de tiempo (máximo 45
 ## Texto del anuncio y llamada a la acción
 ## Cómo publicarlo
 ## Cómo saber si funciona
-2-3 señales a mirar a los 3 días y qué hacer con cada una.
+Usa exactamente estas reglas (son las que usa la app en "Mis anuncios"), medidas a los 3 días:
+- CTR menor a 0,8%: el gancho no detiene → cambiar los primeros 3 segundos o el ángulo.
+- CTR de 0,8% o más pero sin ventas: la página o la oferta no convencen → revisar la página antes de gastar 2 veces el precio.
+- Gastó 2 veces el precio sin ventas → apagar.
+- Costo por venta igual o menor al precio → ganador: subir presupuesto ≈20% cada 2 días y pedir variaciones.
 ## Revisión de políticas
 Frases que podrían rechazar y cómo quedaron corregidas (si no hay, dilo).
 ## Siguiente giro
-Qué ángulo probar después en esta etapa y por qué.
+Qué ángulo probar después en esta MISMA etapa (${stage.name}) y por qué.
 
 ${RULES}`;
 }

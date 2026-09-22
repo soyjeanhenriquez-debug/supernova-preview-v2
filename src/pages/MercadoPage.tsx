@@ -19,11 +19,20 @@ type Row = {
   commission_pct: number | null; commission_amount: number | null; popularity: number | null;
   rating: number | null; reviews: number | null; image_url: string | null; product_url: string | null;
   affiliate_url: string | null; tags: string[];
+  // Solo para las filas que vienen del Radar (no del catálogo de redes):
+  priceHint?: string | null; market?: string | null; platform?: string | null; days?: number | null; ads?: number | null;
 };
-type Source = "clickbank" | "digistore24" | "etsy" | "manual";
+type Source = "clickbank" | "digistore24" | "etsy" | "manual" | "radar";
+type RadarRow = {
+  id: string; page_id: string; page_name: string | null; product_name: string | null; niche: string | null;
+  market: string | null; platform: string; evidence: string | null; price_hint: string | null;
+  days_active: number | null; active_ads: number | null; ads_count: number | null;
+  sample_title: string | null; sample_ad_url: string | null; landing_domain: string | null;
+};
 
 const SOURCES: { id: Source | "all"; label: string; hint: string; color: string }[] = [
   { id: "all", label: "Todo", hint: "Todas las fuentes", color: "hsl(var(--primary))" },
+  { id: "radar", label: "Radar · tus datos", hint: "Quién está pagando anuncios ahora mismo, por plataforma", color: "#F5A524" },
   { id: "clickbank", label: "ClickBank", hint: "Infoproductos con comisión alta y dato de cuántos afiliados los venden", color: "#22C55E" },
   { id: "digistore24", label: "Digistore24", hint: "Infoproductos de Europa y LATAM", color: "#3B82F6" },
   { id: "etsy", label: "Etsy", hint: "Ideas de producto: lo que ya se vende de regalo", color: "#F26B21" },
@@ -101,9 +110,39 @@ export function MercadoPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const [onlyGift, setOnlyGift] = useState(false);
   const { applyServerCharge, canAfford } = useCredits();
   const [idea, setIdea] = useState<{ row: Row; text: string; loading: boolean } | null>(null);
+  const [plataformas, setPlataformas] = useState<{ platform: string; anunciantes: number }[]>([]);
+  const [plataforma, setPlataforma] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    if (source === "radar") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any;
+      const [{ data: plats }, { data: filas, error }] = await Promise.all([
+        sb.rpc("market_radar_platforms"),
+        sb.rpc("market_radar", { p_platform: plataforma, p_limit: 90 }),
+      ]);
+      if (error) toast.error("No se pudo cargar el Radar");
+      setPlataformas(Array.isArray(plats) ? plats : []);
+      // Se reutiliza la misma tarjeta: lo del Radar se traduce a la forma del catálogo.
+      setRows((Array.isArray(filas) ? (filas as RadarRow[]) : []).map(f => ({
+        id: f.id,
+        source: "radar" as Source,
+        title: f.product_name || f.sample_title || f.page_name || "Anunciante",
+        description: [f.days_active ? `${f.days_active} días anunciando` : null,
+                      f.active_ads ? `${f.active_ads} anuncios activos` : null,
+                      f.landing_domain].filter(Boolean).join(" · "),
+        category: f.platform,
+        niche: f.niche,
+        vendor: f.page_name,
+        price: null, currency: null, commission_pct: null, commission_amount: null,
+        popularity: f.days_active, rating: null, reviews: null, image_url: null,
+        product_url: f.sample_ad_url, affiliate_url: null, tags: [],
+        priceHint: f.price_hint, market: f.market, platform: f.platform, days: f.days_active, ads: f.active_ads,
+      })));
+      setLoading(false);
+      return;
+    }
     let query = table().select("id,source,title,description,category,niche,vendor,price,currency,commission_pct,commission_amount,popularity,rating,reviews,image_url,product_url,affiliate_url,tags").limit(120);
     if (source !== "all") query = query.eq("source", source);
     if (onlyGift) query = query.contains("tags", ["black-friday"]);
@@ -116,7 +155,7 @@ export function MercadoPage({ onNavigate }: { onNavigate?: (page: string) => voi
     if (error) toast.error("No se pudo cargar el mercado");
     setRows(Array.isArray(data) ? (data as Row[]) : []);
     setLoading(false);
-  }, [source, sort, q, onlyGift]);
+  }, [source, sort, q, onlyGift, plataforma]);
 
   useEffect(() => { const t = setTimeout(load, q ? 350 : 0); return () => clearTimeout(t); }, [load, q]);
 
@@ -224,6 +263,21 @@ export function MercadoPage({ onNavigate }: { onNavigate?: (page: string) => voi
             );
           })}
         </div>
+        {source === "radar" && plataformas.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => setPlataforma(null)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium ${plataforma === null ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
+              Todas
+            </button>
+            {plataformas.map(p => (
+              <button key={p.platform} onClick={() => setPlataforma(p.platform)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-medium ${plataforma === p.platform ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
+                {p.platform} <span className="opacity-60">{p.anunciantes}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {source !== "radar" && (
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
@@ -239,7 +293,15 @@ export function MercadoPage({ onNavigate }: { onNavigate?: (page: string) => voi
             ))}
           </div>
         </div>
+        )}
       </div>
+
+      {source === "radar" && (
+        <p className="text-[11px] text-muted-foreground -mt-1">
+          Sale de tus propios datos: anunciantes que están pagando anuncios ahora, ordenados por días que llevan
+          pagando. La plataforma se detecta del checkout, del enlace del anuncio o del texto, así que es una pista, no un hecho.
+        </p>
+      )}
 
       {/* Si la red no manda ventas (Etsy no las manda), no se finge un ranking. */}
       {!loading && sort === "popularity" && rows.length > 0 && rows.every(r => r.popularity == null) && (
@@ -328,9 +390,15 @@ function Card({ r, onVender, onIdea }: { r: Row; onVender: () => void; onIdea: (
           </div>
         )}
         <span className="absolute top-2.5 left-2.5 text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 text-white shadow" style={{ background: src?.color }}>
-          {src?.label}
+          {r.source === "radar" ? (r.platform ?? "Radar") : src?.label}
         </span>
-        {gana != null && (
+        {r.source === "radar" ? (
+          r.days != null && (
+            <span className="absolute bottom-2.5 left-2.5 rounded-full bg-background/90 backdrop-blur border border-border px-2.5 py-1 text-[11px] font-bold text-primary">
+              {r.days} días pagando anuncios
+            </span>
+          )
+        ) : gana != null && (
           <span className="absolute bottom-2.5 left-2.5 rounded-full bg-background/90 backdrop-blur border border-border px-2.5 py-1 text-[11px] font-bold text-success">
             Ganas ${gana.toFixed(2)} por venta
           </span>
@@ -342,9 +410,14 @@ function Card({ r, onVender, onIdea }: { r: Row; onVender: () => void; onIdea: (
         {r.description && <p className="text-[12px] text-muted-foreground line-clamp-2">{r.description}</p>}
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-muted-foreground mt-auto pt-2">
+          {r.source === "radar" && r.priceHint && <span className="font-semibold text-foreground">{r.priceHint}</span>}
+          {r.source === "radar" && r.ads != null && (
+            <span className="inline-flex items-center gap-1"><TrendingUp className="w-3.5 h-3.5 text-primary" />{r.ads} activos</span>
+          )}
+          {r.source === "radar" && r.market && <span>{r.market}</span>}
           {precio && <span className="font-semibold text-foreground">{precio}</span>}
           {r.commission_pct != null && <span>{r.commission_pct}% comisión</span>}
-          {r.popularity != null && (
+          {r.source !== "radar" && r.popularity != null && (
             <span className="inline-flex items-center gap-1"><TrendingUp className="w-3.5 h-3.5 text-primary" />{Math.round(r.popularity).toLocaleString("es")}</span>
           )}
           {r.rating != null && (

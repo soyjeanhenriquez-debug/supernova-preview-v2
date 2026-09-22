@@ -23,6 +23,7 @@ const AdminAccesos = lazy(() => import("@/pages/admin/AdminAccesos"));
 const AdminConfig = lazy(() => import("@/pages/admin/AdminConfig"));
 const AdminAudit = lazy(() => import("@/pages/admin/AdminAudit"));
 const AdminSessions = lazy(() => import("@/pages/admin/AdminSessions"));
+const AdminMercado = lazy(() => import("@/pages/admin/AdminMercado"));
 const AdminHealth = lazy(() => import("@/pages/admin/AdminHealth"));
 const UnsubscribePage = lazy(() => import("@/pages/UnsubscribePage"));
 import { RequireAccess } from "@/components/RequireAccess";
@@ -102,6 +103,7 @@ function AppRoutes() {
             <Route path="audit" element={<AdminAudit />} />
             <Route path="sesiones" element={<AdminSessions />} />
             <Route path="salud" element={<AdminHealth />} />
+            <Route path="mercado" element={<AdminMercado />} />
             <Route path="config" element={<AdminConfig />} />
             <Route path="mensajes" element={<AdminStub title="Mensajes & Comunicación" description="Notificaciones, banners y emails a usuarios." />} />
             <Route path="creditos" element={<AdminStub title="Créditos & Planes" description="Configuración de planes, costos y transacciones globales." />} />

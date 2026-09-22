@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
   // ── Gestión de feeds (solo admin; la URL nunca vuelve entera) ──────────
   if (action === "list") {
     const { data } = await admin.from("market_feeds")
-      .select("id,source,label,url,tags,active,last_run,last_count,last_error,created_at")
+      .select("id,source,label,url,tags,active,last_run,last_count,last_error,created_at,default_commission_pct")
       .order("created_at", { ascending: false });
     const feeds = (data ?? []).map((f: Record<string, unknown>) => ({
       ...f, url: String(f.url).replace(/^(https:\/\/[^/]+\/).*$/, "$1…"),  // solo el dominio
@@ -123,6 +123,8 @@ Deno.serve(async (req) => {
       source: String(f.source ?? "manual"),
       label: String(f.label ?? "").slice(0, 80),
       url,
+      default_commission_pct: f.default_commission_pct == null || f.default_commission_pct === ""
+        ? null : Math.max(0, Math.min(100, Number(f.default_commission_pct))),
       mapping: (f.mapping && typeof f.mapping === "object") ? f.mapping : {},
       tags: Array.isArray(f.tags) ? (f.tags as string[]).map((t) => String(t).slice(0, 30)).slice(0, 10) : [],
     };
@@ -168,6 +170,10 @@ Deno.serve(async (req) => {
           if (!raw) continue;
           if (NUMERIC.has(field)) out[field] = num(raw);
           else if (TEXT.has(field)) out[field] = raw.slice(0, field === "description" ? 1200 : 400);
+        }
+        // Si el feed no trae comisión (Awin no la manda), se usa la del programa.
+        if (out.commission_pct == null && out.commission_amount == null && feed.default_commission_pct != null) {
+          out.commission_pct = Number(feed.default_commission_pct);
         }
         return out;
       }).filter((r) => r.external_id && r.title);

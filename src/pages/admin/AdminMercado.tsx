@@ -13,7 +13,7 @@ import { fnHeaders, fnErrorMessage } from "@/lib/fnAuth";
  */
 
 type Source = "clickbank" | "digistore24" | "etsy" | "manual";
-type FeedRow = { id: string; source: string; label: string; url: string; tags: string[]; active: boolean; last_run: string | null; last_count: number | null; last_error: string | null };
+type FeedRow = { id: string; source: string; label: string; url: string; tags: string[]; active: boolean; last_run: string | null; last_count: number | null; last_error: string | null; default_commission_pct: number | null };
 type Field = { key: string; label: string; required?: boolean; number?: boolean };
 
 const FIELDS: Field[] = [
@@ -125,12 +125,14 @@ export default function AdminMercado() {
   const [cols, setCols] = useState<string[]>([]);
   const [map, setMap] = useState<Record<string, string>>({});
   const [tags, setTags] = useState("");
+  const [manualCom, setManualCom] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ ok: number; fail: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [feeds, setFeeds] = useState<FeedRow[]>([]);
   const [feedUrl, setFeedUrl] = useState("");
   const [feedLabel, setFeedLabel] = useState("");
+  const [feedCom, setFeedCom] = useState("");
   const [syncing, setSyncing] = useState(false);
 
   /** Toda la gestión de feeds pasa por la edge function: las URLs llevan la clave del
@@ -154,11 +156,11 @@ export default function AdminMercado() {
     setSyncing(true);
     try {
       await callSync({ action: "save", feed: {
-        source, label: feedLabel || source, url: feedUrl.trim(), mapping: map,
+        source, label: feedLabel || source, url: feedUrl.trim(), mapping: map, default_commission_pct: feedCom,
         tags: tags.split(",").map(t => t.trim().toLowerCase()).filter(Boolean),
       } });
       toast.success("Feed guardado: se actualizará solo cada día");
-      setFeedUrl(""); setFeedLabel(""); loadFeeds();
+      setFeedUrl(""); setFeedLabel(""); setFeedCom(""); loadFeeds();
     } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo guardar"); }
     finally { setSyncing(false); }
   };
@@ -227,6 +229,11 @@ export default function AdminMercado() {
         const raw = (r[col] ?? "").trim();
         if (!raw) continue;
         out[f.key] = f.number ? num(raw) : raw.slice(0, f.key === "description" ? 1200 : 400);
+      }
+      // Si el archivo no trae comisión, se usa la del programa que ponga el admin.
+      const porDefecto = parseFloat(manualCom.replace(",", "."));
+      if (out.commission_pct == null && out.commission_amount == null && Number.isFinite(porDefecto)) {
+        out.commission_pct = Math.max(0, Math.min(100, porDefecto));
       }
       return out;
     }).filter(r => r.external_id && r.title);
@@ -297,6 +304,12 @@ export default function AdminMercado() {
             </div>
 
             <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+              Comisión del programa % (solo si el archivo no la trae)
+              <input value={manualCom} onChange={e => setManualCom(e.target.value)} placeholder="4" inputMode="decimal"
+                className="w-32 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" />
+            </label>
+
+            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
               Etiquetas para estos productos (separadas por comas). Usa <b className="text-foreground">black-friday</b> para que salgan en ese filtro.
               <input value={tags} onChange={e => setTags(e.target.value)} placeholder="black-friday, regalo"
                 className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" />
@@ -345,7 +358,7 @@ export default function AdminMercado() {
           )}
         </div>
 
-        <div className="grid sm:grid-cols-[1fr_1fr_auto] gap-2 items-end">
+        <div className="grid sm:grid-cols-[1fr_1fr_auto_auto] gap-2 items-end">
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
             URL del feed (la que te da la red, con tu clave)
             <input value={feedUrl} onChange={e => setFeedUrl(e.target.value)} placeholder="https://productdata.awin.com/datafeed/download/..."
@@ -356,6 +369,11 @@ export default function AdminMercado() {
             <input value={feedLabel} onChange={e => setFeedLabel(e.target.value)} placeholder="Etsy · regalos"
               className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" />
           </label>
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Comisión del programa %
+            <input value={feedCom} onChange={e => setFeedCom(e.target.value)} placeholder="4" inputMode="decimal"
+              className="w-24 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" />
+          </label>
           <button onClick={guardarFeed} disabled={syncing || !feedUrl.trim()}
             className="inline-flex items-center gap-2 rounded-lg gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">
             <Link2 className="w-4 h-4" /> Guardar feed
@@ -363,6 +381,7 @@ export default function AdminMercado() {
         </div>
         <p className="text-[11px] text-muted-foreground">
           Usa el emparejado de columnas de arriba: sube una vez el archivo de esa red, revisa el emparejado y guarda aquí su URL.
+          La comisión solo hace falta si el feed no la trae (el de Awin no la manda): con ella, cada tarjeta puede decir cuánto se gana por venta.
         </p>
 
         {feeds.length > 0 && (
@@ -370,7 +389,7 @@ export default function AdminMercado() {
             {feeds.map(f => (
               <div key={f.id} className="flex flex-wrap items-center gap-2 justify-between rounded-lg border border-border p-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">{f.label || f.source} <span className="text-xs text-muted-foreground capitalize">· {f.source}</span></p>
+                  <p className="text-sm font-medium text-foreground">{f.label || f.source} <span className="text-xs text-muted-foreground capitalize">· {f.source}</span>{f.default_commission_pct != null && <span className="text-xs text-muted-foreground"> · {f.default_commission_pct}% comisión</span>}</p>
                   <p className="text-[11px] text-muted-foreground truncate">{f.url}</p>
                   <p className="text-[11px] mt-0.5">
                     {f.last_error

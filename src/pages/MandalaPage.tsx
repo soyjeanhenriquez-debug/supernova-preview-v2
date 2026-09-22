@@ -87,7 +87,7 @@ const ANGLES: Angle[] = [
   { id: "explicacion", name: "Explicación", short: "Explicación", how: "Explica en simple cómo funciona algo que parece complicado." },
   { id: "reflexion", name: "Reflexión", short: "Reflexión", how: "Una pregunta o idea que hace pensar sobre la propia situación." },
   { id: "ultrasegmentado", name: "Ultrasegmentado", short: "Ultrasegm.", how: "Háblale a un grupo muy concreto sin afirmar nada personal del que mira: \"Para mamás que quieren vender desde casa…\" (no \"¿Eres mamá?\", que las plataformas rechazan)." },
-  { id: "historia", name: "Historia", short: "Historia", how: "Una historia real y corta: antes, el giro y el después." },
+  { id: "historia", name: "Historia", short: "Historia", how: "Una historia real y corta: antes, el giro y el después. Debe ser la historia real de quien publica (deja [corchetes] para sus datos) o contada en tercera persona como ejemplo; nunca presentada como testimonio de alguien que no existe." },
   { id: "contraste", name: "Contraste", short: "Contraste", how: "Dos realidades lado a lado: con y sin tu solución." },
   { id: "mito", name: "Mito", short: "Mito", how: "Derriba una creencia falsa del nicho." },
   { id: "sensacion", name: "Sensación", short: "Sensación", how: "Haz que sienta el resultado: cómo se ve, se siente o suena." },
@@ -142,6 +142,9 @@ ETAPA: ${stage.name} — ${stage.goal} Público: ${stage.audience}
 ÁNGULO: ${angle.name} — ${angle.how}
 FORMATO: ${format}
 ${platformHint(platform)}
+LLAMADA A LA ACCIÓN SEGÚN LA ETAPA: ${stage.id === "atraer" || stage.id === "conectar"
+    ? "esta etapa NO vende: no menciones precio ni pidas comprar; la llamada es suave (seguir, guardar, ver el video completo, comentar una palabra)."
+    : "esta etapa vende: oferta clara, precio, garantía y botón de compra."}
 
 Entrega exactamente:
 ## 3 ganchos (primeros 3 segundos o titular)

@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import { useCredits, generatorCost } from "@/hooks/useCredits";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { IdeasWhatsApp } from "@/components/IdeasWhatsApp";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -108,6 +109,8 @@ export function MercadoPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const [sort, setSort] = useState<Sort>("popularity");
   const [q, setQ] = useState("");
   const [onlyGift, setOnlyGift] = useState(false);
+  // Pestaña: las ideas para WhatsApp funcionan siempre; el catálogo depende de lo cargado.
+  const [modo, setModo] = useState<"ideas" | "catalogo">("ideas");
   const { applyServerCharge, canAfford } = useCredits();
   const [idea, setIdea] = useState<{ row: Row; text: string; loading: boolean } | null>(null);
   const [plataformas, setPlataformas] = useState<{ platform: string; anunciantes: number }[]>([]);
@@ -249,6 +252,16 @@ export function MercadoPage({ onNavigate }: { onNavigate?: (page: string) => voi
         </div>
       </header>
 
+      <div className="flex gap-1 rounded-xl bg-secondary/60 p-1 w-full sm:w-fit">
+        {([["ideas", "Ideas para WhatsApp"], ["catalogo", "Catálogo y Radar"]] as const).map(([id, label]) => (
+          <button key={id} onClick={() => setModo(id)}
+            className={`flex-1 sm:flex-none rounded-lg px-4 py-2 text-xs font-semibold whitespace-nowrap ${modo === id ? "bg-card text-foreground shadow" : "text-muted-foreground"}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {modo === "ideas" ? <IdeasWhatsApp onNavigate={onNavigate} /> : (<>
       {/* Filtros */}
       <div className="space-y-3">
         <div className="flex flex-wrap gap-2">
@@ -340,6 +353,8 @@ export function MercadoPage({ onNavigate }: { onNavigate?: (page: string) => voi
           )}
         </>
       )}
+
+      </>)}
 
       {/* Panel de la idea */}
       {idea && (

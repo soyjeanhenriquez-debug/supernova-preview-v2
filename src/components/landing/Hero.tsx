@@ -62,7 +62,7 @@ export function Hero() {
             className="mt-12 flex flex-col items-center gap-4 sm:flex-row lg:justify-start"
           >
             <LuxButton to="/signup">Entrar gratis 3 días · $29,99/mes</LuxButton>
-            <LuxButton to="/auth" variant="ghost">
+            <LuxButton to="#como-funciona" variant="ghost">
               Ver cómo funciona
             </LuxButton>
           </motion.div>

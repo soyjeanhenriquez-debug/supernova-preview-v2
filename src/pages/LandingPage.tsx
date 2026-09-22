@@ -12,12 +12,14 @@ import { FinalCta } from "@/components/landing/FinalCta";
  */
 export default function LandingPage() {
   return (
-    <div className="min-h-screen overflow-x-clip bg-[#0B0B0C] text-[#F5F5F7] antialiased">
+    <div className="min-h-screen overflow-x-clip scroll-smooth bg-[#0B0B0C] text-[#F5F5F7] antialiased">
       <Navbar />
       <main>
         <Hero />
         <SocialProof />
-        <Insight />
+        <div id="como-funciona" className="scroll-mt-16">
+          <Insight />
+        </div>
         <MinerEngine />
         <BuilderEngine />
         <VslSection />

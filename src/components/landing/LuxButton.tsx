@@ -23,6 +23,14 @@ export function LuxButton({
     variant === "solid"
       ? "bg-[#C5A880] text-black border border-[#C5A880] hover:bg-transparent hover:text-[#C5A880] hover:shadow-[0_0_24px_-6px_#C5A88066]"
       : "bg-transparent text-[#F5F5F7] border border-[#ffffff15] hover:border-[#C5A880]/60 hover:text-[#C5A880] hover:shadow-[0_0_24px_-8px_#C5A88044]";
+  // Un ancla (#seccion) necesita <a>: el Link de react-router no desplaza la página.
+  if (to.startsWith("#")) {
+    return (
+      <a href={to} className={`${base} ${styles} ${className}`}>
+        {children}
+      </a>
+    );
+  }
   return (
     <Link to={to} className={`${base} ${styles} ${className}`}>
       {children}

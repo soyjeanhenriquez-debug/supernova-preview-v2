@@ -21,9 +21,9 @@ type Source = "clickbank" | "digistore24" | "etsy" | "manual";
 
 const SOURCES: { id: Source | "all"; label: string; hint: string; color: string }[] = [
   { id: "all", label: "Todo", hint: "Todas las fuentes", color: "hsl(var(--primary))" },
-  { id: "clickbank", label: "ClickBank", hint: "Infoproductos con comisión alta", color: "#22C55E" },
+  { id: "clickbank", label: "ClickBank", hint: "Infoproductos con comisión alta y dato de cuántos afiliados los venden", color: "#22C55E" },
   { id: "digistore24", label: "Digistore24", hint: "Infoproductos de Europa y LATAM", color: "#3B82F6" },
-  { id: "etsy", label: "Etsy", hint: "Productos hechos a mano y digitales", color: "#F26B21" },
+  { id: "etsy", label: "Etsy", hint: "Ideas de producto: lo que ya se vende de regalo", color: "#F26B21" },
 ];
 
 const SORTS = [
@@ -106,11 +106,12 @@ export function MercadoPage({ onNavigate }: { onNavigate?: (page: string) => voi
             <Store className="w-3.5 h-3.5 text-primary" /> Mercado
           </span>
           <h1 className="font-display font-bold text-3xl sm:text-4xl leading-tight text-foreground">
-            Productos que ya se venden, listos para que tú los vendas.
+            Qué vender, y con qué anuncios venderlo.
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground">
-            Infoproductos de ClickBank y Digistore24 con su comisión real, y productos de Etsy para regalo.
-            Eliges uno, pulsas <b className="text-foreground">Vender esto</b> y la Mándala te escribe los anuncios.
+            Infoproductos de ClickBank y Digistore24 con su comisión real, para promocionarlos como afiliado.
+            Y productos de Etsy como <b className="text-foreground">banco de ideas</b>: lo que la gente ya compra de regalo,
+            para que hagas tu propia versión. Eliges uno, pulsas <b className="text-foreground">Vender esto</b> y la Mándala escribe los anuncios.
           </p>
           {dias > 0 && (
             <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -157,6 +158,13 @@ export function MercadoPage({ onNavigate }: { onNavigate?: (page: string) => voi
         </div>
       </div>
 
+      {/* Si la red no manda ventas (Etsy no las manda), no se finge un ranking. */}
+      {!loading && sort === "popularity" && rows.length > 0 && rows.every(r => r.popularity == null) && (
+        <p className="text-[11px] text-muted-foreground -mt-1">
+          Estos productos no traen dato de ventas: se muestran en el orden del archivo de la red, no por popularidad.
+        </p>
+      )}
+
       {/* Rejilla */}
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -179,9 +187,10 @@ export function MercadoPage({ onNavigate }: { onNavigate?: (page: string) => voi
             {rows.map(r => <Card key={r.id} r={r} onVender={() => vender(r)} />)}
           </div>
           {rows.some(r => r.affiliate_url) && (
-            <p className="text-[11px] text-muted-foreground">
-              Para cobrar tus comisiones, date de alta como afiliado en la red del producto y usa tu propio enlace.
-              Los botones de "ver producto" marcados como enlace de afiliado son de SUPERNOVA.
+            // Divulgación: obligatoria en los programas de afiliados y por ley. Discreta, al pie.
+            <p className="text-[11px] text-muted-foreground border-t border-border pt-3">
+              SUPERNOVA participa en programas de afiliados: algunos enlaces a productos pueden generarnos una comisión,
+              sin coste para ti. ¿Quieres cobrar la tuya? Date de alta en la red del producto y usa tu propio enlace.
             </p>
           )}
         </>
@@ -237,8 +246,7 @@ function Card({ r, onVender }: { r: Row; onVender: () => void }) {
           {(r.affiliate_url || r.product_url) && (
             <a href={r.affiliate_url || r.product_url || "#"} target="_blank" rel="noopener noreferrer nofollow"
               className="inline-flex items-center justify-center rounded-lg border border-border px-3 py-2.5 text-muted-foreground hover:text-foreground hover:border-primary/60"
-              aria-label={r.affiliate_url ? "Ver el producto (enlace de afiliado de SUPERNOVA)" : "Ver el producto en su sitio"}
-              title={r.affiliate_url ? "Enlace de afiliado de SUPERNOVA" : "Ver el producto en su sitio"}>
+              aria-label="Ver el producto en su sitio" title="Ver el producto en su sitio">
               <ExternalLink className="w-4 h-4" />
             </a>
           )}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Shield, Coins, Ban, Trash2, RefreshCw, X, Mail, Activity, Plus, Minus, UserCog, Circle } from "lucide-react";
+import { Search, Shield, Coins, Ban, Trash2, RefreshCw, X, Mail, Activity, Plus, Minus, UserCog, Circle, LogIn } from "lucide-react";
 import { toast } from "sonner";
 
 type Role = "admin" | "moderator" | "user";
@@ -34,6 +34,23 @@ async function call(action: string, payload: Record<string, unknown> = {}) {
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
   return data;
+}
+
+// Enlace de un solo uso para ver la app como ese usuario. Se COPIA en vez de
+// abrirse aquí: en esta misma ventana reemplazaría tu sesión de admin.
+async function impersonate(userId: string) {
+  const { data, error } = await supabase.functions.invoke("admin-impersonate", { body: { userId } });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  try {
+    await navigator.clipboard.writeText(data.link);
+    toast.success(`Enlace de ${data.email} copiado`, {
+      description: "Pégalo en una ventana de incógnito. Sirve una sola vez y caduca en 1 hora.",
+      duration: 10000,
+    });
+  } catch {
+    window.prompt("Copia este enlace y ábrelo en una ventana de incógnito:", data.link);
+  }
 }
 
 function fmtDate(d?: string | null) {
@@ -364,6 +381,13 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: string; onClo
                   <Ban className="w-3.5 h-3.5" /> Cuenta
                 </div>
                 <div className="flex gap-2">
+                  {role !== "admin" && (
+                    <button
+                      disabled={busy}
+                      onClick={() => impersonate(userId).catch((e: unknown) => toast.error(e instanceof Error ? e.message : String(e)))}
+                      className="text-[12px] px-3 py-1.5 rounded-lg border border-border hover:bg-secondary/40 flex items-center gap-1 disabled:opacity-50"
+                    ><LogIn className="w-3 h-3" /> Entrar como este usuario</button>
+                  )}
                   {suspended ? (
                     <button disabled={busy} onClick={() => run("unsuspend", {}, "Usuario reactivado")} className="text-[12px] px-3 py-1.5 rounded-lg border border-border hover:bg-secondary/40 disabled:opacity-50">Reactivar</button>
                   ) : (

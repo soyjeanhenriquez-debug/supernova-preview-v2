@@ -56,3 +56,7 @@ verify_jwt = false
 # Descarga los feeds del Mercado (lo llama pg_cron a diario). Compuerta propia: secreto de cron o admin.
 [functions.market-feed-sync]
 verify_jwt = false
+
+# "Entrar como este usuario" (Admin → Usuarios). Compuerta propia: admin con sesión o secreto de cron.
+[functions.admin-impersonate]
+verify_jwt = false

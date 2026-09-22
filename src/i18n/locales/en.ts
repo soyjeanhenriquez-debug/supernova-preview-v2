@@ -24,6 +24,7 @@ export default {
     kits: "Mini Apps",
     winners: "Ads radar",
     hooks: "Hooks",
+    mercado: "Marketplace",
     mandala: "Creative Mandala",
     oracle: "Oracle",
     generators: "Generators",

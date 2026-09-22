@@ -17,7 +17,7 @@ export function TopBar({ activePage, onOpenMobileNav }: TopBarProps) {
   // Mismo nombre que en el menú (la clave interna de la página no es para mostrarla).
   const NAV_KEY: Record<string, string> = {
     "Dashboard": "nav.dashboard", "Ofertas": "nav.offers", "Mini Apps": "nav.kits",
-    "Buscar Ofertas Winner": "nav.winners", "Hooks": "nav.hooks", "Mándala": "nav.mandala", "Oráculo": "nav.oracle",
+    "Buscar Ofertas Winner": "nav.winners", "Hooks": "nav.hooks", "Mándala": "nav.mandala", "Mercado": "nav.mercado", "Oráculo": "nav.oracle",
     "Generadores": "nav.generators", "Media Studio": "nav.mediaStudio",
     "Proyectos": "nav.projects", "Créditos": "nav.credits",
   };

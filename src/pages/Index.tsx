@@ -18,6 +18,7 @@ const KitsPage = lazy(() => import("@/pages/KitsPage").then(m => ({ default: m.K
 const OraculoPage = lazy(() => import("@/pages/OraculoPage").then(m => ({ default: m.OraculoPage })));
 const GeneradoresPage = lazy(() => import("@/pages/GeneradoresPage").then(m => ({ default: m.GeneradoresPage })));
 const MediaStudioPage = lazy(() => import("@/pages/MediaStudioPage").then(m => ({ default: m.MediaStudioPage })));
+const MercadoPage = lazy(() => import("@/pages/MercadoPage").then(m => ({ default: m.MercadoPage })));
 const MandalaPage = lazy(() => import("@/pages/MandalaPage").then(m => ({ default: m.MandalaPage })));
 const HooksPage = lazy(() => import("@/pages/HooksPage").then(m => ({ default: m.HooksPage })));
 const BrainPage = lazy(() => import("@/pages/BrainPage").then(m => ({ default: m.BrainPage })));
@@ -44,6 +45,7 @@ const PAGE_SLUG: Record<string, string> = {
   "Anuncios Ganadores": "radar",
   "Hooks": "hooks",
   "Mándala": "mandala",
+  "Mercado": "mercado",
   "Oráculo": "oraculo",
   "Generadores": "generadores",
   "Media Studio": "media-studio",
@@ -52,7 +54,7 @@ const PAGE_SLUG: Record<string, string> = {
   "Crear": "crear",
 };
 const SLUG_PAGE: Record<string, string> = {
-  "ofertas": "Ofertas", "mini-apps": "Mini Apps", "radar": "Buscar Ofertas Winner", "hooks": "Hooks", "mandala": "Mándala",
+  "ofertas": "Ofertas", "mini-apps": "Mini Apps", "radar": "Buscar Ofertas Winner", "hooks": "Hooks", "mandala": "Mándala", "mercado": "Mercado",
   "oraculo": "Oráculo", "generadores": "Generadores", "media-studio": "Media Studio",
   "proyectos": "Proyectos", "creditos": "Créditos", "crear": "Crear",
 };
@@ -102,6 +104,7 @@ const Index = () => {
       case "Generadores": return <GeneradoresPage />;
       case "Media Studio": return <MediaStudioPage />;
       case "Mándala": return <MandalaPage />;
+      case "Mercado": return <MercadoPage onNavigate={setActivePage} />;
       case "Hooks": return <HooksPage onNavigate={setActivePage} />;
       case "Proyectos": return <BrainPage />;
       case "Créditos": return <CreditsPage />;

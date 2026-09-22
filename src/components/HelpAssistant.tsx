@@ -28,7 +28,7 @@ Funciones de la app que conoces (menú lateral):
 
 6. **Oráculo**: pegas la URL de una página de ventas y la disecciona (oferta, avatar, embudo, qué copiar). Oráculo completo: ${CREDIT_COSTS.landing_intelligence} créditos.
 
-7. **Generadores**: plantillas de copy (hooks, captions, emails, guiones, VSL, landing). Cuestan ${CREDIT_COSTS.gen_light}, ${CREDIT_COSTS.gen_medium} o ${CREDIT_COSTS.gen_heavy} créditos según el tamaño; el precio se ve antes de generar y se cobra solo si sale bien.
+7. **Generadores**: plantillas de copy (hooks, captions, emails, guiones, VSL, landing). La categoría **Embudo completo** cubre las 6 piezas de una operación que vende a diario: ecosistema de productos (escalera de valor), VSL principal, order bump, VSL de upsell y downsell, oferta de ascensión (ticket alto), estructura de campaña en Meta Ads, guiones UGC y plan de 10 creativos. Si alguien pregunta "¿por dónde empiezo mi embudo?", recomienda primero "Ecosistema de productos". Cuestan ${CREDIT_COSTS.gen_light}, ${CREDIT_COSTS.gen_medium} o ${CREDIT_COSTS.gen_heavy} créditos según el tamaño; el precio se ve antes de generar y se cobra solo si sale bien.
 
 8. **Media Studio**: videos con avatar de IA a partir de un guion. Usa **Media Credits** (saldo aparte): 10 por video. Si el video falla, se devuelven solos. Packs: Starter 50/$10, Pro 150/$29.99, Scale 400/$69.99.
 

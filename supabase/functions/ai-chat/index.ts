@@ -31,8 +31,8 @@ function normalizeModel(model?: string): string {
 //    paga como "ligero", igual que en el cliente.
 //  · Asistente de ayuda (gratis): sin generator_id. Respuesta corta y con una
 //    instrucción del servidor al final, para que no sirva de generador gratis.
-const GEN_MEDIUM_IDS = new Set(["landing-copy", "email-launch", "email-sequence", "yt-script", "funnel-strategy", "audience-research", "product-desc", "offer-stack", "yapping-script"]);
-const GEN_HEAVY_IDS = new Set(["vsl-downsell", "vsl-upsell-1", "vsl-upsell-2"]);
+const GEN_MEDIUM_IDS = new Set(["landing-copy", "email-launch", "email-sequence", "yt-script", "funnel-strategy", "audience-research", "product-desc", "offer-stack", "yapping-script", "ecosystem", "ascension-offer", "meta-campaign", "creative-brief"]);
+const GEN_HEAVY_IDS = new Set(["vsl-downsell", "vsl-upsell-1", "vsl-upsell-2", "vsl-main"]);
 function generatorAction(id: string): string {
   if (GEN_HEAVY_IDS.has(id)) return "gen_heavy";
   if (GEN_MEDIUM_IDS.has(id)) return "gen_medium";

@@ -14,6 +14,7 @@ const categories = [
   { icon: Heart, label: "Recomendados", id: "recommended" },
   { icon: Star, label: "Favoritos", id: "favorites" },
   { divider: true },
+  { icon: Layers, label: "Embudo completo", id: "funnel" },
   { icon: Globe, label: "Redes Sociales", id: "social" },
   { icon: FileText, label: "Copywriting", id: "copywriting" },
   { icon: ShoppingBag, label: "Producto", id: "product" },
@@ -63,7 +64,172 @@ FORMATO EXACTO de tu respuesta:
 ## 📌 Nota de grabación
 [1-2 líneas: tono, ritmo y dónde enfatizar]`;
 
+// ── Embudo completo ────────────────────────────────────────────────────────
+// Una herramienta por cada pieza de una operación de infoproductos que factura a diario:
+// ecosistema de productos, tráfico, creativos, VSL, upsell/downsell y ascensiones.
+// El objetivo no es ser la mejor herramienta de cada cosa, sino que el usuario tenga
+// cada pieza resuelta dentro de SUPERNOVA, en español y lista para usar.
+const FORMAT_RULES = `Escribe en español neutro, para alguien que empieza. Frases cortas. Usa títulos con ## y listas. Precios en USD y, entre paréntesis, una referencia en pesos mexicanos o colombianos. No prometas resultados garantizados ni cifras de ingresos: si algo depende del mercado, dilo.`;
+
+const ECOSYSTEM_PROMPT = `Eres un estratega de direct response que diseña ECOSISTEMAS DE PRODUCTOS (escaleras de valor) para infoproductos. A partir del producto del usuario, diseña su escalera completa para que cada cliente valga 2-4 veces más que la primera compra.
+
+Entrega exactamente estas secciones:
+## 1. Producto de entrada (front)
+Qué es, precio (bajo, para que compren fácil) y por qué es la puerta de entrada.
+## 2. Order bump (el extra de un clic antes de pagar)
+Qué es, precio (entre 20% y 40% del front) y la frase del checkbox.
+## 3. Upsell 1 (justo después de pagar)
+Qué es, precio, y por qué quien compró el front lo quiere ya.
+## 4. Downsell (si rechaza el upsell)
+Versión más barata o en cuotas del upsell. Precio.
+## 5. Upsell 2 / continuidad
+Una suscripción mensual o un complemento que se repite. Precio.
+## 6. Ascensión (ticket alto)
+Mentoría, programa o servicio hecho para ti. Precio y cómo llega el cliente (aplicación, llamada, WhatsApp).
+## 7. Tabla resumen
+Paso | Producto | Precio | % de compradores que suele tomarlo (rango orientativo, dilo como estimación).
+## 8. Ticket promedio estimado
+Cálculo simple con esos rangos, marcado como estimación.
+
+${FORMAT_RULES}`;
+
+const VSL_MAIN_PROMPT = `Eres un copywriter de respuesta directa. Escribe la VSL PRINCIPAL (la de la oferta de entrada) de 8 a 12 minutos, lista para grabar o para leer con un avatar.
+
+Estructura, con marcas de tiempo aproximadas:
+## 0:00 Gancho (primeros 10 segundos)
+3 opciones de gancho distintas.
+## Historia y problema
+## Por qué lo que intentó antes no funcionó
+## El mecanismo único (el "por qué" nuevo)
+## Prueba (qué tipo de prueba usar y dónde conseguirla si aún no tiene)
+## Presentación de la oferta y lo que incluye
+## Bonos
+## Garantía
+## Precio y comparación de valor
+## Urgencia o escasez REAL (nada inventado)
+## Llamada a la acción (repetida 2 veces)
+
+Al final, una línea con el texto de la pantalla del botón de compra.
+${FORMAT_RULES}`;
+
+const ORDER_BUMP_PROMPT = `Eres un especialista en checkouts de infoproductos. Diseña ORDER BUMPS: el extra de un clic que aparece justo antes de pagar.
+
+Entrega 3 opciones distintas. Para cada una:
+## Opción N: [nombre]
+- Qué es (algo pequeño que complementa el producto principal y se entrega al instante)
+- Precio (entre 20% y 40% del producto principal)
+- Titular del bump (máx 8 palabras)
+- Texto del checkbox: "¡Sí, quiero…!" (una línea)
+- Descripción de 2-3 líneas
+Al final, cuál recomiendas probar primero y por qué.
+${FORMAT_RULES}`;
+
+const ASCENSION_PROMPT = `Eres un estratega de ofertas de ticket alto. Diseña la OFERTA DE ASCENSIÓN: el siguiente escalón para el cliente que ya compró el producto barato y quiere resultados más rápido o con ayuda.
+
+Entrega:
+## La oferta
+Formato (mentoría grupal, 1 a 1, hecho para ti, programa de X semanas), qué incluye y precio.
+## A quién se la ofreces y cuándo
+Qué señales indican que un cliente está listo.
+## Cómo llega (el puente)
+Mensaje de WhatsApp o email para invitarlo, y el formulario de aplicación (5-7 preguntas).
+## Guion de la llamada de venta
+Apertura, diagnóstico (preguntas), presentación, manejo de 4 objeciones típicas, cierre.
+${FORMAT_RULES}`;
+
+const META_CAMPAIGN_PROMPT = `Eres un media buyer de Meta Ads para infoproductos en LATAM. Diseña la ESTRUCTURA DE CAMPAÑA para lanzar y probar esta oferta con poco presupuesto.
+
+Entrega:
+## Objetivo y evento de conversión
+## Estructura de la campaña de prueba
+Campaña, conjuntos de anuncios (cuántos y con qué audiencia: abierta, intereses, similares), presupuesto diario inicial en USD y cuántos creativos por conjunto.
+## Qué medir y los umbrales
+CTR, CPC, costo por clic en "comprar", costo por venta. Da rangos orientativos y aclara que dependen del nicho y del país.
+## Reglas de decisión
+Cuándo apagar un anuncio, cuándo dejarlo correr, cuándo escalar y cómo (subir presupuesto, duplicar).
+## Calendario de los primeros 7 días
+Día por día, qué hacer.
+## Errores que queman dinero
+5 errores típicos del principiante.
+${FORMAT_RULES}`;
+
+const UGC_PROMPT = `Eres un director de anuncios UGC (contenido estilo cliente real) para Reels y TikTok. Escribe 3 GUIONES UGC de 15 a 30 segundos para anunciar este producto.
+
+Para cada guion:
+## Guion N: [ángulo]
+- Gancho (0-3 s): lo que se dice y lo que se ve
+- Desarrollo (3-20 s): demostración o historia breve
+- Prueba o resultado (sin cifras inventadas)
+- Llamada a la acción
+- Texto en pantalla (subtítulos clave)
+- Indicaciones de grabación: plano, lugar, tono, qué mostrar
+Al final: "Puedes grabarlo tú, pedírselo a un creador o hacerlo con el avatar de Media Studio (guion de máximo 160 palabras)."
+${FORMAT_RULES}`;
+
+const CREATIVE_BRIEF_PROMPT = `Eres un estratega de creativos para Meta Ads. Arma un PLAN DE 10 CREATIVOS para testear esta oferta, cada uno con un ángulo distinto (dolor, deseo, miedo, curiosidad, prueba social, autoridad, contrario, historia, comparación, oferta).
+
+Para cada creativo:
+## Creativo N: [ángulo]
+- Formato: video corto, imagen o carrusel
+- Gancho / titular
+- Texto principal del anuncio (2-4 líneas)
+- Qué se ve (descripción de la imagen o de las escenas)
+Al final: en qué orden lanzarlos y cómo leer los resultados después de 3 días.
+${FORMAT_RULES}`;
+
 const generators: Generator[] = [
+  {
+    id: "ecosystem",
+    title: "Ecosistema de productos (escalera de valor)",
+    description: "Tu producto de entrada, order bump, upsells, downsell, continuidad y ascensión, con precios y ticket promedio estimado.",
+    category: "funnel",
+    recommended: true,
+    prompt: ECOSYSTEM_PROMPT,
+  },
+  {
+    id: "vsl-main",
+    title: "VSL principal (8–12 minutos)",
+    description: "La VSL de tu oferta de entrada: gancho, historia, mecanismo único, oferta, garantía y cierre, con marcas de tiempo.",
+    category: "funnel",
+    recommended: true,
+    prompt: VSL_MAIN_PROMPT,
+  },
+  {
+    id: "order-bump",
+    title: "Order bump (el extra antes de pagar)",
+    description: "3 opciones de order bump con precio, titular y el texto del checkbox para tu checkout.",
+    category: "funnel",
+    prompt: ORDER_BUMP_PROMPT,
+  },
+  {
+    id: "ascension-offer",
+    title: "Oferta de ascensión (ticket alto)",
+    description: "El siguiente escalón: mentoría o programa, cómo invitar, formulario de aplicación y guion de llamada.",
+    category: "funnel",
+    prompt: ASCENSION_PROMPT,
+  },
+  {
+    id: "meta-campaign",
+    title: "Estructura de campaña en Meta Ads",
+    description: "Campaña de prueba, conjuntos, presupuesto inicial, métricas, reglas para apagar o escalar y plan de 7 días.",
+    category: "funnel",
+    recommended: true,
+    prompt: META_CAMPAIGN_PROMPT,
+  },
+  {
+    id: "ugc-script",
+    title: "Guiones UGC para anuncios (15–30 s)",
+    description: "3 guiones estilo cliente real con gancho, demostración, CTA e indicaciones de grabación. Listos para el avatar de Media Studio.",
+    category: "funnel",
+    prompt: UGC_PROMPT,
+  },
+  {
+    id: "creative-brief",
+    title: "Plan de 10 creativos para testear",
+    description: "10 ángulos distintos con gancho, texto del anuncio y qué se ve, más cómo leer los resultados.",
+    category: "funnel",
+    prompt: CREATIVE_BRIEF_PROMPT,
+  },
   {
     id: "yapping-script",
     title: "Guion Video Yapping (T→MAES→A/N)",
@@ -76,21 +242,21 @@ const generators: Generator[] = [
     id: "vsl-downsell",
     title: "VSL Downsell (5–7 minutos)",
     description: "Genera una VSL de downsell corta y de alta conversión.",
-    category: "copywriting",
+    category: "funnel",
     recommended: true,
   },
   {
     id: "vsl-upsell-2",
     title: "VSL Segundo Upsell (5–7 minutos)",
     description: "Genera una VSL de segundo upsell corta y de alta conversión.",
-    category: "copywriting",
+    category: "funnel",
     recommended: true,
   },
   {
     id: "vsl-upsell-1",
     title: "VSL Primer Upsell (5–7 minutos)",
     description: "Genera una VSL de upsell corta y de alta conversión.",
-    category: "copywriting",
+    category: "funnel",
   },
   {
     id: "landing-copy",
@@ -158,7 +324,7 @@ const generators: Generator[] = [
     id: "offer-stack",
     title: "Stack de Oferta Irresistible",
     description: "Diseña una oferta irresistible con bonos, garantía y urgencia.",
-    category: "sales",
+    category: "funnel",
     recommended: true,
   },
   {
@@ -171,7 +337,7 @@ const generators: Generator[] = [
     id: "funnel-strategy",
     title: "Estrategia de Funnel Completo",
     description: "Diseña un embudo de ventas optimizado de principio a fin.",
-    category: "strategy",
+    category: "funnel",
     recommended: true,
   },
   {
@@ -379,7 +545,8 @@ export function GeneradoresPage() {
 
                   <div className="flex items-center justify-between gap-2 w-full">
                   <span className="text-xs px-2.5 py-1 rounded-md bg-secondary border border-border text-muted-foreground capitalize">
-                    {gen.category === "copywriting" ? "Copywriting" :
+                    {gen.category === "funnel" ? "Embudo completo" :
+                     gen.category === "copywriting" ? "Copywriting" :
                      gen.category === "emails" ? "E-mails" :
                      gen.category === "social" ? "Redes Sociales" :
                      gen.category === "instagram" ? "Instagram" :

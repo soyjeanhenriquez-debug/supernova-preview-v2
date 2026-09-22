@@ -1,7 +1,8 @@
-import { useMemo, useRef, useState } from "react";
-import { Upload, Loader2, Check, Trash2, FileText, AlertTriangle } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Upload, Loader2, Check, Trash2, FileText, AlertTriangle, RefreshCw, Link2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { fnHeaders, fnErrorMessage } from "@/lib/fnAuth";
 
 /**
  * Importador del Mercado. Las redes de afiliados entregan sus catálogos como archivos
@@ -12,6 +13,7 @@ import { toast } from "sonner";
  */
 
 type Source = "clickbank" | "digistore24" | "etsy" | "manual";
+type FeedRow = { id: string; source: string; label: string; url: string; tags: string[]; active: boolean; last_run: string | null; last_count: number | null; last_error: string | null };
 type Field = { key: string; label: string; required?: boolean; number?: boolean };
 
 const FIELDS: Field[] = [
@@ -126,6 +128,58 @@ export default function AdminMercado() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ ok: number; fail: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [feeds, setFeeds] = useState<FeedRow[]>([]);
+  const [feedUrl, setFeedUrl] = useState("");
+  const [feedLabel, setFeedLabel] = useState("");
+  const [syncing, setSyncing] = useState(false);
+
+  /** Toda la gestión de feeds pasa por la edge function: las URLs llevan la clave del
+      programa y la tabla no está expuesta a la API. */
+  const callSync = async (payload: Record<string, unknown>) => {
+    const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/market-feed-sync`, {
+      method: "POST", headers: await fnHeaders(), body: JSON.stringify(payload),
+    });
+    if (!resp.ok) throw new Error(await fnErrorMessage(resp, "Error con los feeds"));
+    return resp.json();
+  };
+
+  const loadFeeds = useCallback(async () => {
+    try { const r = await callSync({ action: "list" }); setFeeds(r.feeds ?? []); }
+    catch { /* sin permisos o sin feeds todavía */ }
+  }, []);
+  useEffect(() => { loadFeeds(); }, [loadFeeds]);
+
+  const guardarFeed = async () => {
+    if (!map.external_id || !map.title) { toast.error("Primero sube un archivo de ese feed y empareja ID y título"); return; }
+    setSyncing(true);
+    try {
+      await callSync({ action: "save", feed: {
+        source, label: feedLabel || source, url: feedUrl.trim(), mapping: map,
+        tags: tags.split(",").map(t => t.trim().toLowerCase()).filter(Boolean),
+      } });
+      toast.success("Feed guardado: se actualizará solo cada día");
+      setFeedUrl(""); setFeedLabel(""); loadFeeds();
+    } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo guardar"); }
+    finally { setSyncing(false); }
+  };
+
+  const correrFeed = async (id?: string) => {
+    setSyncing(true);
+    try {
+      const r = await callSync(id ? { action: "run", id } : { action: "run" });
+      const total = (r.feeds ?? []).reduce((n: number, f: { productos?: number }) => n + (f.productos ?? 0), 0);
+      const fallos = (r.feeds ?? []).filter((f: { error?: string | null }) => f.error);
+      toast.success(`${total.toLocaleString("es")} productos actualizados`);
+      if (fallos.length) toast.error(fallos.map((f: { feed: string; error: string }) => `${f.feed}: ${f.error}`).join(" · "));
+      loadFeeds();
+    } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo actualizar"); }
+    finally { setSyncing(false); }
+  };
+
+  const borrarFeed = async (id: string) => {
+    if (!window.confirm("¿Quitar este feed de la actualización automática?")) return;
+    try { await callSync({ action: "delete", id }); loadFeeds(); } catch { toast.error("No se pudo quitar"); }
+  };
 
   const onFile = async (file: File) => {
     setDone(null);
@@ -273,6 +327,66 @@ export default function AdminMercado() {
               </p>
             )}
           </>
+        )}
+      </div>
+
+      {/* Actualización automática: si la red da una URL de descarga, el catálogo se refresca solo. */}
+      <div className="card-surface rounded-2xl p-5 space-y-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="font-display font-bold text-lg text-foreground flex items-center gap-2"><RefreshCw className="w-4 h-4 text-primary" /> Actualización automática</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Los feeds guardados se descargan solos cada día a las 9:00 UTC.</p>
+          </div>
+          {feeds.length > 0 && (
+            <button onClick={() => correrFeed()} disabled={syncing}
+              className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground hover:border-primary/60 disabled:opacity-60">
+              {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Actualizar todos ahora
+            </button>
+          )}
+        </div>
+
+        <div className="grid sm:grid-cols-[1fr_1fr_auto] gap-2 items-end">
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            URL del feed (la que te da la red, con tu clave)
+            <input value={feedUrl} onChange={e => setFeedUrl(e.target.value)} placeholder="https://productdata.awin.com/datafeed/download/..."
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Nombre para reconocerlo
+            <input value={feedLabel} onChange={e => setFeedLabel(e.target.value)} placeholder="Etsy · regalos"
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" />
+          </label>
+          <button onClick={guardarFeed} disabled={syncing || !feedUrl.trim()}
+            className="inline-flex items-center gap-2 rounded-lg gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">
+            <Link2 className="w-4 h-4" /> Guardar feed
+          </button>
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Usa el emparejado de columnas de arriba: sube una vez el archivo de esa red, revisa el emparejado y guarda aquí su URL.
+        </p>
+
+        {feeds.length > 0 && (
+          <div className="space-y-2">
+            {feeds.map(f => (
+              <div key={f.id} className="flex flex-wrap items-center gap-2 justify-between rounded-lg border border-border p-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">{f.label || f.source} <span className="text-xs text-muted-foreground capitalize">· {f.source}</span></p>
+                  <p className="text-[11px] text-muted-foreground truncate">{f.url}</p>
+                  <p className="text-[11px] mt-0.5">
+                    {f.last_error
+                      ? <span className="text-red-400">Último intento: {f.last_error}</span>
+                      : f.last_run
+                        ? <span className="text-muted-foreground">Última carga: {new Date(f.last_run).toLocaleString("es")} · {(f.last_count ?? 0).toLocaleString("es")} productos</span>
+                        : <span className="text-muted-foreground">Todavía no se ha descargado</span>}
+                  </p>
+                </div>
+                <div className="flex gap-1">
+                  <button onClick={() => correrFeed(f.id)} disabled={syncing} className="p-2 text-muted-foreground hover:text-foreground" aria-label="Actualizar ahora"><RefreshCw className="w-4 h-4" /></button>
+                  <button onClick={() => borrarFeed(f.id)} className="p-2 text-muted-foreground hover:text-red-400" aria-label="Quitar feed"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 

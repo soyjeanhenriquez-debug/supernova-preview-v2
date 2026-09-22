@@ -12,15 +12,15 @@ export default function PendingAccessPage() {
   const { user, signOut } = useAuth();
   const [starting, setStarting] = useState<string | null>(null);
 
-  const activate = async (plan: "pro" | "proMax") => {
+  const activate = async (plan: "pro") => {
     setStarting(plan);
     const redirected = await startCheckout({ action: "subscribe", plan });
     if (!redirected) setStarting(null);
   };
 
-  const stripePlans: Array<{ key: "pro" | "proMax"; featured: boolean }> = [
-    { key: "pro", featured: false },
-    { key: "proMax", featured: true },
+  // Dos planes: PRO (el recomendado, lo que casi todos necesitan) y Comunidad aparte.
+  const stripePlans: Array<{ key: "pro"; featured: boolean }> = [
+    { key: "pro", featured: true },
   ];
 
   return (

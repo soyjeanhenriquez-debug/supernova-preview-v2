@@ -307,10 +307,10 @@ export default function SignupPage() {
               <div className="mt-10 space-y-4">
                 {(Object.keys(PLANS) as PlanKey[]).map((key) => {
                   const p = PLANS[key];
-                  const featured = key === "proMax";
+                  const featured = key === "pro";
                   return (
-                    // Antes PRO y PRO MAX llevaban a "/" (no cobraban nada). Ahora van al
-                    // checkout de Whop con el correo y el código de fundador ya puestos.
+                    // PRO va al checkout de Whop con el correo y el código de fundador ya puestos;
+                    // Comunidad, a Skool. (Antes PRO llevaba a "/" y no cobraba nada.)
                     <a
                       key={key}
                       href={checkoutUrl(key, email.trim().toLowerCase())}

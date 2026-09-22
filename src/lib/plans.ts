@@ -1,28 +1,31 @@
-/** Escalera de planes SUPERNOVA — checkouts externos (Whop / Skool). */
+/**
+ * Planes SUPERNOVA: solo dos (decisión de Jean, 22-sep-2026) — PRO y Comunidad. PRO MAX se
+ * quitó: dos opciones claras deciden mejor que tres, y prometía un "Oráculo ilimitado" que
+ * la app no tiene. Checkouts externos (Whop / Skool).
+ */
 export const PLANS = {
   pro: {
     name: "SUPERNOVA PRO",
     price: 29.99,
     period: "/mes",
     checkout: "https://whop.com/checkout/plan_ukBjctlEKufto",
-    tagline: "El radar completo",
-    features: ["Radar de ofertas 24/7", "Tiers MEGA · RISING · SOLID", "2000 créditos/mes", "Generadores de copy"],
-  },
-  proMax: {
-    name: "SUPERNOVA PRO MAX",
-    price: 39.99,
-    period: "/mes",
-    checkout: "https://whop.com/checkout/plan_VsWbrtokeQOLu",
-    tagline: "Radar + arsenal completo",
-    features: ["Todo lo de PRO", "Oráculo ilimitado", "Funnels y VSL completos", "Soporte prioritario"],
+    tagline: "Todo el software, para vender tú solo",
+    // Solo lo que la app hace hoy. El video con avatar va aparte (Media Credits): no se promete aquí.
+    features: [
+      "3 negocios ganadores elegidos para ti cada día",
+      "Veredicto de venta de cada oferta: qué copiar y qué cambiar",
+      "Radar de anuncios que llevan semanas pagando",
+      "Generadores de copy, hooks y guiones",
+      "2.000 créditos cada mes",
+    ],
   },
   comunidad: {
     name: "COMUNIDAD CREATIVOS 10X",
     price: 99,
     period: "/mes",
     checkout: "https://www.skool.com/creativos-10x-6085",
-    tagline: "Software + mentoría en vivo",
-    features: ["Todo lo de PRO MAX", "Comunidad privada en Skool", "Llamadas y revisiones en vivo"],
+    tagline: "El software + acompañamiento en vivo",
+    features: ["Todo lo de PRO", "Comunidad privada en Skool", "Llamadas y revisiones en vivo"],
   },
 } as const;
 
@@ -39,8 +42,10 @@ export function planFeatureParts(plan: PlanKey): { inherits: string | null; extr
   return { inherits: null, extras: [...f] };
 }
 
-// Cupón de fundador: vive en Whop (plan STARTER solamente), primer mes a $19,99. Caduca
-// con la campaña — quitar esta línea (o vaciar FOUNDER_PROMO) cuando Jean cierre el cupón.
+// Cupón de fundador: vive en Whop (solo plan PRO), primer mes a $19,99. Cierra el 30-sep-2026
+// a medianoche de RD; pasada esa hora ni se muestra ni se añade al enlace del checkout.
+const FOUNDER_ENDS = new Date("2026-10-01T00:00:00-04:00").getTime();
+export const founderOfferActive = () => Date.now() < FOUNDER_ENDS;
 const FOUNDER_PROMO: Partial<Record<PlanKey, string>> = { pro: "FUNDADOR" };
 
 /**
@@ -54,7 +59,7 @@ export function checkoutUrl(plan: PlanKey, email?: string) {
   if (!base.includes("whop.com")) return base;
   const params = new URLSearchParams();
   if (email) params.set("email", email);
-  const promo = FOUNDER_PROMO[plan];
+  const promo = founderOfferActive() ? FOUNDER_PROMO[plan] : undefined;
   if (promo) params.set("promoCode", promo);
   const qs = params.toString();
   return qs ? `${base}?${qs}` : base;

@@ -15,7 +15,7 @@ const WHOP_PACKS: Record<string, string> = {
 };
 
 type CheckoutBody =
-  | { action: "subscribe"; plan: "pro" | "proMax" }
+  | { action: "subscribe"; plan: "pro" }
   | { action: "pack"; pack_id: string };
 
 export async function startCheckout(body: CheckoutBody): Promise<boolean> {

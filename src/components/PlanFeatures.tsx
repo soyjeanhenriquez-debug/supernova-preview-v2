@@ -1,16 +1,23 @@
 import { Check } from "lucide-react";
-import { planFeatureParts, type PlanKey } from "@/lib/plans";
+import { founderOfferActive, planFeatureParts, type PlanKey } from "@/lib/plans";
 
 /**
  * Beneficios de un plan: primero, resaltado, lo que hereda ("Todo lo de PRO"), y
  * debajo solo lo que añade. `accent` es el color del resaltado en cada pantalla
  * (la de registro usa su dorado propio; la de activación, el color del tema).
+ * En PRO, mientras dure la campaña, avisa del precio de fundador: el checkout ya lo
+ * aplica solo, y verlo ANTES de hacer clic es lo que decide.
  */
 export function PlanFeatures({ plan, accent = "text-primary", max }: { plan: PlanKey; accent?: string; max?: number }) {
   const { inherits, extras } = planFeatureParts(plan);
   const shown = typeof max === "number" ? extras.slice(0, max) : extras;
   return (
     <div className="mt-2 space-y-1.5">
+      {plan === "pro" && founderOfferActive() && (
+        <p className="inline-block rounded-md bg-[#22c55e]/15 px-2 py-1 text-[11px] font-semibold text-[#4ade80]">
+          🔥 Código FUNDADOR aplicado: primer mes a $19,99 · hasta el 30 de septiembre
+        </p>
+      )}
       {inherits && (
         <p className={`text-xs font-semibold ${accent}`}>
           ✓ {inherits}, más:

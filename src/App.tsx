@@ -30,6 +30,20 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
+/**
+ * La portada del dominio es la landing de fundadores (HTML estático, ver vite.config.ts).
+ * Si alguien sin sesión llega a "/" navegando DENTRO de la app (logo, "← Volver"), se
+ * recarga la página para que el servidor entregue esa landing. En desarrollo no hay
+ * landing estática en la raíz: ahí se sigue viendo la landing de React.
+ */
+function StaticHome() {
+  if (import.meta.env.PROD) {
+    window.location.replace("/" + window.location.search);
+    return <div className="min-h-screen bg-background" />;
+  }
+  return <LandingPage />;
+}
+
 function AppRoutes() {
   const { user, loading } = useAuth();
 
@@ -60,7 +74,7 @@ function AppRoutes() {
     return (
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={authLinkError ? <AuthPage /> : <LandingPage />} />
+          <Route path="/" element={authLinkError ? <AuthPage /> : <StaticHome />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="*" element={<AuthPage />} />
         </Routes>
@@ -73,8 +87,12 @@ function AppRoutes() {
       <BrowserRouter>
         <Suspense fallback={<div className="min-h-screen bg-background" />}>
         <Routes>
+          {/* La app vive en /app ("/" es la landing pública). "/" se mantiene por si se
+              navega ahí desde dentro sin recargar. */}
           <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Navigate to="/" replace />} />
+          <Route path="/app" element={<Index />} />
+          <Route path="/auth" element={<Navigate to="/app" replace />} />
+          <Route path="/signup" element={<Navigate to="/app" replace />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminOverview />} />
             <Route path="accesos" element={<AdminAccesos />} />

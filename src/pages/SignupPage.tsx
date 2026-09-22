@@ -150,7 +150,7 @@ export default function SignupPage() {
     }
 
     // Con sesión (confirmación de correo desactivada) y ya pagado: directo a la app.
-    if (data.session && paid) { window.location.href = "/"; return; }
+    if (data.session && paid) { window.location.href = "/app"; return; }
     setDone(data.session ? "session" : "confirm");
     setStep(QUESTIONS.length + 1);
   };

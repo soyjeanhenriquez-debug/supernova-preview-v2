@@ -35,10 +35,16 @@ async function authorize(req: Request, admin: any): Promise<boolean> {
   return !!role;
 }
 
-/** CSV con comillas, saltos dentro de campo y separador , o ; */
+/** Delimitador: se decide con la primera línea, que es la de las columnas. Rakuten manda "|". */
+function detectarSeparador(text: string): string {
+  const linea = text.slice(0, 5000).split("\n")[0] ?? "";
+  const cuenta = (c: string) => (linea.match(new RegExp(`\\${c}`, "g")) ?? []).length;
+  return ([",", ";", "|", "\t"] as const).reduce((mejor, c) => (cuenta(c) > cuenta(mejor) ? c : mejor), ",");
+}
+
+/** CSV con comillas, saltos dentro de campo y separador , ; | o tabulador */
 function parseCSV(text: string): Record<string, string>[] {
-  const head2k = text.slice(0, 2000);
-  const sep = (head2k.match(/;/g)?.length ?? 0) > (head2k.match(/,/g)?.length ?? 0) ? ";" : ",";
+  const sep = detectarSeparador(text);
   const rows: string[][] = [];
   let row: string[] = [], cell = "", quoted = false;
   for (let i = 0; i < text.length; i++) {

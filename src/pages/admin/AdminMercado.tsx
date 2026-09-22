@@ -61,9 +61,16 @@ const HINTS: Record<string, string[]> = {
   country: ["country", "pais", "market", "region"],
 };
 
-/** CSV con comillas, saltos dentro de campo y separador , o ; */
+/** Delimitador: se decide con la primera línea, que es la de las columnas. Rakuten manda "|". */
+function detectarSeparador(text: string): string {
+  const linea = text.slice(0, 5000).split("\n")[0] ?? "";
+  const cuenta = (c: string) => (linea.match(new RegExp(`\\${c}`, "g")) ?? []).length;
+  return ([",", ";", "|", "\t"] as const).reduce((mejor, c) => (cuenta(c) > cuenta(mejor) ? c : mejor), ",");
+}
+
+/** CSV con comillas, saltos dentro de campo y separador , ; | o tabulador */
 function parseCSV(text: string): Record<string, string>[] {
-  const sep = (text.slice(0, 2000).match(/;/g)?.length ?? 0) > (text.slice(0, 2000).match(/,/g)?.length ?? 0) ? ";" : ",";
+  const sep = detectarSeparador(text);
   const rows: string[][] = [];
   let row: string[] = [], cell = "", quoted = false;
   for (let i = 0; i < text.length; i++) {
@@ -274,12 +281,12 @@ export default function AdminMercado() {
           ))}
         </div>
 
-        <input ref={fileRef} type="file" accept=".csv,.tsv,.xml,text/csv,text/xml,application/xml" className="hidden"
+        <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,.xml,text/csv,text/plain,text/xml,application/xml" className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
         <button onClick={() => fileRef.current?.click()}
           className="w-full rounded-xl border-2 border-dashed border-border hover:border-primary/60 py-8 flex flex-col items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
           <Upload className="w-6 h-6" />
-          <span className="text-sm font-medium">Elegir archivo CSV o XML</span>
+          <span className="text-sm font-medium">Elegir archivo CSV, TXT o XML</span>
           <span className="text-xs">El feed diario de la red, tal cual lo descargas</span>
         </button>
 
@@ -412,7 +419,7 @@ export default function AdminMercado() {
       <div className="card-surface rounded-2xl p-5 text-sm text-muted-foreground space-y-2">
         <p className="font-semibold text-foreground">De dónde sale cada archivo</p>
         <p><b className="text-foreground">ClickBank:</b> dentro de tu cuenta, el feed diario del marketplace (XML). Solo se descarga con la sesión abierta.</p>
-        <p><b className="text-foreground">Awin (programa de afiliados de Etsy):</b> Toolbox → Create-a-Feed, elige categorías y descarga el CSV. El feed trae TU enlace de afiliado (aw_deep_link): si lo emparejas, los clics de tus usuarios generan comisión para ti, y la app lo indica en la tarjeta. Si prefieres que cada usuario gane la suya, empareja solo merchant_deep_link como URL del producto.</p>
+        <p><b className="text-foreground">Etsy (Rakuten Advertising):</b> el programa de Etsy vive en Rakuten, con regiones separadas (US, LATAM, EU…). Los catálogos se descargan por SFTP en formato XML o separado por barras: súbelos aquí tal cual. El feed no trae la comisión del programa: ponla abajo.</p>
         <p><b className="text-foreground">Digistore24:</b> exporta el marketplace desde tu cuenta de afiliado.</p>
         <p className="text-xs">Sube solo catálogos que tu programa de afiliados te autorice a usar. Cada carga actualiza los productos que ya estaban.</p>
       </div>

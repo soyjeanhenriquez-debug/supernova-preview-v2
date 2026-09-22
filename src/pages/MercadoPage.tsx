@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, Loader2, ExternalLink, Sparkles, Gift, TrendingUp, Star, Store, Tag } from "lucide-react";
+import { Search, Loader2, ExternalLink, Sparkles, Gift, TrendingUp, Star, Store, Tag, Lightbulb, X, Copy } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import { useCredits, generatorCost } from "@/hooks/useCredits";
+import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -50,6 +53,41 @@ function payout(r: Row): number | null {
   return null;
 }
 
+/**
+ * "Idea para replicar": el catálogo sirve de inspiración, no de copia. La IA parte de un
+ * producto que ya se vende y propone TU versión, con su ángulo para el último trimestre
+ * (regalos). Todo lo que no sea dato del archivo se marca como estimación.
+ */
+function ideaPrompt(r: Row, fuente: string) {
+  const ficha = [
+    `Producto: ${r.title}`,
+    r.category && `Categoría: ${r.category}`,
+    r.price != null && `Precio: ${r.price} ${r.currency ?? "USD"}`,
+    r.reviews != null && `Reseñas en la tienda: ${r.reviews}${r.rating != null ? ` (${r.rating}★)` : ""}`,
+    `Fuente: ${fuente}`,
+  ].filter(Boolean).join("\n");
+  return `Eres un estratega de producto y de respuesta directa. A partir de un producto que YA se vende en una tienda, propones cómo hacer tu propia versión y venderla en el último trimestre del año (regalos, Black Friday, Navidad).
+
+PRODUCTO DE REFERENCIA:
+${ficha}
+
+Entrega:
+## Por qué se vende
+Qué necesidad o emoción cubre. Si es una suposición tuya, dilo.
+## Tu versión
+Tres formas de hacer tu propia versión, de la más fácil a la más difícil: digital (descargable), física (hecha o encargada) y servicio o personalización. Para cada una: qué es, cuánto cuesta empezar y cuánto tiempo lleva.
+## Precio sugerido
+Un rango con su razón, comparado con el producto de referencia.
+## Por qué encaja (o no) en el último trimestre
+Sé honesto: si es un producto de temporada baja o difícil de enviar a tiempo, dilo.
+## Cómo lo venderías
+El público concreto, el ángulo del anuncio y el gancho de los 3 primeros segundos.
+## Lo que NO sabemos
+Qué datos harían falta para confirmar que es buena idea y cómo conseguirlos (buscador de la tienda, anuncios activos, preguntas a clientes).
+
+Escribe en español neutro, frases cortas, títulos con ##. No inventes cifras de ventas ni de ingresos: no tenemos ese dato. No copies el nombre ni el texto del producto de referencia: la idea es hacer una versión propia.`;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const table = () => (supabase as any).from("market_offers");
 
@@ -61,6 +99,8 @@ export function MercadoPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const [sort, setSort] = useState<Sort>("popularity");
   const [q, setQ] = useState("");
   const [onlyGift, setOnlyGift] = useState(false);
+  const { applyServerCharge, canAfford } = useCredits();
+  const [idea, setIdea] = useState<{ row: Row; text: string; loading: boolean } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -94,6 +134,49 @@ export function MercadoPage({ onNavigate }: { onNavigate?: (page: string) => voi
     try { localStorage.setItem(`sn_mandala_brief_${user?.id ?? "anon"}`, JSON.stringify(brief)); } catch { /* sin almacenamiento */ }
     toast.success("Oferta cargada en la Mándala");
     if (onNavigate) onNavigate("Mándala"); else window.location.hash = "#/mandala";
+  };
+
+  /** Genera la idea con la IA (mismo cobro que un generador ligero). */
+  const pedirIdea = async (r: Row) => {
+    const { action } = generatorCost("market-idea");
+    if (!canAfford(action)) { toast.error("Sin créditos suficientes", { description: "Recarga tu saldo o espera al próximo ciclo." }); return; }
+    setIdea({ row: r, text: "", loading: true });
+    try {
+      const fuente = SOURCES.find(s => s.id === r.source)?.label ?? r.source;
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
+        method: "POST", headers: await fnHeaders(),
+        body: JSON.stringify({
+          generator_id: "market-idea", generator_title: `Idea para replicar · ${r.title.slice(0, 50)}`,
+          messages: [{ role: "user", content: ideaPrompt(r, fuente) }],
+        }),
+      });
+      if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "No se pudo generar la idea"));
+      applyServerCharge(action, readBilling(resp), "Idea para replicar");
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "", full = "", fin = false;
+      while (!fin) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let nl: number;
+        while ((nl = buf.indexOf("\n")) !== -1) {
+          let line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (!line.startsWith("data: ")) continue;
+          const json = line.slice(6).trim();
+          if (json === "[DONE]") { fin = true; break; }
+          try {
+            const c = JSON.parse(json).choices?.[0]?.delta?.content;
+            if (c) { full += c; setIdea(prev => prev && prev.row.id === r.id ? { ...prev, text: full } : prev); }
+          } catch { buf = line + "\n" + buf; break; }
+        }
+      }
+      setIdea(prev => prev && prev.row.id === r.id ? { ...prev, loading: false } : prev);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo generar la idea");
+      setIdea(null);
+    }
   };
 
   return (
@@ -184,7 +267,7 @@ export function MercadoPage({ onNavigate }: { onNavigate?: (page: string) => voi
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {rows.map(r => <Card key={r.id} r={r} onVender={() => vender(r)} />)}
+            {rows.map(r => <Card key={r.id} r={r} onVender={() => vender(r)} onIdea={() => pedirIdea(r)} />)}
           </div>
           {rows.some(r => r.affiliate_url) && (
             // Divulgación: obligatoria en los programas de afiliados y por ley. Discreta, al pie.
@@ -195,11 +278,42 @@ export function MercadoPage({ onNavigate }: { onNavigate?: (page: string) => voi
           )}
         </>
       )}
+
+      {/* Panel de la idea */}
+      {idea && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-6" onClick={() => setIdea(null)}>
+          <div className="card-surface w-full sm:max-w-2xl max-h-[85vh] overflow-auto rounded-t-2xl sm:rounded-2xl p-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-wider text-primary font-semibold">Idea para replicar</p>
+                <h3 className="font-display font-semibold text-foreground text-sm truncate">{idea.row.title}</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                {!idea.loading && idea.text && (
+                  <button onClick={() => { navigator.clipboard.writeText(idea.text); toast.success("Copiado"); }}
+                    className="p-2 text-muted-foreground hover:text-foreground" aria-label="Copiar"><Copy className="w-4 h-4" /></button>
+                )}
+                <button onClick={() => setIdea(null)} className="p-2 text-muted-foreground hover:text-foreground" aria-label="Cerrar"><X className="w-4 h-4" /></button>
+              </div>
+            </div>
+            <div className="prose prose-sm prose-invert max-w-none text-foreground">
+              {idea.text ? <ReactMarkdown>{idea.text}</ReactMarkdown>
+                : <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Pensando tu versión…</p>}
+            </div>
+            {!idea.loading && idea.text && (
+              <button onClick={() => { const r = idea.row; setIdea(null); vender(r); }}
+                className="mt-4 inline-flex items-center gap-2 rounded-lg gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground">
+                <Sparkles className="w-4 h-4" /> Crear los anuncios en la Mándala
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function Card({ r, onVender }: { r: Row; onVender: () => void }) {
+function Card({ r, onVender, onIdea }: { r: Row; onVender: () => void; onIdea: () => void }) {
   const src = SOURCES.find(s => s.id === r.source);
   const gana = payout(r);
   const precio = money(r.price, r.currency);
@@ -242,6 +356,11 @@ function Card({ r, onVender }: { r: Row; onVender: () => void }) {
           <button onClick={onVender}
             className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg gradient-brand px-3 py-2.5 text-xs font-bold text-primary-foreground">
             <Sparkles className="w-3.5 h-3.5" /> Vender esto
+          </button>
+          <button onClick={onIdea} title="Cómo hacer tu propia versión"
+            className="inline-flex items-center justify-center rounded-lg border border-border px-3 py-2.5 text-muted-foreground hover:text-primary hover:border-primary/60"
+            aria-label="Idea para replicar este producto">
+            <Lightbulb className="w-4 h-4" />
           </button>
           {(r.affiliate_url || r.product_url) && (
             <a href={r.affiliate_url || r.product_url || "#"} target="_blank" rel="noopener noreferrer nofollow"

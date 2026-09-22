@@ -248,6 +248,27 @@ const adsTable = () => (supabase as any).from("mandala_ads");
 
 type Tab = "ruta" | "rueda" | "mis";
 
+/** Un paso de la ruta: solo el activo se abre; los demás se ven como una línea con su estado. */
+function Step({ n, title, summary, done, active, onOpen, children }: {
+  n: number; title: string; summary?: string; done: boolean; active: boolean; onOpen: () => void; children: ReactNode;
+}) {
+  return (
+    <div className={`card-surface rounded-2xl transition-colors ${active ? "border-primary/50" : ""}`}>
+      <button onClick={onOpen} className="w-full flex items-center gap-3 p-4 text-left" aria-expanded={active}>
+        <span className={`w-7 h-7 rounded-full grid place-items-center text-xs font-bold shrink-0 ${done && !active ? "bg-emerald-500/15 text-emerald-400" : active ? "gradient-brand text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
+          {done && !active ? <Check className="w-4 h-4" /> : n}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className={`text-sm font-semibold ${active || done ? "text-foreground" : "text-muted-foreground"}`}>{title}</p>
+          {!active && summary && <p className="text-xs text-muted-foreground truncate">{summary}</p>}
+        </div>
+        {!active && <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
+      </button>
+      {active && <div className="px-4 pb-5 sm:pl-14 space-y-4">{children}</div>}
+    </div>
+  );
+}
+
 export function MandalaPage() {
   const { user } = useAuth();
   const { applyServerCharge, canAfford } = useCredits();
@@ -267,6 +288,12 @@ export function MandalaPage() {
   const [outputTitle, setOutputTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [openAd, setOpenAd] = useState<string | null>(null);
+  // Paso a paso: qué paso está abierto (null = el que toca) y dónde se muestra el anuncio recién creado.
+  const setupKey = `sn_mandala_setup_${user?.id ?? "anon"}`;
+  const [setupDone, setSetupDone] = useState(false);
+  const [openStep, setOpenStep] = useState<number | null>(null);
+  const [routePick, setRoutePick] = useState<number | null>(null);
+  const [outputAt, setOutputAt] = useState<string | null>(null);
   const challenge = useMemo(dailyChallenge, []);
 
   // La ficha de la oferta es una comodidad de este navegador (si falla el almacenamiento, se escribe de nuevo).
@@ -280,6 +307,10 @@ export function MandalaPage() {
       }
     } catch { /* sin almacenamiento */ }
   }, [briefKey]);
+  useEffect(() => {
+    try { setSetupDone(localStorage.getItem(setupKey) === "1"); } catch { /* sin almacenamiento */ }
+  }, [setupKey]);
+  const confirmSetup = () => { setSetupDone(true); setOpenStep(null); try { localStorage.setItem(setupKey, "1"); } catch { /* sin almacenamiento */ } };
   const saveBrief = (b: Brief) => { try { localStorage.setItem(briefKey, JSON.stringify(b)); } catch { /* sin almacenamiento */ } };
 
   const loadAds = useCallback(async () => {
@@ -289,7 +320,6 @@ export function MandalaPage() {
       .order("created_at", { ascending: false }).limit(300);
     if (!error && Array.isArray(data)) {
       setAds(data as AdRow[]);
-      if (data.length) setTab(t => (t === "ruta" && data.length >= ROUTE.length ? "rueda" : t));
     }
   }, [user]);
   useEffect(() => { loadAds(); }, [loadAds]);
@@ -360,15 +390,16 @@ export function MandalaPage() {
 
   const requireBrief = () => {
     if (briefReady(brief)) return true;
-    setBriefOpen(true);
+    setBriefOpen(true); setOpenStep(null);
     toast.error("Primero completa tu oferta", { description: "Qué vendes, para quién y qué resultado promete. Son 30 segundos." });
     document.getElementById("mandala-brief")?.scrollIntoView({ behavior: "smooth", block: "center" });
     return false;
   };
 
-  const createAd = async (s: Stage, a: Angle) => {
+  const createAd = async (s: Stage, a: Angle, at: string | null = null) => {
     if (!requireBrief()) return;
     pick(s, a);
+    setOutputAt(at);
     const title = `Mándala · ${s.name} × ${a.name}`;
     const text = briefText(brief);
     const full = await stream("mandala-ad", title, `${adPrompt(s, a, format, platform)}\n\nOFERTA DEL USUARIO:\n${text.slice(0, 2500)}`);
@@ -380,10 +411,12 @@ export function MandalaPage() {
 
   const createSequence = async () => {
     if (!requireBrief()) return;
+    setOutputAt(null);
     await stream("mandala-sequence", "Mándala · Secuencia de 4 etapas", `${sequencePrompt(angle, format, platform)}\n\nOFERTA DEL USUARIO:\n${briefText(brief).slice(0, 2500)}`);
   };
 
   const iterate = async (ad: AdRow) => {
+    setOutputAt(null);
     const full = await stream("mandala-iterate", `Mándala · Variaciones del ganador`, iteratePrompt(ad));
     if (full) { document.getElementById("mandala-output")?.scrollIntoView({ behavior: "smooth" }); }
   };
@@ -422,66 +455,56 @@ export function MandalaPage() {
     </button>
   );
 
-  return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-1">
-        <h1 className="font-display font-bold text-2xl text-foreground">Mándala Creativa</h1>
-        <p className="text-sm text-muted-foreground max-w-2xl">
-          Cada anuncio cruza una <b className="text-foreground">etapa</b> (a quién le hablas) con un <b className="text-foreground">ángulo</b> (cómo lo cuentas):
-          {" "}{total} anuncios distintos para la misma oferta. Creas, publicas, anotas el resultado y la mándala te dice qué hacer después.
-        </p>
-      </div>
+  const measured = ads.some(a => a.spend != null || a.status === "ganador" || a.status === "descartado");
+  const briefDone = briefReady(brief) && !briefOpen;
+  const setupOk = setupDone || ads.length > 0;
+  const autoStep = !briefDone ? 1 : !setupOk ? 2 : routeDone < ROUTE.length ? 3 : !measured ? 4 : 5;
+  const step = openStep ?? autoStep;
+  const nextRoute = ROUTE.findIndex(r => !done.has(`${r.stage}:${r.angle}`));
+  const routeOpen = routePick ?? (nextRoute === -1 ? 0 : nextRoute);
+  const openStepN = (n: number) => {
+    if (n === 1) setBriefOpen(true);
+    setOpenStep(n === autoStep ? null : n);
+  };
 
-      {/* Paso 0: la oferta. Sin esto, cualquier anuncio sale genérico. */}
-      <div id="mandala-brief" className="card-surface rounded-2xl p-4 sm:p-5">
-        <button className="w-full flex items-center justify-between gap-3 text-left" onClick={() => setBriefOpen(o => !o)}>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-              {briefReady(brief) ? <Check className="w-4 h-4 text-emerald-400" /> : <span className="text-primary">Paso 0 ·</span>} Tu oferta
-            </p>
-            <p className="text-xs text-muted-foreground truncate">{briefReady(brief) ? `${brief.product} · ${brief.who}` : "Qué vendes, para quién y qué promete. Todo sale de aquí."}</p>
-          </div>
-          {briefOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-        </button>
-        {briefOpen && (
-          <div className="mt-4 space-y-3">
-            <div className="grid sm:grid-cols-2 gap-3">
-              {([
-                ["product", "Qué vendes", "Curso de repostería para vender desde casa"],
-                ["who", "Para quién", "Mamás que quieren un ingreso extra sin salir de casa"],
-                ["promise", "Qué resultado promete", "Hacer y vender sus primeros postres en 30 días"],
-                ["price", "Precio (USD)", "27"],
-              ] as const).map(([k, label, ph]) => (
-                <label key={k} className="flex flex-col gap-1 text-xs text-muted-foreground">
-                  {label}
-                  <input value={brief[k]} placeholder={ph} inputMode={k === "price" ? "decimal" : undefined}
-                    onChange={e => setBrief(b => ({ ...b, [k]: e.target.value.slice(0, 300) }))}
-                    onBlur={() => saveBrief(brief)}
-                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary/60" />
-                </label>
-              ))}
-            </div>
-            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-              Prueba o garantía (opcional)
-              <input value={brief.proof} placeholder="Garantía de 7 días · 40 alumnas ya vendieron · o déjalo vacío si aún no tienes"
-                onChange={e => setBrief(b => ({ ...b, proof: e.target.value.slice(0, 300) }))} onBlur={() => saveBrief(brief)}
-                className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary/60" />
-            </label>
-            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span>¿Aún no tienes oferta?</span>
-              <a href="#/ofertas" className="text-primary hover:underline">Elige una que ya vende en Ofertas</a>
-              <span>·</span>
-              <a href="#/generadores" className="text-primary hover:underline">Diseña tu escalera en Generadores → Embudo completo</a>
-            </div>
-            {briefReady(brief) && (
-              <Btn onClick={() => { saveBrief(brief); setBriefOpen(false); }}><Check className="w-4 h-4" /> Listo</Btn>
-            )}
-          </div>
-        )}
+  const briefFields = () => (
+    <>
+      <div className="grid sm:grid-cols-2 gap-3">
+        {([
+          ["product", "Qué vendes", "Curso de repostería para vender desde casa"],
+          ["who", "Para quién", "Mamás que quieren un ingreso extra sin salir de casa"],
+          ["promise", "Qué resultado promete", "Hacer y vender sus primeros postres en 30 días"],
+          ["price", "Precio (USD)", "27"],
+        ] as const).map(([k, label, ph]) => (
+          <label key={k} className="flex flex-col gap-1 text-xs text-muted-foreground">
+            {label}
+            <input value={brief[k]} placeholder={ph} inputMode={k === "price" ? "decimal" : undefined}
+              onChange={e => setBrief(b => ({ ...b, [k]: e.target.value.slice(0, 300) }))}
+              onBlur={() => saveBrief(brief)}
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary/60" />
+          </label>
+        ))}
       </div>
+      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+        Prueba o garantía (opcional)
+        <input value={brief.proof} placeholder="Garantía de 7 días · 40 alumnas ya vendieron · o déjalo vacío si aún no tienes"
+          onChange={e => setBrief(b => ({ ...b, proof: e.target.value.slice(0, 300) }))} onBlur={() => saveBrief(brief)}
+          className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary/60" />
+      </label>
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <span>¿Aún no tienes oferta?</span>
+        <a href="#/ofertas" className="text-primary hover:underline">Elige una que ya vende en Ofertas</a>
+        <span>·</span>
+        <a href="#/generadores" className="text-primary hover:underline">Diseña tu escalera en Generadores → Embudo completo</a>
+      </div>
+    </>
+  );
 
-      {/* Dónde y cómo se publica: cambia "cómo publicarlo", no la idea. */}
-      <div className="flex flex-col gap-2">
+  // Dónde y cómo se publica: cambia "cómo publicarlo", no la idea.
+  const pickers = () => (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <p className="text-xs text-muted-foreground">¿Dónde lo vas a publicar?</p>
         <div className="flex flex-wrap gap-2">
           {PLATFORMS.map(p => (
             <button key={p.id} onClick={() => setPlatform(p.id)}
@@ -490,6 +513,9 @@ export function MandalaPage() {
             </button>
           ))}
         </div>
+      </div>
+      <div className="space-y-1.5">
+        <p className="text-xs text-muted-foreground">¿Qué tipo de anuncio?</p>
         <div className="flex flex-wrap gap-2">
           {FORMATS.map(f => (
             <button key={f} onClick={() => setFormat(f)}
@@ -499,11 +525,46 @@ export function MandalaPage() {
           ))}
         </div>
       </div>
+    </div>
+  );
+
+  const outputPanel = () => (
+    <div id="mandala-output" className="card-surface rounded-2xl p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h3 className="font-semibold text-foreground text-sm">{outputTitle || "Resultado"}</h3>
+        {output && !loading && (
+          <div className="flex gap-3">
+            {/video|avatar/i.test(format) && (
+              <button onClick={() => toMediaStudio(output)} className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline">
+                <Video className="w-3.5 h-3.5" /> Llevar a Media Studio
+              </button>
+            )}
+            <button onClick={() => { navigator.clipboard.writeText(output); toast.success("Copiado"); }}
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+              <Copy className="w-3.5 h-3.5" /> Copiar
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="prose prose-sm prose-invert max-w-none text-foreground">
+        {output ? <ReactMarkdown>{output}</ReactMarkdown> : <p className="text-muted-foreground text-sm flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Creando…</p>}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col gap-1">
+        <h1 className="font-display font-bold text-2xl text-foreground">Mándala Creativa</h1>
+        <p className="text-sm text-muted-foreground max-w-2xl">
+          Te dice qué anuncios crear para tu oferta, en qué orden, y cuál apagar o escalar cuando ya tienes resultados.
+        </p>
+      </div>
 
       {/* Modos */}
       <div className="flex gap-1 rounded-xl bg-secondary/60 p-1 w-full sm:w-fit overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {([
-          ["ruta", Route, `Ruta guiada · ${routeDone}/${ROUTE.length}`],
+          ["ruta", Route, `Paso a paso · ${autoStep}/5`],
           ["rueda", Orbit, "Rueda libre"],
           ["mis", ListChecks, `Mis anuncios · ${ads.length}`],
         ] as const).map(([id, Icon, label]) => (
@@ -514,43 +575,126 @@ export function MandalaPage() {
         ))}
       </div>
 
+      {tab !== "ruta" && (
+        <>
+          <div id="mandala-brief" className="card-surface rounded-2xl p-4 sm:p-5">
+            <button className="w-full flex items-center justify-between gap-3 text-left" onClick={() => setBriefOpen(o => !o)}>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  {briefReady(brief) ? <Check className="w-4 h-4 text-emerald-400" /> : <span className="text-primary">Primero ·</span>} Tu oferta
+                </p>
+                <p className="text-xs text-muted-foreground truncate">{briefReady(brief) ? `${brief.product} · ${brief.who}` : "Qué vendes, para quién y qué promete. Todo sale de aquí."}</p>
+              </div>
+              {briefOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+            </button>
+            {briefOpen && (
+              <div className="mt-4 space-y-3">
+                {briefFields()}
+                {briefReady(brief) && <Btn onClick={() => { saveBrief(brief); setBriefOpen(false); }}><Check className="w-4 h-4" /> Listo</Btn>}
+              </div>
+            )}
+          </div>
+          {tab === "rueda" && pickers()}
+        </>
+      )}
+
       {tab === "ruta" && (
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground max-w-2xl">
-            El orden que conviene si empiezas con poco presupuesto: primero anuncios que venden, después los que recuperan a quien casi compra.
-            Cuando uno gane, abres la parte alta del embudo en la rueda libre.
-          </p>
-          {ROUTE.map((r, i) => {
-            const s = stageById(r.stage), a = angleById(r.angle), isDone = done.has(`${r.stage}:${r.angle}`);
-            return (
-              <div key={i} className="card-surface rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3" style={{ borderLeft: `3px solid ${s.color}` }}>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-                    {isDone ? <Check className="w-4 h-4 text-emerald-400 shrink-0" /> : <span className="text-muted-foreground">{i + 1}.</span>}
-                    {s.name} × {a.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{r.why}</p>
-                </div>
-                <Btn primary={!isDone} onClick={() => createAd(s, a)}>
-                  <Sparkles className="w-4 h-4" /> {isDone ? "Otra versión" : "Crear"} · {adCost} ⚡
-                </Btn>
-              </div>
-            );
-          })}
-          <div className="card-surface rounded-xl p-4" style={{ borderLeft: "3px solid hsl(var(--primary))" }}>
-            <p className="text-sm font-semibold text-foreground">{ROUTE.length + 1}. Publica y mide 3 días</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {platform === "organico"
-                ? "Publica uno por día. A los 3 días mira cuál trajo más mensajes o clics en el link y márcalo en Mis anuncios."
-                : "Publica los 3 de Convertir, cada uno con un presupuesto bajo y el mismo, y los 2 de Recuperar con uno aún más bajo. A los 3 días anota gasto, CTR y ventas en Mis anuncios: la mándala te dice cuál apagar y cuál escalar."}
+          <div className="h-1.5 rounded-full bg-secondary overflow-hidden" aria-hidden>
+            <div className="h-full gradient-brand transition-all" style={{ width: `${((Math.min(autoStep, 5) - 1) / 4) * 100}%` }} />
+          </div>
+
+          <div id="mandala-brief">
+            <Step n={1} title="Cuéntanos qué vendes" done={briefDone} active={step === 1} onOpen={() => openStepN(1)}
+              summary={briefReady(brief) ? `${brief.product} · ${brief.who}` : "Qué vendes, para quién y qué promete. 30 segundos."}>
+              <p className="text-sm text-muted-foreground">Todos los anuncios salen de aquí. Mientras más concreto, mejores anuncios.</p>
+              {briefFields()}
+              <Btn primary disabled={!briefReady(brief)} onClick={() => { saveBrief(brief); setBriefOpen(false); setOpenStep(null); }}>
+                Siguiente paso →
+              </Btn>
+              {!briefReady(brief) && <p className="text-xs text-muted-foreground">Llena al menos qué vendes, para quién y qué promete.</p>}
+            </Step>
+          </div>
+
+          <Step n={2} title="Elige dónde lo vas a publicar" done={setupOk && briefDone} active={step === 2} onOpen={() => openStepN(2)}
+            summary={`${PLATFORMS.find(p => p.id === platform)?.label} · ${format}`}>
+            <p className="text-sm text-muted-foreground">La idea del anuncio es la misma; esto cambia el formato y cómo publicarlo. Si no sabes, deja Meta y Video corto.</p>
+            {pickers()}
+            <Btn primary onClick={confirmSetup}>Siguiente paso →</Btn>
+          </Step>
+
+          <Step n={3} title={`Crea tus ${ROUTE.length} anuncios, uno por uno`} done={routeDone >= ROUTE.length} active={step === 3} onOpen={() => openStepN(3)}
+            summary={`${routeDone} de ${ROUTE.length} creados`}>
+            <p className="text-sm text-muted-foreground">
+              Van en este orden porque con poco presupuesto primero hay que vender: 3 anuncios para quien no te conoce y 2 para quien visitó tu página y no compró.
+              La IA escribe cada uno completo; se guardan solos en Mis anuncios.
             </p>
-            <div className="mt-2"><Btn onClick={() => setTab("mis")}><ListChecks className="w-4 h-4" /> Anotar resultados</Btn></div>
-          </div>
-          <div className="card-surface rounded-xl p-4" style={{ borderLeft: "3px solid #3B82F6" }}>
-            <p className="text-sm font-semibold text-foreground flex items-center gap-2">{hasWinner && <Check className="w-4 h-4 text-emerald-400" />}{ROUTE.length + 2}. Itera el ganador y abre el embudo</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Con un ganador: pide variaciones (nuevos ganchos, mismo corazón) y gira la rueda en Atraer y Conectar para traer gente nueva.</p>
-            <div className="mt-2"><Btn onClick={() => setTab("rueda")}><Orbit className="w-4 h-4" /> Ir a la rueda</Btn></div>
-          </div>
+            <div className="space-y-2">
+              {ROUTE.map((r, i) => {
+                const s = stageById(r.stage), a = angleById(r.angle), key = `${r.stage}:${r.angle}`, isDone = done.has(key);
+                const isOpen = i === routeOpen;
+                return (
+                  <div key={key} className={`rounded-xl border ${isOpen ? "border-primary/40 bg-secondary/30" : "border-border"}`}>
+                    <button onClick={() => setRoutePick(i)} className="w-full flex items-center gap-2 p-3 text-left">
+                      {isDone ? <Check className="w-4 h-4 text-emerald-400 shrink-0" /> : <span className="w-4 text-xs text-muted-foreground shrink-0">{i + 1}.</span>}
+                      <span className={`text-sm ${isOpen ? "font-semibold text-foreground" : "text-muted-foreground"}`}>Anuncio {i + 1}: {a.name}</span>
+                      <span className="ml-auto text-[11px] px-2 py-0.5 rounded-full shrink-0" style={{ background: `${s.color}22`, color: s.color }}>
+                        {s.id === "recuperar" ? "Para quien casi compra" : "Para vender"}
+                      </span>
+                    </button>
+                    {isOpen && (
+                      <div className="px-3 pb-3 space-y-3">
+                        <p className="text-sm text-foreground">{r.why}</p>
+                        <p className="text-xs text-muted-foreground"><b className="text-foreground">Cómo se cuenta:</b> {a.how}</p>
+                        <div className="flex flex-wrap gap-2">
+                          <Btn primary={!isDone} onClick={() => { setRoutePick(i); setOpenStep(3); createAd(s, a, key); }}>
+                            {loading && outputAt === key ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                            {isDone ? "Crear otra versión" : `Crear anuncio ${i + 1}`} · {adCost} ⚡
+                          </Btn>
+                          {isDone && !loading && (i < ROUTE.length - 1
+                            ? <Btn onClick={() => { setRoutePick(i + 1); setOutputAt(null); }}>Siguiente anuncio →</Btn>
+                            : routeDone >= ROUTE.length && <Btn onClick={() => { setOpenStep(null); setOutputAt(null); }}>Siguiente paso: publicar →</Btn>)}
+                        </div>
+                        {(output || loading) && outputAt === key && outputPanel()}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {routeDone > 0 && routeDone < ROUTE.length && (
+              <button onClick={() => setOpenStep(4)} className="text-xs text-muted-foreground hover:text-foreground underline">
+                Ya tengo suficientes, quiero publicar
+              </button>
+            )}
+          </Step>
+
+          <Step n={4} title="Publícalos y anota cómo les va" done={measured} active={step === 4} onOpen={() => openStepN(4)}
+            summary="Déjalos correr 3 días y anota los números.">
+            {platform === "organico" ? (
+              <p className="text-sm text-muted-foreground">Publica uno por día. A los 3 días mira cuál trajo más mensajes o clics en el link y márcalo como ganador en Mis anuncios.</p>
+            ) : (
+              <ol className="text-sm text-muted-foreground space-y-1.5 list-decimal pl-4">
+                <li>Publica los 3 anuncios "para vender", cada uno con el mismo presupuesto diario, bajo.</li>
+                <li>Publica los 2 "para quien casi compra" con un presupuesto aún más bajo, mostrados solo a quien visitó tu página.</li>
+                <li>No toques nada durante 3 días.</li>
+                <li>Anota en cada anuncio cuánto gastaste, su CTR y cuántas ventas trajo. La app te dice cuál apagar y cuál escalar.</li>
+              </ol>
+            )}
+            <Btn primary onClick={() => setTab("mis")}><ListChecks className="w-4 h-4" /> Anotar resultados</Btn>
+          </Step>
+
+          <Step n={5} title="Escala el que gana" done={hasWinner} active={step === 5} onOpen={() => openStepN(5)}
+            summary="Variaciones del ganador y anuncios nuevos para traer más gente.">
+            <p className="text-sm text-muted-foreground">
+              Cuando un anuncio vende a menos de lo que cuesta el producto, es tu ganador. No le cambies el mensaje: pide variaciones (ganchos nuevos) en Mis anuncios
+              y sube el presupuesto poco a poco. Después usa la Rueda libre en Atraer y Conectar para que te conozca gente nueva.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Btn primary onClick={() => setTab("mis")}><Repeat className="w-4 h-4" /> Ver mis anuncios</Btn>
+              <Btn onClick={() => setTab("rueda")}><Orbit className="w-4 h-4" /> Ir a la rueda libre</Btn>
+            </div>
+          </Step>
         </div>
       )}
 
@@ -703,29 +847,7 @@ export function MandalaPage() {
         </div>
       )}
 
-      {(output || loading) && (
-        <div id="mandala-output" className="card-surface rounded-2xl p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-            <h3 className="font-semibold text-foreground text-sm">{outputTitle || "Resultado"}</h3>
-            {output && !loading && (
-              <div className="flex gap-3">
-                {/video|avatar/i.test(format) && (
-                  <button onClick={() => toMediaStudio(output)} className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline">
-                    <Video className="w-3.5 h-3.5" /> Llevar a Media Studio
-                  </button>
-                )}
-                <button onClick={() => { navigator.clipboard.writeText(output); toast.success("Copiado"); }}
-                  className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
-                  <Copy className="w-3.5 h-3.5" /> Copiar
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="prose prose-sm prose-invert max-w-none text-foreground">
-            {output ? <ReactMarkdown>{output}</ReactMarkdown> : <p className="text-muted-foreground text-sm flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Creando…</p>}
-          </div>
-        </div>
-      )}
+      {(output || loading) && outputAt === null && outputPanel()}
     </div>
   );
 }

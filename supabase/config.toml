@@ -64,3 +64,14 @@ verify_jwt = false
 # Correo diario de alertas al admin (pg_cron). Compuerta propia: secreto de cron o admin.
 [functions.health-alert]
 verify_jwt = false
+
+# Herramientas del recorrido "Mi negocio". Compuerta propia: sesión de usuario, o secreto de cron
+# + un admin como usuario de prueba (para probarlas sin navegador).
+[functions.weekly-plan]
+verify_jwt = false
+
+[functions.recovery-sequence]
+verify_jwt = false
+
+[functions.content-ideas]
+verify_jwt = false

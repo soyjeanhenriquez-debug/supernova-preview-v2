@@ -11,15 +11,22 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const MODEL = "gemini-3-flash-preview";
 const MAX_REGEN = 2;
 // Pantallas a las que puede mandar una tarea (claves internas de src/pages/Index.tsx).
+// Van en el orden del recorrido "Mi negocio" (menú de src/components/Sidebar.tsx).
 const PAGES: Record<string, string> = {
-  "Ofertas": "Ofertas ganadoras: elegir qué vender y ver su veredicto",
-  "Buscar Ofertas Winner": "Radar de anuncios reales",
-  "Hooks": "Bóveda de ganchos",
-  "Mándala": "Mándala: Mi negocio (paso 1), crear anuncios, anotar resultados",
-  "Generadores": "Generadores de textos (correos, página de venta, guiones, WhatsApp)",
-  "Mini Apps": "Hacer mi versión: crear su propio producto (mini app)",
-  "Precio": "Calculadora de precio y ganancia",
-  "Proyectos": "Mis proyectos guardados",
+  "Mi negocio": "Mi ficha: qué vende, para quién, qué logra, precio y tono",
+  "Ofertas": "Etapa 1 · Ofertas ganadoras: elegir qué vender y ver su veredicto",
+  "Buscar Ofertas Winner": "Etapa 1 · Radar de anuncios reales",
+  "Mini Apps": "Etapa 1/4 · Mini Apps: hacer su propia versión (producto)",
+  "Validar": "Etapa 2 · Matriz de validación (14 preguntas de sí o no)",
+  "Precio": "Etapa 3 · Calculadora de precio y ganancia",
+  "Plan": "Etapa 4 · Plan de lanzamiento con tareas y fechas",
+  "Proyectos": "Etapa 4 · Mis productos guardados",
+  "Mándala": "Etapa 5 · Mándala: crear los anuncios",
+  "Hooks": "Etapa 5 · Bóveda de ganchos",
+  "Contenido": "Etapa 5 · Calendario de contenido orgánico",
+  "Generadores": "Etapa 5 · Generadores de textos (correos, página de venta, guiones)",
+  "Resultados": "Etapa 6 · Anotar gasto, CTR y ventas de cada anuncio y ver el veredicto",
+  "Recuperar": "Etapa 6 · Mensajes de WhatsApp para quien casi compra",
 };
 
 const json = (status: number, body: unknown) =>
@@ -29,7 +36,17 @@ const json = (status: number, body: unknown) =>
 // verify_jwt del gateway NO basta: la llave pública (anon) también es un JWT válido.
 // Aquí se exige un USUARIO real con acceso vigente y un tope de uso (RPC edge_guard).
 // deno-lint-ignore no-explicit-any
-async function requireUser(req: Request, admin: any): Promise<{ userId: string } | Response> {
+async function requireUser(req: Request, admin: any, body: Record<string, unknown>): Promise<{ userId: string } | Response> {
+  // Ruta de prueba interna (misma que recovery-sequence/content-ideas): secreto de cron + un
+  // admin como usuario de prueba. Sirve para probar la función sin sesión de navegador.
+  const secret = req.headers.get("x-cron-secret");
+  if (secret) {
+    const { data: okSecret } = await admin.rpc("verify_cron_secret", { p_secret: secret });
+    const testId = typeof body.test_user_id === "string" ? body.test_user_id : "";
+    if (okSecret !== true || !/^[0-9a-f-]{36}$/i.test(testId)) return json(401, { error: "No autorizado" });
+    const { data: role } = await admin.from("user_roles").select("role").eq("user_id", testId).eq("role", "admin").maybeSingle();
+    return role ? { userId: testId } : json(401, { error: "No autorizado" });
+  }
   const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
   if (!token) return json(401, { error: "Inicia sesión para usar esta función." });
   const { data } = await admin.auth.getUser(token);
@@ -61,10 +78,11 @@ Deno.serve(async (req) => {
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const gate = await requireUser(req, admin);
+  const rawBody = await req.json().catch(() => null);
+  const body: Record<string, unknown> = rawBody && typeof rawBody === "object" && !Array.isArray(rawBody) ? rawBody : {};
+  const gate = await requireUser(req, admin, body);
   if (gate instanceof Response) return gate;
 
-  const body = await req.json().catch(() => ({}));
   const force = body.force === true;
   const week = weekStart();
 
@@ -75,11 +93,21 @@ Deno.serve(async (req) => {
   }
 
   // Estado real del negocio (el cliente solo aporta lo que vive en el navegador).
-  const [{ data: biz }, { data: ads }, { data: prev }] = await Promise.all([
-    admin.from("business_profile").select("business_type,copy_level,product,who,promise,price,pricing,journey").eq("user_id", gate.userId).maybeSingle(),
+  const [{ data: biz }, { data: ads }, { data: prev }, { data: content }] = await Promise.all([
+    admin.from("business_profile").select("business_type,copy_level,product,who,promise,price,pricing,journey,validation,launch_plan,recovery").eq("user_id", gate.userId).maybeSingle(),
     admin.from("mandala_ads").select("stage,angle,status,spend,ctr,sales,created_at").eq("user_id", gate.userId).order("created_at", { ascending: false }).limit(20),
     admin.from("weekly_plans").select("week_start,focus,tasks").eq("user_id", gate.userId).lt("week_start", week).order("week_start", { ascending: false }).limit(1).maybeSingle(),
+    admin.from("content_items").select("status,due").eq("user_id", gate.userId).limit(200),
   ]);
+  // Estado de las herramientas del recorrido, en una línea cada una.
+  const plan = (biz?.launch_plan as { tasks?: { title: string; due: string | null; done: boolean }[] } | null)?.tasks ?? [];
+  const today = new Date(Date.now() - 4 * 3600_000).toISOString().slice(0, 10); // hoy en hora RD
+  const tools = [
+    biz?.validation && (biz.validation as { completed_at?: string }).completed_at ? "Matriz de validación: completa." : "Matriz de validación: sin completar.",
+    plan.length ? `Plan de lanzamiento: ${plan.filter((t) => t.done).length} de ${plan.length} tareas; pendientes próximas: ${plan.filter((t) => !t.done).slice(0, 3).map((t) => `${clip(t.title, 60)}${t.due && t.due < today ? " (atrasada)" : ""}`).join(" · ") || "ninguna"}.` : "Plan de lanzamiento: no lo armó.",
+    `Calendario de contenido: ${(content ?? []).length} piezas, ${(content ?? []).filter((c) => c.status === "publicado").length} publicadas.`,
+    (biz?.recovery as { messages?: unknown[] } | null)?.messages?.length ? "Recuperación de ventas: mensajes listos." : "Recuperación de ventas: sin crear.",
+  ].join("\n");
   const stages = Array.isArray(body.stages) ? body.stages.slice(0, 6).map((s: { n?: number; title?: string; done?: boolean }) =>
     `${Number(s.n) || "?"}. ${clip(s.title, 60)}: ${s.done ? "hecha" : "pendiente"}`).join("\n") : "desconocido";
   const adsText = (ads ?? []).map((a) =>
@@ -97,6 +125,8 @@ ${biz ? `Tipo: ${clip(biz.business_type, 20) || "?"} · Producto: ${clip(biz.pro
 ${chosen ? `Calculadora: precio ${chosen.price}, paga ${chosen.adCostPerSale} en anuncios por venta.` : "Aún no hizo los números en la calculadora."}
 RECORRIDO (6 etapas):
 ${stages}
+HERRAMIENTAS:
+${tools}
 ANUNCIOS DE LA MÁNDALA (últimos 20):
 ${adsText}
 SEMANA PASADA: ${prev ? `foco "${clip(prev.focus, 120)}"; ${prevDone.filter((t) => t.done).length} de ${prevDone.length} tareas hechas; sin hacer: ${prevDone.filter((t) => !t.done).map((t) => clip(t.title, 70)).join(" · ") || "ninguna"}` : "es su primera semana."}`;
@@ -142,7 +172,7 @@ SEMANA PASADA: ${prev ? `foco "${clip(prev.focus, 120)}"; ${prevDone.filter((t) 
     id: `${week}-${i}`,
     title: clip(t.title, 90) || "Tarea",
     why: clip(t.why, 200),
-    page: typeof t.page === "string" && t.page in PAGES ? t.page : "Dashboard",
+    page: typeof t.page === "string" && Object.hasOwn(PAGES, t.page) ? t.page : "Dashboard",
     minutes: Math.min(240, Math.max(5, Number(t.minutes) || 20)),
     done: false,
   }));

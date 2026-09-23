@@ -36,8 +36,8 @@ export function MediaStudioPage() {
   const pollRef = useRef<number | null>(null);
   // El guion de ejemplo es largo: solo se pide con el botón, no al abrir la página.
   const assist = useFormAssist("media-script", "", false);
-  const { profile, setProfile, save: saveProfile, loaded: profileLoaded } = useBusinessProfile();
-  const changeTone = (next: typeof profile) => { setProfile(next); if (profileReady(next)) saveProfile(next); };
+  const { profile, savePatch, loaded: profileLoaded } = useBusinessProfile();
+  const changeTone = (next: typeof profile) => { savePatch({ copy_level: next.copy_level }); };
   // Idioma del video: el guion se escribe (no se traduce) en este idioma.
   const [lang, setLang] = useState<(typeof LANGS)[number]>(LANGS[0]);
   // Gancho que llegó desde la Bóveda: se usa como estructura, no se dice tal cual.

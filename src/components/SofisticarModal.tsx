@@ -89,7 +89,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
       mode: projectMode as "sofisticar" | "crear" | "blueprint",
       context: { ad, analysis: streamText, mode },
     });
-    toast.success("✓ Guardado en tus Proyectos");
+    toast.success("✓ Guardado en Mis productos");
   };
 
   return (
@@ -233,7 +233,7 @@ function StreamOutput({ text, loading, onSave }: { text: string; loading: boolea
       </div>
       {text && !loading && (
         <button onClick={onSave} className="btn-primary-nova px-4 py-2 rounded-lg text-sm">
-          → Guardar en mis Proyectos
+          → Guardar en Mis productos
         </button>
       )}
     </div>

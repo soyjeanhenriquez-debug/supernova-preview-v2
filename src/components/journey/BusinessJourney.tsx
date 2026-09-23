@@ -19,7 +19,7 @@ type Stage = { n: number; key: string; title: string; why: string; done: boolean
 
 export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => void }) {
   const { user } = useAuth();
-  const { profile, setProfile, save, loaded } = useBusinessProfile();
+  const { profile, savePatch, loaded } = useBusinessProfile();
   const { projects } = useProjects();
   const [ads, setAds] = useState<{ count: number; measured: boolean } | null>(null);
   const [open, setOpen] = useState<number | null>(null);
@@ -29,16 +29,15 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any).from("mandala_ads").select("spend,sales,status").limit(300).then(({ data }: { data: { spend: number | null; sales: number | null; status: string }[] | null }) => {
       const list = data ?? [];
-      setAds({ count: list.length, measured: list.some(a => a.spend != null || a.sales != null || a.status === "ganador") });
+      setAds({ count: list.length, measured: list.some(a => a.spend != null || a.sales != null || a.status === "ganador" || a.status === "descartado") });
     });
   }, [user]);
 
   const manual = (k: string) => !!profile.journey?.done?.[k];
   const toggleManual = (k: string) => {
     const done = { ...(profile.journey?.done ?? {}), [k]: !manual(k) };
-    const next: BusinessProfile = { ...profile, journey: { ...(profile.journey ?? {}), done } };
-    setProfile(next);
-    save(next).then(ok => { if (!ok) toast.error("No se pudo guardar"); });
+    const journey: BusinessProfile["journey"] = { ...(profile.journey ?? {}), done };
+    savePatch({ journey }).then(ok => { if (!ok) toast.error("No se pudo guardar"); });
   };
 
   const hasMiniApp = projects.some(p => {
@@ -46,23 +45,32 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
     return !!ctx?.miniapp;
   });
 
+  const planTasks = profile.launch_plan?.tasks ?? [];
+  const planPct = planTasks.length ? planTasks.filter(t => t.done).length / planTasks.length : 0;
+  const answered = Object.keys(profile.validation?.answers ?? {}).length;
+  const hasRecovery = (profile.recovery?.messages?.length ?? 0) > 0;
+
   const stages: Stage[] = useMemo(() => [
     {
       n: 1, key: "1", title: "Elige qué vas a vender",
-      why: "Parte de algo que ya se vende: una de las 300 ofertas ganadoras o una mini app. Después cuéntalo en Mi negocio.",
+      why: "Parte de algo que ya se vende: una de las 300 ofertas ganadoras o una mini app. Después cuéntalo en tu ficha de Mi negocio.",
       done: profileReady(profile),
       actions: [
         { label: "Ver las ofertas ganadoras", page: "Ofertas", primary: true },
-        { label: "Ya sé qué vender: contarlo", page: "Mándala" },
+        { label: "Ya sé qué vender: llenar mi ficha", page: "Mi negocio" },
       ],
     },
     {
       n: 2, key: "2", title: "Comprueba que se vende",
-      why: "Antes de invertir, mira la nota de venta de la oferta y en el Radar si alguien lleva semanas pagando anuncios por algo parecido.",
-      done: manual("2"), manual: true,
+      why: "14 preguntas de sí o no sobre tu producto y tu mercado. Te da una nota, tus fortalezas y lo que tienes que reforzar antes de invertir.",
+      // Hecha si la matriz está completa y la oferta pasa (nota ≥ 50); con nota baja hay que ajustarla.
+      done: !!profile.validation?.completed_at && (profile.validation?.score == null || profile.validation.score >= 50),
+      progress: profile.validation?.completed_at && profile.validation?.score != null && profile.validation.score < 50
+        ? `Nota ${profile.validation.score}: ajusta tu oferta`
+        : answered && !profile.validation?.completed_at ? `${answered} de 14` : undefined,
       actions: [
-        { label: "Ver el veredicto de la oferta", page: "Ofertas", primary: true },
-        { label: "Buscar en el Radar", page: "Buscar Ofertas Winner" },
+        { label: "Hacer la matriz de validación", page: "Validar", primary: true },
+        { label: "Ver el veredicto de la oferta", page: "Ofertas" },
       ],
     },
     {
@@ -72,26 +80,35 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
       actions: [{ label: "Abrir la calculadora", page: "Precio", primary: true }],
     },
     {
-      n: 4, key: "4", title: "Crea tu propio producto",
-      why: "Hacer mi versión te da el plan, las instrucciones para construir tu mini app con IA sin programar, el guion de venta y tus primeros anuncios.",
-      done: hasMiniApp || manual("4"), manual: !hasMiniApp,
+      n: 4, key: "4", title: "Construye y lanza tu producto",
+      why: "Hacer mi versión te da tu mini app lista para construir con IA; el plan de lanzamiento te dice qué hacer cada día durante unos 14 días.",
+      done: planPct >= 0.8 || (hasMiniApp && manual("4")),
+      progress: planTasks.length ? `${Math.round(planPct * 100)}% del plan` : hasMiniApp ? "Mini app lista" : undefined,
+      manual: hasMiniApp && planPct < 0.8,
       actions: [
-        { label: "Hacer mi versión (Mini Apps)", page: "Mini Apps", primary: true },
-        { label: "Ver mis proyectos", page: "Proyectos" },
+        { label: planTasks.length ? "Seguir mi plan" : "Armar mi plan de lanzamiento", page: "Plan", primary: true },
+        { label: "Hacer mi versión (Mini Apps)", page: "Mini Apps" },
       ],
     },
     {
-      n: 5, key: "5", title: "Crea tus primeros 5 anuncios",
-      why: "La Mándala te los escribe uno por uno, en el orden que conviene si tienes poco presupuesto.",
+      n: 5, key: "5", title: "Vende: anuncios y contenido",
+      why: "La Mándala te escribe tus primeros 5 anuncios en el orden que conviene; el calendario de contenido te da qué publicar sin pagar anuncios.",
       done: (ads?.count ?? 0) >= 5,
-      progress: ads ? `${Math.min(ads.count, 5)} de 5` : undefined,
-      actions: [{ label: "Ir a la Mándala", page: "Mándala", primary: true }, { label: "Buscar ganchos", page: "Hooks" }],
+      progress: ads ? `${Math.min(ads.count, 5)} de 5 anuncios` : undefined,
+      actions: [
+        { label: "Crear mis anuncios (Mándala)", page: "Mándala", primary: true },
+        { label: "Calendario de contenido", page: "Contenido" },
+      ],
     },
     {
-      n: 6, key: "6", title: "Publica, mide y decide",
-      why: "A los 3 días anota gasto, clics y ventas de cada anuncio: la app te dice cuál apagar y cuál subir.",
-      done: !!ads?.measured,
-      actions: [{ label: "Anotar mis resultados", page: "Mándala", primary: true }],
+      n: 6, key: "6", title: "Mide y recupera ventas",
+      why: "A los 3 días anota gasto, clics y ventas: la app te dice qué apagar y qué escalar. Y escríbele por WhatsApp a quien casi compra.",
+      done: !!ads?.measured && hasRecovery,
+      progress: ads?.measured && !hasRecovery ? "Falta la recuperación" : !ads?.measured && hasRecovery ? "Faltan tus números" : undefined,
+      actions: [
+        { label: "Anotar mis resultados", page: "Resultados", primary: true },
+        { label: "Recuperar ventas por WhatsApp", page: "Recuperar" },
+      ],
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [profile, ads, hasMiniApp]);
@@ -125,7 +142,7 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
         </div>
       </div>
 
-      <ol className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+      <ol className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         {stages.map(s => {
           const isShown = shown?.n === s.n;
           return (

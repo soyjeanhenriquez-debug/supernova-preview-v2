@@ -9,12 +9,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCredits, generatorCost } from "@/hooks/useCredits";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
-import { useFormAssist } from "@/lib/formAssist";
-import { AssistButton } from "@/components/AssistButton";
 import {
-  useBusinessProfile, profileText, profileReady, businessHint, copyLevelHint, BUSINESS_TYPES, COPY_LEVELS, PROFILE_EXAMPLES, type BusinessProfile,
+  useBusinessProfile, profileText, profileReady, businessHint, copyLevelHint, type BusinessProfile,
 } from "@/lib/businessProfile";
 import { useFeatureAccess } from "@/lib/features";
+import { maxAdCostPerSale } from "@/lib/pricing";
 
 /**
  * Mándala Creativa: la rueda para no quedarse nunca sin anuncios.
@@ -127,7 +126,6 @@ const ROUTE: { stage: string; angle: string; why: string }[] = [
 type Brief = BusinessProfile;
 const briefText = profileText;
 const briefReady = profileReady;
-const BRIEF_TEXT_KEYS = ["product", "who", "promise", "price", "proof"] as const;
 
 const RULES = `Escribe en español neutro, para alguien que empieza. Frases cortas. Usa títulos con ## y listas.
 Nunca inventes testimonios, cifras, resultados ni plazos: si hace falta una prueba, di qué prueba conseguir y cómo.
@@ -157,7 +155,7 @@ ${/video|avatar/i.test(format) ? "Guion hablado con marcas de tiempo (máximo 45
 ## Texto del anuncio y llamada a la acción
 ## Cómo publicarlo
 ## Cómo saber si funciona
-Usa exactamente estas reglas (son las que usa la app en "Mis anuncios"), medidas a los 3 días:
+Usa exactamente estas reglas (son las que usa la app en "Resultados"), medidas a los 3 días:
 - CTR menor a 0,8%: el gancho no detiene → cambiar los primeros 3 segundos o el ángulo.
 - CTR de 0,8% o más pero sin ventas: la página o la oferta no convencen → revisar la página antes de gastar 2 veces el precio.
 - Gastó 2 veces el precio sin ventas → apagar.
@@ -215,19 +213,36 @@ type AdRow = {
 };
 
 /** Veredicto con reglas simples y a la vista: orienta, no adivina. */
-function verdict(ad: AdRow, price: number): { tone: "good" | "bad" | "wait" | "fix"; text: string } | null {
+/**
+ * Veredicto con reglas simples y a la vista: orienta, no adivina. Si el usuario hizo los números en
+ * la calculadora (etapa 3), el límite es su máximo real por venta (precio − comisiones − reembolsos −
+ * impuestos − costo); si no, se usa el precio, que es más optimista.
+ */
+function verdict(ad: AdRow, price: number, max: { max: number; currency: string } | null): { tone: "good" | "bad" | "wait" | "fix"; text: string } | null {
   if (ad.platform === "organico" || ad.spend == null) return null;
   const spend = Number(ad.spend), sales = Number(ad.sales ?? 0), ctr = ad.ctr == null ? null : Number(ad.ctr);
+  const cur = max?.currency ?? "US$";
+  const fmt = (n: number) => `${cur}${n.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // La calculadora dice que, con ese precio, cada venta pierde dinero aun sin pagar anuncios:
+  // ningún anuncio puede ser "ganador" hasta que cambien los números.
+  if (max && max.max <= 0) {
+    return { tone: "bad", text: `Con tu precio actual no te queda margen: comisiones, reembolsos e impuestos se comen toda la venta antes de pagar anuncios. Sube el precio o baja costos en la calculadora antes de invertir más.` };
+  }
+  // Límite por venta: el máximo de la calculadora si existe; si no, el precio.
+  const limit = max && max.max > 0 ? max.max : price;
+  const limitTxt = max && max.max > 0 ? `tu máximo por venta (${fmt(max.max)}, de tu calculadora)` : "el precio de tu producto";
   if (sales > 0) {
     const cpa = spend / sales;
-    const cpaTxt = cpa.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    if (!price || cpa <= price) return { tone: "good", text: `Ganador: cada venta te costó ${cpaTxt} USD. Márcalo como ganador, pide variaciones y sube el presupuesto poco a poco (más o menos un 20% cada 2 días).` };
-    return { tone: "fix", text: `Vende, pero cada venta te cuesta ${cpaTxt} USD, más de lo que cobras. Solo te conviene si cada cliente te compra más (un extra antes de pagar o una oferta después: Generadores → Escalera de productos) o si pruebas otro gancho.` };
+    if (!limit || cpa <= limit) {
+      const gain = limit ? limit - cpa : 0;
+      return { tone: "good", text: `Ganador: cada venta te costó ${fmt(cpa)}${limit ? `, por debajo de ${limitTxt}: te quedan unos ${fmt(gain)} por venta` : ""}. Márcalo como ganador, pide variaciones y sube el presupuesto poco a poco (más o menos un 20% cada 2 días).` };
+    }
+    return { tone: "fix", text: `Vende, pero cada venta te cuesta ${fmt(cpa)}, más que ${limitTxt}: pierdes unos ${fmt(cpa - limit)} en cada una. Solo te conviene si cada cliente te compra más (un extra antes de pagar o una oferta después) o si pruebas otro gancho.` };
   }
-  if (price && spend >= price * 2) return { tone: "bad", text: "Ya gastaste 2 veces el precio de tu producto y no vendió: apágalo y prueba otro ángulo en la rueda." };
+  if (limit && spend >= limit * 2) return { tone: "bad", text: `Ya gastaste 2 veces ${limitTxt} y no vendió: apágalo y prueba otro ángulo en la rueda.` };
   if (ctr != null && ctr < 0.8) return { tone: "fix", text: "Menos del 0,8% de quienes lo ven hacen clic (CTR bajo): casi nadie se detiene. Cambia los primeros 3 segundos o el ángulo." };
-  if (ctr != null && ctr >= 0.8 && spend > 0) return { tone: "fix", text: "La gente hace clic, pero todavía no compra. Si sigue así cuando hayas gastado 2 veces el precio, revisa tu página de ventas y tu oferta: qué prometes, qué incluye y el precio." };
-  return { tone: "wait", text: "Aún es pronto para decidir: déjalo correr hasta gastar unas 2 veces el precio de tu producto." };
+  if (ctr != null && ctr >= 0.8 && spend > 0) return { tone: "fix", text: `La gente hace clic, pero todavía no compra. Si sigue así cuando hayas gastado 2 veces ${limitTxt}, revisa tu página de ventas y tu oferta: qué prometes, qué incluye y el precio.` };
+  return { tone: "wait", text: `Aún es pronto para decidir: déjalo correr hasta gastar unas 2 veces ${limitTxt}.` };
 }
 
 // Reto del día: el mismo para todos ese día, una restricción concreta para crear hoy.
@@ -274,17 +289,21 @@ function Step({ n, title, summary, done, active, onOpen, children }: {
   );
 }
 
-export function MandalaPage() {
+/**
+ * La ficha del negocio ya no vive aquí: está en "Mi negocio" (src/pages/MyBusinessPage.tsx) y la
+ * Mándala solo la lee. initialTab "mis" = entrada "Resultados" de la etapa 6 del recorrido.
+ */
+export function MandalaPage({ onNavigate, initialTab = "ruta" }: { onNavigate?: (page: string) => void; initialTab?: Tab } = {}) {
   const { user } = useAuth();
   const { applyServerCharge, canAfford } = useCredits();
 
-  const [tab, setTab] = useState<Tab>("ruta");
+  const [tab, setTab] = useState<Tab>(initialTab);
+  const isResults = initialTab === "mis";
   const [stage, setStage] = useState<Stage>(STAGES[2]);
   const [angle, setAngle] = useState<Angle>(angleById("problema-solucion"));
   const [rotation, setRotation] = useState(-(ANGLES.findIndex(a => a.id === "problema-solucion") * SEG + SEG / 2));
   const [spinning, setSpinning] = useState(false);
-  const { profile: brief, setProfile: setBrief, loaded: briefLoaded, save: saveProfile } = useBusinessProfile();
-  const [briefOpen, setBriefOpen] = useState(true);
+  const { profile: brief } = useBusinessProfile();
   const [platform, setPlatform] = useState<Platform>("meta");
   const [format, setFormat] = useState(FORMATS[0]);
   const { canSee } = useFeatureAccess();
@@ -300,18 +319,11 @@ export function MandalaPage() {
   const [routePick, setRoutePick] = useState<number | null>(null);
   const [outputAt, setOutputAt] = useState<string | null>(null);
   const challenge = useMemo(dailyChallenge, []);
-  const assist = useFormAssist("mandala-brief");
 
-  // Con la ficha ya llena, la Mándala abre directo en el paso que toca.
-  useEffect(() => {
-    if (briefLoaded && briefReady(brief)) setBriefOpen(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [briefLoaded]);
   useEffect(() => {
     try { setSetupDone(localStorage.getItem(setupKey) === "1"); } catch { /* sin almacenamiento */ }
   }, [setupKey]);
   const confirmSetup = () => { setSetupDone(true); setOpenStep(null); try { localStorage.setItem(setupKey, "1"); } catch { /* sin almacenamiento */ } };
-  const saveBrief = (b: Brief) => { saveProfile(b).then(ok => { if (!ok) toast.error("No se pudo guardar tu negocio"); }); };
 
   const loadAds = useCallback(async () => {
     if (!user) return;
@@ -326,6 +338,7 @@ export function MandalaPage() {
 
   const done = useMemo(() => new Set(ads.map(a => `${a.stage}:${a.angle}`)), [ads]);
   const price = parseFloat(brief.price.replace(",", ".")) || 0;
+  const maxSale = maxAdCostPerSale(brief);
   const hasWinner = ads.some(a => a.status === "ganador");
 
   const pick = (s: Stage, a: Angle) => {
@@ -390,9 +403,8 @@ export function MandalaPage() {
 
   const requireBrief = () => {
     if (briefReady(brief)) return true;
-    setBriefOpen(true); setOpenStep(null);
-    toast.error("Primero cuéntanos qué vendes", { description: "Qué es, para quién y qué logra la persona. Te toma unos 30 segundos." });
-    document.getElementById("mandala-brief")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    toast.error("Primero cuéntanos qué vendes", { description: "Llénalo en Mi negocio: qué es, para quién y qué logra. Te toma unos 30 segundos." });
+    onNavigate?.("Mi negocio");
     return false;
   };
 
@@ -405,8 +417,8 @@ export function MandalaPage() {
     const full = await stream("mandala-ad", title, `${adPrompt(s, a, format, platform)}\n${businessHint(brief)}\n${copyLevelHint(brief)}\n\nOFERTA DEL USUARIO:\n${text.slice(0, 2500)}`);
     if (!full) return;
     const { error } = await adsTable().insert({ stage: s.id, angle: a.id, format, platform, brief: text.slice(0, 3000), output: full.slice(0, 30000) });
-    if (error) toast.error("El anuncio está listo, pero no se pudo guardar en Mis anuncios", { description: "Cópialo antes de salir de esta pantalla." });
-    else { toast.success("Anuncio listo. Quedó guardado en Mis anuncios."); loadAds(); }
+    if (error) toast.error("El anuncio está listo, pero no se pudo guardar", { description: "Cópialo antes de salir de esta pantalla." });
+    else { toast.success("Anuncio listo. Cuando lo publiques, anota sus números en Resultados."); loadAds(); }
   };
 
   const createSequence = async () => {
@@ -456,105 +468,27 @@ export function MandalaPage() {
   );
 
   const measured = ads.some(a => a.spend != null || a.status === "ganador" || a.status === "descartado");
-  const briefDone = briefReady(brief) && !briefOpen;
+  const briefDone = briefReady(brief);
   const setupOk = setupDone || ads.length > 0;
   const autoStep = !briefDone ? 1 : !setupOk ? 2 : routeDone < ROUTE.length ? 3 : !measured ? 4 : 5;
   const step = openStep ?? autoStep;
   const nextRoute = ROUTE.findIndex(r => !done.has(`${r.stage}:${r.angle}`));
   const routeOpen = routePick ?? (nextRoute === -1 ? 0 : nextRoute);
   const openStepN = (n: number) => {
-    if (n === 1) setBriefOpen(true);
     setOpenStep(n === autoStep ? null : n);
   };
 
-  // Con la ficha a medias, la IA completa solo lo vacío; con la ficha llena, propone otra entera.
-  const fillBrief = async () => {
-    try {
-      const sug = await assist.generate(briefReady(brief) ? { business_type: brief.business_type } : brief);
-      const pickStr = (k: typeof BRIEF_TEXT_KEYS[number]) => (typeof sug[k] === "string" ? (sug[k] as string).slice(0, 300) : "");
-      const replaceAll = briefReady(brief);
-      const next = { ...brief };
-      BRIEF_TEXT_KEYS.forEach(k => {
-        const v = k === "price" ? pickStr(k).replace(/[^\d.,]/g, "") : pickStr(k);
-        if (v && (replaceAll || !brief[k].trim())) next[k] = v;
-      });
-      setBrief(next); saveBrief(next);
-      toast.success("Listo: revísalo y cámbialo a tu gusto.");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "No se pudo escribir el ejemplo. Prueba otra vez.");
-    }
-  };
-  const examples = PROFILE_EXAMPLES[brief.business_type === "ecommerce" ? "ecommerce" : "default"];
-  const ph = (k: typeof BRIEF_TEXT_KEYS[number]) => {
-    const v = assist.suggestion?.[k];
-    return typeof v === "string" && v ? `Ej.: ${v}` : examples[k];
-  };
-
-  const briefFields = () => (
-    <>
-      <div className="space-y-1.5">
-        <p className="text-xs text-muted-foreground">¿Qué tipo de negocio tienes?</p>
-        <div className="flex flex-wrap gap-2">
-          {BUSINESS_TYPES.map(t => (
-            <button key={t.id} type="button"
-              onClick={() => { const next = { ...brief, business_type: t.id }; setBrief(next); if (briefReady(next)) saveBrief(next); }}
-              className={`rounded-full border px-3 py-1.5 text-xs ${brief.business_type === t.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
-              {t.label}
-            </button>
-          ))}
-        </div>
+  // Resumen de "Mi negocio": la ficha se edita en su página, aquí solo se muestra.
+  const businessSummary = () => (
+    <div className="card-surface rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+          {briefReady(brief) ? <Check className="w-4 h-4 text-emerald-400" /> : <span className="text-primary">Primero ·</span>} Tu negocio
+        </p>
+        <p className="text-xs text-muted-foreground truncate">{briefReady(brief) ? `${brief.product} · ${brief.who}` : "Cuéntanos qué vendes, para quién y qué logra: todos tus anuncios salen de ahí."}</p>
       </div>
-      <div className="space-y-1.5">
-        <p className="text-xs text-muted-foreground">¿Qué tono quieres en tus anuncios? Lo usan todas las herramientas y lo cambias cuando quieras.</p>
-        <div className="grid sm:grid-cols-3 gap-2">
-          {COPY_LEVELS.map(l => (
-            <button key={l.id} type="button"
-              onClick={() => { const next = { ...brief, copy_level: l.id }; setBrief(next); if (briefReady(next)) saveBrief(next); }}
-              className={`rounded-lg border p-2.5 text-left ${brief.copy_level === l.id ? "border-primary bg-primary/10" : "border-border hover:border-foreground/30"}`}>
-              <span className={`block text-xs font-semibold ${brief.copy_level === l.id ? "text-primary" : "text-foreground"}`}>{l.id} · {l.label}</span>
-              <span className="block text-[11px] text-muted-foreground mt-0.5 leading-snug">{l.desc}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-      <AssistButton onClick={fillBrief} loading={assist.loading} filled={briefReady(brief)} />
-      <div className="grid sm:grid-cols-2 gap-3">
-        {([
-          ["product", brief.business_type === "ecommerce" ? "Qué producto vendes" : "Qué vendes"],
-          ["who", "Para quién"],
-          ["promise", brief.business_type === "ecommerce" ? "Qué problema resuelve o qué logra" : "Qué resultado promete"],
-          ["price", "Precio (USD)"],
-        ] as const).map(([k, label]) => (
-          <label key={k} className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {label}
-            <input value={brief[k]} placeholder={ph(k)} inputMode={k === "price" ? "decimal" : undefined}
-              onChange={e => setBrief(b => ({ ...b, [k]: e.target.value.slice(0, 300) }))}
-              onBlur={() => saveBrief(brief)}
-              className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary/60" />
-          </label>
-        ))}
-      </div>
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-        {brief.business_type === "ecommerce" ? "Envío, garantía o pago contra entrega (opcional)" : "Prueba o garantía (opcional)"}
-        <input value={brief.proof} placeholder={ph("proof")}
-          onChange={e => setBrief(b => ({ ...b, proof: e.target.value.slice(0, 300) }))} onBlur={() => saveBrief(brief)}
-          className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary/60" />
-      </label>
-      {brief.business_type === "ecommerce" && (
-        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          Enlace de tu tienda o del producto (opcional)
-          <input value={brief.store_url} placeholder="https://tutienda.myshopify.com/products/…" inputMode="url"
-            onChange={e => setBrief(b => ({ ...b, store_url: e.target.value.slice(0, 300) }))} onBlur={() => saveBrief(brief)}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary/60" />
-        </label>
-      )}
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <span>¿Aún no tienes oferta?</span>
-        <a href="#/ofertas" className="text-primary hover:underline">Elige una que ya vende en Ofertas</a>
-        <span>·</span>
-        <a href="#/generadores" className="text-primary hover:underline">Arma qué vender en Generadores → Escalera de productos</a>
-      </div>
-    </>
+      <Btn onClick={() => onNavigate?.("Mi negocio")}>{briefReady(brief) ? "Editar en Mi negocio" : "Llenar Mi negocio →"}</Btn>
+    </div>
   );
 
   // Dónde y cómo se publica: cambia "cómo publicarlo", no la idea.
@@ -611,50 +545,53 @@ export function MandalaPage() {
 
   return (
     <div className="space-y-5">
+      {isResults ? (
+        <div className="flex flex-col gap-1">
+          <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 6</p>
+          <h1 className="font-display font-bold text-2xl text-foreground">Resultados de tus anuncios</h1>
+          <p className="text-sm text-muted-foreground max-w-2xl">
+            Cuando publiques un anuncio, cambia su estado a Publicado y, a los 3 días, anota cuánto gastaste, su CTR y las ventas.
+            Debajo de cada uno verás qué hacer: apagarlo, esperar o escalarlo{maxSale && maxSale.max > 0 ? ", según tu máximo por venta de la calculadora" : ""}.
+          </p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Btn onClick={() => onNavigate?.("Mándala")}><Sparkles className="w-4 h-4" /> Crear más anuncios</Btn>
+            <Btn onClick={() => onNavigate?.("Recuperar")}>Recuperar ventas por WhatsApp →</Btn>
+          </div>
+        </div>
+      ) : (
       <div className="flex flex-col gap-1">
+        <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 5</p>
         <h1 className="font-display font-bold text-2xl text-foreground">Mándala Creativa</h1>
         <p className="text-sm text-muted-foreground max-w-2xl">
           Te guía para crear tus primeros {ROUTE.length} anuncios, uno por uno y en el orden que conviene cuando hay poco presupuesto.
-          Cuando ya los publicaste, anotas tus números y te dice cuál apagar y cuál escalar.
+          Cuando los publiques, anota tus números en Resultados (etapa 6) y te dirá cuál apagar y cuál escalar.
         </p>
         <p className="text-xs text-muted-foreground max-w-2xl">
-          Empieza por el paso 1: cuenta qué vendes. Cada anuncio cuesta {adCost} créditos y la IA lo escribe completo, con 3 ganchos, el texto y cómo publicarlo.
+          Usa tu ficha de Mi negocio. Cada anuncio cuesta {adCost} créditos y la IA lo escribe completo, con 3 ganchos, el texto y cómo publicarlo.
         </p>
       </div>
+      )}
 
-      {/* Modos */}
-      <div className="flex gap-1 rounded-xl bg-secondary/60 p-1 w-full sm:w-fit overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {/* Modos (en Resultados no hay pestañas: es solo la lista de anuncios) */}
+      {!isResults && <div className="flex gap-1 rounded-xl bg-secondary/60 p-1 w-full sm:w-fit overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {([
           ["ruta", Route, `Paso a paso · vas en el ${autoStep} de 5`],
           ["rueda", Orbit, "Rueda libre"],
-          ["mis", ListChecks, `Mis anuncios (${ads.length})`],
         ] as const).map(([id, Icon, label]) => (
           <button key={id} onClick={() => setTab(id)}
             className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold ${tab === id ? "bg-card text-foreground shadow" : "text-muted-foreground"}`}>
             <Icon className="w-3.5 h-3.5" /> {label}
           </button>
         ))}
-      </div>
+        <button onClick={() => (onNavigate ? onNavigate("Resultados") : setTab("mis"))}
+          className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold text-muted-foreground">
+          <ListChecks className="w-3.5 h-3.5" /> Resultados ({ads.length}) →
+        </button>
+      </div>}
 
       {tab !== "ruta" && (
         <>
-          <div id="mandala-brief" className="card-surface rounded-2xl p-4 sm:p-5">
-            <button className="w-full flex items-center justify-between gap-3 text-left" onClick={() => setBriefOpen(o => !o)}>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  {briefReady(brief) ? <Check className="w-4 h-4 text-emerald-400" /> : <span className="text-primary">Primero ·</span>} Tu negocio
-                </p>
-                <p className="text-xs text-muted-foreground truncate">{briefReady(brief) ? `${brief.product} · ${brief.who}` : "Qué vendes, para quién y qué logra. Todos tus anuncios salen de aquí."}</p>
-              </div>
-              {briefOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-            </button>
-            {briefOpen && (
-              <div className="mt-4 space-y-3">
-                {briefFields()}
-                {briefReady(brief) && <Btn onClick={() => { saveBrief(brief); setBriefOpen(false); }}><Check className="w-4 h-4" /> Listo</Btn>}
-              </div>
-            )}
-          </div>
+          {!isResults && businessSummary()}
           {tab === "rueda" && (
             <>
               <p className="text-xs text-muted-foreground max-w-2xl">
@@ -679,17 +616,12 @@ export function MandalaPage() {
             <div className="h-full gradient-brand transition-all" style={{ width: `${((Math.min(autoStep, 5) - 1) / 4) * 100}%` }} />
           </div>
 
-          <div id="mandala-brief">
-            <Step n={1} title="Cuéntanos de tu negocio" done={briefDone} active={step === 1} onOpen={() => openStepN(1)}
-              summary={briefReady(brief) ? `${brief.product} · ${brief.who}` : "Qué vendes, para quién y qué logra. Te toma 30 segundos."}>
-              <p className="text-sm text-muted-foreground">Todos tus anuncios salen de aquí: mientras más concreto seas, mejores salen. Se guarda para el resto de la app.</p>
-              {briefFields()}
-              <Btn primary disabled={!briefReady(brief)} onClick={() => { saveBrief(brief); setBriefOpen(false); setOpenStep(null); }}>
-                Siguiente paso →
-              </Btn>
-              {!briefReady(brief) && <p className="text-xs text-muted-foreground">Para seguir, llena al menos qué vendes, para quién y qué logra.</p>}
-            </Step>
-          </div>
+          <Step n={1} title="Tu negocio" done={briefDone} active={step === 1} onOpen={() => openStepN(1)}
+            summary={briefReady(brief) ? `${brief.product} · ${brief.who}` : "Llénalo en Mi negocio: qué vendes, para quién y qué logra."}>
+            <p className="text-sm text-muted-foreground">Todos tus anuncios salen de tu ficha de negocio. La llenas una vez en Mi negocio y la usan todas las herramientas.</p>
+            {businessSummary()}
+            {briefDone && <Btn primary onClick={() => setOpenStep(null)}>Siguiente paso →</Btn>}
+          </Step>
 
           <Step n={2} title="Elige dónde lo vas a publicar" done={setupOk && briefDone} active={step === 2} onOpen={() => openStepN(2)}
             summary={`${PLATFORMS.find(p => p.id === platform)?.label} · ${format}`}>
@@ -702,7 +634,7 @@ export function MandalaPage() {
             summary={`Llevas ${routeDone} de ${ROUTE.length} anuncios creados`}>
             <p className="text-sm text-muted-foreground">
               Van en este orden porque con poco presupuesto primero hay que vender: 3 anuncios para quien no te conoce y 2 para quien visitó tu página y no compró.
-              La IA escribe cada uno completo ({adCost} créditos por anuncio) y se guardan solos en Mis anuncios.
+              La IA escribe cada uno completo ({adCost} créditos por anuncio) y se guardan solos; sus números se anotan en Resultados.
             </p>
             <div className="space-y-2">
               {ROUTE.map((r, i) => {
@@ -747,7 +679,7 @@ export function MandalaPage() {
           <Step n={4} title="Publícalos y anota cómo les va" done={measured} active={step === 4} onOpen={() => openStepN(4)}
             summary="Déjalos correr 3 días y anota cuánto gastaste, los clics y las ventas.">
             {platform === "organico" ? (
-              <p className="text-sm text-muted-foreground">Publica uno por día. A los 3 días mira cuál te trajo más mensajes o clics en el enlace y márcalo como Ganador en Mis anuncios.</p>
+              <p className="text-sm text-muted-foreground">Publica uno por día. A los 3 días mira cuál te trajo más mensajes o clics en el enlace y márcalo como Ganador en Resultados.</p>
             ) : (
               <ol className="text-sm text-muted-foreground space-y-1.5 list-decimal pl-4">
                 <li>Publica los 3 anuncios "para vender", cada uno con el mismo presupuesto diario, bajo. Cada anuncio trae los pasos para publicarlo.</li>
@@ -756,18 +688,18 @@ export function MandalaPage() {
                 <li>Anota en cada anuncio cuánto gastaste, su CTR (el % de personas que lo vieron e hicieron clic; lo ves en tu administrador de anuncios) y cuántas ventas trajo. La app te dice cuál apagar y cuál escalar.</li>
               </ol>
             )}
-            <Btn primary onClick={() => setTab("mis")}><ListChecks className="w-4 h-4" /> Anotar resultados</Btn>
+            <Btn primary onClick={() => (onNavigate ? onNavigate("Resultados") : setTab("mis"))}><ListChecks className="w-4 h-4" /> Anotar resultados</Btn>
           </Step>
 
           <Step n={5} title="Escala el que gana" done={hasWinner} active={step === 5} onOpen={() => openStepN(5)}
             summary="Pide variaciones del que vende y crea anuncios para traer gente nueva.">
             <p className="text-sm text-muted-foreground">
               Cuando cada venta te cuesta en anuncios lo mismo o menos que el precio de tu producto, ese anuncio es tu ganador. No le cambies el mensaje:
-              en Mis anuncios pide variaciones (5 ganchos nuevos y 2 versiones, {iterCost} créditos) y sube el presupuesto poco a poco.
+              en Resultados pide variaciones (5 ganchos nuevos y 2 versiones, {iterCost} créditos) y sube el presupuesto poco a poco.
               Después usa la Rueda libre en Atraer y Conectar para que te conozca gente nueva.
             </p>
             <div className="flex flex-wrap gap-2">
-              <Btn primary onClick={() => setTab("mis")}><Repeat className="w-4 h-4" /> Ver mis anuncios</Btn>
+              <Btn primary onClick={() => (onNavigate ? onNavigate("Resultados") : setTab("mis"))}><Repeat className="w-4 h-4" /> Ver mis anuncios</Btn>
               <Btn onClick={() => setTab("rueda")}><Orbit className="w-4 h-4" /> Ir a la rueda libre</Btn>
             </div>
           </Step>
@@ -864,11 +796,11 @@ export function MandalaPage() {
         <div className="space-y-3">
           {ads.length === 0 && (
             <div className="card-surface rounded-xl p-6 text-center text-sm text-muted-foreground">
-              Todavía no has creado anuncios. Empieza por el <button className="text-primary hover:underline" onClick={() => setTab("ruta")}>Paso a paso</button>: te guía para crear tus primeros {ROUTE.length}.
+              Todavía no has creado anuncios. Empieza por el <button className="text-primary hover:underline" onClick={() => (onNavigate ? onNavigate("Mándala") : setTab("ruta"))}>Paso a paso de la Mándala</button>: te guía para crear tus primeros {ROUTE.length}.
             </div>
           )}
           {ads.map(ad => {
-            const s = stageById(ad.stage), a = angleById(ad.angle), v = verdict(ad, price), open = openAd === ad.id;
+            const s = stageById(ad.stage), a = angleById(ad.angle), v = verdict(ad, price, maxSale), open = openAd === ad.id;
             return (
               <div key={ad.id} className="card-surface rounded-xl p-4 space-y-3" style={{ borderLeft: `3px solid ${s.color}` }}>
                 <div className="flex flex-wrap items-center gap-2 justify-between">
@@ -904,7 +836,7 @@ export function MandalaPage() {
                 {v && (
                   <p className={`text-xs rounded-lg p-2.5 ${v.tone === "good" ? "bg-emerald-500/10 text-emerald-300" : v.tone === "bad" ? "bg-red-500/10 text-red-300" : v.tone === "fix" ? "bg-amber-500/10 text-amber-200" : "bg-secondary text-muted-foreground"}`}>
                     {v.tone === "fix" && <AlertTriangle className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />}{v.text}
-                    {!price && " (Pon el precio de tu producto en Tu negocio para que el veredicto sea más preciso.)"}
+                    {!maxSale && (price ? " (Haz tus números en la calculadora de precio para juzgarlo con lo que de verdad te queda por venta.)" : " (Pon el precio de tu producto en Mi negocio para que el veredicto sea más preciso.)")}
                   </p>
                 )}
                 <div className="flex flex-wrap gap-2">

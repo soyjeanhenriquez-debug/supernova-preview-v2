@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Sparkles, Heart, Star, Globe, FileText, ShoppingBag, DollarSign,
   Youtube, Instagram, Mail, MessageSquare, BarChart2, Layers, Copy, Loader2
@@ -369,10 +369,22 @@ export function GeneradoresPage() {
   // Un solo ejemplo para todos los generadores: la descripción del producto es la misma en todos.
   const assist = useFormAssist("generator", "", activeGenerator !== null);
   // "Mi negocio": el campo llega lleno con lo que el usuario ya contó (se puede editar).
-  const { profile, setProfile, save: saveProfile } = useBusinessProfile();
-  // El tono se guarda en "Mi negocio" si la ficha ya está llena; si no, vale solo para esta sesión.
-  const changeTone = (next: typeof profile) => { setProfile(next); if (profileReady(next)) saveProfile(next); };
+  const { profile, savePatch, loaded: profileLoaded } = useBusinessProfile();
+  // El tono se guarda en "Mi negocio" (solo ese campo).
+  const changeTone = (next: typeof profile) => { savePatch({ copy_level: next.copy_level }); };
   const myBusiness = profileReady(profile) ? profileText(profile) : "";
+  // Desde el Calendario de contenido llega una pieza para escribirle el guion: se abre ese
+  // generador con el negocio y la idea ya puestos.
+  useEffect(() => {
+    if (!profileLoaded) return;
+    let pre: { generator?: string; text?: string } | null = null;
+    try { pre = JSON.parse(localStorage.getItem("supernova_generator_prefill") || "null"); localStorage.removeItem("supernova_generator_prefill"); } catch { /* sin almacenamiento */ }
+    if (!pre?.generator || !generators.some(g => g.id === pre!.generator)) return;
+    setActiveGenerator(pre.generator);
+    setGeneratorOutput("");
+    setGeneratorInput([myBusiness, pre.text ? `Idea de este contenido: ${pre.text}` : ""].filter(Boolean).join("\n\n").slice(0, 2000));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileLoaded]);
   const fillInput = async (title: string) => {
     try {
       const s = await assist.generate({ generador: title, ya_escrito: generatorInput });

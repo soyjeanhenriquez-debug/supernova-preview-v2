@@ -24,9 +24,16 @@ const STEPS: Step[] = [
   },
   {
     target: "nav-Dashboard",
-    title: "Dashboard",
-    page: "Tus 3 negocios de hoy",
-    body: "Cada día, <strong>3 negocios que ya venden, elegidos para ti</strong>. Si uno te gusta, pulsa <strong>Hacer mi versión</strong> (50 créditos) y la IA te prepara las instrucciones para crear el tuyo.",
+    title: "Tu recorrido",
+    page: "Mi negocio en 6 etapas",
+    body: "El menú es un camino: <strong>Elegir → Validar → Precio → Construir → Vender → Medir</strong>. En el Inicio siempre verás <strong>tu siguiente paso</strong> y, cada lunes, <strong>Tu semana</strong>: 3 a 5 tareas armadas para tu negocio (gratis).",
+    placement: "right",
+  },
+  {
+    target: "nav-Mi negocio",
+    title: "Mi ficha",
+    page: "Se llena una vez",
+    body: "Cuenta qué vendes, para quién y qué logra (o toca <strong>Rellenar con IA</strong>, gratis). Todas las herramientas la usan: no tendrás que repetirlo en cada pantalla.",
     placement: "right",
   },
   {

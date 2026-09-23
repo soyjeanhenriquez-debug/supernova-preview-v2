@@ -1,9 +1,8 @@
-import { LayoutDashboard, Trophy, Telescope, FileText, FolderKanban, Coins, Shield, LogOut, Brain, PanelLeftClose, PanelLeftOpen, X, Video, Quote, Gem, Boxes, Orbit, Store } from "lucide-react";
+import { LayoutDashboard, Trophy, Telescope, FileText, FolderKanban, Coins, Shield, LogOut, PanelLeftClose, PanelLeftOpen, X, Video, Quote, Gem, Boxes, Orbit, Store, Briefcase, ClipboardCheck, Calculator, ListTodo, CalendarDays, BarChart3, MessageCircle, Lightbulb } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { useProjects } from "@/hooks/useProjects";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useNavigate } from "react-router-dom";
 import { useFeatureAccess } from "@/lib/features";
@@ -20,26 +19,55 @@ const COLLAPSE_KEY = "supernova:sidebar-collapsed";
 
 export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile }: SidebarProps) {
   const { user, signOut } = useAuth();
-  const { projects } = useProjects();
   const { isAdmin } = useIsAdmin();
   const { canSee } = useFeatureAccess();
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  const navItems = [
-    { icon: LayoutDashboard, key: "Dashboard", label: t("nav.dashboard"), hint: t("nav.hint.dashboard") },
-    { icon: Gem, key: "Ofertas", label: t("nav.offers"), hint: t("nav.hint.offers") },
-    { icon: Boxes, key: "Mini Apps", label: t("nav.kits"), hint: t("nav.hint.kits") },
-    { icon: Trophy, key: "Buscar Ofertas Winner", label: t("nav.winners"), hint: t("nav.hint.winners") },
-    { icon: Quote, key: "Hooks", label: t("nav.hooks"), hint: t("nav.hint.hooks") },
-    { icon: Orbit, key: "Mándala", label: t("nav.mandala"), hint: t("nav.hint.mandala") },
-    { icon: Store, key: "Mercado", label: t("nav.mercado"), hint: t("nav.hint.mercado") },
-    { icon: Telescope, key: "Oráculo", label: t("nav.oracle"), hint: t("nav.hint.oracle") },
-    { icon: FileText, key: "Generadores", label: t("nav.generators"), hint: t("nav.hint.generators") },
-    { icon: Video, key: "Media Studio", label: t("nav.mediaStudio"), hint: t("nav.hint.mediaStudio") },
-    { icon: FolderKanban, key: "Proyectos", label: t("nav.projects"), hint: t("nav.hint.projects") },
-    { icon: Coins, key: "Créditos", label: t("nav.credits"), hint: t("nav.hint.credits") },
-  ].filter(item => canSee(item.key));
+  // El menú ES el recorrido "Mi negocio": cada herramienta vive en una sola etapa, en orden, para
+  // que nadie se pierda ni haga lo mismo en dos sitios. Las secciones en pausa (src/lib/features.ts)
+  // solo las ve un admin, al final.
+  type NavItem = { icon: typeof Gem; key: string; label: string; hint: string };
+  const groups: { title: string; items: NavItem[] }[] = [
+    { title: "Mi negocio", items: [
+      { icon: LayoutDashboard, key: "Dashboard", label: t("nav.dashboard"), hint: "Tu recorrido de 6 etapas, tu siguiente paso y tus tareas de la semana." },
+      { icon: Briefcase, key: "Mi negocio", label: "Mi ficha", hint: "Qué vendes, para quién y qué logra. Lo llenas una vez y lo usan todas las herramientas." },
+    ] },
+    { title: "1 · Elegir", items: [
+      { icon: Gem, key: "Ofertas", label: t("nav.offers"), hint: t("nav.hint.offers") },
+      { icon: Trophy, key: "Buscar Ofertas Winner", label: t("nav.winners"), hint: t("nav.hint.winners") },
+      { icon: Boxes, key: "Mini Apps", label: t("nav.kits"), hint: t("nav.hint.kits") },
+    ] },
+    { title: "2 · Validar", items: [
+      { icon: ClipboardCheck, key: "Validar", label: "Matriz de validación", hint: "Preguntas de sí o no para saber si tu producto y tu mercado tienen lo que hace falta para vender." },
+    ] },
+    { title: "3 · Precio", items: [
+      { icon: Calculator, key: "Precio", label: "Precio y ganancia", hint: "Cuánto te queda de cada venta y cuánto puedes pagar en anuncios sin perder." },
+    ] },
+    { title: "4 · Construir", items: [
+      { icon: ListTodo, key: "Plan", label: "Plan de lanzamiento", hint: "Tus tareas con fecha para construir y lanzar tu producto en unos 14 días." },
+      { icon: FolderKanban, key: "Proyectos", label: t("nav.projects"), hint: t("nav.hint.projects") },
+    ] },
+    { title: "5 · Vender", items: [
+      { icon: Orbit, key: "Mándala", label: t("nav.mandala"), hint: t("nav.hint.mandala") },
+      { icon: Quote, key: "Hooks", label: t("nav.hooks"), hint: t("nav.hint.hooks") },
+      { icon: CalendarDays, key: "Contenido", label: "Calendario de contenido", hint: "Ideas con demanda real para publicar sin pagar anuncios, con fecha y estado." },
+      { icon: FileText, key: "Generadores", label: t("nav.generators"), hint: t("nav.hint.generators") },
+    ] },
+    { title: "6 · Medir y recuperar", items: [
+      { icon: BarChart3, key: "Resultados", label: "Resultados de anuncios", hint: "Anota gasto, clics y ventas: la app te dice qué apagar y qué escalar." },
+      { icon: MessageCircle, key: "Recuperar", label: "Recuperar ventas", hint: "Mensajes de WhatsApp para quien casi compra, listos para enviar día a día." },
+    ] },
+    { title: "", items: [
+      { icon: Coins, key: "Créditos", label: t("nav.credits"), hint: t("nav.hint.credits") },
+    ] },
+    { title: "Solo admin (en pausa)", items: [
+      { icon: Store, key: "Mercado", label: t("nav.mercado"), hint: t("nav.hint.mercado") },
+      { icon: Telescope, key: "Oráculo", label: t("nav.oracle"), hint: t("nav.hint.oracle") },
+      { icon: Video, key: "Media Studio", label: t("nav.mediaStudio"), hint: t("nav.hint.mediaStudio") },
+      { icon: Lightbulb, key: "Crear", label: "Modo Crear", hint: "Buscar problemas que la gente quiere resolver." },
+    ].filter(item => canSee(item.key)) },
+  ];
 
   const [collapsed, setCollapsed] = useState<boolean>(() => localStorage.getItem(COLLAPSE_KEY) === "1");
   useEffect(() => { localStorage.setItem(COLLAPSE_KEY, collapsed ? "1" : "0"); }, [collapsed]);
@@ -97,7 +125,12 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
 
       {/* Navigation */}
       <nav className={`flex-1 min-h-0 py-1 space-y-px overflow-y-auto overflow-x-hidden ${isCollapsed ? "px-2" : "px-3"}`}>
-        {navItems.map((item) => {
+        {groups.filter(g => g.items.length).map((g, gi) => (
+          <div key={g.title || gi} className={gi ? (isCollapsed ? "pt-2 mt-2 border-t border-border/50" : "pt-3") : ""}>
+            {g.title && !isCollapsed && (
+              <p className="px-3 pb-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-semibold">{g.title}</p>
+            )}
+            {g.items.map((item) => {
           const isActive = activePage === item.key;
           const Icon = item.icon;
           return (
@@ -117,6 +150,8 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
             </button>
           );
         })}
+          </div>
+        ))}
 
         {isAdmin && (
           <button
@@ -129,31 +164,6 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
           </button>
         )}
 
-        {/* SUPERNOVA BRAIN (Proyectos: en pausa para clientes, ver src/lib/features.ts) */}
-        {!canSee("Proyectos") ? null : !isCollapsed ? (
-          <button
-            onClick={() => handleNav("Proyectos")}
-            data-tour="nav-brain"
-            className="w-full mt-6 mx-0 px-3 py-3 rounded-lg border border-border hover:border-foreground/20 hover:bg-secondary/40 transition-colors text-left group"
-          >
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2">
-                <Brain className="w-[14px] h-[14px] text-muted-foreground group-hover:text-primary transition-colors" strokeWidth={1.6} />
-                <span className="font-display font-semibold text-[11px] text-foreground tracking-tight">{t("nav.brain")}</span>
-              </div>
-              {projects.length > 0 && <span className="text-[10px] tabular-nums text-muted-foreground">{projects.length}</span>}
-            </div>
-            <div className="text-[10px] text-muted-foreground/80 tracking-tight">{t("nav.brainSub")}</div>
-          </button>
-        ) : (
-          <button
-            onClick={() => handleNav("Proyectos")}
-            title={`${t("nav.brain")}: ${t("nav.brainSub")}`}
-            className="w-full mt-4 flex items-center justify-center py-2.5 rounded-lg border border-border hover:border-foreground/20 hover:bg-secondary/40 transition-colors"
-          >
-            <Brain className="w-[15px] h-[15px] text-muted-foreground" strokeWidth={1.6} />
-          </button>
-        )}
       </nav>
 
       {/* User section */}

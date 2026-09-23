@@ -88,7 +88,7 @@ function separar(texto: string): Idea[] {
 
 export function IdeasWhatsApp({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { user } = useAuth();
-  const { profile: business, setProfile: setBusiness, save: saveBusiness } = useBusinessProfile();
+  const { savePatch: saveBusiness } = useBusinessProfile();
   const { applyServerCharge, canAfford } = useCredits();
   const key = `sn_ideas_whatsapp_${user?.id ?? "anon"}`;
   const [cat, setCat] = useState(CATEGORIAS[0]);
@@ -168,9 +168,7 @@ export function IdeasWhatsApp({ onNavigate }: { onNavigate?: (page: string) => v
       proof: "",
     };
     // La Mándala lee la ficha de "Mi negocio" (business_profile): se guarda ahí, sin perder el tipo de negocio.
-    const next = { ...business, ...brief };
-    setBusiness(next);
-    if (!(await saveBusiness(next))) { toast.error("No se pudo cargar la oferta en la Mándala. Intenta de nuevo."); return; }
+    if (!(await saveBusiness(brief))) { toast.error("No se pudo cargar la oferta en la Mándala. Intenta de nuevo."); return; }
     toast.success("Idea cargada en la Mándala", { description: "Si vas a vender sin pagar anuncios, elige “Sin pagar anuncios (orgánico)”." });
     if (onNavigate) onNavigate("Mándala"); else window.location.hash = "#/mandala";
   };

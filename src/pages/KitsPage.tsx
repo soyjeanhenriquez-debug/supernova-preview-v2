@@ -340,7 +340,7 @@ function KitModal({ kit, onClose, onUnlock, busy }: { kit: Kit; onClose: () => v
     if (!content || saved) return;
     create({ name: `Mini App · ${kit.title}`, mode: "crear", context: { kit: { id: kit.id, title: kit.title, tagline: kit.tagline }, blueprint: content.blueprint, miniapp: content.miniapp_prompt, salesScript: content.whatsapp_script, vsl: content.vsl_script } });
     setSaved(true);
-    toast.success("Guardado en Proyectos");
+    toast.success("Guardado en Mis productos");
   };
 
   return (
@@ -396,7 +396,7 @@ function KitModal({ kit, onClose, onUnlock, busy }: { kit: Kit; onClose: () => v
                 {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />} Copiar esta sección
               </button>
               <button onClick={saveToBrain} disabled={!content || saved} className="flex-1 sm:flex-none justify-center px-3 sm:px-4 py-2 rounded-lg border border-border text-[12px] text-foreground hover:border-primary/40 inline-flex items-center gap-1.5 disabled:opacity-60">
-                <Save className="w-3.5 h-3.5" /> {saved ? "Guardado en Proyectos" : "Guardar en Proyectos"}
+                <Save className="w-3.5 h-3.5" /> {saved ? "Guardado en Mis productos" : "Guardar en Mis productos"}
               </button>
               <span className="w-full sm:w-auto sm:ml-auto text-[11px] text-muted-foreground">
                 Fuente real: {kit.proof?.source_product ?? "oferta ganadora"} · {kit.proof?.days_active ?? "—"} días pagando anuncios

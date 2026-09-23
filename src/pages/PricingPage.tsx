@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Calculator, Check, Copy, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useBusinessProfile, type PriceScenario, type Pricing } from "@/lib/businessProfile";
+import { calcScenario as calc } from "@/lib/pricing";
 
 /**
  * Etapa 3 del recorrido "Mi negocio": ¿a cuánto lo vendo y cuánto me queda?
@@ -28,29 +29,11 @@ const newScenario = (base?: Partial<PriceScenario>): PriceScenario => ({
   ...base,
 });
 
-function calc(s: PriceScenario) {
-  const fee = s.price * s.feePct / 100 + s.feeFixed;
-  const refunds = s.price * s.refundPct / 100;
-  const taxes = s.price * s.taxPct / 100;
-  // Lo que queda de cada venta ANTES de pagar anuncios: es el máximo que se puede pagar por venta sin perder.
-  const beforeAds = s.price - fee - refunds - taxes - s.unitCost;
-  const perSale = beforeAds - s.adCostPerSale;
-  const salesMonth = s.salesPerDay * 30;
-  const revenueMonth = s.price * salesMonth;
-  const profitMonth = perSale * salesMonth - s.fixedMonthly;
-  const breakEvenPerDay = perSale > 0 ? s.fixedMonthly / 30 / perSale : Infinity;
-  const minRoas = beforeAds > 0 ? s.price / beforeAds : Infinity;
-  return {
-    fee, refunds, taxes, beforeAds, perSale, margin: s.price > 0 ? perSale / s.price : 0,
-    salesMonth, revenueMonth, adsMonth: s.adCostPerSale * salesMonth, profitMonth, profitYear: profitMonth * 12,
-    breakEvenPerDay, minRoas,
-  };
-}
 
 const num = (v: string) => { const n = parseFloat(v.replace(",", ".")); return Number.isFinite(n) && n >= 0 ? n : 0; };
 
 export function PricingPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
-  const { profile, setProfile, save, loaded } = useBusinessProfile();
+  const { profile, savePatch, loaded } = useBusinessProfile();
   const [pricing, setPricing] = useState<Pricing | null>(null);
   const [active, setActive] = useState<string>("");
   // Se sube al elegir una plataforma: vuelve a montar los campos para que muestren la comisión nueva.
@@ -67,7 +50,8 @@ export function PricingPage({ onNavigate }: { onNavigate?: (page: string) => voi
       price: p, adCostPerSale: Math.round(p * 0.45 * 100) / 100,
       unitCost: profile.business_type === "ecommerce" ? Math.round(p * 0.3 * 100) / 100 : 0,
     });
-    setPricing({ currency: "US$", scenarios: [first], chosen: first.id });
+    // Nada queda "elegido" hasta que el usuario toca "Usar este precio" (es lo que marca la etapa 3).
+    setPricing({ currency: "US$", scenarios: [first], chosen: null });
     setActive(first.id);
   }, [loaded, profile, pricing]);
 
@@ -76,9 +60,7 @@ export function PricingPage({ onNavigate }: { onNavigate?: (page: string) => voi
     setPricing(next);
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
-      const updated = { ...profile, pricing: next };
-      setProfile(updated);
-      save(updated).then(ok => { if (!ok) toast.error("No se pudo guardar la calculadora"); });
+      savePatch({ pricing: next }).then(ok => { if (!ok) toast.error("No se pudo guardar la calculadora"); });
     }, 1000);
   };
 
@@ -105,11 +87,11 @@ export function PricingPage({ onNavigate }: { onNavigate?: (page: string) => voi
     setActive(rest[0].id);
   };
   const useThisPrice = () => {
+    // Un guardado automático pendiente traería el "elegido" anterior y pisaría este.
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
     const next = { ...pricing, chosen: scenario.id };
     setPricing(next);
-    const updated = { ...profile, pricing: next, price: String(scenario.price) };
-    setProfile(updated);
-    save(updated).then(ok => ok ? toast.success(`Listo: tu precio es ${money(scenario.price)}`, { description: "Lo usan tus anuncios y el veredicto de la Mándala." }) : toast.error("No se pudo guardar"));
+    savePatch({ pricing: next, price: String(scenario.price) }).then(ok => ok ? toast.success(`Listo: tu precio es ${money(scenario.price)}`, { description: "Lo usan tus anuncios y el veredicto de la Mándala." }) : toast.error("No se pudo guardar"));
   };
 
   // Funciones de render (no componentes): así el input no se vuelve a montar y no pierde el foco al teclear.
@@ -257,8 +239,13 @@ export function PricingPage({ onNavigate }: { onNavigate?: (page: string) => voi
               className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground">
               <Copy className="w-4 h-4" /> Copiar
             </button>
+            {onNavigate && pricing.chosen && (
+              <button onClick={() => onNavigate("Plan")} className="inline-flex items-center gap-2 rounded-lg border border-primary/50 px-4 py-2.5 text-sm text-primary hover:bg-primary/10">
+                Siguiente paso: construye y lanza →
+              </button>
+            )}
             {onNavigate && (
-              <button onClick={() => onNavigate("Dashboard")} className="text-sm text-muted-foreground hover:text-foreground px-2">Volver a Mi negocio</button>
+              <button onClick={() => onNavigate("Dashboard")} className="text-sm text-muted-foreground hover:text-foreground px-2">Volver al inicio</button>
             )}
           </div>
         </div>

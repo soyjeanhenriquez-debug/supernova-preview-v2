@@ -16,15 +16,26 @@ export type PriceScenario = {
 export type Pricing = { currency: string; scenarios: PriceScenario[]; chosen?: string | null };
 /** Etapas del recorrido marcadas a mano como hechas (las que no tienen datos propios). */
 export type Journey = { done?: Record<string, boolean> };
+/** Etapa 2 · Matriz de validación: respuestas verdadero/falso por id de pregunta (src/pages/ValidationPage.tsx). */
+export type Validation = { answers: Record<string, boolean>; completed_at?: string | null; score?: number | null };
+/** Etapa 4 · Plan de lanzamiento (src/pages/LaunchPlanPage.tsx). due = 'YYYY-MM-DD'. */
+export type LaunchTask = { id: string; title: string; group: string; due: string | null; done: boolean };
+export type LaunchPlan = { start: string; tasks: LaunchTask[] };
+/** Etapa 6 · Recuperación de ventas por WhatsApp (src/pages/RecoveryPage.tsx). */
+export type RecoveryMessage = { day: number; when: string; text: string };
+export type Recovery = { messages: RecoveryMessage[]; generated_at?: string | null };
 export type BusinessProfile = {
   business_type: BusinessType | null;
   copy_level: CopyLevel;
   pricing: Pricing | null;
   journey: Journey | null;
+  validation: Validation | null;
+  launch_plan: LaunchPlan | null;
+  recovery: Recovery | null;
   product: string; who: string; promise: string; price: string; proof: string; store_url: string;
 };
 export const EMPTY_PROFILE: BusinessProfile = {
-  business_type: null, copy_level: 2, pricing: null, journey: null,
+  business_type: null, copy_level: 2, pricing: null, journey: null, validation: null, launch_plan: null, recovery: null,
   product: "", who: "", promise: "", price: "", proof: "", store_url: "",
 };
 
@@ -61,6 +72,9 @@ export const PROFILE_EXAMPLES: Record<"default" | "ecommerce", Record<"product" 
   },
 };
 
+// Campos que la base guarda como JSON (o el tipo de negocio): vacíos = null, no "".
+const JSON_KEYS = new Set(["business_type", "pricing", "journey", "validation", "launch_plan", "recovery"]);
+
 // Tabla nueva, aún no está en los tipos generados de Supabase.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const table = () => (supabase as any).from("business_profile");
@@ -85,7 +99,7 @@ export function profileText(p: BusinessProfile) {
  * publicitaria entera (no solo el anuncio) y los que pueden dañar a alguien enfermo.
  */
 export function copyLevelHint(p: BusinessProfile) {
-  const limits = "LÍMITES EN CUALQUIER TONO: nada de curar, tratar o prevenir enfermedades ni resultados médicos, de ingresos o físicos prometidos; no afirmes atributos personales de quien mira (\"¿Tienes diabetes?\"); no inventes testimonios, médicos, estudios ni cifras; nunca sugieras dejar un tratamiento; nada de trucos para esquivar la revisión (letras cambiadas como \"d1abetes\", antes/después de cuerpos, páginas distintas para el revisor).";
+  const limits = "LÍMITES EN CUALQUIER TONO: nada de curar, tratar o prevenir enfermedades ni resultados médicos, de ingresos o físicos prometidos; no afirmes atributos personales de quien mira (\"¿Tienes diabetes?\"); no inventes testimonios, médicos, estudios ni cifras; nunca sugieras dejar un tratamiento; la promesa del producto se presenta como lo que enseña o ayuda a lograr (\"aprende a…\"), nunca como un resultado seguro; nada de trucos para esquivar la revisión (letras cambiadas como \"d1abetes\", antes/después de cuerpos, páginas distintas para el revisor).";
   if (p.copy_level === 1) {
     return `TONO 1 · SUAVE: informativo y cálido, beneficios en positivo, sin urgencia ni presión, llamada a la acción amable. Pensado para que ninguna plataforma lo rechace.\n${limits}`;
   }
@@ -111,10 +125,11 @@ export function useBusinessProfile() {
     if (!user) return;
     let alive = true;
     (async () => {
-      const { data } = await table().select("business_type,copy_level,pricing,journey,product,who,promise,price,proof,store_url").eq("user_id", user.id).maybeSingle();
+      const { data, error } = await table().select("business_type,copy_level,pricing,journey,validation,launch_plan,recovery,product,who,promise,price,proof,store_url").eq("user_id", user.id).maybeSingle();
+      if (error) console.error("business_profile:", error.message);
       let p: BusinessProfile = { ...EMPTY_PROFILE };
       if (data) {
-        p = Object.fromEntries(Object.entries({ ...EMPTY_PROFILE, ...data }).map(([k, v]) => [k, v ?? (k === "business_type" || k === "pricing" || k === "journey" ? null : k === "copy_level" ? 2 : "")])) as BusinessProfile;
+        p = Object.fromEntries(Object.entries({ ...EMPTY_PROFILE, ...data }).map(([k, v]) => [k, v ?? (JSON_KEYS.has(k) ? null : k === "copy_level" ? 2 : "")])) as BusinessProfile;
       } else {
         // Sin ficha todavía: la de la Mándala de este navegador (versión anterior) y el tipo según la encuesta.
         try {
@@ -132,19 +147,22 @@ export function useBusinessProfile() {
     return () => { alive = false; };
   }, [user]);
 
-  /** Guarda la ficha completa (upsert). Devuelve false si falló. */
-  const save = useCallback(async (p: BusinessProfile) => {
+  /**
+   * Guarda SOLO los campos indicados (y los aplica al estado local). Es el único guardado: así una
+   * pantalla con la ficha desactualizada nunca pisa lo que guardó otra (matriz, plan, precio…).
+   * Recorta los textos al tamaño que acepta la base (precio 30, el resto 300).
+   */
+  const savePatch = useCallback(async (patch: Partial<BusinessProfile>) => {
     if (!user) return false;
-    const clip = (v: string, n: number) => v.trim().slice(0, n);
-    const { error } = await table().upsert({
-      user_id: user.id, business_type: p.business_type, copy_level: p.copy_level,
-      pricing: p.pricing, journey: p.journey,
-      product: clip(p.product, 300), who: clip(p.who, 300), promise: clip(p.promise, 300),
-      price: clip(p.price, 30), proof: clip(p.proof, 300), store_url: clip(p.store_url, 300),
-      updated_at: new Date().toISOString(),
-    });
+    const clean: Record<string, unknown> = { ...patch };
+    for (const k of ["product", "who", "promise", "proof", "store_url", "price"] as const) {
+      if (typeof clean[k] === "string") clean[k] = (clean[k] as string).trim().slice(0, k === "price" ? 30 : 300);
+    }
+    setProfile(prev => ({ ...prev, ...(clean as Partial<BusinessProfile>) }));
+    const { error } = await table().upsert({ user_id: user.id, ...clean, updated_at: new Date().toISOString() });
+    if (error) console.error("business_profile:", error.message);
     return !error;
   }, [user]);
 
-  return { profile, setProfile, loaded, save };
+  return { profile, setProfile, loaded, savePatch };
 }

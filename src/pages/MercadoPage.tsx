@@ -104,7 +104,7 @@ const table = () => (supabase as any).from("market_offers");
 
 export function MercadoPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { user } = useAuth();
-  const { profile: business, setProfile: setBusiness, save: saveBusiness } = useBusinessProfile();
+  const { savePatch: saveBusiness } = useBusinessProfile();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState<Source | "all">("all");
@@ -176,9 +176,7 @@ export function MercadoPage({ onNavigate }: { onNavigate?: (page: string) => voi
       proof: r.rating != null ? `${r.rating}★ con ${r.reviews ?? 0} reseñas en ${SOURCES.find(s => s.id === r.source)?.label}` : "",
     };
     // La Mándala lee la ficha de "Mi negocio" (business_profile): se guarda ahí, sin perder el tipo de negocio.
-    const next = { ...business, ...brief };
-    setBusiness(next);
-    if (!(await saveBusiness(next))) { toast.error("No se pudo cargar la oferta en la Mándala. Intenta de nuevo."); return; }
+    if (!(await saveBusiness(brief))) { toast.error("No se pudo cargar la oferta en la Mándala. Intenta de nuevo."); return; }
     toast.success("Oferta cargada en la Mándala");
     if (onNavigate) onNavigate("Mándala"); else window.location.hash = "#/mandala";
   };

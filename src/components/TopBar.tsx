@@ -11,6 +11,13 @@ interface TopBarProps {
   onOpenMobileNav?: () => void;
 }
 
+// Páginas del recorrido que no tienen texto traducido en el menú.
+const EXTRA_TITLES: Record<string, string> = {
+  "Precio": "Precio y ganancia", "Mi negocio": "Mi ficha", "Validar": "Matriz de validación",
+  "Plan": "Plan de lanzamiento", "Contenido": "Calendario de contenido", "Resultados": "Resultados de tus anuncios",
+  "Recuperar": "Recuperar ventas",
+};
+
 export function TopBar({ activePage, onOpenMobileNav }: TopBarProps) {
   const { balance, limit } = useCredits();
   const { t, i18n } = useTranslation();
@@ -28,7 +35,7 @@ export function TopBar({ activePage, onOpenMobileNav }: TopBarProps) {
     "Generadores": "nav.generators", "Media Studio": "nav.mediaStudio",
     "Proyectos": "nav.projects", "Créditos": "nav.credits",
   };
-  const title = NAV_KEY[activePage] ? t(NAV_KEY[activePage]) : activePage === "Precio" ? "Precio y ganancia" : activePage;
+  const title = NAV_KEY[activePage] ? t(NAV_KEY[activePage]) : (EXTRA_TITLES[activePage] ?? activePage);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);

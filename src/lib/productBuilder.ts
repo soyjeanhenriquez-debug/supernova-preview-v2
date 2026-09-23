@@ -93,7 +93,7 @@ export type BuilderErrorCode =
   | "invalid_body" | "profile_incomplete" | "unauthorized" | "insufficient_credits" | "no_access"
   | "not_found" | "no_product" | "busy" | "too_many_builds" | "tone_not_allowed" | "ai_refusal"
   | "rate_limited" | "ai_busy" | "unknown_action" | "ai_failed" | "model_unavailable" | "disabled"
-  | "guard_error" | "ai_timeout" | "not_available";
+  | "guard_error" | "ai_timeout" | "not_available" | "needs_recharge";
 
 /** Respaldo por si el servidor no manda `error` (siempre se muestra primero data.error). */
 export const BUILDER_ERRORS: Record<BuilderErrorCode, string> = {
@@ -117,6 +117,7 @@ export const BUILDER_ERRORS: Record<BuilderErrorCode, string> = {
   guard_error: "No pudimos verificar tu cuenta. Intenta de nuevo.",
   ai_timeout: "Tardó demasiado. No se te cobró: intenta de nuevo o usa otra IA.",
   not_available: "Muy pronto disponible.",
+  needs_recharge: "Escribir tu producto se desbloquea con tu primera recarga de créditos. No se te cobró.",
 };
 
 export type BuilderError = { error: string; code?: BuilderErrorCode; refunded?: boolean; balance?: number; cost?: number };

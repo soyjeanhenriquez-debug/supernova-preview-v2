@@ -9,6 +9,8 @@
 // es agregar filas, sin redesplegar. Modelo sin secreto configurado → 503 sin cobrar.
 //
 // Piloto: con PILOT_ADMIN_ONLY = true solo responde a admins (403 not_available al resto, sin cobrar).
+// Desbloqueo: escribir piezas exige al menos UNA recarga pagada (builder_unlocked): primero entra
+// dinero, después se gasta en la IA. El índice es la muestra gratis. Sin recarga → 402 needs_recharge.
 // Cada llamada tiene 125 s en total (TOTAL_BUDGET_MS); la IA recibe lo que quede de ese presupuesto.
 //
 // Ruta interna de prueba: con x-cron-secret válido + test_user_id de un ADMIN, actúa como ese
@@ -31,7 +33,7 @@ const TOTAL_BUDGET_MS = 125_000;
 const MIN_AI_MS = 5_000;
 const LOCK_SECONDS = 150;
 // Piloto: mientras sea true, SOLO los admins pueden usar el constructor (también lo oculta la app).
-const PILOT_ADMIN_ONLY = true;
+const PILOT_ADMIN_ONLY = false;
 
 const corsHeaders = { ...baseCors, "Access-Control-Expose-Headers": "x-credits-charged, x-credits-balance, x-credit-receipt" };
 
@@ -603,6 +605,12 @@ async function piece(req: Request, body: any, t0: number): Promise<Response> {
   const userId = who;
   const pilot = await pilotBlocked(admin, userId);
   if (pilot) return pilot;
+  // Se desbloquea con la primera recarga (antes de cobrar nada).
+  const { data: unlocked, error: uErr } = await admin.rpc("builder_unlocked", { p_user: userId });
+  if (uErr) return fail(503, "guard_error", "No se pudo verificar el acceso. Intenta de nuevo.");
+  if (unlocked !== true) {
+    return fail(402, "needs_recharge", "Escribir tu producto se desbloquea con tu primera recarga de créditos. No se te cobró.");
+  }
 
   // 3. Pieza + libro, siempre del mismo usuario.
   const { data: pc } = await admin.from("product_build_pieces")

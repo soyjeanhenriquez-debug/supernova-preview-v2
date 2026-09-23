@@ -10,6 +10,7 @@ import { useProducts } from "@/contexts/ProductContext";
 import { profileReady, useBusinessProfile } from "@/lib/businessProfile";
 import { useCredits, type CreditAction } from "@/hooks/useCredits";
 import { useProductBuilds } from "@/hooks/useProductBuilds";
+import { supabase } from "@/integrations/supabase/client";
 import {
   builderCall, exportMarkdown, isPieceDone, printBuild, COVER_COLORS, FORMAT_LABEL, KIND_LABEL, MAX_NOTES, MAX_PIECES, MAX_PIECE_CHARS,
   TONE_LABEL, UPCOMING_MODELS,
@@ -81,6 +82,12 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
   const { profile, loaded } = useBusinessProfile();
   const pb = useProductBuilds();
   const { balance, applyServerCharge } = useCredits();
+  // Escribir se desbloquea con la primera recarga pagada (el índice es la muestra gratis).
+  const [unlocked, setUnlocked] = useState<boolean | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any).rpc("my_builder_unlocked").then(({ data }: { data: boolean | null }) => setUnlocked(data === true));
+  }, []);
 
   const [build, setBuild] = useState<Build | null>(null);
   const [pieces, setPieces] = useState<Piece[]>([]);
@@ -190,7 +197,7 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
       icon={<BookOpen className="w-5 h-5 text-primary shrink-0" />}
       details={[
         "El índice es gratis. Lo revisas y lo cambias como quieras.",
-        "Cada capítulo o lección se cobra aparte. Si la IA falla, no se te cobra.",
+        "Escribir se desbloquea con tu primera recarga de créditos. Cada capítulo o lección se cobra aparte; si la IA falla, no se te cobra.",
         "Editar, reordenar, la portada y guardar en PDF son gratis.",
       ]}
       right={active ? (
@@ -301,6 +308,7 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
     }
     // Los mensajes con reembolso ya dicen "No se te cobró".
     const err = r.data as BuilderError;
+    if (err.code === "needs_recharge") { setUnlocked(false); return "stop"; }
     toast.error(err.error);
     if (typeof err.balance === "number") balanceRef.current = err.balance;
     if (r.status === 409) return "skip";
@@ -551,8 +559,19 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
           )}
         </div>
 
+        {unlocked === false && (
+          <div className="rounded-xl border border-primary/40 bg-primary/5 p-4 space-y-2">
+            <p className="text-sm font-semibold text-foreground flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /> Tu índice está listo. Desbloquea la escritura.</p>
+            <p className="text-xs text-muted-foreground">
+              Se desbloquea para siempre con tu primera recarga, desde US$10. Esos créditos te sirven para escribirlo:
+              un ebook completo con la IA Estándar usa unos {totalCost || 135} créditos. Menos que un mes de cualquier IA de pago.
+            </p>
+            <button onClick={() => onNavigate?.("Créditos")} className={primaryBtn}>Ver recargas <ArrowRight className="w-4 h-4" /></button>
+          </div>
+        )}
+
         {/* Barra: escribir todo + saldo */}
-        <div className="rounded-xl border border-border bg-secondary/20 p-3 space-y-2">
+        <div className={`rounded-xl border border-border bg-secondary/20 p-3 space-y-2 ${unlocked === false ? "hidden" : ""}`}>
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-between">
             {run ? (
               <button onClick={stopRun} className={ghostBtn}><X className="w-3.5 h-3.5" /> Detener</button>

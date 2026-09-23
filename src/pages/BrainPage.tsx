@@ -1,10 +1,14 @@
-import { useState } from "react";
-import { Brain, Trash2, ArrowRight, Copy } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Brain, Trash2, ArrowRight, Copy, BookOpen, Plus } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { useProjects, type BrainProject } from "@/hooks/useProjects";
 import { ProjectThumb } from "@/components/ProjectThumb";
 import { ModalPortal } from "@/components/ModalPortal";
+import { supabase } from "@/integrations/supabase/client";
+import { useProducts } from "@/contexts/ProductContext";
+import { useFeatureAccess } from "@/lib/features";
+import { FORMAT_LABEL, type Build } from "@/lib/productBuilder";
 
 /**
  * Etapa 4 · "Mis productos": lo que el usuario creó y guardó (mini apps de "Hacer mi versión", planes
@@ -15,6 +19,24 @@ export function BrainPage({ onNavigate }: { onNavigate?: (page: string) => void 
   const { projects, remove } = useProjects();
   const [openId, setOpenId] = useState<string | null>(null);
   const open = projects.find((p) => p.id === openId);
+  const { activeId } = useProducts();
+  const { canSee } = useFeatureAccess();
+  const builderOn = canSee("Crear producto");
+  const [builds, setBuilds] = useState<Pick<Build, "id" | "title" | "format" | "pieces_total" | "updated_at">[]>([]);
+
+  // Ebooks y cursos de "Crear producto" del producto activo.
+  useEffect(() => {
+    if (!activeId || !builderOn) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any).from("product_builds").select("id,title,format,pieces_total,updated_at").eq("product_id", activeId)
+      .order("updated_at", { ascending: false }).limit(30)
+      .then(({ data }: { data: typeof builds | null }) => setBuilds(data ?? []));
+  }, [activeId, builderOn]);
+
+  const openBuild = (id?: string) => {
+    if (id) { try { sessionStorage.setItem("supernova.openBuild", id); } catch { /* sin almacenamiento */ } }
+    onNavigate?.("Crear producto");
+  };
 
   return (
     <div className="space-y-6">
@@ -30,6 +52,31 @@ export function BrainPage({ onNavigate }: { onNavigate?: (page: string) => void 
           </p>
         </div>
       </div>
+
+      {builderOn && onNavigate && (
+        <div>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h3 className="font-display font-bold text-lg">Tus productos ({builds.length})</h3>
+            <button onClick={() => openBuild()} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:border-primary/60">
+              <Plus className="w-3.5 h-3.5" /> Crear producto
+            </button>
+          </div>
+          {builds.length > 0 && (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {builds.map(b => (
+                <div key={b.id} className="card-surface rounded-xl p-4 flex flex-col gap-2 ad-card-hover">
+                  <div className="text-[10px] uppercase tracking-widest text-primary font-bold flex items-center gap-1"><BookOpen className="w-3 h-3" /> {FORMAT_LABEL[b.format]}</div>
+                  <div className="font-display font-bold text-sm line-clamp-2">{b.title}</div>
+                  <div className="text-[10px] text-muted-foreground">{FORMAT_LABEL[b.format]} · {b.pieces_total} partes · {b.updated_at ? new Date(b.updated_at).toLocaleDateString("es-ES") : ""}</div>
+                  <button onClick={() => openBuild(b.id)} className="text-xs text-primary hover:underline flex items-center gap-1 self-start">
+                    Abrir <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Projects */}
       <div>

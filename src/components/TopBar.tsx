@@ -15,7 +15,7 @@ interface TopBarProps {
 const EXTRA_TITLES: Record<string, string> = {
   "Precio": "Precio y ganancia", "Mi negocio": "Mi ficha", "Validar": "Matriz de validación",
   "Plan": "Plan de lanzamiento", "Contenido": "Calendario de contenido", "Resultados": "Resultados de tus anuncios",
-  "Recuperar": "Recuperar ventas", "Productos": "Mis productos",
+  "Recuperar": "Recuperar ventas", "Productos": "Mis productos", "Crear producto": "Crea tu producto",
 };
 
 export function TopBar({ activePage, onOpenMobileNav }: TopBarProps) {

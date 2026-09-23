@@ -1,4 +1,4 @@
-import { LayoutDashboard, Trophy, Telescope, FileText, FolderKanban, Coins, Shield, LogOut, PanelLeftClose, PanelLeftOpen, X, Video, Quote, Gem, Boxes, Orbit, Store, Briefcase, ClipboardCheck, Calculator, ListTodo, CalendarDays, BarChart3, MessageCircle, Lightbulb, LayoutGrid } from "lucide-react";
+import { LayoutDashboard, Trophy, Telescope, FileText, FolderKanban, Coins, Shield, LogOut, PanelLeftClose, PanelLeftOpen, X, Video, Quote, Gem, Boxes, Orbit, Store, Briefcase, ClipboardCheck, Calculator, ListTodo, CalendarDays, BarChart3, MessageCircle, Lightbulb, LayoutGrid, BookOpen } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
@@ -47,9 +47,10 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
       { icon: Calculator, key: "Precio", label: "Precio y ganancia", hint: "Cuánto te queda de cada venta y cuánto puedes pagar en anuncios sin perder." },
     ] },
     { title: "4 · Construir", items: [
+      { icon: BookOpen, key: "Crear producto", label: "Crear producto", hint: "Ebook o curso" },
       { icon: ListTodo, key: "Plan", label: "Plan de lanzamiento", hint: "Tus tareas con fecha para construir y lanzar tu producto en unos 14 días." },
       { icon: FolderKanban, key: "Proyectos", label: t("nav.projects"), hint: t("nav.hint.projects") },
-    ] },
+    ].filter(item => canSee(item.key)) }, // "Crear producto" está en piloto (solo admin)
     { title: "5 · Vender", items: [
       { icon: Orbit, key: "Mándala", label: t("nav.mandala"), hint: t("nav.hint.mandala") },
       { icon: Quote, key: "Hooks", label: t("nav.hooks"), hint: t("nav.hint.hooks") },

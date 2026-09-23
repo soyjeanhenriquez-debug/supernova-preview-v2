@@ -7,6 +7,7 @@ import { useProducts } from "@/contexts/ProductContext";
 import { useProjects } from "@/hooks/useProjects";
 import { useBusinessProfile, profileReady, type BusinessProfile } from "@/lib/businessProfile";
 import { WeeklyPlan } from "@/components/journey/WeeklyPlan";
+import { useFeatureAccess } from "@/lib/features";
 
 /**
  * Recorrido "Mi negocio": el Método Negocio Gemelo en 6 etapas, con el producto del usuario en el
@@ -24,6 +25,10 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
   const { profile, savePatch, loaded } = useBusinessProfile();
   const { projects } = useProjects();
   const [ads, setAds] = useState<{ count: number; measured: boolean } | null>(null);
+  // Etapa 4: un ebook o curso terminado en "Crear producto" (product_builds) también la cumple.
+  const [hasBuiltProduct, setHasBuiltProduct] = useState(false);
+  const { canSee } = useFeatureAccess();
+  const builderOn = canSee("Crear producto");
 
   useEffect(() => {
     if (!user || !activeId) return;
@@ -32,6 +37,15 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
       const list = data ?? [];
       setAds({ count: list.length, measured: list.some(a => a.spend != null || a.sales != null || a.status === "ganador" || a.status === "descartado") });
     });
+  }, [user, activeId]);
+
+  useEffect(() => {
+    if (!user || !activeId) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any).from("product_builds").select("status,pieces_done,pieces_total").eq("product_id", activeId).limit(30)
+      .then(({ data }: { data: { status: string; pieces_done: number; pieces_total: number }[] | null }) => {
+        setHasBuiltProduct((data ?? []).some(b => b.status === "listo" || (b.pieces_total > 0 && b.pieces_done >= b.pieces_total)));
+      });
   }, [user, activeId]);
 
   const manual = (k: string) => !!profile.journey?.done?.[k];
@@ -82,14 +96,21 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
     },
     {
       n: 4, key: "4", short: "Construir", title: "Construye tu producto",
-      why: "Tu mini app y un plan de 14 días, tarea por tarea.", doneNote: "Tu plan va al 80% o más",
-      done: planPct >= 0.8 || (hasMiniApp && manual("4")),
+      why: "Tu mini app y un plan de 14 días, tarea por tarea.", doneNote: hasBuiltProduct ? "Tu producto está escrito" : "Tu plan va al 80% o más",
+      done: planPct >= 0.8 || hasBuiltProduct || (hasMiniApp && manual("4")),
       progress: planTasks.length ? `${Math.round(planPct * 100)}% del plan` : hasMiniApp ? "Mini app lista" : undefined,
-      manual: hasMiniApp && planPct < 0.8,
-      actions: [
-        { label: planTasks.length ? "Seguir mi plan" : "Armar mi plan de lanzamiento", page: "Plan", primary: true },
-        { label: "Hacer mi versión (Mini Apps)", page: "Mini Apps" },
-      ],
+      manual: hasMiniApp && planPct < 0.8 && !hasBuiltProduct,
+      // Si no es tienda y aún no hay libro: primero crear el producto aquí mismo; el plan va de segundo.
+      actions: builderOn && profile.business_type !== "ecommerce" && !hasBuiltProduct
+        ? [
+          { label: "Crear mi producto", page: "Crear producto", primary: true },
+          { label: planTasks.length ? "Seguir mi plan" : "Armar mi plan de lanzamiento", page: "Plan" },
+          { label: "Hacer mi versión (Mini Apps)", page: "Mini Apps" },
+        ]
+        : [
+          { label: planTasks.length ? "Seguir mi plan" : "Armar mi plan de lanzamiento", page: "Plan", primary: true },
+          { label: "Hacer mi versión (Mini Apps)", page: "Mini Apps" },
+        ],
     },
     {
       n: 5, key: "5", short: "Vender", title: "Crea tus anuncios",
@@ -112,7 +133,7 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
       ],
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [profile, ads, hasMiniApp]);
+  ], [profile, ads, hasMiniApp, hasBuiltProduct, builderOn]);
 
   // El socio semanal decide con el estado de las etapas; se le pasa cuando ya se conocen los anuncios.
   const stagesForPlan = useMemo(

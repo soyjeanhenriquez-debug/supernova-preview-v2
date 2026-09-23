@@ -33,6 +33,7 @@ const LaunchPlanPage = lazy(() => import("@/pages/LaunchPlanPage").then(m => ({ 
 const RecoveryPage = lazy(() => import("@/pages/RecoveryPage").then(m => ({ default: m.RecoveryPage })));
 const ContentPage = lazy(() => import("@/pages/ContentPage").then(m => ({ default: m.ContentPage })));
 const ProductsPage = lazy(() => import("@/pages/ProductsPage").then(m => ({ default: m.ProductsPage })));
+const ProductBuilderPage = lazy(() => import("@/pages/ProductBuilderPage"));
 
 function PageLoader() {
   return (
@@ -69,11 +70,13 @@ const PAGE_SLUG: Record<string, string> = {
   "Resultados": "resultados",
   "Recuperar": "recuperar",
   "Productos": "productos",
+  "Crear producto": "crear-producto",
 };
 const SLUG_PAGE: Record<string, string> = {
   "ofertas": "Ofertas", "mini-apps": "Mini Apps", "radar": "Buscar Ofertas Winner", "hooks": "Hooks", "mandala": "Mándala", "mercado": "Mercado",
   "oraculo": "Oráculo", "generadores": "Generadores", "media-studio": "Media Studio",
   "proyectos": "Proyectos", "creditos": "Créditos", "crear": "Crear", "precio": "Precio", "mi-negocio": "Mi negocio", "validar": "Validar", "plan": "Plan", "contenido": "Contenido", "resultados": "Resultados", "recuperar": "Recuperar", "productos": "Productos",
+  "crear-producto": "Crear producto",
 };
 function pageFromHash(): string {
   // Un hash que no es nuestro (p. ej. el #access_token=… de un enlace de acceso) se ignora.
@@ -132,6 +135,7 @@ const Index = () => {
       case "Contenido": return <ContentPage onNavigate={setActivePage} />;
       case "Recuperar": return <RecoveryPage onNavigate={setActivePage} />;
       case "Productos": return <ProductsPage onNavigate={setActivePage} />;
+      case "Crear producto": return <ProductBuilderPage onNavigate={setActivePage} />;
       case "Mercado": return <MercadoPage onNavigate={setActivePage} />;
       case "Hooks": return <HooksPage onNavigate={setActivePage} />;
       case "Proyectos": return <BrainPage onNavigate={setActivePage} />;

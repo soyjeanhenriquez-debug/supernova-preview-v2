@@ -78,3 +78,6 @@ verify_jwt = false
 
 [functions.form-assist]
 verify_jwt = false
+
+[functions.product-builder]
+verify_jwt = false

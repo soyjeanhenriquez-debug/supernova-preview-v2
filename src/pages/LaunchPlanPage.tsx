@@ -10,6 +10,7 @@ import { useProducts } from "@/contexts/ProductContext";
 import { useProjects } from "@/hooks/useProjects";
 import { askAssist } from "@/lib/formAssist";
 import { useBusinessProfile, type BusinessProfile, type LaunchPlan, type LaunchTask } from "@/lib/businessProfile";
+import { useFeatureAccess } from "@/lib/features";
 
 /**
  * Etapa 4 del recorrido "Mi negocio": construye y lanza tu producto.
@@ -39,6 +40,9 @@ const niceDate = (s: string) =>
   parseYmd(s).toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" });
 
 const BUILD_TITLE = "Construye tu mini app con la IA que uses para crear apps, siguiendo tus instrucciones";
+// Con "Crear producto" (ebook o curso con IA) visible, el producto se crea dentro de SUPERNOVA.
+const PROMPT_TITLE_OLD = "Genera las instrucciones en «Hacer mi versión»";
+const PROMPT_TITLE_BUILDER = "Crea tu producto (ebook o curso) aquí mismo";
 
 const newId = () => Math.random().toString(36).slice(2, 9);
 
@@ -48,7 +52,7 @@ type TemplateGroup = { name: string; nav?: string; tasks: TemplateTask[] };
 
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1).trim()}…` : s);
 
-function buildTemplate(p: BusinessProfile): TemplateGroup[] {
+function buildTemplate(p: BusinessProfile, builder = false): TemplateGroup[] {
   const product = clip(p.product.trim(), 60);
   const ecommerce = p.business_type === "ecommerce";
   const it = product ? `«${product}»` : "tu producto";
@@ -66,10 +70,12 @@ function buildTemplate(p: BusinessProfile): TemplateGroup[] {
     }
     : {
       name: "1. Tu producto",
-      nav: "Mini Apps",
+      nav: builder ? "Crear producto" : "Mini Apps",
       tasks: [
         { key: "promise", title: `Escribe en una frase qué logra la persona con ${it}`, day: 0 },
-        { key: "prompt", title: "Genera las instrucciones en «Hacer mi versión»", day: 1, nav: "Mini Apps" },
+        builder
+          ? { key: "prompt", title: PROMPT_TITLE_BUILDER, day: 1, nav: "Crear producto" }
+          : { key: "prompt", title: PROMPT_TITLE_OLD, day: 1, nav: "Mini Apps" },
         { key: "build", title: BUILD_TITLE, day: 3 },
         { key: "test", title: "Pruébala tú y pídele a 2 personas que la usen", day: 5 },
         { key: "fix", title: "Ajusta lo que no se entendió o falló", day: 6 },
@@ -127,18 +133,18 @@ function buildTemplate(p: BusinessProfile): TemplateGroup[] {
 }
 
 /** Página de SUPERNOVA de cada tarea de la plantilla (por id) y de cada grupo (por nombre). */
-function navMaps(p: BusinessProfile) {
+function navMaps(p: BusinessProfile, builder = false) {
   const byTask: Record<string, string> = {};
   const byGroup: Record<string, string> = {};
-  for (const g of buildTemplate(p)) {
+  for (const g of buildTemplate(p, builder)) {
     if (g.nav) byGroup[g.name] = g.nav;
     for (const t of g.tasks) if (t.nav) byTask[`tpl-${t.key}`] = t.nav;
   }
   return { byTask, byGroup };
 }
 
-function createPlan(p: BusinessProfile, start: string): LaunchPlan {
-  const tasks: LaunchTask[] = buildTemplate(p).flatMap(g =>
+function createPlan(p: BusinessProfile, start: string, builder = false): LaunchPlan {
+  const tasks: LaunchTask[] = buildTemplate(p, builder).flatMap(g =>
     g.tasks.map(t => ({ id: `tpl-${t.key}`, title: t.title, group: g.name, due: addDays(start, t.day), done: false })),
   );
   return { start, tasks };
@@ -170,8 +176,11 @@ const TOOL_TASK: Record<string, Tool> = {
   review: { page: "Resultados", label: "Anotar mis resultados" },
 };
 
-function templateSpec(key: string, ecommerce: boolean): Spec | null {
+function templateSpec(key: string, ecommerce: boolean, builder = false): Spec | null {
   const tool = TOOL_TASK[key];
+  if (key === "prompt" && builder && !ecommerce) {
+    return { kind: "tool", tool: { page: "Crear producto", label: "Crear mi producto" }, hint: "Tu ebook o curso, escrito a partir de tu ficha." };
+  }
   switch (key) {
     // --- Producto ---
     case "promise":
@@ -226,8 +235,8 @@ function templateSpec(key: string, ecommerce: boolean): Spec | null {
 }
 
 const WRITE_DEFAULT: Spec = { kind: "write", hint: "Escribe aquí lo que hiciste o lo que vas a hacer.", placeholder: "Escribe aquí…" };
-const specFor = (t: LaunchTask, ecommerce: boolean): Spec =>
-  (t.id.startsWith("tpl-") ? templateSpec(t.id.slice(4), ecommerce) : null) ?? WRITE_DEFAULT;
+const specFor = (t: LaunchTask, ecommerce: boolean, builder = false): Spec =>
+  (t.id.startsWith("tpl-") ? templateSpec(t.id.slice(4), ecommerce, builder) : null) ?? WRITE_DEFAULT;
 
 const isUrl = (s: string) => /^https?:\/\/[^\s.]+\.[^\s]{2,}$/i.test(s.trim());
 const MIN_ANSWER = 15;
@@ -263,6 +272,9 @@ export function LaunchPlanPage({ onNavigate }: { onNavigate?: (page: string) => 
   const [ai, setAi] = useState<Record<string, AiState>>({});
   const [ads, setAds] = useState<Ads | null>(null);
   const [published, setPublished] = useState<number | null>(null);
+  const [hasBuiltProduct, setHasBuiltProduct] = useState(false);
+  const { canSee, loading: accessLoading } = useFeatureAccess();
+  const builder = canSee("Crear producto");
   const saveTimer = useRef<number | null>(null);
   const pending = useRef<LaunchPlan | null | undefined>(undefined);
   const planRef = useRef<LaunchPlan | null>(null);
@@ -272,17 +284,22 @@ export function LaunchPlanPage({ onNavigate }: { onNavigate?: (page: string) => 
 
   // Arranca con el plan guardado (una sola vez, cuando llega la ficha) y abre la primera tarea pendiente.
   useEffect(() => {
-    if (!loaded || ready) return;
+    if (!loaded || ready || accessLoading) return;
     const saved = profile.launch_plan?.tasks ? profile.launch_plan : null;
-    // Planes viejos: el título de «build» nombraba herramientas concretas.
+    // Planes viejos: el título de «build» nombraba herramientas concretas; el de «prompt» pasa a
+    // "Crear producto" cuando está visible (no en tiendas: su plantilla no tiene esa tarea).
     const p = saved && {
       ...saved,
-      tasks: saved.tasks.map(t => (t.id === "tpl-build" && /Lovable/.test(t.title) ? { ...t, title: BUILD_TITLE } : t)),
+      tasks: saved.tasks.map(t => (
+        t.id === "tpl-build" && /Lovable/.test(t.title) ? { ...t, title: BUILD_TITLE }
+          : t.id === "tpl-prompt" && builder && t.title === PROMPT_TITLE_OLD ? { ...t, title: PROMPT_TITLE_BUILDER }
+            : t
+      )),
     };
     setPlan(p);
     setOpenId(p?.tasks.find(t => !t.done)?.id ?? null);
     setReady(true);
-  }, [loaded, ready, profile.launch_plan]);
+  }, [loaded, ready, accessLoading, builder, profile.launch_plan]);
 
   // Lo que el usuario ya hizo en otras herramientas (RLS: solo sus filas).
   useEffect(() => {
@@ -298,6 +315,12 @@ export function LaunchPlanPage({ onNavigate }: { onNavigate?: (page: string) => 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any).from("content_items").select("status").eq("product_id", activeId).eq("status", "publicado").limit(50)
       .then(({ data }: { data: { status: string }[] | null }) => { if (alive) setPublished((data ?? []).length); });
+    // Un ebook o curso terminado en "Crear producto".
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any).from("product_builds").select("status,pieces_done,pieces_total").eq("product_id", activeId).limit(30)
+      .then(({ data }: { data: { status: string; pieces_done: number; pieces_total: number }[] | null }) => {
+        if (alive) setHasBuiltProduct((data ?? []).some(b => b.status === "listo" || (b.pieces_total > 0 && b.pieces_done >= b.pieces_total)));
+      });
     return () => { alive = false; };
   }, [user, activeId]);
 
@@ -339,7 +362,8 @@ export function LaunchPlanPage({ onNavigate }: { onNavigate?: (page: string) => 
     .filter((x): x is { p: typeof x.p; text: string } => typeof x.text === "string" && x.text.trim().length > 0)
     .sort((a, b) => (b.p.updatedAt || "").localeCompare(a.p.updatedAt || ""))[0] ?? null;
   const detected: Record<string, boolean> = {
-    "tpl-prompt": !!miniapp,
+    "tpl-prompt": !!miniapp || hasBuiltProduct,
+    "tpl-build": hasBuiltProduct,
     "tpl-price": !!profile.pricing?.chosen,
     "tpl-ads": (ads?.count ?? 0) >= 5,
     "tpl-organic": (published ?? 0) >= 3,
@@ -366,7 +390,7 @@ export function LaunchPlanPage({ onNavigate }: { onNavigate?: (page: string) => 
 
   const ecommerce = profile.business_type === "ecommerce";
   const productName = profile.product.trim();
-  const { byTask, byGroup } = navMaps(profile);
+  const { byTask, byGroup } = navMaps(profile, builder);
 
   const go = (page: string) => { flush(); onNavigate?.(page); };
 
@@ -414,7 +438,7 @@ export function LaunchPlanPage({ onNavigate }: { onNavigate?: (page: string) => 
             <button
               onClick={() => {
                 const s = isYmd(start) ? start : todayYmd();
-                const next = createPlan(profile, s);
+                const next = createPlan(profile, s, builder);
                 persist(next, true);
                 setOpenId(next.tasks[0]?.id ?? null);
                 toast.success("Tu plan está listo", { description: "Empieza por la primera tarea." });
@@ -775,7 +799,7 @@ export function LaunchPlanPage({ onNavigate }: { onNavigate?: (page: string) => 
   };
 
   const taskRow = (t: LaunchTask) => {
-    const spec = specFor(t, ecommerce);
+    const spec = specFor(t, ecommerce, builder);
     const isToday = !t.done && t.due === today;
     const late = !t.done && !!t.due && t.due < today;
     const open = openId === t.id;

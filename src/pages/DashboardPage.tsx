@@ -20,6 +20,7 @@ import { LevelXPWidget } from "@/components/dashboard/LevelXPWidget";
 import { DailyQuoteWidget } from "@/components/dashboard/DailyQuoteWidget";
 import { LevelUpModal } from "@/components/dashboard/LevelUpModal";
 import { useFeatureAccess } from "@/lib/features";
+import { BusinessJourney } from "@/components/journey/BusinessJourney";
 
 interface Props { onNavigate: (p: string) => void; }
 
@@ -66,6 +67,9 @@ export function DashboardPage({ onNavigate }: Props) {
     <div className="max-w-[1280px] mx-auto space-y-10 py-4 animate-jarvis-fade">
       {/* 1. Hero */}
       <HeroJarvis firstName={firstName} />
+
+      {/* Mi negocio: el recorrido de 6 etapas con el siguiente paso. Va primero: es lo que lleva a vender. */}
+      <BusinessJourney onNavigate={onNavigate} />
 
       {/* 2. Racha */}
       <StreakWidget streak={streak} lastLoginDate={lastLoginDate} />

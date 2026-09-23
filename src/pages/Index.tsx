@@ -25,6 +25,7 @@ const HooksPage = lazy(() => import("@/pages/HooksPage").then(m => ({ default: m
 const BrainPage = lazy(() => import("@/pages/BrainPage").then(m => ({ default: m.BrainPage })));
 const CreditsPage = lazy(() => import("@/pages/CreditsPage").then(m => ({ default: m.CreditsPage })));
 const CrearPage = lazy(() => import("@/pages/CrearPage").then(m => ({ default: m.CrearPage })));
+const PricingPage = lazy(() => import("@/pages/PricingPage").then(m => ({ default: m.PricingPage })));
 
 function PageLoader() {
   return (
@@ -53,11 +54,12 @@ const PAGE_SLUG: Record<string, string> = {
   "Proyectos": "proyectos",
   "Créditos": "creditos",
   "Crear": "crear",
+  "Precio": "precio",
 };
 const SLUG_PAGE: Record<string, string> = {
   "ofertas": "Ofertas", "mini-apps": "Mini Apps", "radar": "Buscar Ofertas Winner", "hooks": "Hooks", "mandala": "Mándala", "mercado": "Mercado",
   "oraculo": "Oráculo", "generadores": "Generadores", "media-studio": "Media Studio",
-  "proyectos": "Proyectos", "creditos": "Créditos", "crear": "Crear",
+  "proyectos": "Proyectos", "creditos": "Créditos", "crear": "Crear", "precio": "Precio",
 };
 function pageFromHash(): string {
   // Un hash que no es nuestro (p. ej. el #access_token=… de un enlace de acceso) se ignora.
@@ -113,6 +115,7 @@ const Index = () => {
       case "Proyectos": return <BrainPage />;
       case "Créditos": return <CreditsPage />;
       case "Crear": return <CrearPage />;
+      case "Precio": return <PricingPage onNavigate={setActivePage} />;
       case "Admin": return <div className="card-surface rounded-xl p-10 text-center"><h3 className="font-display font-bold text-xl">🛡️ Admin Panel</h3><p className="text-sm text-muted-foreground mt-2">Panel administrativo (en construcción)</p></div>;
       default: return <DashboardPage onNavigate={setActivePage} />;
     }

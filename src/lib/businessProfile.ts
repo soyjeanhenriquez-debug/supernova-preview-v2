@@ -8,13 +8,24 @@ import { useAuth } from "@/contexts/AuthContext";
  */
 export type BusinessType = "infoproducto" | "ecommerce" | "servicios" | "afiliado" | "otro";
 export type CopyLevel = 1 | 2 | 3;
+/** Un escenario de la calculadora de precio (src/pages/PricingPage.tsx). */
+export type PriceScenario = {
+  id: string; price: number; salesPerDay: number; adCostPerSale: number; feePct: number; feeFixed: number;
+  refundPct: number; taxPct: number; unitCost: number; fixedMonthly: number;
+};
+export type Pricing = { currency: string; scenarios: PriceScenario[]; chosen?: string | null };
+/** Etapas del recorrido marcadas a mano como hechas (las que no tienen datos propios). */
+export type Journey = { done?: Record<string, boolean> };
 export type BusinessProfile = {
   business_type: BusinessType | null;
   copy_level: CopyLevel;
+  pricing: Pricing | null;
+  journey: Journey | null;
   product: string; who: string; promise: string; price: string; proof: string; store_url: string;
 };
 export const EMPTY_PROFILE: BusinessProfile = {
-  business_type: null, copy_level: 2, product: "", who: "", promise: "", price: "", proof: "", store_url: "",
+  business_type: null, copy_level: 2, pricing: null, journey: null,
+  product: "", who: "", promise: "", price: "", proof: "", store_url: "",
 };
 
 /** Tono de los anuncios: lo elige cada usuario en "Mi negocio" y lo respetan todas las herramientas. */
@@ -100,10 +111,10 @@ export function useBusinessProfile() {
     if (!user) return;
     let alive = true;
     (async () => {
-      const { data } = await table().select("business_type,copy_level,product,who,promise,price,proof,store_url").eq("user_id", user.id).maybeSingle();
+      const { data } = await table().select("business_type,copy_level,pricing,journey,product,who,promise,price,proof,store_url").eq("user_id", user.id).maybeSingle();
       let p: BusinessProfile = { ...EMPTY_PROFILE };
       if (data) {
-        p = Object.fromEntries(Object.entries({ ...EMPTY_PROFILE, ...data }).map(([k, v]) => [k, v ?? (k === "business_type" ? null : k === "copy_level" ? 2 : "")])) as BusinessProfile;
+        p = Object.fromEntries(Object.entries({ ...EMPTY_PROFILE, ...data }).map(([k, v]) => [k, v ?? (k === "business_type" || k === "pricing" || k === "journey" ? null : k === "copy_level" ? 2 : "")])) as BusinessProfile;
       } else {
         // Sin ficha todavía: la de la Mándala de este navegador (versión anterior) y el tipo según la encuesta.
         try {
@@ -127,6 +138,7 @@ export function useBusinessProfile() {
     const clip = (v: string, n: number) => v.trim().slice(0, n);
     const { error } = await table().upsert({
       user_id: user.id, business_type: p.business_type, copy_level: p.copy_level,
+      pricing: p.pricing, journey: p.journey,
       product: clip(p.product, 300), who: clip(p.who, 300), promise: clip(p.promise, 300),
       price: clip(p.price, 30), proof: clip(p.proof, 300), store_url: clip(p.store_url, 300),
       updated_at: new Date().toISOString(),

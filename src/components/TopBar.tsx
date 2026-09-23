@@ -28,7 +28,7 @@ export function TopBar({ activePage, onOpenMobileNav }: TopBarProps) {
     "Generadores": "nav.generators", "Media Studio": "nav.mediaStudio",
     "Proyectos": "nav.projects", "Créditos": "nav.credits",
   };
-  const title = NAV_KEY[activePage] ? t(NAV_KEY[activePage]) : activePage;
+  const title = NAV_KEY[activePage] ? t(NAV_KEY[activePage]) : activePage === "Precio" ? "Precio y ganancia" : activePage;
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);

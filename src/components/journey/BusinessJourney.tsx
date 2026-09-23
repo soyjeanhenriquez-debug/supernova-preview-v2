@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/hooks/useProjects";
 import { useBusinessProfile, profileReady, type BusinessProfile } from "@/lib/businessProfile";
+import { WeeklyPlan } from "@/components/journey/WeeklyPlan";
 
 /**
  * Recorrido "Mi negocio": el Método Negocio Gemelo en 6 etapas, con el producto del usuario en el
@@ -95,12 +96,19 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [profile, ads, hasMiniApp]);
 
+  // El socio semanal decide con el estado de las etapas; se le pasa cuando ya se conocen los anuncios.
+  const stagesForPlan = useMemo(
+    () => (loaded && ads ? stages.map(s => ({ n: s.n, title: s.title, done: s.done })) : null),
+    [loaded, ads, stages],
+  );
+
   if (!loaded) return null;
   const doneCount = stages.filter(s => s.done).length;
   const next = stages.find(s => !s.done);
   const shown = open != null ? stages[open - 1] : next;
 
   return (
+    <div className="space-y-4">
     <section className="card-surface rounded-2xl p-5 sm:p-6 space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -160,5 +168,7 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
         </div>
       )}
     </section>
+    <WeeklyPlan onNavigate={onNavigate} stages={stagesForPlan} />
+    </div>
   );
 }

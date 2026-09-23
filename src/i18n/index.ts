@@ -26,5 +26,11 @@ i18n
     },
   });
 
+// El <html lang> sigue al idioma elegido en la app: si dijera otro idioma que el del texto,
+// el navegador ofrece "traducir" y rompe la pantalla (ver main.tsx).
+const syncLang = (lng?: string) => { if (typeof document !== "undefined") document.documentElement.lang = (lng || "es").slice(0, 2); };
+syncLang(i18n.resolvedLanguage);
+i18n.on("languageChanged", syncLang);
+
 export const LANG_STORAGE_KEY = STORAGE_KEY;
 export default i18n;

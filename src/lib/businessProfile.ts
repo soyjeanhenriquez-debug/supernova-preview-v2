@@ -7,13 +7,22 @@ import { useAuth } from "@/contexts/AuthContext";
  * todas las herramientas (Mándala, Generadores, ejemplos con IA). Una fila por usuario.
  */
 export type BusinessType = "infoproducto" | "ecommerce" | "servicios" | "afiliado" | "otro";
+export type CopyLevel = 1 | 2 | 3;
 export type BusinessProfile = {
   business_type: BusinessType | null;
+  copy_level: CopyLevel;
   product: string; who: string; promise: string; price: string; proof: string; store_url: string;
 };
 export const EMPTY_PROFILE: BusinessProfile = {
-  business_type: null, product: "", who: "", promise: "", price: "", proof: "", store_url: "",
+  business_type: null, copy_level: 2, product: "", who: "", promise: "", price: "", proof: "", store_url: "",
 };
+
+/** Tono de los anuncios: lo elige cada usuario en "Mi negocio" y lo respetan todas las herramientas. */
+export const COPY_LEVELS: { id: CopyLevel; label: string; desc: string }[] = [
+  { id: 1, label: "Suave", desc: "Tranquilo e informativo. Casi nunca te rechazan un anuncio." },
+  { id: 2, label: "Persuasivo", desc: "Respuesta directa clásica: dolor, deseo, prueba y llamada fuerte." },
+  { id: 3, label: "Agresivo", desc: "Máxima persuasión dentro de las reglas: curiosidad, emoción y ganchos que frenan el scroll." },
+];
 
 export const BUSINESS_TYPES: { id: BusinessType; label: string }[] = [
   { id: "infoproducto", label: "Curso o producto digital" },
@@ -59,6 +68,22 @@ export function profileText(p: BusinessProfile) {
   ].filter(Boolean).join("\n");
 }
 
+/**
+ * Instrucciones de tono para la IA. El nivel 3 es persuasión de respuesta directa a fondo, pero
+ * los límites de abajo valen en TODOS los niveles: son los que hacen que Meta cierre la cuenta
+ * publicitaria entera (no solo el anuncio) y los que pueden dañar a alguien enfermo.
+ */
+export function copyLevelHint(p: BusinessProfile) {
+  const limits = "LÍMITES EN CUALQUIER TONO: nada de curar, tratar o prevenir enfermedades ni resultados médicos, de ingresos o físicos prometidos; no afirmes atributos personales de quien mira (\"¿Tienes diabetes?\"); no inventes testimonios, médicos, estudios ni cifras; nunca sugieras dejar un tratamiento; nada de trucos para esquivar la revisión (letras cambiadas como \"d1abetes\", antes/después de cuerpos, páginas distintas para el revisor).";
+  if (p.copy_level === 1) {
+    return `TONO 1 · SUAVE: informativo y cálido, beneficios en positivo, sin urgencia ni presión, llamada a la acción amable. Pensado para que ninguna plataforma lo rechace.\n${limits}`;
+  }
+  if (p.copy_level === 3) {
+    return `TONO 3 · AGRESIVO (máxima persuasión de respuesta directa, dentro de las políticas): abre con un gancho que rompa el patrón en las primeras 3 palabras; usa estructuras de lead de descubrimiento al estilo brasileño y americano (historia de descubrimiento, enemigo común, mecanismo único con nombre propio, revelación, contraste antes de conocerlo / después), curiosidad fuerte que solo se cierra haciendo clic, emoción intensa (miedo a seguir igual, orgullo, alivio), objeciones destruidas una por una, urgencia y escasez solo si son reales, y llamada a la acción directa y repetida. Formatos que se ven nativos: noticia/advertorial, UGC hablado a cámara, texto sobre la imagen. Para subir el CTR: números concretos (sin inventar), preguntas abiertas que no afirman nada de quien mira, frases de una línea, palabras de poder. Da además 2 variantes del gancho para probar.\n${limits}`;
+  }
+  return `TONO 2 · PERSUASIVO: respuesta directa clásica: gancho fuerte, dolor con sus palabras, deseo, prueba honesta, oferta clara y llamada a la acción firme.\n${limits}`;
+}
+
 /** Reglas extra para la IA cuando el negocio es una tienda de productos físicos. */
 export function businessHint(p: BusinessProfile) {
   return p.business_type === "ecommerce"
@@ -75,10 +100,10 @@ export function useBusinessProfile() {
     if (!user) return;
     let alive = true;
     (async () => {
-      const { data } = await table().select("business_type,product,who,promise,price,proof,store_url").eq("user_id", user.id).maybeSingle();
+      const { data } = await table().select("business_type,copy_level,product,who,promise,price,proof,store_url").eq("user_id", user.id).maybeSingle();
       let p: BusinessProfile = { ...EMPTY_PROFILE };
       if (data) {
-        p = Object.fromEntries(Object.entries({ ...EMPTY_PROFILE, ...data }).map(([k, v]) => [k, v ?? (k === "business_type" ? null : "")])) as BusinessProfile;
+        p = Object.fromEntries(Object.entries({ ...EMPTY_PROFILE, ...data }).map(([k, v]) => [k, v ?? (k === "business_type" ? null : k === "copy_level" ? 2 : "")])) as BusinessProfile;
       } else {
         // Sin ficha todavía: la de la Mándala de este navegador (versión anterior) y el tipo según la encuesta.
         try {
@@ -101,7 +126,7 @@ export function useBusinessProfile() {
     if (!user) return false;
     const clip = (v: string, n: number) => v.trim().slice(0, n);
     const { error } = await table().upsert({
-      user_id: user.id, business_type: p.business_type,
+      user_id: user.id, business_type: p.business_type, copy_level: p.copy_level,
       product: clip(p.product, 300), who: clip(p.who, 300), promise: clip(p.promise, 300),
       price: clip(p.price, 30), proof: clip(p.proof, 300), store_url: clip(p.store_url, 300),
       updated_at: new Date().toISOString(),

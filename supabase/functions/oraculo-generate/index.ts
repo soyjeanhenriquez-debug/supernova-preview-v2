@@ -562,6 +562,16 @@ Deno.serve(async (req) => {
     }
 
     const data = await r.json();
+    // Costo real (tabla ai_usage). Salida = total − entrada: incluye el razonamiento, que se cobra.
+    const u = data?.usage;
+    if (u) {
+      const input = Number(u.prompt_tokens) || 0;
+      const output = Math.max(Number(u.completion_tokens) || 0, (Number(u.total_tokens) || 0) - input);
+      try {
+        const { error: logErr } = await guardClient().rpc("log_ai_usage", { p_user_id: gate.userId, p_fn: `oraculo-generate:${body.kind}`, p_model: "gemini-3-flash-preview", p_input: input, p_output: output, p_images: 0 });
+        if (logErr) console.error("log_ai_usage:", logErr.message);
+      } catch (e) { console.error("log_ai_usage:", e instanceof Error ? e.message : e); }
+    }
     const content = data?.choices?.[0]?.message?.content ?? "";
     if (!String(content).trim()) {
       await refundCharge(gate, "respuesta vacía");

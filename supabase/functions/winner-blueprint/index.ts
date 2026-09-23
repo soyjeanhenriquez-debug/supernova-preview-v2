@@ -80,6 +80,39 @@ async function refundCharge(gate: Gate | null, reason: string): Promise<void> {
   catch (e) { console.error("refund_charge falló:", e); }
 }
 
+// ── Costo real (tabla ai_usage) ─────────────────────────────────────────
+// Deja pasar el stream tal cual hacia el cliente y, de paso, lee el último bloque de
+// Gemini, que trae el conteo de tokens (stream_options.include_usage). Al terminar lo
+// registra con log_ai_usage. Salida = total − entrada, para contar también el
+// razonamiento, que Google cobra como salida. Si algo falla aquí, el usuario no se entera.
+function meteredStream(body: ReadableStream<Uint8Array>, userId: string, fn: string, model: string): ReadableStream<Uint8Array> {
+  const decoder = new TextDecoder();
+  let buf = "";
+  let usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null = null;
+  const scan = (line: string) => {
+    if (!line.startsWith("data: ") || !line.includes("\"usage\"")) return;
+    try { const u = JSON.parse(line.slice(6)).usage; if (u) usage = u; } catch { /* bloque incompleto */ }
+  };
+  return body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      controller.enqueue(chunk);
+      buf += decoder.decode(chunk, { stream: true });
+      let nl: number;
+      while ((nl = buf.indexOf("\n")) !== -1) { scan(buf.slice(0, nl).trim()); buf = buf.slice(nl + 1); }
+    },
+    async flush() {
+      scan(buf.trim());
+      if (!usage) return;
+      const input = Number(usage.prompt_tokens) || 0;
+      const output = Math.max(Number(usage.completion_tokens) || 0, (Number(usage.total_tokens) || 0) - input);
+      try {
+        const { error } = await guardClient().rpc("log_ai_usage", { p_user_id: userId, p_fn: fn, p_model: model, p_input: input, p_output: output, p_images: 0 });
+        if (error) console.error("log_ai_usage:", error.message);
+      } catch (e) { console.error("log_ai_usage:", e instanceof Error ? e.message : e); }
+    },
+  }));
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   let gate: Gate | null = null;
@@ -149,6 +182,7 @@ Sé específico, directo y accionable. Sin relleno. Todo en español latinoameri
         model: "gemini-3-flash-preview",
         messages: [{ role: "user", content: prompt }],
         stream: true,
+        stream_options: { include_usage: true },
       }),
     });
 
@@ -162,7 +196,10 @@ Sé específico, directo y accionable. Sin relleno. Todo en español latinoameri
       });
     }
 
-    return new Response(response.body, {
+    const body = response.body
+      ? meteredStream(response.body, gate.userId, "winner-blueprint", "gemini-3-flash-preview")
+      : response.body;
+    return new Response(body, {
       headers: { ...corsHeaders, ...billingHeaders(gate), "Content-Type": "text/event-stream" },
     });
   } catch (e) {

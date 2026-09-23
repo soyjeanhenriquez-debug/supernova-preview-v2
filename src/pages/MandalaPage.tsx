@@ -12,7 +12,7 @@ import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import { useFormAssist } from "@/lib/formAssist";
 import { AssistButton } from "@/components/AssistButton";
 import {
-  useBusinessProfile, profileText, profileReady, businessHint, BUSINESS_TYPES, PROFILE_EXAMPLES, type BusinessProfile,
+  useBusinessProfile, profileText, profileReady, businessHint, copyLevelHint, BUSINESS_TYPES, COPY_LEVELS, PROFILE_EXAMPLES, type BusinessProfile,
 } from "@/lib/businessProfile";
 import { useFeatureAccess } from "@/lib/features";
 
@@ -402,7 +402,7 @@ export function MandalaPage() {
     setOutputAt(at);
     const title = `Mándala · ${s.name} × ${a.name}`;
     const text = briefText(brief);
-    const full = await stream("mandala-ad", title, `${adPrompt(s, a, format, platform)}\n${businessHint(brief)}\n\nOFERTA DEL USUARIO:\n${text.slice(0, 2500)}`);
+    const full = await stream("mandala-ad", title, `${adPrompt(s, a, format, platform)}\n${businessHint(brief)}\n${copyLevelHint(brief)}\n\nOFERTA DEL USUARIO:\n${text.slice(0, 2500)}`);
     if (!full) return;
     const { error } = await adsTable().insert({ stage: s.id, angle: a.id, format, platform, brief: text.slice(0, 3000), output: full.slice(0, 30000) });
     if (error) toast.error("El anuncio está listo, pero no se pudo guardar en Mis anuncios", { description: "Cópialo antes de salir de esta pantalla." });
@@ -412,12 +412,12 @@ export function MandalaPage() {
   const createSequence = async () => {
     if (!requireBrief()) return;
     setOutputAt(null);
-    await stream("mandala-sequence", "Mándala · Secuencia de 4 etapas", `${sequencePrompt(angle, format, platform)}\n${businessHint(brief)}\n\nOFERTA DEL USUARIO:\n${briefText(brief).slice(0, 2500)}`);
+    await stream("mandala-sequence", "Mándala · Secuencia de 4 etapas", `${sequencePrompt(angle, format, platform)}\n${businessHint(brief)}\n${copyLevelHint(brief)}\n\nOFERTA DEL USUARIO:\n${briefText(brief).slice(0, 2500)}`);
   };
 
   const iterate = async (ad: AdRow) => {
     setOutputAt(null);
-    const full = await stream("mandala-iterate", `Mándala · Variaciones del ganador`, iteratePrompt(ad));
+    const full = await stream("mandala-iterate", `Mándala · Variaciones del ganador`, `${iteratePrompt(ad)}\n${copyLevelHint(brief)}`);
     if (full) { document.getElementById("mandala-output")?.scrollIntoView({ behavior: "smooth" }); }
   };
 
@@ -500,6 +500,19 @@ export function MandalaPage() {
               onClick={() => { const next = { ...brief, business_type: t.id }; setBrief(next); if (briefReady(next)) saveBrief(next); }}
               className={`rounded-full border px-3 py-1.5 text-xs ${brief.business_type === t.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
               {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <p className="text-xs text-muted-foreground">¿Qué tono quieres en tus anuncios? Lo usan todas las herramientas y lo cambias cuando quieras.</p>
+        <div className="grid sm:grid-cols-3 gap-2">
+          {COPY_LEVELS.map(l => (
+            <button key={l.id} type="button"
+              onClick={() => { const next = { ...brief, copy_level: l.id }; setBrief(next); if (briefReady(next)) saveBrief(next); }}
+              className={`rounded-lg border p-2.5 text-left ${brief.copy_level === l.id ? "border-primary bg-primary/10" : "border-border hover:border-foreground/30"}`}>
+              <span className={`block text-xs font-semibold ${brief.copy_level === l.id ? "text-primary" : "text-foreground"}`}>{l.id} · {l.label}</span>
+              <span className="block text-[11px] text-muted-foreground mt-0.5 leading-snug">{l.desc}</span>
             </button>
           ))}
         </div>

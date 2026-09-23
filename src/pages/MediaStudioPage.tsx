@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useFormAssist } from "@/lib/formAssist";
+import { useBusinessProfile, profileReady } from "@/lib/businessProfile";
 import { AssistButton } from "@/components/AssistButton";
 import { Video, Loader2, Sparkles, AlertTriangle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useMediaCredits, MEDIA_COST_PER_VIDEO } from "@/hooks/useMediaCredits";
 import { listAvatars, generateVideo, fetchRecentJobs, refreshJob, type HeygenAvatar, type HeygenVoice, type MediaJob } from "@/lib/heygen";
+import { CopyLevelPicker } from "@/components/CopyLevelPicker";
+
+const MEDIA_HOOK_KEY = "supernova_media_hook";
+const LANGS = ["español", "English", "Deutsch", "português"] as const;
 
 const MAX_WORDS = 160;
 
@@ -31,22 +36,35 @@ export function MediaStudioPage() {
   const pollRef = useRef<number | null>(null);
   // El guion de ejemplo es largo: solo se pide con el botón, no al abrir la página.
   const assist = useFormAssist("media-script", "", false);
-  const fillScript = async () => {
+  const { profile, setProfile, save: saveProfile, loaded: profileLoaded } = useBusinessProfile();
+  const changeTone = (next: typeof profile) => { setProfile(next); if (profileReady(next)) saveProfile(next); };
+  // Idioma del video: el guion se escribe (no se traduce) en este idioma.
+  const [lang, setLang] = useState<(typeof LANGS)[number]>(LANGS[0]);
+  // Gancho que llegó desde la Bóveda: se usa como estructura, no se dice tal cual.
+  const [refHook, setRefHook] = useState("");
+  const writeScript = async (hook: string, current: string) => {
     try {
-      const s = await assist.generate({ ya_escrito: script });
+      const s = await assist.generate({ ya_escrito: current, idioma: lang, tono: profile.copy_level, ...(hook ? { gancho_referencia: hook } : {}) });
       if (typeof s.text === "string" && s.text) setScript(s.text);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "No se pudo escribir el ejemplo. Prueba otra vez.");
+      toast.error(e instanceof Error ? e.message : "No se pudo escribir el guion. Prueba otra vez.");
     }
   };
+  const fillScript = () => writeScript(refHook, script);
 
   useEffect(() => {
-    // Prefill desde la Bóveda de Hooks (u otra página): guion listo al llegar.
+    // Prefill desde la Mándala u otra página: ese texto ya es un guion hecho para el negocio.
     const prefill = localStorage.getItem("supernova_media_prefill");
     if (prefill) {
       setScript(prefill);
       localStorage.removeItem("supernova_media_prefill");
     }
+    // Desde la Bóveda de Ganchos llega un gancho AJENO (otro producto, a veces otro idioma):
+    // se guarda como referencia y la IA escribe el guion con el negocio del usuario (ver abajo).
+    try {
+      const hook = localStorage.getItem(MEDIA_HOOK_KEY);
+      if (hook) { setRefHook(hook.slice(0, 600)); localStorage.removeItem(MEDIA_HOOK_KEY); }
+    } catch { /* sin almacenamiento */ }
 
     listAvatars().then((res) => {
       setAvatars(res.avatars);
@@ -158,16 +176,38 @@ export function MediaStudioPage() {
       )}
 
       <div className="card-surface rounded-xl p-6 space-y-5">
+        {refHook && (
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-3.5 space-y-1.5 text-sm">
+            <p className="text-xs uppercase tracking-wider text-primary font-semibold">Gancho de referencia (de la Bóveda)</p>
+            <p className="text-foreground">"{refHook}"</p>
+            <p className="text-xs text-muted-foreground">
+              No se dice tal cual: la IA usa su estructura para escribir tu guion, con tu producto y en {lang}.
+              {profileLoaded && !profileReady(profile) && " Aún no guardaste tu negocio: llénalo en la Mándala (paso 1) para que el guion hable de tu producto."}
+            </p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button onClick={fillScript} disabled={assist.loading}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/25 disabled:opacity-60">
+                {assist.loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} {script.trim() ? "Escribir otra versión" : "Escribir mi guion con este gancho"} · gratis
+              </button>
+              <button onClick={() => setRefHook("")} className="text-xs text-muted-foreground hover:text-foreground">Quitar referencia</button>
+            </div>
+          </div>
+        )}
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-xs uppercase tracking-wider text-muted-foreground" htmlFor="ms-script">Lo que dirá el avatar</label>
             <span className="flex items-center gap-3">
+            <select value={lang} onChange={(e) => setLang(e.target.value as (typeof LANGS)[number])} aria-label="Idioma del video"
+              className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground">
+              {LANGS.map((l) => <option key={l} value={l}>{l}</option>)}
+            </select>
             <AssistButton onClick={fillScript} loading={assist.loading} filled={!!script.trim()} />
             <span className={`text-xs tabular-nums ${overLimit ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
               {words} / {MAX_WORDS} palabras
             </span>
             </span>
           </div>
+          <div className="mb-2"><CopyLevelPicker profile={profile} onChange={changeTone} /></div>
           <textarea
             id="ms-script"
             value={script}

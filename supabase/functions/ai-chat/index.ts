@@ -140,6 +140,39 @@ async function refundCharge(gate: Gate | null, reason: string): Promise<void> {
   catch (e) { console.error("refund_charge falló:", e); }
 }
 
+// ── Costo real (tabla ai_usage) ─────────────────────────────────────────
+// Deja pasar el stream tal cual hacia el cliente y, de paso, lee el último bloque de
+// Gemini, que trae el conteo de tokens (stream_options.include_usage). Al terminar lo
+// registra con log_ai_usage. Salida = total − entrada, para contar también el
+// razonamiento, que Google cobra como salida. Si algo falla aquí, el usuario no se entera.
+function meteredStream(body: ReadableStream<Uint8Array>, userId: string, fn: string, model: string): ReadableStream<Uint8Array> {
+  const decoder = new TextDecoder();
+  let buf = "";
+  let usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null = null;
+  const scan = (line: string) => {
+    if (!line.startsWith("data: ") || !line.includes("\"usage\"")) return;
+    try { const u = JSON.parse(line.slice(6)).usage; if (u) usage = u; } catch { /* bloque incompleto */ }
+  };
+  return body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      controller.enqueue(chunk);
+      buf += decoder.decode(chunk, { stream: true });
+      let nl: number;
+      while ((nl = buf.indexOf("\n")) !== -1) { scan(buf.slice(0, nl).trim()); buf = buf.slice(nl + 1); }
+    },
+    async flush() {
+      scan(buf.trim());
+      if (!usage) return;
+      const input = Number(usage.prompt_tokens) || 0;
+      const output = Math.max(Number(usage.completion_tokens) || 0, (Number(usage.total_tokens) || 0) - input);
+      try {
+        const { error } = await guardClient().rpc("log_ai_usage", { p_user_id: userId, p_fn: fn, p_model: model, p_input: input, p_output: output, p_images: 0 });
+        if (error) console.error("log_ai_usage:", error.message);
+      } catch (e) { console.error("log_ai_usage:", e instanceof Error ? e.message : e); }
+    },
+  }));
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   let gate: Gate | null = null;
@@ -165,6 +198,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+    const usedModel = normalizeModel(model);
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: {
@@ -172,7 +206,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: normalizeModel(model),
+        model: usedModel,
         ...(generatorId ? {} : { max_tokens: HELP_MAX_TOKENS }),
         messages: [
           {
@@ -182,6 +216,7 @@ serve(async (req) => {
           ...messages,
         ],
         stream: true,
+        stream_options: { include_usage: true },
       }),
     });
 
@@ -201,7 +236,10 @@ serve(async (req) => {
       });
     }
 
-    return new Response(response.body, {
+    const body = response.body
+      ? meteredStream(response.body, gate.userId, generatorId ? `ai-chat:${generatorId}` : "ai-chat:ayuda", usedModel)
+      : response.body;
+    return new Response(body, {
       headers: { ...corsHeaders, ...billingHeaders(gate), "Content-Type": "text/event-stream" },
     });
   } catch (e) {

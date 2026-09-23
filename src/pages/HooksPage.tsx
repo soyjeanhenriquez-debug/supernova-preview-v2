@@ -52,7 +52,7 @@ const MARKET_FLAG: Record<string, string> = {
   CL: "🇨🇱", PT: "🇵🇹", FR: "🇫🇷", DE: "🇩🇪", IT: "🇮🇹", GB: "🇬🇧", RU: "🇷🇺", ALL: "🌍",
 };
 
-const MEDIA_PREFILL_KEY = "supernova_media_prefill";
+const MEDIA_HOOK_KEY = "supernova_media_hook";
 
 export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { user } = useAuth();
@@ -103,11 +103,11 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
   };
 
   const videoFromHook = (h: VaultHook) => {
-    // El template con placeholders no es hablable — se prefija el hook REAL
-    // como arranque del guion, listo para que el usuario lo complete.
-    localStorage.setItem(MEDIA_PREFILL_KEY, h.hook_text);
+    // El gancho es de OTRO anuncio (otro producto, a veces otro idioma): Media Studio lo usa
+    // como estructura y la IA escribe el guion con el negocio del usuario y en su idioma.
+    try { localStorage.setItem(MEDIA_HOOK_KEY, h.hook_text); } catch { /* sin almacenamiento */ }
     onNavigate?.("Media Studio");
-    toast.success("Gancho listo en Media Studio para hacer tu video");
+    toast.success("Gancho enviado a Media Studio", { description: "Allí la IA lo adapta a tu producto y a tu idioma." });
   };
 
   const copiesFromHook = (h: VaultHook) => {

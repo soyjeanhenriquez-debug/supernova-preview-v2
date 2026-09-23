@@ -155,6 +155,16 @@ ${JSON.stringify(adsForPrompt)}`;
       });
     }
     const aiData = await r.json();
+    // Costo real (tabla ai_usage). Trabajo de fondo: sin usuario. Salida = total − entrada,
+    // para contar también el razonamiento, que se cobra. Si falla, la extracción sigue.
+    if (aiData?.usage) {
+      const input = Number(aiData.usage.prompt_tokens) || 0;
+      const output = Math.max(Number(aiData.usage.completion_tokens) || 0, (Number(aiData.usage.total_tokens) || 0) - input);
+      try {
+        const { error: logErr } = await admin.rpc("log_ai_usage", { p_user_id: null, p_fn: "extract-hooks", p_model: "gemini-3-flash-preview", p_input: input, p_output: output, p_images: 0 });
+        if (logErr) console.error("log_ai_usage:", logErr.message);
+      } catch (e) { console.error("log_ai_usage:", e instanceof Error ? e.message : e); }
+    }
     const content: string = aiData?.choices?.[0]?.message?.content ?? "[]";
 
     // Parseo defensivo: Gemini a veces envuelve el JSON en ```json ... ```

@@ -147,6 +147,16 @@ Deno.serve(async (req) => {
     }
 
     const data = await r.json();
+    // Costo real (tabla ai_usage): imágenes generadas + tokens si Gemini los manda.
+    // Salida = total − entrada, para contar también el razonamiento, que se cobra.
+    try {
+      const u = data?.usage;
+      const input = Number(u?.prompt_tokens ?? u?.input_tokens) || 0;
+      const output = Math.max(Number(u?.completion_tokens ?? u?.output_tokens) || 0, (Number(u?.total_tokens) || 0) - input);
+      const images = Array.isArray(data?.data) ? data.data.filter((d: { b64_json?: unknown }) => d?.b64_json).length : 0;
+      const { error: logErr } = await guardClient().rpc("log_ai_usage", { p_user_id: gate.userId, p_fn: "generate-ad-creative", p_model: "gemini-2.5-flash-image", p_input: input, p_output: output, p_images: images });
+      if (logErr) console.error("log_ai_usage:", logErr.message);
+    } catch (e) { console.error("log_ai_usage:", e instanceof Error ? e.message : e); }
     const b64 = data?.data?.[0]?.b64_json;
     if (!b64) {
       await refundCharge(gate, "sin imagen");

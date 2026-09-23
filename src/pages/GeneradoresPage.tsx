@@ -10,7 +10,8 @@ import { useCredits, generatorCost } from "@/hooks/useCredits";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import { useFormAssist } from "@/lib/formAssist";
 import { AssistButton } from "@/components/AssistButton";
-import { useBusinessProfile, profileText, profileReady, businessHint } from "@/lib/businessProfile";
+import { useBusinessProfile, profileText, profileReady, businessHint, copyLevelHint } from "@/lib/businessProfile";
+import { CopyLevelPicker } from "@/components/CopyLevelPicker";
 
 const categories = [
   { icon: Sparkles, label: "Todos", id: "all" },
@@ -368,7 +369,9 @@ export function GeneradoresPage() {
   // Un solo ejemplo para todos los generadores: la descripción del producto es la misma en todos.
   const assist = useFormAssist("generator", "", activeGenerator !== null);
   // "Mi negocio": el campo llega lleno con lo que el usuario ya contó (se puede editar).
-  const { profile } = useBusinessProfile();
+  const { profile, setProfile, save: saveProfile } = useBusinessProfile();
+  // El tono se guarda en "Mi negocio" si la ficha ya está llena; si no, vale solo para esta sesión.
+  const changeTone = (next: typeof profile) => { setProfile(next); if (profileReady(next)) saveProfile(next); };
   const myBusiness = profileReady(profile) ? profileText(profile) : "";
   const fillInput = async (title: string) => {
     try {
@@ -424,8 +427,8 @@ export function GeneradoresPage() {
               {
                 role: "user",
                 content: generator.prompt
-                  ? `${generator.prompt}\n${businessHint(profile)}\n\nTEMA / DETALLES DEL USUARIO:\n${generatorInput}`
-                  : `Actúa como un experto en ${generator.category}. Tu tarea: ${generator.description}\n${businessHint(profile)}\n\nDetalles del producto/servicio del usuario:\n${generatorInput}\n\nGenera el contenido completo, listo para usar. Sé específico, persuasivo y orientado a conversiones.`,
+                  ? `${generator.prompt}\n${businessHint(profile)}\n${copyLevelHint(profile)}\n\nTEMA / DETALLES DEL USUARIO:\n${generatorInput}`
+                  : `Actúa como un experto en ${generator.category}. Tu tarea: ${generator.description}\n${businessHint(profile)}\n${copyLevelHint(profile)}\n\nDetalles del producto/servicio del usuario:\n${generatorInput}\n\nGenera el contenido completo, listo para usar. Sé específico, persuasivo y orientado a conversiones.`,
               },
             ],
           }),
@@ -623,6 +626,7 @@ export function GeneradoresPage() {
                 <p className="text-xs text-muted-foreground -mt-2">
                   Qué es, para quién es y cuánto cuesta. ¿No sabes qué poner? Toca <b className="text-foreground">Rellenar con IA</b>: es gratis y te escribe un ejemplo que puedes cambiar.
                 </p>
+                <CopyLevelPicker profile={profile} onChange={changeTone} />
                 <textarea
                   value={generatorInput}
                   onChange={(e) => setGeneratorInput(e.target.value)}

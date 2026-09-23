@@ -243,94 +243,100 @@ Ad → Landing → Thank you → Upsell 1 → Upsell 2 → Email Sequence
   },
   master_prompt: {
     system:
-      "Eres un prompt engineer senior especializado en direct response marketing y product strategy. Tu output será usado por otro LLM (Claude/GPT-5) para generar activos reales. Devuelve SOLO Markdown, sin preámbulos.",
-    user: (b) => `A partir del siguiente informe de inteligencia de la oferta de ${b.brand ?? b.url ?? "el competidor"}, construye un MEGA-PROMPT REPLICADOR: un prompt maestro, autosuficiente y portable, que cualquiera pueda pegar en Claude/GPT-5/Lovable para generar una versión MEJORADA y más rentable de esta oferta — tanto para escalar con anuncios como para construirla como app/SaaS con asesoramiento de la comunidad SUPERNOVA.
+      "Eres un prompt engineer senior especializado en direct response marketing y product strategy. Tu output será usado por otra IA (Claude, ChatGPT, Gemini u otra) para generar activos reales. Escribe para un principiante de LATAM: español sencillo, frases cortas, sin jerga sin explicar. Nunca menciones números de versión de modelos de IA (solo la marca) ni ates al usuario a una herramienta concreta. Devuelve SOLO Markdown, sin preámbulos.",
+    user: (b) => `A partir del siguiente informe de inteligencia de la oferta de ${b.brand ?? b.url ?? "el competidor"}, construye un MEGA-PROMPT REPLICADOR: un conjunto de prompts autosuficientes y portables que cualquiera pueda pegar en Claude, ChatGPT u otra IA para crear SU PROPIA versión, mejorada y más rentable, de esta oferta — como mini app y como campaña de anuncios.
 
 INFORME ORIGINAL:
 ${b.analysis}
 
+REGLAS PARA LOS PROMPTS:
+- Nombra las IAs solo por su marca ("Claude, ChatGPT u otra IA"), NUNCA con número de versión.
+- El PROMPT 2 debe funcionar en CUALQUIER herramienta que crea apps con IA o agente de código (Lovable, Bolt, v0, Claude Code, Codex, ChatGPT u otra). No impongas lenguaje, framework ni proveedor: describe pantallas, datos, lógica y cobros; la herramienta elige la tecnología.
+- Español sencillo: frases cortas, cero jerga sin explicar.
+
 FORMATO EXACTO (respeta encabezados y bloques de código):
 
-## 🧬 Mega-Prompt Replicador
+## 🧬 Tu versión de este negocio
 
-### Resumen ejecutivo (3 líneas)
-[Qué hace la oferta original, su punto débil clave, y cuál es el ángulo mejorado que vamos a explotar]
+### En 3 líneas
+[Qué hace la oferta original, su punto débil clave, y cuál es el ángulo mejorado de TU versión]
 
-### Ángulo mejorado propuesto
-[1 párrafo: mecanismo único, big idea diferenciada, por qué es 10x más vendible]
+### Tu ángulo mejorado
+[1 párrafo corto: mecanismo único, idea diferenciada, por qué se vende mejor]
 
 ---
 
-## 🎯 PROMPT 1 — Para escalar con ANUNCIOS (pegar en Claude/GPT-5)
+## 🎯 PROMPT 1 · Tus anuncios (pégalo en Claude, ChatGPT u otra IA)
 
 \`\`\`
-Eres un copywriter senior de direct response. Vamos a crear una oferta SUPERIOR a la siguiente:
+Eres un copywriter senior de respuesta directa. Vamos a crear una oferta SUPERIOR a la siguiente:
 
-[Inserta aquí un brief denso de 8-15 líneas con: nicho, avatar exacto, dolor central, deseo, mecanismo único mejorado, prueba, garantía, precio sugerido, oferta apilada, objeciones top 3, y palabras prohibidas]
+[Inserta aquí un brief denso de 8-15 líneas con: nicho, cliente ideal exacto, dolor central, deseo, mecanismo único mejorado, prueba, garantía, precio sugerido, oferta apilada, 3 objeciones principales, y palabras prohibidas]
 
 Tu tarea:
-1. 10 hooks distintos (dolor, curiosidad, prueba, autoridad, urgencia, contrarian, story, pregunta, dato, ruptura de patrón)
-2. 3 ad copies completos (corto 80p, medio 180p, largo 300p+) con headline + primary + description + CTA
-3. 3 ideas de creativo visual (UGC, talking head, slideshow) con guion segundo a segundo
-4. Plan de testing: 3 audiencias + 3 placements + KPI objetivo (CPA, ROAS)
+1. 10 ganchos distintos (dolor, curiosidad, prueba, autoridad, urgencia, contrario, historia, pregunta, dato, ruptura de patrón)
+2. 3 textos de anuncio completos (corto 80 palabras, medio 180, largo 300+) con titular + texto principal + descripción + llamada a la acción
+3. 3 ideas de creativo visual (UGC, persona hablando a cámara, carrusel) con guion segundo a segundo
+4. Plan de prueba: 3 públicos + 3 ubicaciones + meta de costo por venta
 
-Tono: [tono]. Idioma: español latinoamericano. Sin emojis salvo donde sume conversión.
+Tono: [tono]. Idioma: español latinoamericano. Sin emojis salvo donde ayuden a vender.
 \`\`\`
 
 ---
 
-## 🛠 PROMPT 2 — Para construir la APP / OFERTA propia en Lovable
+## 🛠 PROMPT 2 · Tu mini app (pégalo en la herramienta de IA que uses para crear apps)
 
 \`\`\`
-Construye una app web (React + Tailwind + Lovable Cloud) que sea la versión SaaS/mejorada de esta oferta:
+Crea una app web sencilla que sea mi versión mejorada de esta oferta. Usa la tecnología que mejor domines; lo importante es que funcione, se vea bien en el celular y pueda cobrar.
 
-CONTEXTO DEL MERCADO:
-[8-12 líneas: nicho, avatar, dolor que resolvemos mejor que el competidor, mecanismo único]
+QUÉ PROBLEMA RESUELVE Y PARA QUIÉN:
+[8-12 líneas: nicho, cliente ideal, dolor que resolvemos mejor que el competidor, mecanismo único]
 
-FEATURES MÍNIMAS (MVP):
-- [Feature 1 — qué hace y por qué reemplaza al producto original]
-- [Feature 2]
-- [Feature 3]
-- [Feature 4]
-- [Feature 5]
+PANTALLAS (en este orden):
+1. Página de inicio: titular ganador, beneficio en una línea, botón para empezar
+2. [Pantalla del mecanismo — ej. quiz o formulario — qué pregunta y qué pide]
+3. [Pantalla de resultado — qué entrega exactamente al usuario]
+4. [Pantalla de pago / acceso]
+5. [Otras pantallas imprescindibles, máximo 2]
 
-MODELO DE NEGOCIO:
-- Plan free: [límites]
-- Plan pro: $[precio]/mes — [qué incluye]
-- Upsell: [oferta de mayor ticket]
+DATOS QUE GUARDA:
+- [Qué información del usuario y de su resultado se guarda, en palabras simples]
+
+LÓGICA:
+- [Cómo convierte las respuestas del usuario en su resultado, paso a paso]
+
+COBRO:
+- [Pago único o suscripción] de $[precio] con un enlace de pago (Stripe, Whop, Hotmart u otro). Si la herramienta no permite integrar pagos, deja un botón que abra ese enlace.
+- Qué es gratis: [límite] · Qué se paga: [qué incluye]
 
 DISEÑO:
-- Estilo: [moderno / Apple / brutalist / etc según la marca]
-- Tono de copy: [tono]
-- Páginas: landing, signup, dashboard, [otras]
+- Primero para celular, limpio y claro. Estilo: [según la marca]
+- Todos los textos de la interfaz en español, tono: [tono]
 
-STACK: React + Vite + Tailwind + shadcn/ui + Supabase (auth + db + edge functions) + Stripe.
-
-Empieza por la landing con headline ganador, después auth, después el core feature. Cada paso debe ser shippeable.
+Construye paso a paso: primero la página de inicio, luego el mecanismo, luego el resultado y al final el cobro. Al terminar cada paso, debe poder probarse.
 \`\`\`
 
 ---
 
-## 🧠 PROMPT 3 — Para iterar con la comunidad SUPERNOVA
+## 🧠 PROMPT 3 · Revisa tu negocio antes de pagar anuncios (pégalo en Claude, ChatGPT u otra IA)
 
 \`\`\`
-Actúa como mentor de direct response. Tengo esta oferta/app: [pegar PROMPT 2]. 
+Actúa como un mentor experto en vender por internet. Voy a lanzar esta oferta/app: [resumen de 5 líneas de la oferta y la mini app de arriba].
 
-Dame:
-1. Las 5 razones por las que esta oferta puede fallar en los primeros 30 días
-2. Cómo blindar cada una con copy, oferta o producto
-3. Métricas semanales que debo trackear (con benchmark realista)
-4. Plan de contenido orgánico (TikTok/Reels/X) de 14 días que alimente al ad
-5. Qué pediría yo en SUPERNOVA a la comunidad para acelerar tracción
+Antes de gastar dinero en anuncios, dime:
+1. Las 5 razones por las que puede fallar en los primeros 30 días
+2. Cómo arreglar cada una (en el texto, la oferta o el producto)
+3. Qué números revisar cada semana y qué valor es normal
+4. Un plan de 14 días de publicaciones gratis (TikTok, Reels) que ayude a vender
+5. La primera prueba barata que haría para validar que la gente paga
 \`\`\`
 
 ---
 
 ## ✅ Cómo usar estos prompts
-1. Copia PROMPT 1 → genera anuncios → testéalos con $50-$100
-2. Copia PROMPT 2 → pégalo en Lovable → construye el MVP en 1 día
-3. Copia PROMPT 3 → revisa con un LLM razonador antes de invertir más
-4. Vuelve a SUPERNOVA y pide feedback de la comunidad antes de escalar`,
+1. **Tu mini app:** copia el PROMPT 2 y pégalo en la herramienta de IA que uses para crear apps (Lovable, Bolt, v0, Claude Code, Codex, ChatGPT u otra).
+2. **Revísala:** pega el PROMPT 3 en Claude, ChatGPT u otra IA antes de invertir en anuncios.
+3. **Tus anuncios:** pega el PROMPT 1 en Claude, ChatGPT u otra IA y prueba con poco presupuesto ($50-$100) antes de subirlo.`,
   },
   whatsapp_script: {
     system:

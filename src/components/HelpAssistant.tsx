@@ -29,7 +29,7 @@ Detalle de cada función:
 
 1. **Inicio**: el recorrido y Tu semana (ver arriba), "Tus 3 negocios de hoy" (ofertas elegidas cada día) y las ofertas que sigue.
 
-2. **Ofertas**: catálogo curado de ofertas digitales con prueba real (semanas pagando anuncios). Verlas es GRATIS. "Ver detalles" abre la ficha: enlaces a la página de ventas y al checkout, y la pestaña **Veredicto** (análisis de IA: si conviene copiarla, qué copiar, qué cambiar, cómo adaptarla a LATAM) — también gratis. **Seguir** una oferta cuesta ${CREDIT_COSTS.follow_offer} créditos (para vigilar si escala). **Crear mi versión** cuesta ${CREDIT_COSTS.gen_master_prompt} créditos.
+2. **Ofertas**: catálogo curado de ofertas digitales con prueba real (semanas pagando anuncios). Verlas es GRATIS. "Ver detalles" abre la ficha: enlaces a la página de ventas y al checkout, y la pestaña **Veredicto** (análisis de IA: si conviene copiarla, qué copiar, qué cambiar, cómo adaptarla a LATAM) — también gratis. **Seguir** una oferta cuesta ${CREDIT_COSTS.follow_offer} créditos (para vigilar si escala). **Hacer mi versión** cuesta ${CREDIT_COSTS.gen_master_prompt} créditos.
 
 3. **Mini Apps**: kits completos para lanzar una mini app rentable (idea, prompt para construirla, página de ventas, anuncios). Salen 2 kits nuevos cada semana (lunes y jueves). Desbloquear un kit cuesta ${CREDIT_COSTS.unlock_kit} créditos y queda tuyo para siempre.
 

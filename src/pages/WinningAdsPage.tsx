@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
-import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2, Bookmark, Plus, X, Check, Copy, Languages, Eye, LayoutGrid, List, Star, Info, Columns3 } from "lucide-react";
+import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2, Bookmark, Plus, X, Check, Copy, Languages, Eye, LayoutGrid, List, Star, Info, Columns3, ChevronDown } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, normalizeAdsLibraryUrl, langFromCountry, LANG_COUNTRIES, NON_ENGLISH_COUNTRIES, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
 import { useElapsedMinutes } from "@/hooks/useElapsedMinutes";
@@ -742,15 +742,21 @@ export function WinningAdsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="page-heading font-display text-2xl text-foreground">RADAR DE ANUNCIOS</h2>
+          <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 1 · Elegir</p>
+          <h2 className="page-heading font-display text-2xl text-foreground mt-1">RADAR DE ANUNCIOS</h2>
           <p className="text-sm text-muted-foreground mt-3 max-w-2xl">
-            Más de 100.000 anuncios reales de Facebook e Instagram, guardados para que veas qué están vendiendo otros y cómo lo anuncian.
-            Cada día entran anuncios nuevos. Mirar es gratis; solo la búsqueda en vivo gasta créditos.
+            Anuncios reales de Facebook e Instagram. Busca un tema y mira qué venden otros y cómo lo anuncian.
           </p>
-          <p className="text-[13px] text-muted-foreground mt-2 max-w-2xl">
-            <span className="text-foreground font-medium">¿Empiezas de cero?</span> En "Días activo" elige 30+: si alguien paga un anuncio
-            más de un mes, normalmente es porque le funciona. Luego pulsa "¿Por qué funciona este anuncio?" en el que te guste.
-          </p>
+          <details className="group mt-2 max-w-2xl">
+            <summary className="inline-flex items-center gap-1 cursor-pointer list-none [&::-webkit-details-marker]:hidden select-none text-[12.5px] font-medium text-muted-foreground hover:text-foreground">
+              ¿Cómo funciona? <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
+            </summary>
+            <ul className="mt-2 space-y-1 pl-4 list-disc marker:text-primary text-[12.5px] text-muted-foreground">
+              <li>En "Días activo" elige 30+: si alguien paga un anuncio más de un mes, suele funcionarle.</li>
+              <li>Pulsa "¿Por qué funciona este anuncio?" en el que te guste.</li>
+              <li>Mirar es gratis. Solo la búsqueda en vivo cuesta {CREDIT_COSTS.search_ads} créditos.</li>
+            </ul>
+          </details>
         </div>
         {updatedLabel && (
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 pulse-hot">

@@ -14,7 +14,7 @@ import { createPortal } from "react-dom";
  * De paso: bloquea el scroll del fondo mientras está abierto y cierra con Esc.
  */
 // Pila de modales abiertos: con uno encima de otro (la ficha de una oferta y,
-// sobre ella, "Crear mi versión"), Esc cierra solo el de arriba.
+// sobre ella, "Hacer mi versión"), Esc cierra solo el de arriba.
 const openModals: symbol[] = [];
 
 export function ModalPortal({ children, onClose }: { children: ReactNode; onClose?: () => void }) {

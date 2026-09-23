@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Quote, Copy, Check, Star, Video, Sparkles, Search, Flame } from "lucide-react";
+import { Quote, Copy, Check, Star, Video, Sparkles, Search, Flame, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -132,15 +132,23 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="page-heading font-display text-2xl text-foreground flex items-center gap-2">
-          <Quote className="w-6 h-6 text-primary" /> BÓVEDA DE GANCHOS (HOOKS)
+        <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 5 · Vender</p>
+        <h2 className="page-heading font-display text-2xl text-foreground flex items-center gap-2 mt-1">
+          <Quote className="w-6 h-6 text-primary" /> BÓVEDA DE GANCHOS
         </h2>
         <p className="text-sm text-muted-foreground mt-3 max-w-2xl">
-          Un gancho (en inglés, "hook") es la primera frase de un anuncio: la que hace que alguien deje de deslizar y preste atención.
-          Aquí tienes más de 200 ganchos sacados de anuncios reales que siguen activos. No son los que tuvieron más vistas: son los que
-          sus dueños siguen pagando por mostrar. Cada uno viene como plantilla para que cambies los datos por los de tu producto.
-          Mirarlos y copiarlos es gratis.
+          La primera frase de tu anuncio decide si te leen. Elige un gancho y cópialo con los datos de tu producto.
         </p>
+        <details className="group mt-2 max-w-2xl">
+          <summary className="inline-flex items-center gap-1 cursor-pointer list-none [&::-webkit-details-marker]:hidden select-none text-[12.5px] font-medium text-muted-foreground hover:text-foreground">
+            ¿Cómo funciona? <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
+          </summary>
+          <ul className="mt-2 space-y-1 pl-4 list-disc marker:text-primary text-[12.5px] text-muted-foreground">
+            <li>Cada gancho sale de un anuncio real que su dueño sigue pagando por mostrar.</li>
+            <li>Viene como plantilla: cambia lo que va entre corchetes por lo tuyo.</li>
+            <li>Mirar y copiar es gratis. "Hacer video" y "Escribir textos" gastan créditos en su herramienta.</li>
+          </ul>
+        </details>
       </div>
 
       {/* Buscador + vistas */}
@@ -271,7 +279,7 @@ function HookCard({ hook: h, isFavorite, onToggleFavorite, onCopy, onVideo, onCo
         </span>
         <span>· {h.duplicate_count ?? 1} anuncios activos</span>
         <span title="Qué tan fuerte es la señal de que funciona, de 0 a 100">· puntaje {h.winner_score ?? "—"}/100</span>
-        <span title="País del anuncio">· {flag}</span>
+        <span title="País donde se muestra el anuncio">· se anuncia en {flag}</span>
       </div>
 
       <div className="flex items-center gap-2 pt-2 border-t border-border">
@@ -286,14 +294,14 @@ function HookCard({ hook: h, isFavorite, onToggleFavorite, onCopy, onVideo, onCo
           title="Crea un video corto con este gancho, narrado por un avatar hecho con IA (gasta créditos)"
           className="flex-1 py-2 rounded-lg bg-primary/15 text-primary text-xs font-semibold hover:bg-primary/25 flex items-center justify-center gap-1.5"
         >
-          <Video className="w-3.5 h-3.5" /> Video
+          <Video className="w-3.5 h-3.5" /> Hacer video
         </button>}
         <button
           onClick={onCopies}
           title="Usa este gancho para escribir textos de anuncio con la IA (gasta créditos)"
           className="flex-1 py-2 rounded-lg bg-primary/15 text-primary text-xs font-semibold hover:bg-primary/25 flex items-center justify-center gap-1.5"
         >
-          <Sparkles className="w-3.5 h-3.5" /> Textos
+          <Sparkles className="w-3.5 h-3.5" /> Escribir textos
         </button>
       </div>
     </div>

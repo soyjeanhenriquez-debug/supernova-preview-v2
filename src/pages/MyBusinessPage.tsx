@@ -19,6 +19,11 @@ export function MyBusinessPage({ onNavigate }: { onNavigate?: (page: string) => 
   const tasks = profile.launch_plan?.tasks ?? [];
   const tasksDone = tasks.filter(t => t.done).length;
   const recovery = profile.recovery?.messages?.length ?? 0;
+  // Con la ficha lista, el botón lleva a la primera etapa que falta (no a leer más).
+  const nextStep = !profile.validation?.completed_at ? { label: "Siguiente: comprueba que se vende", page: "Validar" }
+    : !chosen ? { label: "Siguiente: ponle precio", page: "Precio" }
+    : !tasks.length ? { label: "Siguiente: arma tu plan de lanzamiento", page: "Plan" }
+    : { label: "Volver al inicio", page: "Dashboard" };
 
   const summary: { stage: string; label: string; value: string; page: string }[] = [
     { stage: "2 · Validar", label: "Matriz de validación", value: profile.validation?.completed_at ? "Completa" : answered ? `${answered} respuestas` : "Sin empezar", page: "Validar" },
@@ -33,8 +38,7 @@ export function MyBusinessPage({ onNavigate }: { onNavigate?: (page: string) => 
         <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Tu ficha</p>
         <h1 className="font-display font-bold text-2xl text-foreground flex items-center gap-2"><Briefcase className="w-5 h-5 text-primary" /> {ready ? profile.product : "Cuéntanos qué vas a vender"}</h1>
         <p className="text-sm text-muted-foreground max-w-2xl mt-1">
-          Lo llenas una vez y todas las herramientas lo usan: la matriz, la calculadora, tus anuncios, tus contenidos y tus mensajes.
-          ¿Aún no sabes qué vender? <button onClick={() => onNavigate?.("Ofertas")} className="text-primary hover:underline">Elige una oferta que ya vende</button>.
+          Lo llenas una vez y lo usan todas las herramientas. ¿Aún no sabes qué vender? <button onClick={() => onNavigate?.("Ofertas")} className="text-primary hover:underline">Elige una oferta que ya vende</button>.
         </p>
       </div>
 
@@ -55,9 +59,9 @@ export function MyBusinessPage({ onNavigate }: { onNavigate?: (page: string) => 
               </button>
             ))}
           </div>
-          <button onClick={() => onNavigate?.("Dashboard")}
+          <button onClick={() => onNavigate?.(nextStep.page)}
             className="inline-flex items-center gap-2 rounded-lg gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground mt-2">
-            Ver mi recorrido y mi semana <ArrowRight className="w-4 h-4" />
+            {nextStep.label} <ArrowRight className="w-4 h-4" />
           </button>
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, Loader2, Gem, Layers, Globe2, Tag as TagIcon, RefreshCw, Crosshair } from "lucide-react";
+import { Search, Loader2, Gem, Layers, Globe2, Tag as TagIcon, RefreshCw, Crosshair, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { MiniAppModal } from "@/components/MiniAppModal";
 import { OfferCard } from "@/components/offers/OfferCard";
@@ -22,7 +22,7 @@ const offerIdFromHash = () => {
 /**
  * Catálogo producto-primero (lo que Escala Ads llama "ofertas" y SwipeSaaS
  * "catálogo"): anuncios agrupados por anunciante y enriquecidos por IA.
- * Se navega GRATIS; "Crear mi versión" usa el pipeline existente (50 créditos).
+ * Se navega GRATIS; "Hacer mi versión" usa el pipeline existente (50 créditos).
  * Diferencial: copy_score — la IA ya filtró qué es replicable por un
  * emprendedor solo, cosa que ningún competidor hace.
  */
@@ -162,16 +162,21 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
     <div className="space-y-6">
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <h2 className="page-heading font-display text-2xl text-foreground">OFERTAS GANADORAS</h2>
+          <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 1 · Elegir</p>
+          <h2 className="page-heading font-display text-2xl text-foreground mt-1">OFERTAS GANADORAS</h2>
           <p className="text-sm text-muted-foreground mt-3 max-w-2xl">
-            Más de 7.000 productos digitales que alguien está <span className="text-foreground font-medium">pagando por anunciar ahora mismo</span>.
-            Si alguien paga anuncios durante semanas, normalmente es porque vende. La IA ya leyó cada uno: qué vende, a quién,
-            por qué funciona y si tú podrías hacer algo parecido. Mirar es gratis.
+            Productos que alguien paga por anunciar hoy. Abre uno que te guste y haz tu versión.
           </p>
-          <p className="text-[13px] text-muted-foreground mt-2 max-w-2xl">
-            <span className="text-foreground font-medium">¿Empiezas de cero?</span> Quédate en Ganadoras, abre 3 o 4 que te llamen la atención y
-            lee por qué funcionan. Cuando una te guste, pulsa "Crear mi versión".
-          </p>
+          <details className="group mt-2 max-w-2xl">
+            <summary className="inline-flex items-center gap-1 cursor-pointer list-none [&::-webkit-details-marker]:hidden select-none text-[12.5px] font-medium text-muted-foreground hover:text-foreground">
+              ¿Cómo funciona? <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
+            </summary>
+            <ul className="mt-2 space-y-1 pl-4 list-disc marker:text-primary text-[12.5px] text-muted-foreground">
+              <li>Si alguien paga anuncios durante semanas, normalmente es porque vende.</li>
+              <li>La IA ya leyó cada oferta: qué vende, a quién y si tú puedes replicarla.</li>
+              <li>Mirar es gratis. "Hacer mi versión" cuesta {CREDIT_COSTS.gen_master_prompt} créditos.</li>
+            </ul>
+          </details>
         </div>
         {stats?.updated_at && (
           <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1.5">

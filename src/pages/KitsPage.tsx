@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { Boxes, Lock, Unlock, Copy, Check, Save, X, Flame, ShieldCheck, Sparkles, Loader2, CalendarClock, RefreshCw, ArrowRight, Eye } from "lucide-react";
+import { Boxes, Lock, Unlock, Copy, Check, Save, X, Flame, ShieldCheck, Sparkles, Loader2, CalendarClock, RefreshCw, ArrowRight, Eye, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
@@ -61,7 +61,7 @@ interface KitContent {
 
 type Section = "blueprint" | "miniapp" | "whatsapp" | "vsl" | "ads" | "landing" | "hooks" | "pricing";
 const SECTIONS: { k: Section; l: string }[] = [
-  { k: "blueprint", l: "Blueprint" }, { k: "miniapp", l: "Construir la app" }, { k: "whatsapp", l: "Venta WhatsApp" },
+  { k: "blueprint", l: "Por qué funciona" }, { k: "miniapp", l: "Tu mini app" }, { k: "whatsapp", l: "Venta WhatsApp" },
   { k: "vsl", l: "Guion VSL" }, { k: "ads", l: "3 anuncios" }, { k: "landing", l: "Landing" },
   { k: "hooks", l: "Hooks" }, { k: "pricing", l: "Precios por país" },
 ];
@@ -137,12 +137,21 @@ export function KitsPage({ onNavigate }: { onNavigate?: (page: string) => void }
     <div className="space-y-6">
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <h2 className="page-heading font-display text-2xl text-foreground">MINI APPS RENTABLES</h2>
+          <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 1 · Elegir</p>
+          <h2 className="page-heading font-display text-2xl text-foreground mt-1">MINI APPS RENTABLES</h2>
           <p className="text-sm text-muted-foreground mt-3 max-w-2xl">
-            Negocios digitales <span className="text-foreground font-medium">listos para copiar y cobrar</span>. Cada kit nace de una oferta real que
-            está pagando anuncios ahora mismo — no de una idea. Blueprint, mega-prompt para construir la mini app, guiones de venta,
-            anuncios, landing y precios en tu moneda.
+            Negocios digitales listos para copiar y cobrar. Elige un kit y desbloquéalo.
           </p>
+          <details className="group mt-2 max-w-2xl">
+            <summary className="inline-flex items-center gap-1 cursor-pointer list-none [&::-webkit-details-marker]:hidden select-none text-[12.5px] font-medium text-muted-foreground hover:text-foreground">
+              ¿Cómo funciona? <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
+            </summary>
+            <ul className="mt-2 space-y-1 pl-4 list-disc marker:text-primary text-[12.5px] text-muted-foreground">
+              <li>Cada kit nace de una oferta real que está pagando anuncios ahora mismo.</li>
+              <li>Trae el plan, el prompt para construir la app, guiones, anuncios, landing y precios.</li>
+              <li>Pagas una vez (el precio está en cada kit) y es tuyo, con licencia comercial.</li>
+            </ul>
+          </details>
         </div>
         <div className="flex gap-2 text-[11px]">
           <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 bg-success/10 text-success border border-success/30 font-semibold">
@@ -183,8 +192,7 @@ export function KitsPage({ onNavigate }: { onNavigate?: (page: string) => void }
             <div>
               <h3 className="font-display text-lg text-foreground">Apps que están escalando ahora</h3>
               <p className="text-[13px] text-muted-foreground mt-1 max-w-2xl">
-                Apps y SaaS que nuestro radar ve pagando anuncios hoy, ordenadas por lo fácil que es replicarlas.
-                Elige una y te armamos tu versión: análisis, prompt para construirla y guion de venta.
+                Apps que pagan anuncios hoy, las más fáciles de replicar primero. Elige una y haz tu versión.
               </p>
             </div>
             <button onClick={seeAllApps} className="text-[12.5px] font-semibold text-primary hover:underline inline-flex items-center gap-1">
@@ -224,7 +232,7 @@ function AppCard({ o, onCreate, onOpen }: { o: Offer; onCreate: () => void; onOp
         <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-1 ${copy.cls}`}>{copy.label}</span>
       </div>
       <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
-        <span>{flagFor(o.market)} {MARKET_NAME[o.market] ?? o.market}</span>
+        <span>Se anuncia en {flagFor(o.market)} {MARKET_NAME[o.market] ?? o.market}</span>
         {o.niche && <span>· {NICHE_LABEL[o.niche] ?? o.niche}</span>}
         {o.price_hint && <span>· {o.price_hint}</span>}
       </div>
@@ -232,12 +240,12 @@ function AppCard({ o, onCreate, onOpen }: { o: Offer; onCreate: () => void; onOp
         <p className="text-[12.5px] text-foreground/80 mt-2.5 leading-relaxed line-clamp-3 flex-1">{o.mechanism || o.why_wins}</p>
       )}
       <div className="mt-3 pt-3 border-t border-border/60 text-[11px] text-muted-foreground flex items-center gap-3 flex-wrap">
-        <span className="inline-flex items-center gap-1 text-primary font-semibold"><Flame className="w-3 h-3" /> {o.days_active} días pagando</span>
-        <span>{o.active_ads} anuncios · {scaleLabel(o)}</span>
+        <span className="inline-flex items-center gap-1 text-primary font-semibold"><Flame className="w-3 h-3" /> {o.days_active} días pagando anuncios</span>
+        <span>{o.active_ads} anuncios activos · {scaleLabel(o)}</span>
       </div>
       <div className="mt-3 flex gap-2">
         <button onClick={onCreate} className="flex-1 btn-primary-nova py-2 rounded-lg text-[12.5px] font-semibold inline-flex items-center justify-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5" /> Crear mi versión · {CREDIT_COSTS.gen_master_prompt}⚡
+          <Sparkles className="w-3.5 h-3.5" /> Hacer mi versión · {CREDIT_COSTS.gen_master_prompt} créditos
         </button>
         <button onClick={onOpen} aria-label="Ver detalles y veredicto" title="Ver detalles y veredicto"
           className="px-3 min-w-11 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 inline-flex items-center justify-center">
@@ -279,9 +287,9 @@ function KitCard({ kit, busy, onUnlock, onOpen }: { kit: Kit; busy: boolean; onU
         )}
 
         <div className="mt-4 pt-3 border-t border-border/60 text-[11px] text-muted-foreground flex items-center gap-3 flex-wrap">
-          <span className="inline-flex items-center gap-1 text-primary font-semibold"><Flame className="w-3 h-3" /> {p.days_active ?? "—"} días pagando</span>
+          <span className="inline-flex items-center gap-1 text-primary font-semibold"><Flame className="w-3 h-3" /> {p.days_active ?? "—"} días pagando anuncios</span>
           <span>{p.active_ads ?? "—"} anuncios activos</span>
-          {p.market && <span>{flagFor(p.market)} {MARKET_NAME[p.market] ?? p.market}</span>}
+          {p.market && <span>Se anuncia en {flagFor(p.market)} {MARKET_NAME[p.market] ?? p.market}</span>}
         </div>
 
         <div className="mt-3">
@@ -363,11 +371,12 @@ function KitModal({ kit, onClose, onUnlock, busy }: { kit: Kit; onClose: () => v
           <div className="p-8 text-center space-y-4">
             <Lock className="w-8 h-8 text-primary mx-auto" />
             <p className="text-sm text-muted-foreground max-w-md mx-auto">{kit.summary}</p>
+            <p className="font-display font-semibold text-base text-foreground">Todo incluido · {kit.price_credits} créditos, una sola vez</p>
             <ul className="text-left max-w-sm mx-auto space-y-1">
               {kit.whats_inside.map((w, i) => <li key={i} className="text-[12px] text-foreground/85 flex items-start gap-1.5"><Check className="w-3 h-3 text-success mt-0.5 shrink-0" /> {w}</li>)}
             </ul>
             <button onClick={onUnlock} disabled={busy} className="btn-primary-nova px-6 py-2.5 rounded-lg text-[13px] font-semibold inline-flex items-center gap-2">
-              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Desbloquear por {kit.price_credits} ⚡ · {CREDIT_COSTS.unlock_kit === kit.price_credits ? "un solo pago" : ""}
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Desbloquear mi kit · {kit.price_credits} créditos
             </button>
           </div>
         ) : (

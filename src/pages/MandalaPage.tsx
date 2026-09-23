@@ -418,7 +418,14 @@ export function MandalaPage({ onNavigate, initialTab = "ruta" }: { onNavigate?: 
     if (!full) return;
     const { error } = await adsTable().insert({ stage: s.id, angle: a.id, format, platform, brief: text.slice(0, 3000), output: full.slice(0, 30000) });
     if (error) toast.error("El anuncio está listo, pero no se pudo guardar", { description: "Cópialo antes de salir de esta pantalla." });
-    else { toast.success("Anuncio listo. Cuando lo publiques, anota sus números en Resultados."); loadAds(); }
+    else {
+      // Con el quinto anuncio termina la etapa 5: se ofrece el siguiente paso (publicar y medir).
+      const fifth = ads.length + 1 === ROUTE.length;
+      toast.success(fifth ? "¡Tienes tus 5 anuncios!" : "Anuncio listo.", fifth && onNavigate
+        ? { description: "Publícalos y a los 3 días anota sus números.", action: { label: "Resultados →", onClick: () => onNavigate("Resultados") } }
+        : { description: "Cuando lo publiques, anota sus números en Resultados." });
+      loadAds();
+    }
   };
 
   const createSequence = async () => {
@@ -550,8 +557,7 @@ export function MandalaPage({ onNavigate, initialTab = "ruta" }: { onNavigate?: 
           <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 6</p>
           <h1 className="font-display font-bold text-2xl text-foreground">Resultados de tus anuncios</h1>
           <p className="text-sm text-muted-foreground max-w-2xl">
-            Cuando publiques un anuncio, cambia su estado a Publicado y, a los 3 días, anota cuánto gastaste, su CTR y las ventas.
-            Debajo de cada uno verás qué hacer: apagarlo, esperar o escalarlo{maxSale && maxSale.max > 0 ? ", según tu máximo por venta de la calculadora" : ""}.
+            A los 3 días de publicar, anota gasto, CTR y ventas: te decimos si apagar, esperar o escalar.
           </p>
           <div className="flex flex-wrap gap-2 pt-1">
             <Btn onClick={() => onNavigate?.("Mándala")}><Sparkles className="w-4 h-4" /> Crear más anuncios</Btn>
@@ -563,11 +569,7 @@ export function MandalaPage({ onNavigate, initialTab = "ruta" }: { onNavigate?: 
         <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 5</p>
         <h1 className="font-display font-bold text-2xl text-foreground">Mándala Creativa</h1>
         <p className="text-sm text-muted-foreground max-w-2xl">
-          Te guía para crear tus primeros {ROUTE.length} anuncios, uno por uno y en el orden que conviene cuando hay poco presupuesto.
-          Cuando los publiques, anota tus números en Resultados (etapa 6) y te dirá cuál apagar y cuál escalar.
-        </p>
-        <p className="text-xs text-muted-foreground max-w-2xl">
-          Usa tu ficha de Mi negocio. Cada anuncio cuesta {adCost} créditos y la IA lo escribe completo, con 3 ganchos, el texto y cómo publicarlo.
+          La IA te escribe tus primeros {ROUTE.length} anuncios, uno por uno. {adCost} créditos cada uno.
         </p>
       </div>
       )}

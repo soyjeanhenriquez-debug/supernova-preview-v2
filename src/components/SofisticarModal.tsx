@@ -169,7 +169,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
                 <button onClick={() => run("sofisticar")} disabled={loading}
                   className="btn-primary-nova w-full py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  Crear mi versión mejorada → <span className="opacity-70 text-xs">{CREDIT_COSTS.sofisticar} créditos</span>
+                  Hacer mi versión mejorada → <span className="opacity-70 text-xs">{CREDIT_COSTS.sofisticar} créditos</span>
                 </button>
               </div>
               <div className="md:col-span-3 p-6 overflow-y-auto" ref={scrollRef}>
@@ -223,7 +223,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 
 function StreamOutput({ text, loading, onSave }: { text: string; loading: boolean; onSave: () => void }) {
   if (!text && !loading) {
-    return <div className="text-center text-sm text-muted-foreground py-20">Elige tus respuestas a la izquierda y pulsa "Crear mi versión mejorada".</div>;
+    return <div className="text-center text-sm text-muted-foreground py-20">Elige tus respuestas a la izquierda y pulsa "Hacer mi versión mejorada".</div>;
   }
   return (
     <div className="space-y-4">

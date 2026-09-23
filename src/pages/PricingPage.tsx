@@ -91,7 +91,7 @@ export function PricingPage({ onNavigate }: { onNavigate?: (page: string) => voi
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     const next = { ...pricing, chosen: scenario.id };
     setPricing(next);
-    savePatch({ pricing: next, price: String(scenario.price) }).then(ok => ok ? toast.success(`Listo: tu precio es ${money(scenario.price)}`, { description: "Lo usan tus anuncios y el veredicto de la Mándala." }) : toast.error("No se pudo guardar"));
+    savePatch({ pricing: next, price: String(scenario.price) }).then(ok => ok ? toast.success(`Listo: tu precio es ${money(scenario.price)}`, { description: "Siguiente paso: construye tu producto.", action: onNavigate ? { label: "Ir →", onClick: () => onNavigate("Plan") } : undefined }) : toast.error("No se pudo guardar"));
   };
 
   // Funciones de render (no componentes): así el input no se vuelve a montar y no pierde el foco al teclear.
@@ -124,8 +124,7 @@ export function PricingPage({ onNavigate }: { onNavigate?: (page: string) => voi
           <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 3</p>
           <h1 className="font-display font-bold text-2xl text-foreground flex items-center gap-2"><Calculator className="w-5 h-5 text-primary" /> Precio y ganancia</h1>
           <p className="text-sm text-muted-foreground max-w-2xl mt-1">
-            Antes de gastar en anuncios, haz los números: a qué precio vendes, cuánto te queda de cada venta y cuánto puedes pagar
-            en anuncios sin perder dinero. Prueba hasta 3 precios y quédate con el mejor. No gasta créditos.
+            Cuánto te queda por venta y cuánto puedes pagar en anuncios sin perder. Gratis.
           </p>
         </div>
         <select value={cur} onChange={e => persist({ ...pricing, currency: e.target.value })} aria-label="Moneda"

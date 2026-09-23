@@ -116,7 +116,7 @@ function SavedAssets({ context }: { context: unknown }) {
 
   const copy = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success("Copiado. Pégalo en Lovable, Claude o donde lo necesites.");
+    toast.success("Copiado. Pégalo en Claude, ChatGPT o la IA que uses.");
   };
 
   const ventaLabel = ctx.salesPath === "whatsapp" ? "📱 Guion de WhatsApp · cobro manual" : "🎥 Guion de VSL · cobro automático";

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Check, Circle } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,14 +15,13 @@ import { WeeklyPlan } from "@/components/journey/WeeklyPlan";
  * (business_profile.journey). Siempre muestra UN siguiente paso.
  */
 type Action = { label: string; page: string; primary?: boolean };
-type Stage = { n: number; key: string; title: string; why: string; done: boolean; progress?: string; manual?: boolean; actions: Action[] };
+type Stage = { n: number; key: string; short: string; title: string; why: string; doneNote: string; done: boolean; progress?: string; manual?: boolean; actions: Action[] };
 
 export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => void }) {
   const { user } = useAuth();
   const { profile, savePatch, loaded } = useBusinessProfile();
   const { projects } = useProjects();
   const [ads, setAds] = useState<{ count: number; measured: boolean } | null>(null);
-  const [open, setOpen] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -52,36 +51,36 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
 
   const stages: Stage[] = useMemo(() => [
     {
-      n: 1, key: "1", title: "Elige qué vas a vender",
-      why: "Parte de algo que ya se vende: una de las 300 ofertas ganadoras o una mini app. Después cuéntalo en tu ficha de Mi negocio.",
+      n: 1, key: "1", short: "Elegir", title: "Elige qué vas a vender",
+      why: "Escoge una oferta que ya se vende y cuéntala en tu ficha.", doneNote: "Ya tienes tu ficha",
       done: profileReady(profile),
       actions: [
-        { label: "Ver las ofertas ganadoras", page: "Ofertas", primary: true },
-        { label: "Ya sé qué vender: llenar mi ficha", page: "Mi negocio" },
+        { label: "Ver ofertas ganadoras", page: "Ofertas", primary: true },
+        { label: "Ya sé qué vender", page: "Mi negocio" },
       ],
     },
     {
-      n: 2, key: "2", title: "Comprueba que se vende",
-      why: "14 preguntas de sí o no sobre tu producto y tu mercado. Te da una nota, tus fortalezas y lo que tienes que reforzar antes de invertir.",
+      n: 2, key: "2", short: "Validar", title: "Comprueba que se vende",
+      why: "14 preguntas de sí o no. Unos 3 minutos.", doneNote: "Tu oferta pasó la matriz",
       // Hecha si la matriz está completa y la oferta pasa (nota ≥ 50); con nota baja hay que ajustarla.
       done: !!profile.validation?.completed_at && (profile.validation?.score == null || profile.validation.score >= 50),
       progress: profile.validation?.completed_at && profile.validation?.score != null && profile.validation.score < 50
         ? `Nota ${profile.validation.score}: ajusta tu oferta`
         : answered && !profile.validation?.completed_at ? `${answered} de 14` : undefined,
       actions: [
-        { label: "Hacer la matriz de validación", page: "Validar", primary: true },
+        { label: "Validar mi producto", page: "Validar", primary: true },
         { label: "Ver el veredicto de la oferta", page: "Ofertas" },
       ],
     },
     {
-      n: 3, key: "3", title: "Ponle precio y haz los números",
-      why: "Cuánto te queda de cada venta y cuánto puedes pagar en anuncios sin perder. Sin esto, cualquier anuncio es una apuesta.",
+      n: 3, key: "3", short: "Precio", title: "Ponle precio",
+      why: "Mira cuánto te queda por venta antes de pagar anuncios.", doneNote: "Tu precio está elegido",
       done: !!profile.pricing?.chosen,
-      actions: [{ label: "Abrir la calculadora", page: "Precio", primary: true }],
+      actions: [{ label: "Calcular mi precio", page: "Precio", primary: true }],
     },
     {
-      n: 4, key: "4", title: "Construye y lanza tu producto",
-      why: "Hacer mi versión te da tu mini app lista para construir con IA; el plan de lanzamiento te dice qué hacer cada día durante unos 14 días.",
+      n: 4, key: "4", short: "Construir", title: "Construye tu producto",
+      why: "Tu mini app y un plan de 14 días, tarea por tarea.", doneNote: "Tu plan va al 80% o más",
       done: planPct >= 0.8 || (hasMiniApp && manual("4")),
       progress: planTasks.length ? `${Math.round(planPct * 100)}% del plan` : hasMiniApp ? "Mini app lista" : undefined,
       manual: hasMiniApp && planPct < 0.8,
@@ -91,23 +90,23 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
       ],
     },
     {
-      n: 5, key: "5", title: "Vende: anuncios y contenido",
-      why: "La Mándala te escribe tus primeros 5 anuncios en el orden que conviene; el calendario de contenido te da qué publicar sin pagar anuncios.",
+      n: 5, key: "5", short: "Vender", title: "Crea tus anuncios",
+      why: "La IA te escribe tus primeros 5 anuncios, uno por uno.", doneNote: "Tienes tus 5 anuncios",
       done: (ads?.count ?? 0) >= 5,
       progress: ads ? `${Math.min(ads.count, 5)} de 5 anuncios` : undefined,
       actions: [
-        { label: "Crear mis anuncios (Mándala)", page: "Mándala", primary: true },
+        { label: "Crear mis anuncios", page: "Mándala", primary: true },
         { label: "Calendario de contenido", page: "Contenido" },
       ],
     },
     {
-      n: 6, key: "6", title: "Mide y recupera ventas",
-      why: "A los 3 días anota gasto, clics y ventas: la app te dice qué apagar y qué escalar. Y escríbele por WhatsApp a quien casi compra.",
+      n: 6, key: "6", short: "Medir", title: "Mide y recupera",
+      why: "Anota tus números y te decimos qué apagar y qué escalar.", doneNote: "Mides y recuperas ventas",
       done: !!ads?.measured && hasRecovery,
       progress: ads?.measured && !hasRecovery ? "Falta la recuperación" : !ads?.measured && hasRecovery ? "Faltan tus números" : undefined,
       actions: [
         { label: "Anotar mis resultados", page: "Resultados", primary: true },
-        { label: "Recuperar ventas por WhatsApp", page: "Recuperar" },
+        { label: "Recuperar ventas", page: "Recuperar" },
       ],
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,66 +121,62 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
   if (!loaded) return null;
   const doneCount = stages.filter(s => s.done).length;
   const next = stages.find(s => !s.done);
-  const shown = open != null ? stages[open - 1] : next;
+  const lastDone = [...stages].reverse().find(s => s.done && (!next || s.n < next.n));
+  const primary = (st: Stage) => st.actions.find(a => a.primary) ?? st.actions[0];
 
   return (
     <div className="space-y-4">
-    <section className="card-surface rounded-2xl p-5 sm:p-6 space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.22em] text-primary font-semibold">Mi negocio · Método Negocio Gemelo</p>
-          <h2 className="font-display font-semibold text-xl text-foreground">
-            {profileReady(profile) ? profile.product : "Tu negocio, paso a paso"}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {doneCount === 6 ? "Completaste las 6 etapas. Ahora repite con variaciones del anuncio que gana." : `${doneCount} de 6 etapas hechas. Sigue en orden: cada paso usa lo que hiciste en el anterior.`}
-          </p>
-        </div>
-        <div className="h-1.5 w-full sm:w-48 rounded-full bg-secondary overflow-hidden" aria-hidden>
-          <div className="h-full gradient-brand transition-all" style={{ width: `${(doneCount / 6) * 100}%` }} />
-        </div>
+    <section className="card-surface rounded-2xl p-5 sm:p-6 space-y-4">
+      {/* Etapas: una fila compacta. Tocar una te lleva directo a su herramienta. */}
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[10px] uppercase tracking-[0.22em] text-primary font-semibold truncate">
+          Mi negocio{profileReady(profile) ? ` · ${profile.product}` : ""}
+        </p>
+        <span className="text-[11px] text-muted-foreground shrink-0">{doneCount} de 6</span>
       </div>
-
-      <ol className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-        {stages.map(s => {
-          const isShown = shown?.n === s.n;
+      <ol className="grid grid-cols-6 gap-1.5" aria-label="Etapas de tu negocio">
+        {stages.map(st => {
+          const isNext = next?.n === st.n;
           return (
-            <li key={s.n}>
-              <button onClick={() => setOpen(isShown && open != null ? null : s.n)}
-                className={`w-full h-full rounded-xl border p-2.5 text-left transition-colors ${isShown ? "border-primary bg-primary/10" : "border-border hover:border-foreground/20"}`}>
-                <span className={`flex items-center gap-1.5 text-[11px] font-semibold ${s.done ? "text-emerald-400" : isShown ? "text-primary" : "text-muted-foreground"}`}>
-                  {s.done ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3 h-3" />} Etapa {s.n}
+            <li key={st.n}>
+              <button onClick={() => onNavigate(primary(st).page)} title={`${st.title}${st.done ? ` · ${st.doneNote}` : ""}`}
+                className={`w-full rounded-lg border px-1 py-2 flex flex-col items-center gap-1 transition-colors ${isNext ? "border-primary bg-primary/10" : st.done ? "border-emerald-500/30 bg-emerald-500/5" : "border-border hover:border-foreground/20"}`}>
+                <span className={`w-6 h-6 rounded-full grid place-items-center text-[11px] font-bold ${st.done ? "bg-emerald-500 text-white" : isNext ? "gradient-brand text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
+                  {st.done ? <Check className="w-3.5 h-3.5" /> : st.n}
                 </span>
-                <span className="block text-xs text-foreground mt-1 leading-snug">{s.title}</span>
-                {s.progress && !s.done && <span className="block text-[11px] text-muted-foreground mt-0.5">{s.progress}</span>}
+                <span className={`text-[10px] sm:text-[11px] leading-none ${isNext ? "text-primary font-semibold" : st.done ? "text-emerald-400" : "text-muted-foreground"}`}>{st.short}</span>
               </button>
             </li>
           );
         })}
       </ol>
 
-      {shown && (
-        <div className="rounded-xl border border-border bg-secondary/30 p-4 space-y-3">
-          <div>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">{shown === next ? "Tu siguiente paso" : `Etapa ${shown.n}`}{shown.done ? " · hecha ✓" : ""}</p>
-            <p className="font-display font-semibold text-foreground text-lg">{shown.title}</p>
-            <p className="text-sm text-muted-foreground mt-1">{shown.why}</p>
+      {/* Ahora: UNA etapa, una línea y el botón que lleva a hacerla. */}
+      {next ? (
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex-1 min-w-0">
+            {lastDone && <p className="text-xs text-emerald-400 mb-1 flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Etapa {lastDone.n} lista: {lastDone.doneNote.toLowerCase()}</p>}
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Ahora · Etapa {next.n}</p>
+            <p className="font-display font-semibold text-foreground text-xl">{next.title}</p>
+            <p className="text-sm text-muted-foreground mt-0.5">{next.progress ? `${next.progress} · ` : ""}{next.why}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {shown.actions.map(a => (
-              <button key={a.label} onClick={() => onNavigate(a.page)}
-                className={a.primary
-                  ? "inline-flex items-center gap-2 rounded-lg gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground"
-                  : "inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm text-foreground hover:border-primary/60"}>
-                {a.label} {a.primary && <ArrowRight className="w-4 h-4" />}
-              </button>
-            ))}
-            {shown.manual && (
-              <button onClick={() => toggleManual(shown.key)} className="text-xs text-muted-foreground hover:text-foreground underline px-1">
-                {manual(shown.key) ? "Marcar como pendiente" : "Ya hice esta etapa"}
-              </button>
-            )}
+          <div className="flex flex-col items-stretch sm:items-end gap-2 shrink-0">
+            <button onClick={() => onNavigate(primary(next).page)}
+              className="inline-flex items-center justify-center gap-2 rounded-xl gradient-brand px-5 py-3 text-sm font-semibold text-primary-foreground">
+              {primary(next).label} <ArrowRight className="w-4 h-4" />
+            </button>
+            <div className="flex flex-wrap justify-end gap-x-3 gap-y-1">
+              {next.actions.filter(a => !a.primary).map(a => (
+                <button key={a.label} onClick={() => onNavigate(a.page)} className="text-xs text-muted-foreground hover:text-foreground">{a.label} →</button>
+              ))}
+              {next.manual && <button onClick={() => toggleManual(next.key)} className="text-xs text-muted-foreground hover:text-foreground underline">Ya lo hice</button>}
+            </div>
           </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <p className="flex-1 text-sm text-foreground">Completaste las 6 etapas. Ahora escala el anuncio que gana y repite con variaciones.</p>
+          <button onClick={() => onNavigate("Resultados")} className="inline-flex items-center gap-2 rounded-xl gradient-brand px-5 py-3 text-sm font-semibold text-primary-foreground">Ver mis resultados <ArrowRight className="w-4 h-4" /></button>
         </div>
       )}
     </section>

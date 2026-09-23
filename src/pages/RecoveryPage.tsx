@@ -5,6 +5,7 @@ import { CopyLevelPicker } from "@/components/CopyLevelPicker";
 import { profileReady, useBusinessProfile, type RecoveryMessage } from "@/lib/businessProfile";
 import { fnErrorMessage, fnHeaders, readBilling } from "@/lib/fnAuth";
 import { useCredits } from "@/hooks/useCredits";
+import { PageHeader } from "@/components/PageHeader";
 
 /**
  * Etapa 6 del recorrido "Mi negocio": recuperar a quien casi compra.
@@ -142,14 +143,10 @@ export function RecoveryPage({ onNavigate }: { onNavigate?: (page: string) => vo
 
   return (
     <div className="space-y-5 max-w-5xl">
-      <div>
-        <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 6</p>
-        <h1 className="font-display font-bold text-2xl text-foreground flex items-center gap-2"><HeartHandshake className="w-5 h-5 text-primary" /> Recupera a quien casi compra</h1>
-        <p className="text-sm text-muted-foreground max-w-2xl mt-1">
-          Mucha gente se interesa, pregunta o empieza a pagar… y no termina. No siempre es un "no": a veces le faltó una respuesta o se le olvidó.
-          Úsala con quien hizo clic, preguntó o empezó a pagar y no compró: le escribes unas pocas veces, con respeto, en los días que toca.
-        </p>
-      </div>
+      <PageHeader stage="Mi negocio · Etapa 6" title="Recupera a quien casi compra"
+        icon={<HeartHandshake className="w-5 h-5 text-primary" />}
+        line="Mensajes listos para quien preguntó y no compró: día 0, 1, 3 y 7."
+        details={["Úsalos con quien hizo clic, preguntó o empezó a pagar y no terminó.", "No siempre es un no: a veces le faltó una respuesta o se le olvidó.", "Escríbele pocas veces y con respeto, en los días que toca."]} />
 
       <div className="grid lg:grid-cols-[1fr_340px] gap-5 items-start">
         <div className="space-y-5">

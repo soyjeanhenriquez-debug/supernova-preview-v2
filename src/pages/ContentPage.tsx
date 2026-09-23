@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessProfile } from "@/lib/businessProfile";
+import { PageHeader } from "@/components/PageHeader";
 
 /**
  * Etapa 5 del recorrido "Mi negocio": calendario de contenido orgánico.
@@ -296,16 +297,10 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
   return (
     <div className="space-y-5 max-w-6xl">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 5</p>
-          <h1 className="font-display font-bold text-2xl text-foreground flex items-center gap-2"><CalendarDays className="w-5 h-5 text-primary" /> Calendario de contenido</h1>
-          <p className="text-sm text-muted-foreground max-w-2xl mt-1">
-            Publica sin pagar anuncios para que la gente te encuentre. Cada pieza tiene un trabajo, igual que en la Mándala:{" "}
-            {STAGES.map((s, i) => (
-              <span key={s.id}><b style={{ color: s.color }}>{s.label}</b> ({s.desc}){i < 2 ? ", " : "."}</span>
-            ))}
-          </p>
-        </div>
+        <PageHeader stage="Mi negocio · Etapa 5" title="Calendario de contenido"
+          icon={<CalendarDays className="w-5 h-5 text-primary" />}
+          line="Ideas con búsquedas reales para publicar gratis. Agrégalas a tu semana."
+          details={STAGES.map(s => `${s.label}: ${s.desc}.`)} />
         {itemsLoaded && items.length > 0 && (
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5 text-right">
             <p className="font-display font-bold text-2xl text-emerald-400 tabular-nums">{publishedThisWeek}</p>

@@ -379,7 +379,7 @@ function NextSteps() {
     { icon: "👤", title: "Si no tienes claro a quién le vendes", desc: "«Mi cliente ideal» te describe quién compra: qué le preocupa, qué desea y qué lo frena. Es la base de todos tus textos." },
     { icon: "📄", title: "Si necesitas tu página de ventas", desc: "«Mi página de ventas» te escribe todos los textos de una página propia, con otro enfoque y sin copiar la original." },
     { icon: "📦", title: "Cuando ya tengas un anuncio que vende", desc: "«Mi embudo completo» te da el recorrido del cliente, el inicio de tu VSL (video de ventas), 5 correos y las ofertas extra para después de la compra." },
-    { icon: "🧬", title: "Si trabajas con otra IA (Claude, ChatGPT, Lovable)", desc: "El «Mega-Prompt» convierte el informe en instrucciones para pegar en otra IA y crear tu versión, como campaña de anuncios o como app." },
+    { icon: "🧬", title: "Si trabajas con otra IA (Claude, ChatGPT u otra)", desc: "El «Mega-Prompt» convierte el informe en instrucciones para pegar en cualquier IA y crear tu versión: tus anuncios o tu propia app." },
   ];
   return (
     <div className="rounded-xl border border-border bg-background/40 p-5 space-y-3">

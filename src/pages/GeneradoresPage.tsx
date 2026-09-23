@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Sparkles, Heart, Star, Globe, FileText, ShoppingBag, DollarSign,
-  Youtube, Instagram, Mail, MessageSquare, BarChart2, Layers, Copy, Loader2
+  Youtube, Instagram, Mail, MessageSquare, BarChart2, Layers, Copy, Loader2, ChevronDown
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
@@ -531,16 +531,23 @@ export function GeneradoresPage() {
             <div className="relative rounded-2xl overflow-hidden mb-8 bg-gradient-to-r from-card via-secondary to-card border border-border">
               <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-primary/10 to-accent/5" />
               <div className="relative px-5 py-8 md:px-8 md:py-10 text-center">
+                <p className="text-xs uppercase tracking-wider text-primary font-semibold mb-1">Mi negocio · Etapa 5 · Vender</p>
                 <h2 className="font-display font-bold text-2xl text-foreground mb-2">
                   {generators.length} generadores de textos para vender
                 </h2>
                 <p className="text-sm text-muted-foreground max-w-xl mx-auto">
-                  Elige lo que necesitas (un anuncio, un guion de video, correos, tu página de ventas), cuenta en 2 o 3 líneas qué vendes
-                  y la IA te lo escribe en español, listo para copiar. Cada tarjeta muestra lo que cuesta en créditos antes de abrirla.
+                  Elige qué texto necesitas, cuenta qué vendes y la IA te lo escribe listo para copiar.
                 </p>
-                <p className="text-xs text-muted-foreground max-w-xl mx-auto mt-2">
-                  ¿Empiezas de cero? Abre <b className="text-foreground">Recomendados</b> y prueba primero los hooks o la escalera de productos.
-                </p>
+                <details className="group mt-2 max-w-md mx-auto">
+                  <summary className="inline-flex items-center gap-1 cursor-pointer list-none [&::-webkit-details-marker]:hidden select-none text-[12.5px] font-medium text-muted-foreground hover:text-foreground">
+                    ¿Cómo funciona? <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
+                  </summary>
+                  <ul className="mt-2 space-y-1 pl-4 list-disc marker:text-primary text-[12.5px] text-muted-foreground text-left">
+                    <li>Cada tarjeta muestra lo que cuesta en créditos antes de abrirla.</li>
+                    <li>¿Empiezas de cero? Abre <b className="text-foreground">Recomendados</b> y prueba los hooks o la escalera de productos.</li>
+                    <li>Si ya guardaste tu negocio, el formulario viene lleno.</li>
+                  </ul>
+                </details>
               </div>
             </div>
 

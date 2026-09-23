@@ -34,10 +34,12 @@ export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, insi
         </div>
         {/* 44px: el mínimo cómodo para un dedo */}
         <button onClick={onToggleFollow}
-          aria-label={following ? "Dejar de seguir" : "Seguir esta oferta"}
-          title={following ? "Dejar de seguir" : `Seguir en el Cazador de ROI · ${CREDIT_COSTS.follow_offer} ⚡`}
-          className={`absolute top-2 right-2 w-11 h-11 rounded-full backdrop-blur flex items-center justify-center border transition-colors ${following ? "bg-primary/90 border-primary text-primary-foreground" : "bg-background/70 border-border text-foreground hover:text-primary"}`}>
-          <Heart className="w-[18px] h-[18px]" fill={following ? "currentColor" : "none"} />
+          aria-label={following ? "Dejar de seguir" : `Seguir esta oferta · ${CREDIT_COSTS.follow_offer} créditos`}
+          title={following ? "Dejar de seguir" : `Seguir esta oferta · ${CREDIT_COSTS.follow_offer} créditos`}
+          className={`absolute top-2 right-2 w-11 h-11 rounded-full backdrop-blur flex flex-col items-center justify-center border transition-colors ${following ? "bg-primary/90 border-primary text-primary-foreground" : "bg-background/70 border-border text-foreground hover:text-primary"}`}>
+          <Heart className={following ? "w-[18px] h-[18px]" : "w-4 h-4"} fill={following ? "currentColor" : "none"} />
+          {/* Seguir cobra: el precio se ve también en el teléfono (sin hover). */}
+          {!following && <span aria-hidden className="text-[9px] font-bold leading-none mt-0.5 tabular-nums">{CREDIT_COSTS.follow_offer}⚡</span>}
         </button>
       </div>
 
@@ -57,8 +59,8 @@ export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, insi
         </div>
 
         <div className="grid grid-cols-2 gap-2 mt-3">
-          <Metric icon={<Flame className="w-4 h-4 text-primary" />} value={o.active_ads.toLocaleString("es")} label="Anuncios activos" />
-          <Metric icon={<CalendarDays className="w-4 h-4 text-muted-foreground" />} value={o.days_active.toLocaleString("es")} label="Días pagando" />
+          <Metric icon={<Flame className="w-4 h-4 text-primary" />} value={o.active_ads.toLocaleString("es")} label="anuncios activos ahora" />
+          <Metric icon={<CalendarDays className="w-4 h-4 text-muted-foreground" />} value={o.days_active.toLocaleString("es")} label="días pagando anuncios" />
         </div>
 
         {insight && (
@@ -69,7 +71,9 @@ export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, insi
         )}
 
         <dl className="mt-3 space-y-1.5 text-[12px]">
-          <Row label="País" value={`${flagFor(o.market)} ${MARKET_NAME[o.market] ?? o.market}`} />
+          {/* market = país pedido en ad_reached_countries a la Biblioteca de Anuncios de Meta
+              (bulk-seed-ads): dónde se MUESTRAN los anuncios, no de dónde es el anunciante. */}
+          <Row label="Se anuncia en" value={`${flagFor(o.market)} ${MARKET_NAME[o.market] ?? o.market}`} />
           {o.niche && <Row label="Nicho" value={NICHE_LABEL[o.niche] ?? o.niche} />}
           <div className="flex items-center justify-between gap-2">
             <dt className="text-muted-foreground">Replicarla</dt>
@@ -77,12 +81,13 @@ export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, insi
           </div>
         </dl>
 
-        <div className="mt-4 pt-3 border-t border-border/60 grid grid-cols-2 gap-2">
-          <button onClick={onOpen} className="h-11 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-primary/40 inline-flex items-center justify-center gap-1.5">
-            <Eye className="w-4 h-4" /> Ver detalles
-          </button>
+        {/* Apiladas: "Hacer mi versión · 50 créditos" no cabe a media tarjeta en 2-3 columnas. */}
+        <div className="mt-4 pt-3 border-t border-border/60 flex flex-col gap-2">
           <button onClick={onCreate} className="h-11 btn-primary-nova rounded-xl text-[13px] font-semibold inline-flex items-center justify-center gap-1.5">
-            <Zap className="w-4 h-4" /> Crear <span className="opacity-70 font-medium">· {CREDIT_COSTS.gen_master_prompt}⚡</span>
+            <Zap className="w-4 h-4" /> Hacer mi versión <span className="opacity-70 font-medium">· {CREDIT_COSTS.gen_master_prompt} créditos</span>
+          </button>
+          <button onClick={onOpen} className="h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-primary/40 inline-flex items-center justify-center gap-1.5">
+            <Eye className="w-4 h-4" /> Ver detalles
           </button>
         </div>
       </div>

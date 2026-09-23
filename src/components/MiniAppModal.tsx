@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { X, Rocket, Loader2, Copy, Check, Save, MessageCircle, Play, Video, Sparkles } from "lucide-react";
+import { X, Rocket, Loader2, Copy, Check, Save, MessageCircle, Play, Video, Sparkles, ChevronDown } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
@@ -27,14 +27,15 @@ const COUNTRIES = [
 ];
 
 /**
- * Flujo "CREAR MI APP": de un anuncio ganador a un producto digital propio.
- *  Fase 1 — Blueprint: por qué gana, mecanismo, avatar (streaming visible).
- *  Fase 2 — Mega-Prompt: prompts listos para construir la Mini App (Lovable/
- *  Claude), escalar con anuncios y armar el embudo. Precio único.
+ * Flujo "CREAR MI VERSIÓN": de un anuncio ganador a un producto digital propio,
+ * presentado como "Tu versión en 3 partes" con un solo pago:
+ *  Parte 1 — Por qué funciona (blueprint, streaming visible): la base.
+ *  Parte 2 — Tu mini app: prompts para cualquier IA / constructor de apps.
+ *  Parte 3 — Cómo venderla: guion de WhatsApp o de video de ventas.
  */
 export function MiniAppModal({ ad, onClose }: Props) {
   const { canSee } = useFeatureAccess();
-  const { applyServerCharge, canAfford } = useCredits();
+  const { applyServerCharge, canAfford, balance } = useCredits();
   const { create, update } = useProjects();
   const { balance: mediaBalance, canAfford: canAffordVideo } = useMediaCredits();
   const [videoState, setVideoState] = useState<"idle" | "loading" | "done" | "error">("idle");
@@ -49,6 +50,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
   const [salesPath, setSalesPath] = useState<SalesPath | null>(null);
   const [salesScript, setSalesScript] = useState("");
   const [salesLoading, setSalesLoading] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [country, setCountry] = useState(() => localStorage.getItem("supernova_country") || "CO");
   const scrollRef = useRef<HTMLDivElement>(null);
   const startedRef = useRef(false);
@@ -246,7 +248,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
   const currentText = tab === "vender" ? salesScript : tab === "miniapp" ? miniapp : blueprint;
   const copyLabel = tab === "vender"
     ? (salesPath === "whatsapp" ? "Copiar guion de WhatsApp" : "Copiar guion del video de ventas")
-    : tab === "miniapp" ? "Copiar instrucciones para crear la app (pégalas en Lovable)" : "Copiar análisis";
+    : tab === "miniapp" ? "Copiar instrucciones de tu mini app" : "Copiar por qué funciona";
 
   const copyCurrent = async () => {
     if (!currentText) return;
@@ -263,6 +265,13 @@ export function MiniAppModal({ ad, onClose }: Props) {
   };
 
   const running = phase === "blueprint" || phase === "miniapp";
+  const price = CREDIT_COSTS.gen_master_prompt;
+  // Una línea por parte: qué es y qué hacer con ella. Lo largo va en el propio contenido.
+  const tabHint = tab === "blueprint"
+    ? "Parte 1 de 3 · La base de tu versión: por qué este negocio vende."
+    : tab === "miniapp"
+      ? "Parte 2 de 3 · Copia el Prompt 2 y pégalo en la IA que uses para crear apps."
+      : "Parte 3 de 3 · Tu guion para empezar a vender.";
   const busy = running || salesLoading;
 
   return (
@@ -276,7 +285,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
               <Rocket className="w-4 h-4 text-primary" />
             </div>
             <div className="min-w-0">
-              <h2 className="font-display font-semibold text-foreground truncate">Crear mi versión de este negocio</h2>
+              <h2 className="font-display font-semibold text-foreground truncate">Tu versión de este negocio</h2>
               <p className="text-xs text-muted-foreground truncate">{ad.title} · {ad.pageName}</p>
             </div>
           </div>
@@ -286,11 +295,11 @@ export function MiniAppModal({ ad, onClose }: Props) {
         </div>
 
         {/* Progreso de fases */}
-        <div className="flex items-center gap-2 px-5 py-3 border-b border-border text-xs">
+        <div className="flex items-center gap-2 px-5 py-3 border-b border-border text-xs overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {([
-            { key: "blueprint" as const, label: "1 · Por qué se vende" },
-            { key: "miniapp" as const, label: "2 · Tu mini app y cómo venderla" },
-            ...(salesPath ? [{ key: "vender" as const, label: "3 · Cómo vender" }] : []),
+            { key: "blueprint" as const, label: "1 · Por qué funciona" },
+            { key: "miniapp" as const, label: "2 · Tu mini app" },
+            { key: "vender" as const, label: "3 · Cómo venderla" },
           ]).map(({ key, label }) => {
             const active =
               (key === "blueprint" && phase === "blueprint") ||
@@ -306,9 +315,9 @@ export function MiniAppModal({ ad, onClose }: Props) {
                 onClick={() => {
                   if (key === "blueprint") setTab("blueprint");
                   else if (key === "miniapp") { if (miniapp) setTab("miniapp"); }
-                  else if (salesScript || salesLoading) setTab("vender");
+                  else if (phase === "done" || salesScript || salesLoading) setTab("vender");
                 }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-colors ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap ${
                   tab === key ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground"
                 }`}
               >
@@ -323,33 +332,64 @@ export function MiniAppModal({ ad, onClose }: Props) {
         {/* Contenido */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-5">
           {phase === "idle" && (
-            <div className="h-full flex flex-col items-center justify-center text-center gap-4">
-              <Rocket className="w-10 h-10 text-primary" />
+            <div className="min-h-full flex flex-col items-center justify-center text-center gap-5 py-4">
               <div>
-                <h3 className="font-display font-semibold text-lg text-foreground">
-                  Crea tu propia versión de este negocio
-                </h3>
-                <p className="text-sm text-muted-foreground mt-2 max-w-md">
-                  Primero te explicamos por qué este anuncio está vendiendo. Luego te damos las instrucciones
-                  para crear tu mini app (una herramienta sencilla que la gente paga por usar) con una IA como Lovable,
-                  ideas para tus anuncios y un guion para vender por WhatsApp o con un video, cobrando en tu moneda.
-                </p>
+                <h3 className="font-display font-bold text-2xl text-foreground">Tu versión lista, en 3 partes</h3>
+                <p className="text-sm text-muted-foreground mt-1.5">Todo incluido · {price} créditos, una sola vez.</p>
               </div>
+
+              <ol className="w-full max-w-md space-y-2 text-left">
+                {[
+                  { n: "1", t: "Por qué funciona", d: "La base de tu versión." },
+                  { n: "2", t: "Tu mini app", d: "Instrucciones para crearla con cualquier IA." },
+                  { n: "3", t: "Cómo venderla", d: "Guion para WhatsApp o para un video de ventas." },
+                ].map((it) => (
+                  <li key={it.n} className="flex items-center gap-3 rounded-xl border border-border bg-secondary/30 px-4 py-3">
+                    <span className="w-7 h-7 rounded-full bg-primary/15 text-primary font-bold text-sm flex items-center justify-center shrink-0">{it.n}</span>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-[15px] text-foreground">{it.t}</div>
+                      <div className="text-xs text-muted-foreground">{it.d}</div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+
               <button
                 onClick={run}
-                className="gradient-brand text-primary-foreground px-8 py-3 rounded-lg font-semibold text-sm hover:opacity-90 flex items-center gap-2 glow-primary"
+                className="gradient-brand text-primary-foreground px-8 py-3.5 rounded-lg font-semibold text-base hover:opacity-90 flex items-center gap-2 glow-primary"
               >
-                <Rocket className="w-4 h-4" /> Empezar · {CREDIT_COSTS.gen_master_prompt} créditos
+                <Rocket className="w-4 h-4" /> Hacer mi versión · {price} créditos
               </button>
-              <p className="text-[11px] text-muted-foreground">
-                Un solo pago incluye el análisis, las instrucciones de la app y el guion de venta. Tarda 1 o 2 minutos.
+              <p className="text-xs text-muted-foreground">
+                {balance >= price
+                  ? `Tienes ${balance} créditos · te quedan ${balance - price} · listo en 1 o 2 minutos`
+                  : `Tienes ${balance} créditos · te faltan ${price - balance}`}
               </p>
+
+              <div className="w-full max-w-md">
+                <button
+                  onClick={() => setShowDetails((v) => !v)}
+                  className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                  aria-expanded={showDetails}
+                >
+                  ¿Qué incluye? <ChevronDown className={`w-3 h-3 transition-transform ${showDetails ? "rotate-180" : ""}`} />
+                </button>
+                {showDetails && (
+                  <ul className="mt-3 text-left text-xs text-muted-foreground space-y-1.5 rounded-xl border border-border p-4">
+                    <li>• <b className="text-foreground">Por qué funciona:</b> qué vende este anuncio, a quién y con qué idea.</li>
+                    <li>• <b className="text-foreground">Tu mini app:</b> una herramienta sencilla que la gente paga por usar. Te damos el texto para pegar en la IA que prefieras (Lovable, Bolt, ChatGPT, Claude u otra).</li>
+                    <li>• <b className="text-foreground">Extras:</b> un prompt para tus anuncios y otro para revisar tu negocio antes de pagar publicidad.</li>
+                    <li>• <b className="text-foreground">Cómo venderla:</b> guion de WhatsApp con precio en tu moneda, o guion de video de ventas.</li>
+                    <li>• Si algo falla, reintentar no cuesta más. Todo queda guardado en Mis productos.</li>
+                  </ul>
+                )}
+              </div>
             </div>
           )}
 
           {phase === "error" && (
             <div className="h-full flex flex-col items-center justify-center gap-3">
-              <p className="text-sm text-muted-foreground">Algo falló, pero no pagas dos veces: si la IA no respondió, te devolvimos los créditos, y reintentar usa el mismo pago.</p>
+              <p className="text-sm text-muted-foreground text-center">Algo falló. No pagas dos veces: reintentar usa el mismo pago.</p>
               <button onClick={() => { startedRef.current = false; run(); }} className="text-primary text-sm hover:underline">
                 Reintentar
               </button>
@@ -358,6 +398,8 @@ export function MiniAppModal({ ad, onClose }: Props) {
 
           {phase !== "idle" && phase !== "error" && (
             <>
+              <p className="mb-4 text-sm font-medium text-primary">{tabHint}</p>
+              {!(tab === "vender" && !salesPath) && (
               <article className="prose prose-invert prose-sm max-w-none">
                 <ReactMarkdown>{
                   tab === "vender"
@@ -367,6 +409,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
                       : blueprint
                 }</ReactMarkdown>
               </article>
+              )}
 
               {/* VSL elegido + guion listo: ofrecer generar el video del hook */}
               {canSee("Media Studio") && tab === "vender" && salesPath === "vsl" && salesScript && !salesLoading && (
@@ -376,7 +419,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
                     <div className="flex-1">
                       <h4 className="font-display font-semibold text-sm text-foreground">Hacer el video del inicio de tu guion</h4>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Un presentador hecho con IA lee los primeros 45 a 60 segundos de tu guion. Te queda un video listo para subir a Facebook, Instagram o TikTok. Cuesta {MEDIA_COST_PER_VIDEO} créditos de video.
+                        Un presentador de IA lee el primer minuto de tu guion, listo para tus redes.
                       </p>
                       <button
                         onClick={handleGenerateHookVideo}
@@ -399,7 +442,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
                     <div className="flex-1">
                       <h4 className="font-display font-semibold text-sm text-foreground">Crear una imagen para tu anuncio</h4>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Una imagen para acompañar tu mensaje de WhatsApp o publicarla en tus redes. Cuesta {CREDIT_COSTS.gen_ad_image} créditos.
+                        Para acompañar tu mensaje de WhatsApp o publicarla en tus redes.
                       </p>
                       <button
                         onClick={handleGenerateAdImage}
@@ -418,15 +461,13 @@ export function MiniAppModal({ ad, onClose }: Props) {
               )}
 
               {/* Elegir camino de venta: aparece en cuanto la Mini App está lista */}
-              {phase === "done" && tab === "miniapp" && !salesPath && (
+              {phase === "done" && (tab === "miniapp" || tab === "vender") && !salesPath && (
                 <div className="mt-6 rounded-xl border border-primary/25 bg-primary/5 p-5">
-                  <h4 className="font-display font-semibold text-sm text-foreground">¿Cómo vas a vender esto?</h4>
-                  <p className="text-xs text-muted-foreground mt-1 mb-4">
-                    Elige un camino y te damos el guion para empezar a ofrecerlo. Ya va incluido en lo que pagaste.
-                  </p>
+                  <h4 className="font-display font-semibold text-base text-foreground">Parte 3 · ¿Cómo vas a venderla?</h4>
+                  <p className="text-xs text-muted-foreground mt-1 mb-4">Elige un camino. Ya está incluido en tu pago.</p>
 
                   <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
-                    Tu país (para el precio y el método de cobro)
+                    Tu país (para el precio)
                   </label>
                   <select
                     value={country}
@@ -443,8 +484,8 @@ export function MiniAppModal({ ad, onClose }: Props) {
                     >
                       <MessageCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                       <div>
-                        <div className="font-semibold text-sm text-foreground">Por WhatsApp · cobras tú a mano</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">Precio en tu moneda, qué escribirle al cliente y cómo cobrarle. Ideal si empiezas de cero.</div>
+                        <div className="font-semibold text-sm text-foreground">Vender por WhatsApp</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">Qué escribir y cómo cobrar en tu moneda. Ideal para empezar.</div>
                       </div>
                     </button>
                     <button
@@ -453,8 +494,8 @@ export function MiniAppModal({ ad, onClose }: Props) {
                     >
                       <Play className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                       <div>
-                        <div className="font-semibold text-sm text-foreground">Con un video de ventas · cobro automático</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">Guion del video que explica tu producto + cómo conectar tu enlace de pago de Whop.</div>
+                        <div className="font-semibold text-sm text-foreground">Video de ventas</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">Guion del video y cobro automático con tu enlace de pago.</div>
                       </div>
                     </button>
                   </div>

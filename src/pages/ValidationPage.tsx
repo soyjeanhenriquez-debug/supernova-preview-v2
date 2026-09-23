@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Check, ClipboardCheck, Pencil, Printer, RotateCcw, ThumbsDown, ThumbsUp, X } from "lucide-react";
 import { toast } from "sonner";
 import { profileReady, useBusinessProfile, type Validation } from "@/lib/businessProfile";
+import { PageHeader } from "@/components/PageHeader";
 
 /**
  * Etapa 2 del recorrido "Mi negocio": ¿esto se vende?
@@ -184,7 +185,10 @@ export function ValidationPage({ onNavigate }: { onNavigate?: (page: string) => 
     persist({ answers: next, completed_at: done, score: overallScore(next) }, allDone && !completedAt);
     if (allDone && !completedAt) {
       setEditing(false);
-      toast.success("¡Listo! Tu matriz está completa");
+      const sc = overallScore(next) ?? 0;
+      toast.success("¡Listo! Tu matriz está completa", sc >= 50 && onNavigate
+        ? { description: "Siguiente paso: ponle precio.", action: { label: "Ir →", onClick: () => onNavigate("Precio") } }
+        : { description: "Tu nota es baja: revisa los puntos débiles antes de seguir." });
       window.setTimeout(() => document.getElementById("sn-validation-matrix")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     }
   };
@@ -210,18 +214,10 @@ export function ValidationPage({ onNavigate }: { onNavigate?: (page: string) => 
   if (!loaded || !ready) return <div className="text-sm text-muted-foreground p-6">Cargando…</div>;
 
   const header = (
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div className="min-w-0">
-        <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 2</p>
-        <h1 className="font-display font-bold text-2xl text-foreground flex items-center gap-2">
-          <ClipboardCheck className="w-5 h-5 text-primary shrink-0" /> Comprueba que se vende
-        </h1>
-        <p className="text-sm text-muted-foreground max-w-2xl mt-1">
-          Antes de gastar en anuncios, responde con honestidad {TOTAL} preguntas de verdadero o falso. Verás qué tiene de fuerte tu
-          producto, qué le falta y si el mercado lo acompaña. Toma unos 5 minutos y no gasta créditos.
-        </p>
-      </div>
-    </div>
+    <PageHeader stage="Mi negocio · Etapa 2" title="Comprueba que se vende"
+      icon={<ClipboardCheck className="w-5 h-5 text-primary shrink-0" />}
+      line={`${TOTAL} preguntas de sí o no. Unos 3 minutos. Gratis.`}
+      details={["Responde con honestidad: verás qué tiene de fuerte tu producto y qué le falta.", "Nota 75 o más: adelante · de 50 a 74: refuerza · menos de 50: cambia la oferta.", "Al final puedes imprimir tu matriz."]} />
   );
 
   if (!profileReady(profile)) {

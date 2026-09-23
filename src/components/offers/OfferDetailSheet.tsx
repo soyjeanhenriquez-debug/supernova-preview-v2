@@ -116,7 +116,7 @@ export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate
               <Heart className="w-5 h-5" fill={following ? "currentColor" : "none"} />
             </button>
             <button onClick={onCreate} className="flex-1 h-12 btn-primary-nova rounded-xl text-[14px] font-semibold flex items-center justify-center gap-2">
-              <Zap className="w-4 h-4" /> Crear mi versión <span className="opacity-70 font-medium">· {CREDIT_COSTS.gen_master_prompt} ⚡</span>
+              <Zap className="w-4 h-4" /> Hacer mi versión <span className="opacity-70 font-medium">· {CREDIT_COSTS.gen_master_prompt} ⚡</span>
             </button>
           </footer>
         </div>

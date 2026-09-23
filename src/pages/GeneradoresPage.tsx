@@ -10,6 +10,7 @@ import { useCredits, generatorCost } from "@/hooks/useCredits";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import { useFormAssist } from "@/lib/formAssist";
 import { AssistButton } from "@/components/AssistButton";
+import { useBusinessProfile, profileText, profileReady, businessHint } from "@/lib/businessProfile";
 
 const categories = [
   { icon: Sparkles, label: "Todos", id: "all" },
@@ -366,6 +367,9 @@ export function GeneradoresPage() {
   const { applyServerCharge, canAfford } = useCredits();
   // Un solo ejemplo para todos los generadores: la descripción del producto es la misma en todos.
   const assist = useFormAssist("generator", "", activeGenerator !== null);
+  // "Mi negocio": el campo llega lleno con lo que el usuario ya contó (se puede editar).
+  const { profile } = useBusinessProfile();
+  const myBusiness = profileReady(profile) ? profileText(profile) : "";
   const fillInput = async (title: string) => {
     try {
       const s = await assist.generate({ generador: title, ya_escrito: generatorInput });
@@ -420,8 +424,8 @@ export function GeneradoresPage() {
               {
                 role: "user",
                 content: generator.prompt
-                  ? `${generator.prompt}\n\nTEMA / DETALLES DEL USUARIO:\n${generatorInput}`
-                  : `Actúa como un experto en ${generator.category}. Tu tarea: ${generator.description}\n\nDetalles del producto/servicio del usuario:\n${generatorInput}\n\nGenera el contenido completo, listo para usar. Sé específico, persuasivo y orientado a conversiones.`,
+                  ? `${generator.prompt}\n${businessHint(profile)}\n\nTEMA / DETALLES DEL USUARIO:\n${generatorInput}`
+                  : `Actúa como un experto en ${generator.category}. Tu tarea: ${generator.description}\n${businessHint(profile)}\n\nDetalles del producto/servicio del usuario:\n${generatorInput}\n\nGenera el contenido completo, listo para usar. Sé específico, persuasivo y orientado a conversiones.`,
               },
             ],
           }),
@@ -524,7 +528,7 @@ export function GeneradoresPage() {
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredGenerators.map((gen) => {
-                const openGenerator = () => { setActiveGenerator(gen.id); setGeneratorOutput(""); setGeneratorInput(""); };
+                const openGenerator = () => { setActiveGenerator(gen.id); setGeneratorOutput(""); setGeneratorInput(myBusiness); };
                 return (
                 // div con rol de botón: dentro va el botón de favorito y un <button>
                 // no puede contener otro. flex-col + items-start alinea arriba todas
@@ -613,7 +617,13 @@ export function GeneradoresPage() {
                   <label className="text-sm font-semibold text-foreground">
                     Describe tu producto o servicio
                   </label>
-                  <AssistButton onClick={() => fillInput(selectedGen.title)} loading={assist.loading} filled={!!generatorInput.trim()} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    {myBusiness && generatorInput.trim() !== myBusiness && (
+                      <button type="button" onClick={() => setGeneratorInput(myBusiness)}
+                        className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground">Usar mi negocio</button>
+                    )}
+                    <AssistButton onClick={() => fillInput(selectedGen.title)} loading={assist.loading} filled={!!generatorInput.trim()} />
+                  </div>
                 </div>
                 <textarea
                   value={generatorInput}

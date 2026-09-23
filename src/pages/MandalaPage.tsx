@@ -11,6 +11,9 @@ import { useCredits, generatorCost } from "@/hooks/useCredits";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import { useFormAssist } from "@/lib/formAssist";
 import { AssistButton } from "@/components/AssistButton";
+import {
+  useBusinessProfile, profileText, profileReady, businessHint, BUSINESS_TYPES, PROFILE_EXAMPLES, type BusinessProfile,
+} from "@/lib/businessProfile";
 
 /**
  * Mándala Creativa: la rueda para no quedarse nunca sin anuncios.
@@ -119,13 +122,11 @@ const ROUTE: { stage: string; angle: string; why: string }[] = [
   { stage: "recuperar", angle: "comparacion", why: "Responde la objeción \"¿y por qué esto y no otra cosa?\"." },
 ];
 
-type Brief = { product: string; who: string; promise: string; price: string; proof: string };
-const EMPTY_BRIEF: Brief = { product: "", who: "", promise: "", price: "", proof: "" };
-const briefText = (b: Brief) => [
-  `Producto: ${b.product}`, `Para quién: ${b.who}`, `Resultado que promete: ${b.promise}`,
-  b.price && `Precio: ${b.price} USD`, b.proof && `Prueba o garantía: ${b.proof}`,
-].filter(Boolean).join("\n");
-const briefReady = (b: Brief) => b.product.trim().length > 2 && b.who.trim().length > 2 && b.promise.trim().length > 2;
+// La ficha de la oferta es "Mi negocio" (tabla business_profile), compartida con el resto de la app.
+type Brief = BusinessProfile;
+const briefText = profileText;
+const briefReady = profileReady;
+const BRIEF_TEXT_KEYS = ["product", "who", "promise", "price", "proof"] as const;
 
 const RULES = `Escribe en español neutro, para alguien que empieza. Frases cortas. Usa títulos con ## y listas.
 Nunca inventes testimonios, cifras, resultados ni plazos: si hace falta una prueba, di qué prueba conseguir y cómo.
@@ -274,14 +275,13 @@ function Step({ n, title, summary, done, active, onOpen, children }: {
 export function MandalaPage() {
   const { user } = useAuth();
   const { applyServerCharge, canAfford } = useCredits();
-  const briefKey = `sn_mandala_brief_${user?.id ?? "anon"}`;
 
   const [tab, setTab] = useState<Tab>("ruta");
   const [stage, setStage] = useState<Stage>(STAGES[2]);
   const [angle, setAngle] = useState<Angle>(angleById("problema-solucion"));
   const [rotation, setRotation] = useState(-(ANGLES.findIndex(a => a.id === "problema-solucion") * SEG + SEG / 2));
   const [spinning, setSpinning] = useState(false);
-  const [brief, setBrief] = useState<Brief>(EMPTY_BRIEF);
+  const { profile: brief, setProfile: setBrief, loaded: briefLoaded, save: saveProfile } = useBusinessProfile();
   const [briefOpen, setBriefOpen] = useState(true);
   const [platform, setPlatform] = useState<Platform>("meta");
   const [format, setFormat] = useState(FORMATS[0]);
@@ -299,22 +299,16 @@ export function MandalaPage() {
   const challenge = useMemo(dailyChallenge, []);
   const assist = useFormAssist("mandala-brief");
 
-  // La ficha de la oferta es una comodidad de este navegador (si falla el almacenamiento, se escribe de nuevo).
+  // Con la ficha ya llena, la Mándala abre directo en el paso que toca.
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(briefKey) || "null");
-      if (saved && typeof saved === "object") {
-        const b = { ...EMPTY_BRIEF, ...saved };
-        setBrief(b);
-        if (briefReady(b)) setBriefOpen(false);
-      }
-    } catch { /* sin almacenamiento */ }
-  }, [briefKey]);
+    if (briefLoaded && briefReady(brief)) setBriefOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [briefLoaded]);
   useEffect(() => {
     try { setSetupDone(localStorage.getItem(setupKey) === "1"); } catch { /* sin almacenamiento */ }
   }, [setupKey]);
   const confirmSetup = () => { setSetupDone(true); setOpenStep(null); try { localStorage.setItem(setupKey, "1"); } catch { /* sin almacenamiento */ } };
-  const saveBrief = (b: Brief) => { try { localStorage.setItem(briefKey, JSON.stringify(b)); } catch { /* sin almacenamiento */ } };
+  const saveBrief = (b: Brief) => { saveProfile(b).then(ok => { if (!ok) toast.error("No se pudo guardar tu negocio"); }); };
 
   const loadAds = useCallback(async () => {
     if (!user) return;
@@ -405,7 +399,7 @@ export function MandalaPage() {
     setOutputAt(at);
     const title = `Mándala · ${s.name} × ${a.name}`;
     const text = briefText(brief);
-    const full = await stream("mandala-ad", title, `${adPrompt(s, a, format, platform)}\n\nOFERTA DEL USUARIO:\n${text.slice(0, 2500)}`);
+    const full = await stream("mandala-ad", title, `${adPrompt(s, a, format, platform)}\n${businessHint(brief)}\n\nOFERTA DEL USUARIO:\n${text.slice(0, 2500)}`);
     if (!full) return;
     const { error } = await adsTable().insert({ stage: s.id, angle: a.id, format, platform, brief: text.slice(0, 3000), output: full.slice(0, 30000) });
     if (error) toast.error("Se creó, pero no se pudo guardar en Mis anuncios", { description: "Cópialo antes de salir." });
@@ -415,7 +409,7 @@ export function MandalaPage() {
   const createSequence = async () => {
     if (!requireBrief()) return;
     setOutputAt(null);
-    await stream("mandala-sequence", "Mándala · Secuencia de 4 etapas", `${sequencePrompt(angle, format, platform)}\n\nOFERTA DEL USUARIO:\n${briefText(brief).slice(0, 2500)}`);
+    await stream("mandala-sequence", "Mándala · Secuencia de 4 etapas", `${sequencePrompt(angle, format, platform)}\n${businessHint(brief)}\n\nOFERTA DEL USUARIO:\n${briefText(brief).slice(0, 2500)}`);
   };
 
   const iterate = async (ad: AdRow) => {
@@ -473,11 +467,11 @@ export function MandalaPage() {
   // Con la ficha a medias, la IA completa solo lo vacío; con la ficha llena, propone otra entera.
   const fillBrief = async () => {
     try {
-      const sug = await assist.generate(briefReady(brief) ? {} : brief);
-      const pickStr = (k: keyof Brief) => (typeof sug[k] === "string" ? (sug[k] as string).slice(0, 300) : "");
+      const sug = await assist.generate(briefReady(brief) ? { business_type: brief.business_type } : brief);
+      const pickStr = (k: typeof BRIEF_TEXT_KEYS[number]) => (typeof sug[k] === "string" ? (sug[k] as string).slice(0, 300) : "");
       const replaceAll = briefReady(brief);
       const next = { ...brief };
-      (Object.keys(EMPTY_BRIEF) as (keyof Brief)[]).forEach(k => {
+      BRIEF_TEXT_KEYS.forEach(k => {
         const v = k === "price" ? pickStr(k).replace(/[^\d.,]/g, "") : pickStr(k);
         if (v && (replaceAll || !brief[k].trim())) next[k] = v;
       });
@@ -487,24 +481,37 @@ export function MandalaPage() {
       toast.error(e instanceof Error ? e.message : "No se pudo generar el ejemplo");
     }
   };
-  const ph = (k: keyof Brief, fallback: string) => {
+  const examples = PROFILE_EXAMPLES[brief.business_type === "ecommerce" ? "ecommerce" : "default"];
+  const ph = (k: typeof BRIEF_TEXT_KEYS[number]) => {
     const v = assist.suggestion?.[k];
-    return typeof v === "string" && v ? `Ej.: ${v}` : fallback;
+    return typeof v === "string" && v ? `Ej.: ${v}` : examples[k];
   };
 
   const briefFields = () => (
     <>
+      <div className="space-y-1.5">
+        <p className="text-xs text-muted-foreground">¿Qué tipo de negocio tienes?</p>
+        <div className="flex flex-wrap gap-2">
+          {BUSINESS_TYPES.map(t => (
+            <button key={t.id} type="button"
+              onClick={() => { const next = { ...brief, business_type: t.id }; setBrief(next); if (briefReady(next)) saveBrief(next); }}
+              className={`rounded-full border px-3 py-1.5 text-xs ${brief.business_type === t.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
       <AssistButton onClick={fillBrief} loading={assist.loading} filled={briefReady(brief)} />
       <div className="grid sm:grid-cols-2 gap-3">
         {([
-          ["product", "Qué vendes", "Curso de repostería para vender desde casa"],
-          ["who", "Para quién", "Mamás que quieren un ingreso extra sin salir de casa"],
-          ["promise", "Qué resultado promete", "Hacer y vender sus primeros postres en 30 días"],
-          ["price", "Precio (USD)", "27"],
-        ] as const).map(([k, label, fallback]) => (
+          ["product", brief.business_type === "ecommerce" ? "Qué producto vendes" : "Qué vendes"],
+          ["who", "Para quién"],
+          ["promise", brief.business_type === "ecommerce" ? "Qué problema resuelve o qué logra" : "Qué resultado promete"],
+          ["price", "Precio (USD)"],
+        ] as const).map(([k, label]) => (
           <label key={k} className="flex flex-col gap-1 text-xs text-muted-foreground">
             {label}
-            <input value={brief[k]} placeholder={ph(k, fallback)} inputMode={k === "price" ? "decimal" : undefined}
+            <input value={brief[k]} placeholder={ph(k)} inputMode={k === "price" ? "decimal" : undefined}
               onChange={e => setBrief(b => ({ ...b, [k]: e.target.value.slice(0, 300) }))}
               onBlur={() => saveBrief(brief)}
               className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary/60" />
@@ -512,11 +519,19 @@ export function MandalaPage() {
         ))}
       </div>
       <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-        Prueba o garantía (opcional)
-        <input value={brief.proof} placeholder={ph("proof", "Garantía de 7 días · o déjalo vacío si aún no tienes")}
+        {brief.business_type === "ecommerce" ? "Envío, garantía o pago contra entrega (opcional)" : "Prueba o garantía (opcional)"}
+        <input value={brief.proof} placeholder={ph("proof")}
           onChange={e => setBrief(b => ({ ...b, proof: e.target.value.slice(0, 300) }))} onBlur={() => saveBrief(brief)}
           className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary/60" />
       </label>
+      {brief.business_type === "ecommerce" && (
+        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+          Enlace de tu tienda o del producto (opcional)
+          <input value={brief.store_url} placeholder="https://tutienda.myshopify.com/products/…" inputMode="url"
+            onChange={e => setBrief(b => ({ ...b, store_url: e.target.value.slice(0, 300) }))} onBlur={() => saveBrief(brief)}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary/60" />
+        </label>
+      )}
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span>¿Aún no tienes oferta?</span>
         <a href="#/ofertas" className="text-primary hover:underline">Elige una que ya vende en Ofertas</a>
@@ -607,7 +622,7 @@ export function MandalaPage() {
             <button className="w-full flex items-center justify-between gap-3 text-left" onClick={() => setBriefOpen(o => !o)}>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  {briefReady(brief) ? <Check className="w-4 h-4 text-emerald-400" /> : <span className="text-primary">Primero ·</span>} Tu oferta
+                  {briefReady(brief) ? <Check className="w-4 h-4 text-emerald-400" /> : <span className="text-primary">Primero ·</span>} Tu negocio
                 </p>
                 <p className="text-xs text-muted-foreground truncate">{briefReady(brief) ? `${brief.product} · ${brief.who}` : "Qué vendes, para quién y qué promete. Todo sale de aquí."}</p>
               </div>
@@ -631,7 +646,7 @@ export function MandalaPage() {
           </div>
 
           <div id="mandala-brief">
-            <Step n={1} title="Cuéntanos qué vendes" done={briefDone} active={step === 1} onOpen={() => openStepN(1)}
+            <Step n={1} title="Cuéntanos de tu negocio" done={briefDone} active={step === 1} onOpen={() => openStepN(1)}
               summary={briefReady(brief) ? `${brief.product} · ${brief.who}` : "Qué vendes, para quién y qué promete. 30 segundos."}>
               <p className="text-sm text-muted-foreground">Todos los anuncios salen de aquí. Mientras más concreto, mejores anuncios.</p>
               {briefFields()}
@@ -854,7 +869,7 @@ export function MandalaPage() {
                 {v && (
                   <p className={`text-xs rounded-lg p-2.5 ${v.tone === "good" ? "bg-emerald-500/10 text-emerald-300" : v.tone === "bad" ? "bg-red-500/10 text-red-300" : v.tone === "fix" ? "bg-amber-500/10 text-amber-200" : "bg-secondary text-muted-foreground"}`}>
                     {v.tone === "fix" && <AlertTriangle className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />}{v.text}
-                    {!price && " (Pon el precio en Tu oferta para un veredicto más preciso.)"}
+                    {!price && " (Pon el precio en Tu negocio para un veredicto más preciso.)"}
                   </p>
                 )}
                 <div className="flex flex-wrap gap-2">

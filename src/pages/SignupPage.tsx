@@ -54,6 +54,7 @@ const QUESTIONS: { key: keyof Quiz; title: string; options: string[] }[] = [
     title: "¿Qué vendes (o quieres vender)?",
     options: [
       "Infoproducto o curso propio",
+      "Tienda online / Shopify (productos físicos)",
       "Servicios / agencia",
       "Afiliado de productos de otros",
       "Aún no lo tengo claro",

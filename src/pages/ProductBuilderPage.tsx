@@ -11,6 +11,7 @@ import { profileReady, useBusinessProfile } from "@/lib/businessProfile";
 import { useCredits, type CreditAction } from "@/hooks/useCredits";
 import { useProductBuilds } from "@/hooks/useProductBuilds";
 import { supabase } from "@/integrations/supabase/client";
+import { SupportCard } from "@/components/SupportCard";
 import {
   builderCall, exportMarkdown, isPieceDone, printBuild, COVER_COLORS, FORMAT_LABEL, KIND_LABEL, MAX_NOTES, MAX_PIECES, MAX_PIECE_CHARS,
   TONE_LABEL, UPCOMING_MODELS,
@@ -569,6 +570,7 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
             <button onClick={() => onNavigate?.("Créditos")} className={primaryBtn}>Ver recargas <ArrowRight className="w-4 h-4" /></button>
           </div>
         )}
+        {unlocked === false && <SupportCard compact />}
 
         {/* Barra: escribir todo + saldo */}
         <div className={`rounded-xl border border-border bg-secondary/20 p-3 space-y-2 ${unlocked === false ? "hidden" : ""}`}>

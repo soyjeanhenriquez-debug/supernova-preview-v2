@@ -258,6 +258,46 @@ serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, pack: pack.id, credits: pack.credits }), { headers: { "Content-Type": "application/json" } });
   }
 
+  // ── Aportes "Apoya SUPERNOVA" (pago único) ──────────────────────────────
+  // Los planes viven en la tabla support_plans (Jean pega ahí el plan_id de Whop, sin redesplegar).
+  // Mismo criterio que los packs: se acredita al activarse, una vez por membresía y día.
+  // grant_support registra al impulsor y le da sus créditos de regalo como recarga, lo que
+  // desbloquea "Crear producto".
+  const evPlanId = String((data.plan as Record<string, unknown>)?.id ?? data.plan_id ?? "");
+  if (/^plan_[A-Za-z0-9]{6,40}$/.test(evPlanId)) {
+    const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: sp } = await db.from("support_plans").select("plan_id,label").eq("plan_id", evPlanId).maybeSingle();
+    if (sp) {
+      const t = eventType.toLowerCase().replace(/[._-]/g, " ");
+      const activated = t.includes("membership") && (t.includes("activat") || t.includes("valid")) && !t.includes("invalid") && !t.includes("deactivat");
+      if (!activated) {
+        return new Response(JSON.stringify({ ok: true, skipped: `support:${eventType}` }), { headers: { "Content-Type": "application/json" } });
+      }
+      const email = extractEmail(data);
+      const paymentId = data.id ? `${String(data.id)}:${new Date().toISOString().slice(0, 10)}` : "";
+      if (!email || !paymentId) {
+        console.error(`Aporte ${sp.plan_id}: sin email o sin id`);
+        return new Response(JSON.stringify({ error: "Support payment without email/id" }), { status: 422, headers: { "Content-Type": "application/json" } });
+      }
+      const { data: uid } = await db.rpc("get_user_id_by_email", { p_email: email });
+      if (!uid) {
+        console.error(`Aporte ${sp.plan_id}: no hay cuenta con el correo del pago`);
+        return new Response(JSON.stringify({ error: "No account for this email yet" }), { status: 409, headers: { "Content-Type": "application/json" } });
+      }
+      const key = `whop:${paymentId}`;
+      const { error: dup } = await db.from("stripe_events").insert({ id: key, type: `whop_support:${sp.plan_id}` });
+      if (dup) return new Response(JSON.stringify({ ok: true, duplicate: true }), { headers: { "Content-Type": "application/json" } });
+      const { data: g, error: gErr } = await db.rpc("grant_support", { p_user_id: uid, p_plan_id: sp.plan_id });
+      if (gErr || g?.success !== true) {
+        await db.from("stripe_events").delete().eq("id", key);
+        console.error("grant_support:", gErr?.message ?? g?.error);
+        return new Response(JSON.stringify({ error: "DB error" }), { status: 500, headers: { "Content-Type": "application/json" } });
+      }
+      console.log(`OK aporte ${sp.label} → +${g.credits} créditos`);
+      return new Response(JSON.stringify({ ok: true, support: sp.plan_id, credits: g.credits }), { headers: { "Content-Type": "application/json" } });
+    }
+  }
+
   const newStatus = mapEvent(eventType, data);
   if (!newStatus) {
     return new Response(JSON.stringify({ ok: true, skipped: eventType }), {

@@ -4,6 +4,7 @@ import { useMediaCredits, MEDIA_COST_PER_VIDEO } from "@/hooks/useMediaCredits";
 import { Zap, Coins, Sparkles, AlertTriangle, Video } from "lucide-react";
 import { CountUp } from "@/components/CountUp";
 import { SubscriptionCard } from "@/components/SubscriptionCard";
+import { SupportCard } from "@/components/SupportCard";
 import { startCheckout, consumeCheckoutResult } from "@/lib/stripe";
 import { formatUsd } from "@/lib/plans";
 import { useFeatureAccess } from "@/lib/features";
@@ -182,6 +183,8 @@ export function CreditsPage() {
           Los créditos que compras no caducan y se suman a los que ya tienes.
         </p>
       </div>
+
+      <SupportCard />
 
       {/* Media Credits — pool separado, para dejar clarísimo que es otra economía. En pausa para clientes (src/lib/features.ts). */}
       {canSee("Media Studio") && <div className="border-t-2 border-dashed border-border pt-8">

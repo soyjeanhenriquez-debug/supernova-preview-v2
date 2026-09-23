@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCredits, generatorCost } from "@/hooks/useCredits";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
+import { useFormAssist } from "@/lib/formAssist";
+import { AssistButton } from "@/components/AssistButton";
 
 /**
  * Fábrica de ideas para vender por WhatsApp.
@@ -101,6 +103,16 @@ export function IdeasWhatsApp({ onNavigate }: { onNavigate?: (page: string) => v
   }, [key]);
   const guardar = (lista: Idea[]) => { setIdeas(lista); try { localStorage.setItem(key, JSON.stringify(lista.slice(0, 200))); } catch { /* sin almacenamiento */ } };
 
+  const assist = useFormAssist("whatsapp-visto");
+  const rellenarVisto = async () => {
+    try {
+      const s = await assist.generate({ tipo: cat, para_quien: pub, para_cuando: oca, ya_escrito: visto });
+      if (typeof s.text === "string" && s.text) setVisto(s.text.slice(0, 1500));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo generar el ejemplo");
+    }
+  };
+
   const generar = async () => {
     const { action } = generatorCost("etsy-ideas");
     if (!canAfford(action)) { toast.error("Sin créditos suficientes", { description: "Recarga tu saldo o espera al próximo ciclo." }); return; }
@@ -190,8 +202,9 @@ export function IdeasWhatsApp({ onNavigate }: { onNavigate?: (page: string) => v
           <div><p className="text-xs font-semibold text-foreground mb-1.5">Para cuándo</p><Chips items={OCASIONES} value={oca} set={setOca} /></div>
           <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
             <span><b className="text-foreground">¿Viste algo en Etsy que te gustó?</b> Pega aquí su título o descripción (opcional). Se usa como inspiración, no para copiarlo.</span>
+            <AssistButton onClick={rellenarVisto} loading={assist.loading} filled={!!visto.trim()} className="self-start" />
             <textarea value={visto} onChange={e => setVisto(e.target.value)} rows={2} maxLength={1500}
-              placeholder="Ej.: Printable Christmas Planner, 30 pages, instant download…"
+              placeholder={assist.text() ? `Ej.: ${assist.text()}` : "Ej.: Printable Christmas Planner, 30 pages, instant download…"}
               className="rounded-lg border border-border bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary/60" />
           </label>
         </div>

@@ -5,11 +5,15 @@ import { toast } from "sonner";
 import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import { useProjects } from "@/hooks/useProjects";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
+import { useFormAssist } from "@/lib/formAssist";
+import { AssistButton } from "@/components/AssistButton";
 
 export function CrearPage() {
   const { applyServerCharge, canAfford } = useCredits();
   const { create } = useProjects();
   const [keyword, setKeyword] = useState("");
+  const assist = useFormAssist("crear-keyword");
+  const assistKeywords = Array.isArray(assist.suggestion?.keywords) ? (assist.suggestion.keywords as string[]).slice(0, 3) : [];
   const [sources, setSources] = useState({ reddit: true, google: true, ph: true });
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [analysis, setAnalysis] = useState("");
@@ -98,9 +102,19 @@ export function CrearPage() {
         <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-primary font-bold">
           <Sparkles className="w-4 h-4" /> PAIN DISCOVERY ENGINE
         </div>
+        {assistKeywords.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-muted-foreground">Ideas para ti:</span>
+            {assistKeywords.map(k => (
+              <button key={k} onClick={() => setKeyword(k)}
+                className="px-2.5 py-1 rounded-full border border-primary/40 bg-primary/5 text-primary hover:bg-primary/10">{k}</button>
+            ))}
+            <AssistButton onClick={() => assist.generate({ ya_escrito: keyword }).catch((e: unknown) => toast.error(e instanceof Error ? e.message : "No se pudo generar"))} loading={assist.loading} filled />
+          </div>
+        )}
         <input
           value={keyword} onChange={(e) => setKeyword(e.target.value)}
-          placeholder="ej: productividad, idiomas, trading, perder peso..."
+          placeholder={assistKeywords.length ? `ej: ${assistKeywords.join(", ")}...` : "ej: productividad, idiomas, trading, perder peso..."}
           className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-1 focus:ring-primary"
         />
         <div className="flex gap-2 flex-wrap text-xs">

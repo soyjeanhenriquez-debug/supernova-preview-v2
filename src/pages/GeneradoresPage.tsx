@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCredits, generatorCost } from "@/hooks/useCredits";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
+import { useFormAssist } from "@/lib/formAssist";
+import { AssistButton } from "@/components/AssistButton";
 
 const categories = [
   { icon: Sparkles, label: "Todos", id: "all" },
@@ -362,6 +364,16 @@ export function GeneradoresPage() {
   const [generatorOutput, setGeneratorOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const { applyServerCharge, canAfford } = useCredits();
+  // Un solo ejemplo para todos los generadores: la descripción del producto es la misma en todos.
+  const assist = useFormAssist("generator", "", activeGenerator !== null);
+  const fillInput = async (title: string) => {
+    try {
+      const s = await assist.generate({ generador: title, ya_escrito: generatorInput });
+      if (typeof s.text === "string" && s.text) setGeneratorInput(s.text.slice(0, 2000));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo generar el ejemplo");
+    }
+  };
 
   const filteredGenerators = generators.filter((g) => {
     if (activeCategory === "all") return true;
@@ -597,13 +609,16 @@ export function GeneradoresPage() {
               </div>
 
               <div className="card-surface rounded-xl p-5 space-y-4">
-                <label className="text-sm font-semibold text-foreground">
-                  Describe tu producto o servicio
-                </label>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label className="text-sm font-semibold text-foreground">
+                    Describe tu producto o servicio
+                  </label>
+                  <AssistButton onClick={() => fillInput(selectedGen.title)} loading={assist.loading} filled={!!generatorInput.trim()} />
+                </div>
                 <textarea
                   value={generatorInput}
                   onChange={(e) => setGeneratorInput(e.target.value)}
-                  placeholder="ej: Curso online de marketing digital para emprendedores que quieren escalar sus ventas con Meta Ads. Precio: $497. Público: emprendedores hispanos de 25-45 años..."
+                  placeholder={assist.text() ? `Ej.: ${assist.text()}` : "ej: Curso online de marketing digital para emprendedores que quieren escalar sus ventas con Meta Ads. Precio: $497. Público: emprendedores hispanos de 25-45 años..."}
                   rows={5}
                   className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all resize-none"
                 />

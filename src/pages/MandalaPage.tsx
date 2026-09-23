@@ -9,6 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCredits, generatorCost } from "@/hooks/useCredits";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
+import { useFormAssist } from "@/lib/formAssist";
+import { AssistButton } from "@/components/AssistButton";
 
 /**
  * Mándala Creativa: la rueda para no quedarse nunca sin anuncios.
@@ -295,6 +297,7 @@ export function MandalaPage() {
   const [routePick, setRoutePick] = useState<number | null>(null);
   const [outputAt, setOutputAt] = useState<string | null>(null);
   const challenge = useMemo(dailyChallenge, []);
+  const assist = useFormAssist("mandala-brief");
 
   // La ficha de la oferta es una comodidad de este navegador (si falla el almacenamiento, se escribe de nuevo).
   useEffect(() => {
@@ -467,18 +470,41 @@ export function MandalaPage() {
     setOpenStep(n === autoStep ? null : n);
   };
 
+  // Con la ficha a medias, la IA completa solo lo vacío; con la ficha llena, propone otra entera.
+  const fillBrief = async () => {
+    try {
+      const sug = await assist.generate(briefReady(brief) ? {} : brief);
+      const pickStr = (k: keyof Brief) => (typeof sug[k] === "string" ? (sug[k] as string).slice(0, 300) : "");
+      const replaceAll = briefReady(brief);
+      const next = { ...brief };
+      (Object.keys(EMPTY_BRIEF) as (keyof Brief)[]).forEach(k => {
+        const v = k === "price" ? pickStr(k).replace(/[^\d.,]/g, "") : pickStr(k);
+        if (v && (replaceAll || !brief[k].trim())) next[k] = v;
+      });
+      setBrief(next); saveBrief(next);
+      toast.success("Listo: revísalo y cámbialo a tu gusto");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo generar el ejemplo");
+    }
+  };
+  const ph = (k: keyof Brief, fallback: string) => {
+    const v = assist.suggestion?.[k];
+    return typeof v === "string" && v ? `Ej.: ${v}` : fallback;
+  };
+
   const briefFields = () => (
     <>
+      <AssistButton onClick={fillBrief} loading={assist.loading} filled={briefReady(brief)} />
       <div className="grid sm:grid-cols-2 gap-3">
         {([
           ["product", "Qué vendes", "Curso de repostería para vender desde casa"],
           ["who", "Para quién", "Mamás que quieren un ingreso extra sin salir de casa"],
           ["promise", "Qué resultado promete", "Hacer y vender sus primeros postres en 30 días"],
           ["price", "Precio (USD)", "27"],
-        ] as const).map(([k, label, ph]) => (
+        ] as const).map(([k, label, fallback]) => (
           <label key={k} className="flex flex-col gap-1 text-xs text-muted-foreground">
             {label}
-            <input value={brief[k]} placeholder={ph} inputMode={k === "price" ? "decimal" : undefined}
+            <input value={brief[k]} placeholder={ph(k, fallback)} inputMode={k === "price" ? "decimal" : undefined}
               onChange={e => setBrief(b => ({ ...b, [k]: e.target.value.slice(0, 300) }))}
               onBlur={() => saveBrief(brief)}
               className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary/60" />
@@ -487,7 +513,7 @@ export function MandalaPage() {
       </div>
       <label className="flex flex-col gap-1 text-xs text-muted-foreground">
         Prueba o garantía (opcional)
-        <input value={brief.proof} placeholder="Garantía de 7 días · 40 alumnas ya vendieron · o déjalo vacío si aún no tienes"
+        <input value={brief.proof} placeholder={ph("proof", "Garantía de 7 días · o déjalo vacío si aún no tienes")}
           onChange={e => setBrief(b => ({ ...b, proof: e.target.value.slice(0, 300) }))} onBlur={() => saveBrief(brief)}
           className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary/60" />
       </label>

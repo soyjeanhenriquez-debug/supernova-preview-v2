@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { useFormAssist } from "@/lib/formAssist";
+import { AssistButton } from "@/components/AssistButton";
 import { Video, Loader2, Sparkles, AlertTriangle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useMediaCredits, MEDIA_COST_PER_VIDEO } from "@/hooks/useMediaCredits";
@@ -27,6 +29,16 @@ export function MediaStudioPage() {
   const [generating, setGenerating] = useState(false);
   const [jobs, setJobs] = useState<MediaJob[]>([]);
   const pollRef = useRef<number | null>(null);
+  // El guion de ejemplo es largo: solo se pide con el botón, no al abrir la página.
+  const assist = useFormAssist("media-script", "", false);
+  const fillScript = async () => {
+    try {
+      const s = await assist.generate({ ya_escrito: script });
+      if (typeof s.text === "string" && s.text) setScript(s.text);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo generar el ejemplo");
+    }
+  };
 
   useEffect(() => {
     // Prefill desde la Bóveda de Hooks (u otra página): guion listo al llegar.
@@ -144,8 +156,11 @@ export function MediaStudioPage() {
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-xs uppercase tracking-wider text-muted-foreground" htmlFor="ms-script">Guion del hook</label>
+            <span className="flex items-center gap-3">
+            <AssistButton onClick={fillScript} loading={assist.loading} filled={!!script.trim()} />
             <span className={`text-xs tabular-nums ${overLimit ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
               {words} / {MAX_WORDS} palabras
+            </span>
             </span>
           </div>
           <textarea

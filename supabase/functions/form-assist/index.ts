@@ -1,7 +1,7 @@
 // SUPERNOVA — Ayuda para rellenar formularios ("✨ Rellenar con IA").
 // Devuelve un ejemplo personalizado para el formulario pedido, a partir de lo
 // que sabemos del usuario: su encuesta de registro (user_onboarding), su ficha
-// "Mi negocio" (business_profile) y, si no la tiene, la última oferta que
+// "Mi negocio" (la del producto abierto, tabla products) y, si no la tiene, la última oferta que
 // describió en la Mándala (mandala_ads.brief). Entiende tiendas de productos
 // físicos (Shopify) además de infoproductos, servicios y afiliados. El cliente
 // usa la respuesta como texto de ejemplo (placeholder) y para rellenar con un clic.
@@ -81,6 +81,32 @@ const FORMS: Record<string, { ask: string; shape: string }> = {
 
 const clip = (v: unknown, n: number) => (typeof v === "string" ? v.slice(0, n) : "");
 
+// ── Producto sobre el que se trabaja ────────────────────────────────────
+// Cada usuario puede tener varios productos (tabla products). Se usa el que pide el cliente si es
+// SUYO; si no, el que tiene abierto (business_profile.active_product_id); si no, su producto activo
+// más antiguo. Devuelve null si no tiene ninguno.
+const PRODUCT_COLS = "id,business_type,copy_level,product,who,promise,price,proof,store_url";
+const PRODUCT_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// deno-lint-ignore no-explicit-any
+async function resolveProduct(admin: any, userId: string, requested?: unknown): Promise<any | null> {
+  const byId = async (id: string) => {
+    const { data } = await admin.from("products").select(PRODUCT_COLS).eq("id", id).eq("user_id", userId).maybeSingle();
+    return data ?? null;
+  };
+  if (typeof requested === "string" && PRODUCT_UUID_RE.test(requested)) {
+    const p = await byId(requested);
+    if (p) return p;
+  }
+  const { data: bp } = await admin.from("business_profile").select("active_product_id").eq("user_id", userId).maybeSingle();
+  if (typeof bp?.active_product_id === "string") {
+    const p = await byId(bp.active_product_id);
+    if (p) return p;
+  }
+  const { data } = await admin.from("products").select(PRODUCT_COLS).eq("user_id", userId).eq("status", "activo")
+    .order("created_at", { ascending: true }).limit(1).maybeSingle();
+  return data ?? null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: "Método no permitido" });
@@ -100,10 +126,13 @@ Deno.serve(async (req) => {
   const admin = createGuardClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const [{ data: ob }, { data: biz }, { data: lastAd }, { data: authUser }] = await Promise.all([
+  // Ficha del producto abierto (o el pedido por el cliente, si es suyo).
+  const biz = await resolveProduct(admin, gate.userId, body.product_id);
+  const [{ data: ob }, { data: lastAd }, { data: authUser }] = await Promise.all([
     admin.from("user_onboarding").select("experience_level,runs_ads,sells_what,main_goal").eq("user_id", gate.userId).maybeSingle(),
-    admin.from("business_profile").select("business_type,copy_level,product,who,promise,price,proof,store_url").eq("user_id", gate.userId).maybeSingle(),
-    admin.from("mandala_ads").select("brief").eq("user_id", gate.userId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    biz
+      ? admin.from("mandala_ads").select("brief").eq("user_id", gate.userId).eq("product_id", biz.id).order("created_at", { ascending: false }).limit(1).maybeSingle()
+      : Promise.resolve({ data: null }),
     admin.auth.admin.getUserById(gate.userId),
   ]);
   // Quien no pasó por el registro de prueba no tiene fila: se mira la copia de los metadatos.

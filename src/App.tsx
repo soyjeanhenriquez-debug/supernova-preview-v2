@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { ProductProvider } from "@/contexts/ProductContext";
 import LandingPage from "./pages/LandingPage";
 import SignupPage from "./pages/SignupPage";
 import NotFound from "./pages/NotFound";
@@ -124,7 +125,9 @@ const App = () => (
       <Sonner />
       <ErrorBoundary>
         <AuthProvider>
-          <AppRoutes />
+          <ProductProvider>
+            <AppRoutes />
+          </ProductProvider>
         </AuthProvider>
       </ErrorBoundary>
     </TooltipProvider>

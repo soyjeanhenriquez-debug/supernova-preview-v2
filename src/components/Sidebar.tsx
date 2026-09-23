@@ -1,4 +1,4 @@
-import { LayoutDashboard, Trophy, Telescope, FileText, FolderKanban, Coins, Shield, LogOut, PanelLeftClose, PanelLeftOpen, X, Video, Quote, Gem, Boxes, Orbit, Store, Briefcase, ClipboardCheck, Calculator, ListTodo, CalendarDays, BarChart3, MessageCircle, Lightbulb } from "lucide-react";
+import { LayoutDashboard, Trophy, Telescope, FileText, FolderKanban, Coins, Shield, LogOut, PanelLeftClose, PanelLeftOpen, X, Video, Quote, Gem, Boxes, Orbit, Store, Briefcase, ClipboardCheck, Calculator, ListTodo, CalendarDays, BarChart3, MessageCircle, Lightbulb, LayoutGrid } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useNavigate } from "react-router-dom";
 import { useFeatureAccess } from "@/lib/features";
+import { ProductSwitcher } from "@/components/ProductSwitcher";
 
 interface SidebarProps {
   activePage: string;
@@ -31,7 +32,8 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
   const groups: { title: string; items: NavItem[] }[] = [
     { title: "Mi negocio", items: [
       { icon: LayoutDashboard, key: "Dashboard", label: t("nav.dashboard"), hint: "Tu recorrido de 6 etapas, tu siguiente paso y tus tareas de la semana." },
-      { icon: Briefcase, key: "Mi negocio", label: "Mi ficha", hint: "Qué vendes, para quién y qué logra. Lo llenas una vez y lo usan todas las herramientas." },
+      { icon: LayoutGrid, key: "Productos", label: "Mis productos", hint: "Todos tus productos y cuánto avanzó cada uno." },
+      { icon: Briefcase, key: "Mi negocio", label: "Mi ficha", hint: "Qué vendes, para quién y qué logra este producto. Lo usan todas las herramientas." },
     ] },
     { title: "1 · Elegir", items: [
       { icon: Gem, key: "Ofertas", label: t("nav.offers"), hint: t("nav.hint.offers") },
@@ -125,6 +127,8 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
 
       {/* Navigation */}
       <nav className={`flex-1 min-h-0 py-1 space-y-px overflow-y-auto overflow-x-hidden ${isCollapsed ? "px-2" : "px-3"}`}>
+        {/* Producto activo: todo el menú de abajo trabaja sobre él. */}
+        <div className="pb-3"><ProductSwitcher collapsed={isCollapsed} onNavigate={handleNav} /></div>
         {groups.filter(g => g.items.length).map((g, gi) => (
           <div key={g.title || gi} className={gi ? (isCollapsed ? "pt-2 mt-2 border-t border-border/50" : "pt-3") : ""}>
             {g.title && !isCollapsed && (

@@ -3,6 +3,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, List, Loader2, PenLine, Plus, 
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProducts } from "@/contexts/ProductContext";
 import { useBusinessProfile } from "@/lib/businessProfile";
 import { PageHeader } from "@/components/PageHeader";
 
@@ -59,6 +60,7 @@ function defaultSeed(product: string, who: string) {
 
 export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { user } = useAuth();
+  const { activeId } = useProducts();
   const { profile, loaded } = useBusinessProfile();
   const [items, setItems] = useState<Item[]>([]);
   const [itemsLoaded, setItemsLoaded] = useState(false);
@@ -78,13 +80,13 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
   }, [loaded, profile.product, profile.who, seed, seedTouched]);
 
   const load = useCallback(async () => {
-    if (!user) return;
+    if (!user || !activeId) return;
     const { data, error } = await table().select("id,topic,title,stage,platform,status,due,source,created_at")
-      .eq("user_id", user.id).order("due", { ascending: true, nullsFirst: false }).order("created_at", { ascending: true }).limit(500);
+      .eq("user_id", user.id).eq("product_id", activeId).order("due", { ascending: true, nullsFirst: false }).order("created_at", { ascending: true }).limit(500);
     if (error) toast.error("No se pudo cargar tu calendario");
     setItems((data ?? []) as Item[]);
     setItemsLoaded(true);
-  }, [user]);
+  }, [user, activeId]);
   useEffect(() => { load(); }, [load]);
 
   const today = useMemo(() => new Date(), []);
@@ -129,8 +131,8 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
   };
 
   const insertItems = async (rows: Omit<Item, "id" | "created_at">[]) => {
-    if (!user || !rows.length) return false;
-    const { data, error } = await table().insert(rows.map(r => ({ ...r, user_id: user.id }))).select("id,topic,title,stage,platform,status,due,source,created_at");
+    if (!user || !activeId || !rows.length) return false;
+    const { data, error } = await table().insert(rows.map(r => ({ ...r, user_id: user.id, product_id: activeId }))).select("id,topic,title,stage,platform,status,due,source,created_at");
     if (error) { toast.error("No se pudo guardar en tu calendario"); return false; }
     setItems(prev => [...prev, ...((data ?? []) as Item[])].sort((a, b) => (a.due ?? "9999").localeCompare(b.due ?? "9999")));
     return true;

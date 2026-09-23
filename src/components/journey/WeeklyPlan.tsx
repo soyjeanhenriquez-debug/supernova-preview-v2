@@ -3,6 +3,7 @@ import { ArrowRight, Check, Flame, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProducts } from "@/contexts/ProductContext";
 
 /**
  * "Tu semana": el socio IA semanal (edge function weekly-plan, tabla weekly_plans).
@@ -22,15 +23,28 @@ export function WeeklyPlan({ onNavigate, stages }: {
   stages: { n: number; title: string; done: boolean }[] | null;
 }) {
   const { user } = useAuth();
+  const { activeId } = useProducts();
   const [plan, setPlan] = useState<Plan | null>(null);
   const [streak, setStreak] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const asked = useRef(false);
+  // Producto abierto ahora: descarta respuestas que llegan después de cambiar de producto.
+  const currentProduct = useRef(activeId);
+
+  // Cada producto tiene su propio plan semanal: al cambiar de producto se empieza de cero.
+  useEffect(() => {
+    currentProduct.current = activeId;
+    asked.current = false;
+    setPlan(null); setStreak(0); setError(""); setLoading(false);
+  }, [activeId]);
 
   const fetchPlan = useCallback(async (force = false) => {
+    if (!activeId) return;
+    const productId = activeId;
     setLoading(true); setError("");
-    const { data, error } = await supabase.functions.invoke("weekly-plan", { body: { force, stages } });
+    const { data, error } = await supabase.functions.invoke("weekly-plan", { body: { force, stages, product_id: productId } });
+    if (currentProduct.current !== productId) return;
     if (error || !data?.plan) {
       const ctx = (error as { context?: Response } | null)?.context;
       const msg = ctx ? await ctx.json().then((b: { error?: string }) => b?.error).catch(() => null) : data?.error;
@@ -40,20 +54,22 @@ export function WeeklyPlan({ onNavigate, stages }: {
       if (data.note) toast.info(data.note);
     }
     setLoading(false);
-  }, [stages]);
+  }, [stages, activeId]);
 
   // Se arma sola una vez por semana, cuando ya se conoce el estado del recorrido.
   useEffect(() => {
-    if (!user || !stages || asked.current) return;
+    if (!user || !activeId || !stages || asked.current) return;
     asked.current = true;
     fetchPlan(false);
-  }, [user, stages, fetchPlan]);
+  }, [user, activeId, stages, fetchPlan]);
 
   // Racha: semanas seguidas (antes de esta) en las que hizo al menos la mitad de sus tareas.
   useEffect(() => {
-    if (!user) return;
-    plansTable().select("week_start,tasks").order("week_start", { ascending: false }).limit(12)
+    if (!user || !activeId) return;
+    let alive = true;
+    plansTable().select("week_start,tasks").eq("product_id", activeId).order("week_start", { ascending: false }).limit(12)
       .then(({ data }: { data: { week_start: string; tasks: Task[] }[] | null }) => {
+        if (!alive) return;
         let n = 0;
         for (const w of (data ?? []).slice(1)) {
           const t = Array.isArray(w.tasks) ? w.tasks : [];
@@ -61,14 +77,15 @@ export function WeeklyPlan({ onNavigate, stages }: {
         }
         setStreak(n);
       });
-  }, [user, plan?.week_start]);
+    return () => { alive = false; };
+  }, [user, activeId, plan?.week_start]);
 
   const toggle = async (id: string) => {
-    if (!plan) return;
+    if (!plan || !user || !activeId) return;
     const tasks = plan.tasks.map(t => (t.id === id ? { ...t, done: !t.done } : t));
     setPlan({ ...plan, tasks });
     const { error } = await plansTable().update({ tasks, updated_at: new Date().toISOString() })
-      .eq("user_id", user?.id).eq("week_start", plan.week_start);
+      .eq("user_id", user.id).eq("product_id", activeId).eq("week_start", plan.week_start);
     if (error) toast.error("No se pudo guardar");
     else if (tasks.every(t => t.done)) toast.success("¡Semana completa! El lunes tu socio te arma la siguiente.");
   };

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProducts } from "@/contexts/ProductContext";
 
 /**
  * "Mi negocio" (tabla business_profile): lo que vende cada usuario, guardado una vez y usado en
@@ -84,7 +85,7 @@ const JSON_KEYS = new Set(["business_type", "pricing", "journey", "validation", 
 
 // Tabla nueva, aún no está en los tipos generados de Supabase.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const table = () => (supabase as any).from("business_profile");
+const table = () => (supabase as any).from("products");
 
 export const profileReady = (p: BusinessProfile) =>
   p.product.trim().length > 2 && p.who.trim().length > 2 && p.promise.trim().length > 2;
@@ -123,26 +124,30 @@ export function businessHint(p: BusinessProfile) {
     : "";
 }
 
+/**
+ * La ficha del PRODUCTO ACTIVO (tabla products; ver src/contexts/ProductContext.tsx). Mismo contrato
+ * que antes (profile, savePatch, loaded): las pantallas no saben que hay varios productos; cambiar de
+ * producto recarga todo.
+ */
 export function useBusinessProfile() {
   const { user } = useAuth();
+  const { activeId, rename, active } = useProducts();
   const [profile, setProfile] = useState<BusinessProfile>(EMPTY_PROFILE);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeId) return;
     let alive = true;
+    setLoaded(false);
     (async () => {
-      const { data, error } = await table().select("business_type,copy_level,pricing,journey,validation,launch_plan,recovery,product,who,promise,price,proof,store_url").eq("user_id", user.id).maybeSingle();
-      if (error) console.error("business_profile:", error.message);
+      const { data, error } = await table().select("business_type,copy_level,pricing,journey,validation,launch_plan,recovery,product,who,promise,price,proof,store_url").eq("id", activeId).maybeSingle();
+      if (error) console.error("products:", error.message);
       let p: BusinessProfile = { ...EMPTY_PROFILE };
       if (data) {
         p = Object.fromEntries(Object.entries({ ...EMPTY_PROFILE, ...data }).map(([k, v]) => [k, v ?? (JSON_KEYS.has(k) ? null : k === "copy_level" ? 2 : "")])) as BusinessProfile;
-      } else {
-        // Sin ficha todavía: la de la Mándala de este navegador (versión anterior) y el tipo según la encuesta.
-        try {
-          const old = JSON.parse(localStorage.getItem(`sn_mandala_brief_${user.id}`) || "null");
-          if (old && typeof old === "object") p = { ...p, ...old };
-        } catch { /* sin almacenamiento */ }
+      }
+      // Producto sin tipo todavía: se deduce de la encuesta de registro (cómo trabaja el usuario).
+      if (!p.business_type) {
         const survey = String((user.user_metadata?.onboarding as { sells_what?: string } | undefined)?.sells_what ?? "");
         if (/shopify|tienda|f[ií]sico/i.test(survey)) p.business_type = "ecommerce";
         else if (/infoproducto|curso/i.test(survey)) p.business_type = "infoproducto";
@@ -152,24 +157,27 @@ export function useBusinessProfile() {
       if (alive) { setProfile(p); setLoaded(true); }
     })();
     return () => { alive = false; };
-  }, [user]);
+  }, [user, activeId]);
 
   /**
-   * Guarda SOLO los campos indicados (y los aplica al estado local). Es el único guardado: así una
-   * pantalla con la ficha desactualizada nunca pisa lo que guardó otra (matriz, plan, precio…).
+   * Guarda SOLO los campos indicados en el producto activo (y los aplica al estado local). Es el
+   * único guardado: así una pantalla con la ficha desactualizada nunca pisa lo que guardó otra.
    * Recorta los textos al tamaño que acepta la base (precio 30, el resto 300).
    */
   const savePatch = useCallback(async (patch: Partial<BusinessProfile>) => {
-    if (!user) return false;
+    if (!user || !activeId) return false;
     const clean: Record<string, unknown> = { ...patch };
     for (const k of ["product", "who", "promise", "proof", "store_url", "price"] as const) {
       if (typeof clean[k] === "string") clean[k] = (clean[k] as string).trim().slice(0, k === "price" ? 30 : 300);
     }
     setProfile(prev => ({ ...prev, ...(clean as Partial<BusinessProfile>) }));
-    const { error } = await table().upsert({ user_id: user.id, ...clean, updated_at: new Date().toISOString() });
-    if (error) console.error("business_profile:", error.message);
-    return !error;
-  }, [user]);
+    const { error } = await table().update(clean).eq("id", activeId);
+    if (error) { console.error("products:", error.message); return false; }
+    // Un producto con nombre genérico toma el nombre de lo que vende.
+    const newName = typeof clean.product === "string" ? (clean.product as string) : "";
+    if (newName && active && /^(mi primer producto|nuevo producto|mi producto)$/i.test(active.name)) rename(activeId, newName.slice(0, 120));
+    return true;
+  }, [user, activeId, active, rename]);
 
-  return { profile, setProfile, loaded, savePatch };
+  return { profile, setProfile, loaded, savePatch, productId: activeId };
 }

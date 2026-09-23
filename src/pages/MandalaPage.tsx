@@ -7,6 +7,7 @@ import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProducts } from "@/contexts/ProductContext";
 import { useCredits, generatorCost } from "@/hooks/useCredits";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import {
@@ -295,6 +296,7 @@ function Step({ n, title, summary, done, active, onOpen, children }: {
  */
 export function MandalaPage({ onNavigate, initialTab = "ruta" }: { onNavigate?: (page: string) => void; initialTab?: Tab } = {}) {
   const { user } = useAuth();
+  const { activeId } = useProducts();
   const { applyServerCharge, canAfford } = useCredits();
 
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -326,14 +328,15 @@ export function MandalaPage({ onNavigate, initialTab = "ruta" }: { onNavigate?: 
   const confirmSetup = () => { setSetupDone(true); setOpenStep(null); try { localStorage.setItem(setupKey, "1"); } catch { /* sin almacenamiento */ } };
 
   const loadAds = useCallback(async () => {
-    if (!user) return;
+    if (!user || !activeId) return;
     const { data, error } = await adsTable()
       .select("id,stage,angle,format,platform,brief,output,status,spend,ctr,sales,created_at")
+      .eq("product_id", activeId)
       .order("created_at", { ascending: false }).limit(300);
     if (!error && Array.isArray(data)) {
       setAds(data as AdRow[]);
     }
-  }, [user]);
+  }, [user, activeId]);
   useEffect(() => { loadAds(); }, [loadAds]);
 
   const done = useMemo(() => new Set(ads.map(a => `${a.stage}:${a.angle}`)), [ads]);
@@ -410,13 +413,14 @@ export function MandalaPage({ onNavigate, initialTab = "ruta" }: { onNavigate?: 
 
   const createAd = async (s: Stage, a: Angle, at: string | null = null) => {
     if (!requireBrief()) return;
+    if (!activeId) { toast.error("Tu producto aún está cargando", { description: "Espera un segundo e inténtalo de nuevo." }); return; }
     pick(s, a);
     setOutputAt(at);
     const title = `Mándala · ${s.name} × ${a.name}`;
     const text = briefText(brief);
     const full = await stream("mandala-ad", title, `${adPrompt(s, a, format, platform)}\n${businessHint(brief)}\n${copyLevelHint(brief)}\n\nOFERTA DEL USUARIO:\n${text.slice(0, 2500)}`);
     if (!full) return;
-    const { error } = await adsTable().insert({ stage: s.id, angle: a.id, format, platform, brief: text.slice(0, 3000), output: full.slice(0, 30000) });
+    const { error } = await adsTable().insert({ product_id: activeId, stage: s.id, angle: a.id, format, platform, brief: text.slice(0, 3000), output: full.slice(0, 30000) });
     if (error) toast.error("El anuncio está listo, pero no se pudo guardar", { description: "Cópialo antes de salir de esta pantalla." });
     else {
       // Con el quinto anuncio termina la etapa 5: se ofrece el siguiente paso (publicar y medir).

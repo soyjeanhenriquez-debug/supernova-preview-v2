@@ -2,7 +2,7 @@
 // Arma una secuencia de seguimiento (WhatsApp o correo) para la gente que mostró interés —hizo
 // clic, empezó a pagar o preguntó— y no compró: día 0, 1, 3 y 7. Cobra "gen_light" (15 créditos)
 // en el servidor ANTES de llamar a la IA y lo devuelve si la IA falla. No guarda nada: la página
-// guarda la secuencia en business_profile.recovery.
+// guarda la secuencia en products.recovery del producto abierto.
 //
 // Ruta interna de prueba: con x-cron-secret válido + test_user_id de un ADMIN, actúa como ese
 // usuario (cobrando igual). Así se puede probar desde SQL (net.http_post) sin sesión de navegador.
@@ -83,6 +83,32 @@ async function refundCharge(admin: Admin, gate: Gate, reason: string): Promise<v
   catch (e) { console.error("refund_charge falló:", e); }
 }
 
+// ── Producto sobre el que se trabaja ────────────────────────────────────
+// Cada usuario puede tener varios productos (tabla products). Se usa el que pide el cliente si es
+// SUYO; si no, el que tiene abierto (business_profile.active_product_id); si no, su producto activo
+// más antiguo. Devuelve null si no tiene ninguno.
+const PRODUCT_COLS = "id,business_type,copy_level,product,who,promise,price,proof,store_url";
+const PRODUCT_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// deno-lint-ignore no-explicit-any
+async function resolveProduct(admin: any, userId: string, requested?: unknown): Promise<any | null> {
+  const byId = async (id: string) => {
+    const { data } = await admin.from("products").select(PRODUCT_COLS).eq("id", id).eq("user_id", userId).maybeSingle();
+    return data ?? null;
+  };
+  if (typeof requested === "string" && PRODUCT_UUID_RE.test(requested)) {
+    const p = await byId(requested);
+    if (p) return p;
+  }
+  const { data: bp } = await admin.from("business_profile").select("active_product_id").eq("user_id", userId).maybeSingle();
+  if (typeof bp?.active_product_id === "string") {
+    const p = await byId(bp.active_product_id);
+    if (p) return p;
+  }
+  const { data } = await admin.from("products").select(PRODUCT_COLS).eq("user_id", userId).eq("status", "activo")
+    .order("created_at", { ascending: true }).limit(1).maybeSingle();
+  return data ?? null;
+}
+
 // ── Prompt ──────────────────────────────────────────────────────────────
 const LIMITS = "LÍMITES EN CUALQUIER TONO: nada de curar, tratar o prevenir enfermedades ni resultados médicos, de ingresos o físicos prometidos; no inventes testimonios, clientes, casos, cifras, estudios ni plazos; no inventes bonos, descuentos, garantías ni cupos que no estén en la ficha; nada de urgencia falsa (\"últimas horas\", \"quedan 2 cupos\") si la ficha no la trae; nunca culpes ni presiones a la persona.";
 
@@ -119,8 +145,7 @@ Deno.serve(async (req) => {
   const channel: "whatsapp" | "email" = body.channel === "email" ? "email" : "whatsapp";
   const objection = clip(body.objection, 300);
 
-  const { data: biz } = await admin.from("business_profile")
-    .select("business_type,copy_level,product,who,promise,price,proof,store_url").eq("user_id", userId).maybeSingle();
+  const biz = await resolveProduct(admin, userId, body.product_id);
   if (!biz || clip(biz.product, 300).length < 3) {
     return json(400, { error: "Primero llena Mi negocio (qué vendes, para quién y qué promete)." });
   }

@@ -6,6 +6,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProducts } from "@/contexts/ProductContext";
 import { useProjects } from "@/hooks/useProjects";
 import { askAssist } from "@/lib/formAssist";
 import { useBusinessProfile, type BusinessProfile, type LaunchPlan, type LaunchTask } from "@/lib/businessProfile";
@@ -251,6 +252,7 @@ const ghostBtn = "inline-flex items-center justify-center gap-1.5 rounded-lg bor
 
 export function LaunchPlanPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { user } = useAuth();
+  const { activeId } = useProducts();
   const { profile, loaded, savePatch } = useBusinessProfile();
   const { projects } = useProjects();
   const [plan, setPlan] = useState<LaunchPlan | null>(null);
@@ -284,20 +286,20 @@ export function LaunchPlanPage({ onNavigate }: { onNavigate?: (page: string) => 
 
   // Lo que el usuario ya hizo en otras herramientas (RLS: solo sus filas).
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeId) return;
     let alive = true;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).from("mandala_ads").select("id,spend,sales,status").limit(300)
+    (supabase as any).from("mandala_ads").select("id,spend,sales,status").eq("product_id", activeId).limit(300)
       .then(({ data }: { data: { spend: number | null; sales: number | null; status: string }[] | null }) => {
         if (!alive) return;
         const list = data ?? [];
         setAds({ count: list.length, measured: list.some(a => a.spend != null || a.sales != null || a.status === "ganador" || a.status === "descartado") });
       });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).from("content_items").select("status").eq("status", "publicado").limit(50)
+    (supabase as any).from("content_items").select("status").eq("product_id", activeId).eq("status", "publicado").limit(50)
       .then(({ data }: { data: { status: string }[] | null }) => { if (alive) setPublished((data ?? []).length); });
     return () => { alive = false; };
-  }, [user]);
+  }, [user, activeId]);
 
   // Si se sale de la página con cambios sin guardar, los guarda igual.
   useEffect(() => () => {

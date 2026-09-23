@@ -9,6 +9,7 @@ import { FloatingWinnerButton } from "@/components/FloatingWinnerButton";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useVersionCheck, updateIsReady } from "@/hooks/useVersionCheck";
 import { useFeatureAccess } from "@/lib/features";
+import { useProducts } from "@/contexts/ProductContext";
 
 // Carga diferida: cada pantalla es su propio chunk → la primera carga solo
 // baja el Dashboard, el resto llega bajo demanda al navegar.
@@ -31,6 +32,7 @@ const ValidationPage = lazy(() => import("@/pages/ValidationPage").then(m => ({ 
 const LaunchPlanPage = lazy(() => import("@/pages/LaunchPlanPage").then(m => ({ default: m.LaunchPlanPage })));
 const RecoveryPage = lazy(() => import("@/pages/RecoveryPage").then(m => ({ default: m.RecoveryPage })));
 const ContentPage = lazy(() => import("@/pages/ContentPage").then(m => ({ default: m.ContentPage })));
+const ProductsPage = lazy(() => import("@/pages/ProductsPage").then(m => ({ default: m.ProductsPage })));
 
 function PageLoader() {
   return (
@@ -66,11 +68,12 @@ const PAGE_SLUG: Record<string, string> = {
   "Contenido": "contenido",
   "Resultados": "resultados",
   "Recuperar": "recuperar",
+  "Productos": "productos",
 };
 const SLUG_PAGE: Record<string, string> = {
   "ofertas": "Ofertas", "mini-apps": "Mini Apps", "radar": "Buscar Ofertas Winner", "hooks": "Hooks", "mandala": "Mándala", "mercado": "Mercado",
   "oraculo": "Oráculo", "generadores": "Generadores", "media-studio": "Media Studio",
-  "proyectos": "Proyectos", "creditos": "Créditos", "crear": "Crear", "precio": "Precio", "mi-negocio": "Mi negocio", "validar": "Validar", "plan": "Plan", "contenido": "Contenido", "resultados": "Resultados", "recuperar": "Recuperar",
+  "proyectos": "Proyectos", "creditos": "Créditos", "crear": "Crear", "precio": "Precio", "mi-negocio": "Mi negocio", "validar": "Validar", "plan": "Plan", "contenido": "Contenido", "resultados": "Resultados", "recuperar": "Recuperar", "productos": "Productos",
 };
 function pageFromHash(): string {
   // Un hash que no es nuestro (p. ej. el #access_token=… de un enlace de acceso) se ignora.
@@ -108,6 +111,7 @@ const Index = () => {
   }, []);
 
   const { canSee, loading: accessLoading } = useFeatureAccess();
+  const { productKey } = useProducts();
   const renderPage = () => {
     // Secciones en pausa (src/lib/features.ts): un cliente que llega por un enlace viejo va al inicio.
     if (!canSee(activePage)) return accessLoading ? null : <DashboardPage onNavigate={setActivePage} />;
@@ -127,6 +131,7 @@ const Index = () => {
       case "Plan": return <LaunchPlanPage onNavigate={setActivePage} />;
       case "Contenido": return <ContentPage onNavigate={setActivePage} />;
       case "Recuperar": return <RecoveryPage onNavigate={setActivePage} />;
+      case "Productos": return <ProductsPage onNavigate={setActivePage} />;
       case "Mercado": return <MercadoPage onNavigate={setActivePage} />;
       case "Hooks": return <HooksPage onNavigate={setActivePage} />;
       case "Proyectos": return <BrainPage onNavigate={setActivePage} />;
@@ -170,7 +175,8 @@ const Index = () => {
           {/* Si una pantalla falla, el menú sigue vivo y cambiar de pantalla la recupera. */}
           <ErrorBoundary compact resetKey={activePage}>
             <Suspense fallback={<PageLoader />}>
-              {renderPage()}
+              {/* Cambiar de producto vuelve a montar la pantalla con los datos del nuevo. */}
+              <div key={productKey} className="contents">{renderPage()}</div>
             </Suspense>
           </ErrorBoundary>
         </main>

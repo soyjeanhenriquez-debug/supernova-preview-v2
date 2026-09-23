@@ -21,7 +21,7 @@ export function BrainPage({ onNavigate }: { onNavigate?: (page: string) => void 
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h2 className="page-heading font-display text-2xl text-foreground flex items-center gap-2">
-            <Brain className="w-6 h-6 text-primary" /> Mis productos
+            <Brain className="w-6 h-6 text-primary" /> Lo que creaste
           </h2>
           <p className="text-xs uppercase tracking-wider text-primary font-semibold mt-1">Mi negocio · Etapa 4</p>
           <p className="text-sm text-muted-foreground mt-2 max-w-2xl">

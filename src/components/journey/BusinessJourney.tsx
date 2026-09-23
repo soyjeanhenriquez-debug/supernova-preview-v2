@@ -3,6 +3,7 @@ import { ArrowRight, Check } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProducts } from "@/contexts/ProductContext";
 import { useProjects } from "@/hooks/useProjects";
 import { useBusinessProfile, profileReady, type BusinessProfile } from "@/lib/businessProfile";
 import { WeeklyPlan } from "@/components/journey/WeeklyPlan";
@@ -19,18 +20,19 @@ type Stage = { n: number; key: string; short: string; title: string; why: string
 
 export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => void }) {
   const { user } = useAuth();
+  const { activeId } = useProducts();
   const { profile, savePatch, loaded } = useBusinessProfile();
   const { projects } = useProjects();
   const [ads, setAds] = useState<{ count: number; measured: boolean } | null>(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeId) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).from("mandala_ads").select("spend,sales,status").limit(300).then(({ data }: { data: { spend: number | null; sales: number | null; status: string }[] | null }) => {
+    (supabase as any).from("mandala_ads").select("spend,sales,status").eq("product_id", activeId).limit(300).then(({ data }: { data: { spend: number | null; sales: number | null; status: string }[] | null }) => {
       const list = data ?? [];
       setAds({ count: list.length, measured: list.some(a => a.spend != null || a.sales != null || a.status === "ganador" || a.status === "descartado") });
     });
-  }, [user]);
+  }, [user, activeId]);
 
   const manual = (k: string) => !!profile.journey?.done?.[k];
   const toggleManual = (k: string) => {

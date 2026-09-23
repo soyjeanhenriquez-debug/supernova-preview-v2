@@ -57,6 +57,32 @@ async function requireUser(req: Request, admin: any, body: Record<string, unknow
   return { userId };
 }
 
+// ── Producto sobre el que se trabaja ────────────────────────────────────
+// Cada usuario puede tener varios productos (tabla products). Se usa el que pide el cliente si es
+// SUYO; si no, el que tiene abierto (business_profile.active_product_id); si no, su producto activo
+// más antiguo. Devuelve null si no tiene ninguno.
+const PRODUCT_COLS = "id,product,who,promise,business_type,copy_level";
+const PRODUCT_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// deno-lint-ignore no-explicit-any
+async function resolveProduct(admin: any, userId: string, requested?: unknown): Promise<any | null> {
+  const byId = async (id: string) => {
+    const { data } = await admin.from("products").select(PRODUCT_COLS).eq("id", id).eq("user_id", userId).maybeSingle();
+    return data ?? null;
+  };
+  if (typeof requested === "string" && PRODUCT_UUID_RE.test(requested)) {
+    const p = await byId(requested);
+    if (p) return p;
+  }
+  const { data: bp } = await admin.from("business_profile").select("active_product_id").eq("user_id", userId).maybeSingle();
+  if (typeof bp?.active_product_id === "string") {
+    const p = await byId(bp.active_product_id);
+    if (p) return p;
+  }
+  const { data } = await admin.from("products").select(PRODUCT_COLS).eq("user_id", userId).eq("status", "activo")
+    .order("created_at", { ascending: true }).limit(1).maybeSingle();
+  return data ?? null;
+}
+
 // ── Demanda real: autocompletado de Google y YouTube ─────────────────────
 type Search = { q: string; source: "google" | "youtube" };
 
@@ -119,7 +145,7 @@ Deno.serve(async (req) => {
   const gate = await requireUser(req, admin, body && typeof body === "object" ? body : {});
   if (gate instanceof Response) return gate;
 
-  const { data: biz } = await admin.from("business_profile").select("product,who,promise,business_type,copy_level").eq("user_id", gate.userId).maybeSingle();
+  const biz = await resolveProduct(admin, gate.userId, body.product_id);
   const product = clip(biz?.product, 300);
   const who = clip(biz?.who, 300);
   const promise = clip(biz?.promise, 300);

@@ -262,6 +262,44 @@ function RoleBadge({ role }: { role: Role }) {
   );
 }
 
+/** Productos activos permitidos (tabla user_limits): 3 en PRO; súbelo para clientes de Comunidad. */
+function ProductLimitControl({ userId }: { userId: string }) {
+  const [value, setValue] = useState<number | null>(null);
+  const [count, setCount] = useState(0);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    Promise.all([
+      sb.from("user_limits").select("max_products").eq("user_id", userId).maybeSingle(),
+      sb.from("products").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "activo"),
+    ]).then(([lim, prods]: [{ data: { max_products: number } | null }, { count: number | null }]) => {
+      setValue(lim.data?.max_products ?? 3);
+      setCount(prods.count ?? 0);
+    });
+  }, [userId]);
+  const save = async (n: number) => {
+    setBusy(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any).from("user_limits").upsert({ user_id: userId, max_products: n, note: n > 3 ? "Comunidad" : null, updated_at: new Date().toISOString() });
+    setBusy(false);
+    if (error) toast.error(error.message); else { setValue(n); toast.success(`Ahora puede tener ${n} productos activos`); }
+  };
+  return (
+    <div className="rounded-xl border border-border p-4 space-y-3">
+      <div className="flex items-center gap-2 text-[12px] font-medium">Productos activos · usa {count} de {value ?? "…"}</div>
+      <div className="flex flex-wrap gap-2">
+        {[3, 10, 25].map(n => (
+          <button key={n} disabled={busy || value === n} onClick={() => save(n)}
+            className={`text-[12px] px-3 py-1.5 rounded-lg border ${value === n ? "bg-primary/15 border-primary/40 text-foreground" : "border-border text-muted-foreground hover:bg-secondary/40"} disabled:opacity-50`}>
+            {n}{n === 3 ? " · PRO" : n === 10 ? " · Comunidad" : ""}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function UserDetailModal({ userId, onClose, onChanged }: { userId: string; onClose: () => void; onChanged: () => void }) {
   const [d, setD] = useState<UserDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -344,6 +382,8 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: string; onClo
                   ))}
                 </div>
               </div>
+
+              <ProductLimitControl userId={userId} />
 
               <div className="rounded-xl border border-border p-4 space-y-3">
                 <div className="flex items-center gap-2 text-[12px] font-medium">

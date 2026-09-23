@@ -62,6 +62,32 @@ async function requireUser(req: Request, admin: any, body: Record<string, unknow
   return { userId };
 }
 
+// ── Producto sobre el que se trabaja ────────────────────────────────────
+// Cada usuario puede tener varios productos (tabla products). Se usa el que pide el cliente si es
+// SUYO; si no, el que tiene abierto (business_profile.active_product_id); si no, su producto activo
+// más antiguo. Devuelve null si no tiene ninguno.
+const PRODUCT_COLS = "id,business_type,copy_level,product,who,promise,price,pricing,journey,validation,launch_plan,recovery";
+const PRODUCT_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// deno-lint-ignore no-explicit-any
+async function resolveProduct(admin: any, userId: string, requested?: unknown): Promise<any | null> {
+  const byId = async (id: string) => {
+    const { data } = await admin.from("products").select(PRODUCT_COLS).eq("id", id).eq("user_id", userId).maybeSingle();
+    return data ?? null;
+  };
+  if (typeof requested === "string" && PRODUCT_UUID_RE.test(requested)) {
+    const p = await byId(requested);
+    if (p) return p;
+  }
+  const { data: bp } = await admin.from("business_profile").select("active_product_id").eq("user_id", userId).maybeSingle();
+  if (typeof bp?.active_product_id === "string") {
+    const p = await byId(bp.active_product_id);
+    if (p) return p;
+  }
+  const { data } = await admin.from("products").select(PRODUCT_COLS).eq("user_id", userId).eq("status", "activo")
+    .order("created_at", { ascending: true }).limit(1).maybeSingle();
+  return data ?? null;
+}
+
 // Lunes de la semana en hora de República Dominicana (UTC−4), como fecha YYYY-MM-DD.
 function weekStart(): string {
   const now = new Date(Date.now() - 4 * 3600_000);
@@ -86,18 +112,22 @@ Deno.serve(async (req) => {
   const force = body.force === true;
   const week = weekStart();
 
-  const { data: existing } = await admin.from("weekly_plans").select("*").eq("user_id", gate.userId).eq("week_start", week).maybeSingle();
+  // Un plan por producto: todo lo de abajo se filtra por el producto resuelto.
+  const biz = await resolveProduct(admin, gate.userId, body.product_id);
+  if (!biz) return json(400, { error: "Primero crea tu producto en Mi negocio para armar tu semana." });
+  const pid: string = biz.id;
+
+  const { data: existing } = await admin.from("weekly_plans").select("*").eq("user_id", gate.userId).eq("product_id", pid).eq("week_start", week).maybeSingle();
   if (existing && !force) return json(200, { plan: existing, created: false });
   if (existing && force && existing.regenerations >= MAX_REGEN) {
     return json(200, { plan: existing, created: false, note: "Ya rehiciste tu semana 2 veces. El lunes llega una nueva." });
   }
 
   // Estado real del negocio (el cliente solo aporta lo que vive en el navegador).
-  const [{ data: biz }, { data: ads }, { data: prev }, { data: content }] = await Promise.all([
-    admin.from("business_profile").select("business_type,copy_level,product,who,promise,price,pricing,journey,validation,launch_plan,recovery").eq("user_id", gate.userId).maybeSingle(),
-    admin.from("mandala_ads").select("stage,angle,status,spend,ctr,sales,created_at").eq("user_id", gate.userId).order("created_at", { ascending: false }).limit(20),
-    admin.from("weekly_plans").select("week_start,focus,tasks").eq("user_id", gate.userId).lt("week_start", week).order("week_start", { ascending: false }).limit(1).maybeSingle(),
-    admin.from("content_items").select("status,due").eq("user_id", gate.userId).limit(200),
+  const [{ data: ads }, { data: prev }, { data: content }] = await Promise.all([
+    admin.from("mandala_ads").select("stage,angle,status,spend,ctr,sales,created_at").eq("user_id", gate.userId).eq("product_id", pid).order("created_at", { ascending: false }).limit(20),
+    admin.from("weekly_plans").select("week_start,focus,tasks").eq("user_id", gate.userId).eq("product_id", pid).lt("week_start", week).order("week_start", { ascending: false }).limit(1).maybeSingle(),
+    admin.from("content_items").select("status,due").eq("user_id", gate.userId).eq("product_id", pid).limit(200),
   ]);
   // Estado de las herramientas del recorrido, en una línea cada una.
   const plan = (biz?.launch_plan as { tasks?: { title: string; due: string | null; done: boolean }[] } | null)?.tasks ?? [];
@@ -179,10 +209,10 @@ SEMANA PASADA: ${prev ? `foco "${clip(prev.focus, 120)}"; ${prevDone.filter((t) 
   if (tasks.length === 0) return json(502, { error: "No se pudo armar tu semana. Intenta de nuevo." });
 
   const row = {
-    user_id: gate.userId, week_start: week, focus: clip(parsed?.focus, 140), tasks,
+    user_id: gate.userId, product_id: pid, week_start: week, focus: clip(parsed?.focus, 140), tasks,
     regenerations: existing ? existing.regenerations + 1 : 0, updated_at: new Date().toISOString(),
   };
-  const { data: saved, error } = await admin.from("weekly_plans").upsert(row).select("*").single();
+  const { data: saved, error } = await admin.from("weekly_plans").upsert(row, { onConflict: "user_id,product_id,week_start" }).select("*").single();
   if (error) {
     console.error("weekly-plan: guardar", error.message);
     return json(500, { error: "No se pudo guardar tu semana." });

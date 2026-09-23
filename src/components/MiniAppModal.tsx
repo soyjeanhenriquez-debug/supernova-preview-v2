@@ -132,7 +132,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
       // Auto-guardado: en cuanto está lista, se persiste en Proyectos para que
       // NUNCA se pierda lo que el usuario ya pagó (aunque cierre el modal).
       persistToBrain(bp, mp.content);
-      toast.success("🧬 Tu mini app está lista. La guardamos en Mis productos.");
+      toast.success("🧬 Tu mini app está lista. La guardamos en Lo que creaste.");
     } catch (e) {
       setPhase("error");
       toast.error(e instanceof Error ? e.message : "Algo falló. Inténtalo de nuevo.");
@@ -259,9 +259,9 @@ export function MiniAppModal({ ad, onClose }: Props) {
   };
 
   const saveToBrain = () => {
-    if (saved) { toast.info("Ya está en Mis productos"); return; }
+    if (saved) { toast.info("Ya está en Lo que creaste"); return; }
     persistToBrain(blueprint, miniapp);
-    toast.success("✓ Guardado en Mis productos");
+    toast.success("✓ Guardado en Lo que creaste");
   };
 
   const running = phase === "blueprint" || phase === "miniapp";
@@ -380,7 +380,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
                     <li>• <b className="text-foreground">Tu mini app:</b> una herramienta sencilla que la gente paga por usar. Te damos el texto para pegar en la IA que prefieras (Lovable, Bolt, ChatGPT, Claude u otra).</li>
                     <li>• <b className="text-foreground">Extras:</b> un prompt para tus anuncios y otro para revisar tu negocio antes de pagar publicidad.</li>
                     <li>• <b className="text-foreground">Cómo venderla:</b> guion de WhatsApp con precio en tu moneda, o guion de video de ventas.</li>
-                    <li>• Si algo falla, reintentar no cuesta más. Todo queda guardado en Mis productos.</li>
+                    <li>• Si algo falla, reintentar no cuesta más. Todo queda guardado en Lo que creaste.</li>
                   </ul>
                 )}
               </div>
@@ -522,7 +522,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
               className="px-4 py-2.5 rounded-lg border border-border text-sm text-foreground hover:bg-secondary flex items-center gap-2 disabled:opacity-50"
             >
               {saved ? <Check className="w-4 h-4 text-success" /> : <Save className="w-4 h-4" />}
-              {saved ? "Guardado ✓" : "Guardar en Mis productos"}
+              {saved ? "Guardado ✓" : "Guardar en Lo que creaste"}
             </button>
           </div>
         )}

@@ -60,3 +60,7 @@ verify_jwt = false
 # "Entrar como este usuario" (Admin → Usuarios). Compuerta propia: admin con sesión o secreto de cron.
 [functions.admin-impersonate]
 verify_jwt = false
+
+# Correo diario de alertas al admin (pg_cron). Compuerta propia: secreto de cron o admin.
+[functions.health-alert]
+verify_jwt = false

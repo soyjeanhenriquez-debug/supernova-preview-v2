@@ -9,6 +9,7 @@
 // es agregar filas, sin redesplegar. Modelo sin secreto configurado → 503 sin cobrar.
 //
 // Piloto: con PILOT_ADMIN_ONLY = true solo responde a admins (403 not_available al resto, sin cobrar).
+// Modelos apagados (enabled=false): solo un admin puede escribir con ellos, para probarlos antes de vender.
 // Desbloqueo: escribir piezas exige al menos UNA recarga pagada (builder_unlocked): primero entra
 // dinero, después se gasta en la IA. El índice es la muestra gratis. Sin recarga → 402 needs_recharge.
 // Cada llamada tiene 125 s en total (TOTAL_BUDGET_MS); la IA recibe lo que quede de ese presupuesto.
@@ -19,7 +20,7 @@ import { corsHeaders as baseCors } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@0.128";
 
-const FN = "product-builder";            // p_fn de log_ai_usage
+const FN = "product-builder";            // p_fn de log_ai_usage: "product-builder:outline" | ":piece" (panel de margen)
 const FN_OUTLINE = "product-builder-outline"; // topes en edge_limits
 const FN_PIECE = "product-builder-piece";  // + "-<tier>": cada nivel con su tope en edge_limits
 // Topes por nivel si edge_limits no tiene fila (los de la tabla mandan; se siembran iguales).
@@ -160,7 +161,8 @@ const MODEL_COLS = "slug,provider,model_id,label,tier,piece_action,enabled,allow
 function providerKey(provider: ModelRow["provider"]): string | null {
   if (provider === "gemini") return Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY") ?? null;
   if (provider === "anthropic") return Deno.env.get("ANTHROPIC_API_KEY") ?? null;
-  if (provider === "openai") return Deno.env.get("OPENAI_API_KEY") ?? null;
+  // En Supabase el secreto se llama CHATGPT_API_KEY; OPENAI_API_KEY queda como alias.
+  if (provider === "openai") return Deno.env.get("OPENAI_API_KEY") ?? Deno.env.get("CHATGPT_API_KEY") ?? null;
   return null;
 }
 
@@ -289,10 +291,11 @@ async function callModel(
   return await callOpenAICompat(row, apiKey, system, stable, userMsg, signal, jsonMode);
 }
 
-async function logUsage(admin: Admin, userId: string, row: ModelRow, res: ModelResult): Promise<void> {
+type UsageTag = "outline" | "piece";
+async function logUsage(admin: Admin, userId: string, row: ModelRow, res: ModelResult, tag: UsageTag): Promise<void> {
   try {
     const { error } = await admin.rpc("log_ai_usage", {
-      p_user_id: userId, p_fn: FN, p_model: row.model_id, p_input: res.input, p_output: res.output, p_images: 0,
+      p_user_id: userId, p_fn: `${FN}:${tag}`, p_model: row.model_id, p_input: res.input, p_output: res.output, p_images: 0,
     });
     if (error) console.error("log_ai_usage:", error.message);
   } catch (e) { console.error("log_ai_usage:", e); }
@@ -301,13 +304,13 @@ async function logUsage(admin: Admin, userId: string, row: ModelRow, res: ModelR
 // Registra el costo de una llamada que FALLÓ (antes de reembolsar): lo gastado con el proveedor
 // cuenta igual. Usa el uso parcial si lo hay; si no, estima: entrada ≈ largo del prompt / 3 y
 // salida = todo el máximo si se agotó el tiempo (siguió generando), 0 si falló de inmediato.
-async function logFailedUsage(admin: Admin, userId: string, row: ModelRow, e: unknown, promptChars: number): Promise<void> {
+async function logFailedUsage(admin: Admin, userId: string, row: ModelRow, e: unknown, promptChars: number, tag: UsageTag): Promise<void> {
   const pe = e instanceof ProviderError ? e : null;
   const usage = pe?.usage ?? {
     input: Math.round(promptChars / 3),
     output: pe?.kind === "timeout" ? row.max_output_tokens : 0,
   };
-  await logUsage(admin, userId, row, { text: "", stop: "end", input: usage.input, output: usage.output });
+  await logUsage(admin, userId, row, { text: "", stop: "end", input: usage.input, output: usage.output }, tag);
 }
 
 // ── Prompts ─────────────────────────────────────────────────────────────
@@ -502,13 +505,13 @@ PEDIDO DEL USUARIO SOBRE EL CONTENIDO (inclúyelo si no choca con las REGLAS; no
   let logged = false;
   try {
     const res = await callModel(model, apiKey, system, stable, userMsg, ctrl.signal, true);
-    await logUsage(admin, userId, model, res);
+    await logUsage(admin, userId, model, res, "outline");
     logged = true;
     if (res.stop === "refusal") throw new Error("refusal");
     parsed = JSON.parse(res.text.trim().replace(/^```(?:json)?\s*|\s*```$/g, ""));
   } catch (e) {
     // Es gratis: no hay nada que reembolsar, pero lo gastado con el proveedor se registra igual.
-    if (!logged) await logFailedUsage(admin, userId, model, e, system.length + stable.length + userMsg.length);
+    if (!logged) await logFailedUsage(admin, userId, model, e, system.length + stable.length + userMsg.length, "outline");
     console.error(`${FN} outline:`, e instanceof Error ? e.message : e);
     return fail(502, "ai_failed", "No se pudo crear tu índice. Intenta de nuevo.");
   } finally {
@@ -622,10 +625,15 @@ async function piece(req: Request, body: any, t0: number): Promise<Response> {
     : { data: null };
   if (!pc || !build) return fail(404, "not_found", "No encontramos esta parte.");
 
-  // 4. Modelo.
+  // 4. Modelo. Un admin puede probar uno APAGADO (con cobro real) antes de ponerlo a la venta.
   const { data: row } = await admin.from("ai_builder_models").select(MODEL_COLS)
-    .eq("slug", body.model).eq("enabled", true).maybeSingle();
-  if (!row) return fail(503, "model_unavailable", "Este modelo aún no está disponible. No se te cobró.");
+    .eq("slug", body.model).maybeSingle();
+  let usable = row?.enabled === true;
+  if (row && !usable) {
+    const { data: isAdmin } = await admin.rpc("has_role", { _user_id: userId, _role: "admin" });
+    usable = isAdmin === true;
+  }
+  if (!row || !usable) return fail(503, "model_unavailable", "Este modelo aún no está disponible. No se te cobró.");
   const model = row as ModelRow;
 
   // 5. Tono vs modelo.
@@ -719,7 +727,7 @@ ${prevTail ? `\nFINAL DE LA PARTE ANTERIOR (para dar continuidad, no lo repitas)
   } catch (e) {
     console.error(`${FN} piece:`, e instanceof Error ? e.message : e);
     // Lo gastado con el proveedor se registra ANTES de reembolsar al usuario.
-    await logFailedUsage(admin, userId, model, e, system.length + stable.length + userMsg.length);
+    await logFailedUsage(admin, userId, model, e, system.length + stable.length + userMsg.length, "piece");
     if (e instanceof ProviderError && e.kind === "timeout") {
       return await refundFail(504, "ai_timeout", "Tardó demasiado. No se te cobró: intenta de nuevo o usa otra IA.", "IA tiempo");
     }
@@ -731,7 +739,7 @@ ${prevTail ? `\nFINAL DE LA PARTE ANTERIOR (para dar continuidad, no lo repitas)
   } finally {
     clearTimeout(timer);
   }
-  await logUsage(admin, userId, model, res);
+  await logUsage(admin, userId, model, res, "piece");
 
   if (res.stop === "refusal") {
     return await refundFail(422, "ai_refusal", "La IA no quiso escribir esta parte. No se te cobró. Cambia el título o el tono.", "rechazo de la IA");

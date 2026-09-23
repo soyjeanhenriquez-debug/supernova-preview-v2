@@ -67,7 +67,7 @@ export function useProductBuilds() {
     let alive = true;
     (async () => {
       const { data: rows, error } = await db().from("ai_builder_models")
-        .select("slug,label,hint,tier,provider,allows_profanity,piece_action,enabled,sort_order")
+        .select("slug,label,hint,benefits,tier,provider,allows_profanity,piece_action,enabled,sort_order")
         .order("sort_order");
       if (error) console.error("ai_builder_models:", error.message);
       const list = (rows ?? []) as (Omit<BuilderModel, "cost"> & { sort_order?: number })[];
@@ -79,7 +79,7 @@ export function useProductBuilds() {
       }
       if (!alive) return;
       setModels(list.map(m => ({
-        slug: m.slug, label: m.label, hint: m.hint ?? "", tier: m.tier, provider: m.provider,
+        slug: m.slug, label: m.label, hint: m.hint ?? "", benefits: Array.isArray(m.benefits) ? m.benefits : [], tier: m.tier, provider: m.provider,
         allows_profanity: !!m.allows_profanity, piece_action: m.piece_action,
         cost: prices[m.piece_action] ?? CREDIT_COSTS[m.piece_action as CreditAction] ?? 0,
         enabled: m.enabled === true,

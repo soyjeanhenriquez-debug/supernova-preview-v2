@@ -541,7 +541,20 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
                       {m.tier === "maximo" && <span className="text-[10px] uppercase tracking-wider text-primary">Máximo</span>}
                     </span>
                     {m.hint && <span className="block text-xs text-muted-foreground mt-0.5">{m.hint}</span>}
-                    <span className="block text-xs text-foreground/80 mt-1 tabular-nums">{m.cost} créditos por parte</span>
+                    {m.benefits.length > 0 && (
+                      <span className="block mt-1.5 space-y-0.5">
+                        {m.benefits.map(b => (
+                          <span key={b} className="flex items-start gap-1.5 text-xs text-foreground/80">
+                            <Check className="w-3.5 h-3.5 mt-px shrink-0 text-primary" />{b}
+                          </span>
+                        ))}
+                      </span>
+                    )}
+                    {/* Precio en créditos, nunca en dólares: el plan ya incluye los créditos del mes. */}
+                    <span className="block text-xs text-foreground mt-2 tabular-nums">
+                      <span className="font-semibold">{m.cost} créditos</span> por parte
+                      {sorted.length > 0 && <span className="text-muted-foreground"> · {FORMAT_LABEL[build.format].toLowerCase()} completo: {(sorted.length * m.cost).toLocaleString()}</span>}
+                    </span>
                   </button>
                 );
               })}

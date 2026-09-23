@@ -5,6 +5,7 @@ import { fnHeaders } from "@/lib/fnAuth";
 import { CheckCircle2, XCircle, HeartPulse, RefreshCw, Loader2 } from "lucide-react";
 import { HealthAlerts } from "@/components/admin/HealthAlerts";
 import { AiCosts } from "@/components/admin/AiCosts";
+import { AiMargins } from "@/components/admin/AiMargins";
 
 interface Check { name: string; ok: boolean; detail: string }
 
@@ -158,6 +159,8 @@ export default function AdminHealth() {
       <HealthAlerts />
 
       <AiCosts />
+
+      <AiMargins />
 
       <h2 className="font-display text-lg pt-2">Componentes</h2>
       {loading ? (

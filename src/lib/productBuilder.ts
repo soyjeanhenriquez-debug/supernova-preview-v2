@@ -59,6 +59,8 @@ export interface BuilderModel {
   slug: string;
   label: string;
   hint: string;
+  /** "Qué obtienes" (ai_builder_models.benefits, máx. 3): el cliente compara niveles como en HeyGen. */
+  benefits: string[];
   tier: ModelTier;
   provider: "gemini" | "anthropic" | "openai";
   allows_profanity: boolean;
@@ -74,6 +76,7 @@ export interface BuilderModel {
 export const UPCOMING_MODELS: { slug: string; label: string; tier: ModelTier }[] = [
   { slug: "estandar", label: "Estándar", tier: "estandar" },
   { slug: "sonnet", label: "Premium · Sonnet 5", tier: "premium" },
+  { slug: "chatgpt", label: "Premium · ChatGPT", tier: "premium" },
   { slug: "opus", label: "Pro · Opus 5.5", tier: "premium" },
   { slug: "fable", label: "Máximo · Fable 5.1", tier: "maximo" },
 ];

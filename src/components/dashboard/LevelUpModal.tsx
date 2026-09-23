@@ -24,9 +24,9 @@ export function LevelUpModal({ open, level, onClose }: Props) {
           <div className="text-[10px] uppercase tracking-[0.22em] text-primary font-medium">Subiste de nivel</div>
           <div className="font-display text-[64px] leading-none font-semibold text-primary tabular-nums">{level}</div>
           <h2 className="font-display text-2xl font-semibold text-foreground">{lvl?.name}</h2>
-          <p className="text-[14px] text-muted-foreground">Tu consistencia te puso aquí. Sigue adelante.</p>
+          <p className="text-[14px] text-muted-foreground">Llegaste aquí usando la app día a día. Sigue así.</p>
           <button onClick={onClose} className="btn-primary-nova px-6 py-2.5 rounded-lg text-[13px] mt-2">
-            Seguir subiendo →
+            Seguir →
           </button>
         </div>
       </DialogContent>

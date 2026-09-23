@@ -10,10 +10,15 @@ export function OraculoPage() {
         </div>
         <div className="min-w-0">
           <h1 className="font-display font-semibold text-[20px] tracking-tight text-foreground">
-            Oráculo de Inteligencia
+            Oráculo: analiza la página de ventas de otro negocio
           </h1>
           <p className="text-[13px] text-muted-foreground mt-1 leading-relaxed">
-            Pega cualquier URL y descifra la oferta completa: anuncios activos, ángulo, avatar, debilidades y blueprint.
+            Pega el enlace de una página que vende algo (la de un competidor o una oferta que viste en un anuncio) y recibes un informe
+            de 9 partes: qué vende, a quién, por qué le funciona, sus puntos débiles, sus anuncios activos, un plan de 30 días para hacerlo
+            mejor y un gancho listo para tu primer anuncio.
+          </p>
+          <p className="text-[12px] text-muted-foreground mt-1.5 leading-relaxed">
+            Úsalo antes de crear tu oferta, para no empezar a ciegas. Tarda unos 25 segundos.
           </p>
         </div>
       </header>

@@ -18,9 +18,12 @@ export function BrainPage() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h2 className="page-heading font-display text-2xl text-foreground flex items-center gap-2">
-            <Brain className="w-6 h-6 text-primary" /> SUPERNOVA BRAIN — 6 PILARES
+            <Brain className="w-6 h-6 text-primary" /> Proyectos · 6 pasos
           </h2>
-          <p className="text-sm text-muted-foreground mt-3">Tu sistema de inteligencia secuencial para Direct Response</p>
+          <p className="text-sm text-muted-foreground mt-3 max-w-2xl">
+            Aquí se guarda cada negocio que empiezas en SUPERNOVA, con una lista de 6 pasos: de encontrar qué vender hasta escalar tus anuncios.
+            Marca cada paso cuando lo termines, toma notas y, si te trabas, pide ayuda a la IA ({CREDIT_COSTS.pillar_assist} créditos por paso).
+          </p>
         </div>
       </div>
 
@@ -28,7 +31,7 @@ export function BrainPage() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {PILLARS.map((p) => (
           <div key={p.id} className="card-surface rounded-xl p-3">
-            <div className="text-[10px] uppercase tracking-widest text-primary font-bold">PILAR {p.id}</div>
+            <div className="text-[10px] uppercase tracking-widest text-primary font-bold">PASO {p.id}</div>
             <div className="font-display font-bold text-sm text-foreground mt-1">{p.name}</div>
             <div className="text-[11px] text-muted-foreground mt-1 leading-snug">{p.desc}</div>
           </div>
@@ -37,12 +40,12 @@ export function BrainPage() {
 
       {/* Projects */}
       <div>
-        <h3 className="font-display font-bold text-lg mb-3">Tus proyectos activos</h3>
+        <h3 className="font-display font-bold text-lg mb-3">Tus proyectos ({projects.length})</h3>
         {projects.length === 0 ? (
           <div className="card-surface rounded-xl py-16 text-center">
             <div className="empty-icon mb-4"><Brain className="w-9 h-9" /></div>
-            <div className="font-display font-bold text-lg mb-1">Tu cerebro está listo para encender</div>
-            <div className="text-sm text-muted-foreground max-w-sm mx-auto">Cada proyecto que crees alimenta tu motor SUPERNOVA. Empieza por Ofertas o por el Radar de anuncios.</div>
+            <div className="font-display font-bold text-lg mb-1">Todavía no tienes proyectos</div>
+            <div className="text-sm text-muted-foreground max-w-sm mx-auto">Se crean solos cuando guardas algo como proyecto, por ejemplo desde Ofertas, Mini Apps, el Radar de anuncios o Modo Crear. Empieza por Ofertas si aún no sabes qué vender.</div>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -67,12 +70,12 @@ function ProjectCard({ p, onOpen, onDelete }: { p: BrainProject; onOpen: () => v
           <div className="text-[10px] uppercase tracking-widest text-primary font-bold">{modeLabel}</div>
           <div className="font-display font-bold text-sm mt-1 truncate">{p.name}</div>
         </div>
-        <button onClick={onDelete} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+        <button onClick={onDelete} className="text-muted-foreground hover:text-destructive" aria-label="Borrar proyecto" title="Borrar proyecto"><Trash2 className="w-3.5 h-3.5" /></button>
       </div>
       <div>
         <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
-          <span>Pilar {p.pillar}: {PILLARS[p.pillar - 1]?.name}</span>
-          <span>{p.completedPillars.length}/6</span>
+          <span>Paso {p.pillar}: {PILLARS[p.pillar - 1]?.name}</span>
+          <span>{p.completedPillars.length} de 6 pasos</span>
         </div>
         <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
           <div className="h-full btn-primary-nova" style={{ width: `${progress}%` }} />
@@ -80,7 +83,7 @@ function ProjectCard({ p, onOpen, onDelete }: { p: BrainProject; onOpen: () => v
       </div>
       <div className="text-[10px] text-muted-foreground">Actualizado {new Date(p.updatedAt).toLocaleDateString("es-ES")}</div>
       <button onClick={onOpen} className="text-xs text-primary hover:underline flex items-center gap-1">
-        Abrir <ArrowRight className="w-3 h-3" />
+        Abrir proyecto <ArrowRight className="w-3 h-3" />
       </button>
     </div>
   );
@@ -125,20 +128,20 @@ function SavedAssets({ context }: { context: unknown }) {
 
   const copy = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success("Copiado — pégalo en Lovable o Claude");
+    toast.success("Copiado. Pégalo en Lovable, Claude o donde lo necesites.");
   };
 
   const ventaLabel = ctx.salesPath === "whatsapp" ? "📱 Guion de WhatsApp · cobro manual" : "🎥 Guion de VSL · cobro automático";
 
   const items = [
     { key: "vender" as const, label: ventaLabel, content: ctx.salesScript },
-    { key: "miniapp" as const, label: "🧬 Mega-Prompt · Mini App + embudo", content: ctx.miniapp },
-    { key: "blueprint" as const, label: "🎯 Por qué gana · Blueprint", content: ctx.blueprint },
+    { key: "miniapp" as const, label: "🧬 Mega-Prompt para crear tu mini app y su embudo", content: ctx.miniapp },
+    { key: "blueprint" as const, label: "🎯 Por qué funciona esta oferta (blueprint)", content: ctx.blueprint },
   ].filter((i) => i.content);
 
   return (
     <div className="space-y-2 mb-4">
-      <div className="text-[10px] uppercase tracking-widest text-primary font-bold">Lo que generaste</div>
+      <div className="text-[10px] uppercase tracking-widest text-primary font-bold">Lo que ya creaste para este proyecto</div>
       {items.map((i) => (
         <div key={i.key} className="border border-primary/25 rounded-lg overflow-hidden bg-primary/5">
           <div className="flex items-center justify-between px-3 py-2">
@@ -158,7 +161,7 @@ function SavedAssets({ context }: { context: unknown }) {
       ))}
       {ctx.adImage && (
         <div className="border border-primary/25 rounded-lg overflow-hidden bg-primary/5 p-3">
-          <div className="text-xs font-semibold text-primary mb-2">🖼️ Creativo de imagen generado</div>
+          <div className="text-xs font-semibold text-primary mb-2">🖼️ Imagen para tu anuncio</div>
           <img src={ctx.adImage} alt="Creativo de anuncio" className="w-40 rounded-lg border border-border" />
         </div>
       )}
@@ -182,7 +185,7 @@ function PillarBlock({
 
   const runAssist = async () => {
     if (loading) return;
-    if (!canAfford("pillar_assist")) { toast.error("Sin créditos suficientes"); return; }
+    if (!canAfford("pillar_assist")) { toast.error(`Te faltan créditos: la ayuda cuesta ${CREDIT_COSTS.pillar_assist}`, { description: "Recarga créditos o espera a que se renueven el mes que viene." }); return; }
     setLoading(true); setAiText("");
 
     try {
@@ -203,7 +206,7 @@ function PillarBlock({
           }),
         },
       );
-      if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "Error de IA"));
+      if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "La IA no pudo responder"));
       applyServerCharge("pillar_assist", readBilling(resp), `Pilar ${pillar.id} · ${proj.name}`); // lo cobró el servidor
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -229,9 +232,9 @@ function PillarBlock({
           } catch {/* ignore */}
         }
       }
-      toast.success("✓ Guía generada");
+      toast.success("Listo: tienes la guía para este paso");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error generando guía");
+      toast.error(e instanceof Error ? e.message : "No se pudo crear la guía. Inténtalo de nuevo.");
     } finally { setLoading(false); }
   };
 
@@ -240,17 +243,17 @@ function PillarBlock({
     const current = proj.notes[pillar.id] || "";
     const next = current ? `${current}\n\n${aiText}` : aiText;
     setNote(proj.id, pillar.id, next);
-    toast.success("✓ Añadido a tus notas");
+    toast.success("Añadido a tus notas");
   };
 
   return (
     <div className="border border-border rounded-lg p-3">
       <div className="flex items-center gap-3">
-        <button onClick={() => togglePillar(proj.id, pillar.id)} className={`shrink-0 ${done ? "text-success" : "text-muted-foreground hover:text-primary"}`}>
+        <button onClick={() => togglePillar(proj.id, pillar.id)} aria-label={done ? "Marcar como pendiente" : "Marcar como hecho"} title={done ? "Marcar como pendiente" : "Marcar como hecho"} className={`shrink-0 ${done ? "text-success" : "text-muted-foreground hover:text-primary"}`}>
           {done ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
         </button>
         <div className="flex-1 min-w-0">
-          <div className="text-[10px] uppercase tracking-wider text-primary font-bold">PILAR {pillar.id}</div>
+          <div className="text-[10px] uppercase tracking-wider text-primary font-bold">PASO {pillar.id}</div>
           <div className="font-display font-bold text-sm">{pillar.name}</div>
           <div className="text-xs text-muted-foreground">{pillar.desc}</div>
         </div>
@@ -258,18 +261,18 @@ function PillarBlock({
           onClick={runAssist}
           disabled={loading}
           className="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-md bg-primary/15 text-primary hover:bg-primary/25 transition-colors disabled:opacity-60"
-          title="Genera una guía accionable de IA para este pilar"
+          title="La IA te dice qué hacer en este paso, con lo que ya tiene tu proyecto"
         >
           {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-          {loading ? "Generando…" : "Ayuda IA"}
-          <span className="opacity-60 ml-1">{CREDIT_COSTS.pillar_assist} ⚡</span>
+          {loading ? "Escribiendo…" : "Ayuda de la IA"}
+          <span className="opacity-60 ml-1">· {CREDIT_COSTS.pillar_assist} créditos</span>
         </button>
       </div>
 
       <textarea
         value={proj.notes[pillar.id] || ""}
         onChange={(e) => setNote(proj.id, pillar.id, e.target.value)}
-        placeholder="Notas para este pilar… o usa Ayuda IA para que SUPERNOVA te genere el plan"
+        placeholder="Tus notas para este paso… o toca Ayuda de la IA para que te diga qué hacer"
         rows={2}
         className="w-full mt-2 bg-secondary border border-border rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
       />
@@ -278,14 +281,14 @@ function PillarBlock({
         <div className="mt-3 rounded-lg border border-primary/25 bg-primary/5 p-3">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] uppercase tracking-widest text-primary font-bold flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3" /> Guía IA · Pilar {pillar.id}
+              <Sparkles className="w-3 h-3" /> Guía de la IA · Paso {pillar.id}
             </span>
             {aiText && !loading && (
               <button
                 onClick={insertIntoNotes}
                 className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
               >
-                <Plus className="w-3 h-3" /> Insertar en notas
+                <Plus className="w-3 h-3" /> Guardar en mis notas
               </button>
             )}
           </div>
@@ -296,7 +299,7 @@ function PillarBlock({
             <ReactMarkdown>{aiText}</ReactMarkdown>
             {loading && (
               <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-1">
-                <Loader2 className="w-3 h-3 animate-spin" /> Generando…
+                <Loader2 className="w-3 h-3 animate-spin" /> Escribiendo…
               </div>
             )}
           </div>

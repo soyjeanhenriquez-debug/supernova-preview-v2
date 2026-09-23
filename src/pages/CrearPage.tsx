@@ -41,8 +41,8 @@ export function CrearPage() {
   };
 
   const discover = async () => {
-    if (!keyword.trim()) { toast.error("Escribe un nicho o keyword"); return; }
-    if (!canAfford("pain_discovery")) { toast.error("Sin créditos suficientes"); return; }
+    if (!keyword.trim()) { toast.error("Escribe primero un tema, por ejemplo: aprender inglés"); return; }
+    if (!canAfford("pain_discovery")) { toast.error(`Te faltan créditos: esto cuesta ${CREDIT_COSTS.pain_discovery}`, { description: "Recarga créditos o espera a que se renueven el mes que viene." }); return; }
 
     setLoading(true); setAnalysis(""); setSuggestions([]);
     const sugg = await fetchAutocomplete(keyword);
@@ -57,7 +57,7 @@ export function CrearPage() {
           body: JSON.stringify({ keyword, suggestions: sugg, sources }),
         },
       );
-      if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "Error análisis"));
+      if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "No se pudo hacer el análisis"));
       applyServerCharge("pain_discovery", readBilling(resp), keyword); // lo cobró el servidor
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -78,15 +78,15 @@ export function CrearPage() {
           } catch {/* */}
         }
       }
-      toast.success("✓ Dolores descubiertos");
+      toast.success("Listo: ya tienes los problemas y las ideas de producto");
     } catch (e: unknown) {
-      toast.error(e instanceof Error && e.message ? e.message : "Error en Pain Discovery");
+      toast.error(e instanceof Error && e.message ? e.message : "No se pudo hacer el análisis. Inténtalo de nuevo en un momento.");
     } finally { setLoading(false); }
   };
 
   const createProjectFromPain = () => {
     create({ name: `${keyword} — Modo Crear`, mode: "crear", context: { keyword, suggestions, analysis } });
-    toast.success("✓ Proyecto creado en SUPERNOVA BRAIN");
+    toast.success("Proyecto creado. Lo encuentras en Proyectos.");
   };
 
   return (
@@ -95,46 +95,53 @@ export function CrearPage() {
         <h2 className="font-display font-bold text-2xl text-foreground flex items-center gap-2">
           MODO CREAR <span className="text-primary">——</span>
         </h2>
-        <p className="text-sm text-muted-foreground mt-1">Descubre dolores reales en internet y conviértelos en productos digitales</p>
+        <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+          Escribe un tema y te decimos qué problemas tiene la gente con él y qué producto digital podrías crear para resolverlos.
+          Úsalo cuando todavía no sabes qué vender.
+        </p>
       </div>
 
       <div className="card-surface rounded-xl p-6 space-y-4">
         <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-primary font-bold">
-          <Sparkles className="w-4 h-4" /> PAIN DISCOVERY ENGINE
+          <Sparkles className="w-4 h-4" /> Buscador de problemas (pain discovery)
         </div>
         {assistKeywords.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-muted-foreground">Ideas para ti:</span>
+            <span className="text-muted-foreground">Temas para ti:</span>
             {assistKeywords.map(k => (
               <button key={k} onClick={() => setKeyword(k)}
                 className="px-2.5 py-1 rounded-full border border-primary/40 bg-primary/5 text-primary hover:bg-primary/10">{k}</button>
             ))}
-            <AssistButton onClick={() => assist.generate({ ya_escrito: keyword }).catch((e: unknown) => toast.error(e instanceof Error ? e.message : "No se pudo generar"))} loading={assist.loading} filled />
+            <AssistButton onClick={() => assist.generate({ ya_escrito: keyword }).catch((e: unknown) => toast.error(e instanceof Error ? e.message : "No se pudieron sugerir temas. Prueba otra vez."))} loading={assist.loading} filled />
           </div>
         )}
         <input
           value={keyword} onChange={(e) => setKeyword(e.target.value)}
-          placeholder={assistKeywords.length ? `ej: ${assistKeywords.join(", ")}...` : "ej: productividad, idiomas, trading, perder peso..."}
+          placeholder={assistKeywords.length ? `Ej.: ${assistKeywords.join(", ")}…` : "Ej.: repostería, aprender inglés, organizar las finanzas, mascotas…"}
           className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-1 focus:ring-primary"
         />
         <div className="flex gap-2 flex-wrap text-xs">
-          <span className="text-muted-foreground self-center mr-2">Fuentes activas:</span>
+          <span className="text-muted-foreground self-center mr-2">En qué fijarse:</span>
           {(["reddit", "google", "ph"] as const).map((s) => (
             <button key={s} onClick={() => setSources({ ...sources, [s]: !sources[s] })}
               className={`px-2.5 py-1 rounded-full font-semibold transition-all ${sources[s] ? "bg-primary/20 text-primary border border-primary/40" : "bg-secondary text-muted-foreground border border-border"}`}>
-              {s === "reddit" ? "🔴 Reddit" : s === "google" ? "🔵 Google Autocomplete" : "🟠 Product Hunt"}
+              {s === "reddit" ? "🔴 Foros (Reddit)" : s === "google" ? "🔵 Lo que se busca en Google" : "🟠 Apps nuevas (Product Hunt)"}
             </button>
           ))}
         </div>
+        <p className="text-[11px] text-muted-foreground -mt-2">
+          La IA parte de lo que la gente busca en Google. Foros y apps nuevas le indican qué tipo de problemas tener en cuenta: no se consultan en vivo.
+        </p>
         <button onClick={discover} disabled={loading} className="btn-primary-nova px-5 py-2.5 rounded-lg text-sm flex items-center gap-2">
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          Descubrir Dolores <span className="opacity-70">· {CREDIT_COSTS.pain_discovery} créditos</span>
+          Buscar problemas e ideas <span className="opacity-70">· {CREDIT_COSTS.pain_discovery} créditos</span>
         </button>
       </div>
 
       {suggestions.length > 0 && (
         <div className="card-surface rounded-xl p-5">
-          <div className="text-xs uppercase tracking-widest text-primary font-bold mb-3">Señales de mercado (Google Autocomplete)</div>
+          <div className="text-xs uppercase tracking-widest text-primary font-bold mb-1">Búsquedas relacionadas con tu tema</div>
+          <p className="text-[11px] text-muted-foreground mb-3">Salen de las sugerencias de Google; si Google no responde, te mostramos búsquedas de ejemplo.</p>
           <div className="flex flex-wrap gap-2">
             {suggestions.map((s) => <span key={s} className="px-2.5 py-1 rounded-full bg-secondary text-xs text-foreground">{s}</span>)}
           </div>
@@ -143,13 +150,13 @@ export function CrearPage() {
 
       {(analysis || loading) && (
         <div className="card-surface rounded-xl p-6 space-y-3">
-          <div className="text-xs uppercase tracking-widest text-primary font-bold">Análisis de dolores</div>
+          <div className="text-xs uppercase tracking-widest text-primary font-bold">Problemas que encontramos e ideas de producto</div>
           <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:text-primary">
-            <ReactMarkdown>{analysis || "_Generando..._"}</ReactMarkdown>
+            <ReactMarkdown>{analysis || "_Buscando problemas…_"}</ReactMarkdown>
           </div>
           {analysis && !loading && (
             <button onClick={createProjectFromPain} className="btn-primary-nova px-4 py-2 rounded-lg text-sm">
-              → Crear Proyecto desde este Dolor
+              → Guardar como proyecto
             </button>
           )}
         </div>

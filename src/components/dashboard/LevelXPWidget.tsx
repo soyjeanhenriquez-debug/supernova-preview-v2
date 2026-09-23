@@ -19,9 +19,11 @@ export function LevelXPWidget({ xp, badges }: Props) {
           <h3 className="font-display font-semibold text-lg text-foreground">{cur.name}</h3>
         </div>
         <span className="font-display text-[28px] font-semibold tabular-nums text-primary">
-          {xp.toLocaleString()} <span className="text-[12px] text-muted-foreground font-sans font-normal">XP</span>
+          {xp.toLocaleString("es-ES")} <span className="text-[12px] text-muted-foreground font-sans font-normal">puntos</span>
         </span>
       </div>
+
+      <p className="text-[12px] text-muted-foreground mt-2">Ganas puntos (XP) cada vez que usas la app: buscar, analizar y crear.</p>
 
       <div className="mt-5 mb-2">
         <div className="w-full h-[6px] bg-secondary rounded-full overflow-hidden">
@@ -30,12 +32,12 @@ export function LevelXPWidget({ xp, badges }: Props) {
       </div>
       <div className="text-[11px] text-muted-foreground">
         {nxt
-          ? <>{toNext.toLocaleString()} XP para <span className="text-foreground font-medium">Nivel {nxt.n} — {nxt.name}</span></>
-          : "Nivel máximo alcanzado"}
+          ? <>Te faltan {toNext.toLocaleString("es-ES")} puntos para el <span className="text-foreground font-medium">Nivel {nxt.n} — {nxt.name}</span></>
+          : "Llegaste al nivel más alto"}
       </div>
 
       <div className="mt-6">
-        <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium mb-3">Insignias</div>
+        <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium mb-3">Insignias que puedes ganar</div>
         <div className="flex flex-wrap gap-2">
           {BADGES.map(b => {
             const unlocked = badges.includes(b.id);

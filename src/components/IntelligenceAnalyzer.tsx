@@ -51,7 +51,7 @@ export function IntelligenceAnalyzer() {
     if (res) {
       setFallback({ open: false, text: "" });
       loadSaved();
-      toast.success("✓ Informe listo");
+      toast.success("Tu informe está listo. Lo tienes abajo.");
       requestAnimationFrame(() => {
         document.getElementById("oraculo-report")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
@@ -68,7 +68,7 @@ export function IntelligenceAnalyzer() {
   }, [error]);
 
   const handleAnalyzeClick = () => {
-    if (!url.trim()) { toast.error("Pega una URL"); return; }
+    if (!url.trim()) { toast.error("Pega primero el enlace de la página que quieres analizar"); return; }
     setConfirmOpen(true);
   };
 
@@ -90,7 +90,7 @@ export function IntelligenceAnalyzer() {
   const deleteSaved = async (id: string) => {
     await supabase.from("landing_analyses").delete().eq("id", id);
     setSaved((s) => s.filter((r) => r.id !== id));
-    toast.success("Análisis eliminado");
+    toast.success("Informe borrado");
   };
 
   return (
@@ -100,12 +100,12 @@ export function IntelligenceAnalyzer() {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-primary font-bold">
-              <Sparkles className="w-3.5 h-3.5" /> Intelligence Analyzer
+              <Sparkles className="w-3.5 h-3.5" /> Paso 1 · Pega el enlace
             </div>
-            <h3 className="font-display text-xl text-foreground mt-1.5">Pega cualquier landing y la analizamos todo</h3>
-            <p className="text-sm text-muted-foreground mt-1">Anuncios activos · Avatar · Ángulo · Debilidades · Blueprint 30 días · Hook listo.</p>
+            <h3 className="font-display text-xl text-foreground mt-1.5">¿Qué página de ventas quieres entender?</h3>
+            <p className="text-sm text-muted-foreground mt-1">Recibes: sus anuncios activos, a quién le vende, por qué le funciona, sus puntos débiles, un plan de 30 días y un gancho para tu anuncio.</p>
           </div>
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground border border-border rounded-full px-3 py-1">{CREDIT_COSTS.landing_intelligence} créditos · ~25 s</div>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground border border-border rounded-full px-3 py-1">{CREDIT_COSTS.landing_intelligence} créditos · unos 25 segundos</div>
         </div>
 
         <div className="flex gap-2 items-stretch flex-col md:flex-row">
@@ -115,7 +115,7 @@ export function IntelligenceAnalyzer() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleAnalyzeClick(); }}
-              placeholder="https://hotmart.com/... · landing de Shopify · ClickFunnels · Ads Library"
+              placeholder="https://… (la página de ventas: Hotmart, Shopify, ClickFunnels…)"
               disabled={running}
               className="w-full bg-background/60 border border-border rounded-xl pl-10 pr-4 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all disabled:opacity-60"
             />
@@ -126,12 +126,13 @@ export function IntelligenceAnalyzer() {
             className="btn-primary-nova px-6 py-3.5 rounded-xl text-sm font-semibold whitespace-nowrap flex items-center gap-2 disabled:opacity-60"
           >
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            {running ? "Analizando..." : "Analizar"}
+            {running ? "Analizando…" : `Analizar · ${CREDIT_COSTS.landing_intelligence} créditos`}
           </button>
         </div>
 
         <div className="text-[11px] text-muted-foreground/70">
-          Ejemplos: páginas de ventas, Hotmart, Kiwify, Clickbank, Shopify, ClickFunnels o cualquier landing que veas en redes sociales.
+          Sirve con páginas de ventas de Hotmart, Kiwify, ClickBank, Shopify, ClickFunnels o cualquier página a la que te lleve un anuncio en redes.
+          Tip: en un anuncio de Facebook o Instagram, toca el botón del anuncio y copia el enlace de la página que se abre.
         </div>
 
         {/* Progress */}
@@ -147,7 +148,7 @@ export function IntelligenceAnalyzer() {
               return (
                 <div key={s} className={`flex items-center gap-3 text-sm ${st === "running" ? "text-foreground" : st === "done" || st === "skipped" ? "text-muted-foreground" : "text-muted-foreground/60"}`}>
                   {icon}
-                  <span>{STEP_LABEL[s]}{st === "skipped" ? " (omitido)" : ""}</span>
+                  <span>{STEP_LABEL[s]}{st === "skipped" ? " (no hizo falta)" : ""}</span>
                 </div>
               );
             })}
@@ -160,18 +161,18 @@ export function IntelligenceAnalyzer() {
         {/* Manual fallback when fetch fails */}
         {fallback.open && (
           <div className="rounded-xl border border-warning/40 bg-warning/5 p-4 space-y-3">
-            <div className="text-sm font-semibold">No pudimos acceder al contenido de esta URL</div>
-            <div className="text-xs text-muted-foreground">Pega el copy de la landing aquí y lo analizamos igual.</div>
+            <div className="text-sm font-semibold">No pudimos leer esa página</div>
+            <div className="text-xs text-muted-foreground">Algunas páginas bloquean la lectura automática. Abre la página, copia su texto y pégalo aquí: la analizamos igual (mínimo 50 caracteres).</div>
             <textarea
               value={fallback.text}
               onChange={(e) => setFallback((f) => ({ ...f, text: e.target.value }))}
               rows={6}
-              placeholder="Pega aquí el titular, la promesa, los bullets, las secciones de oferta, garantía..."
+              placeholder="Pega aquí el titular, lo que promete, la lista de beneficios, la oferta, la garantía…"
               className="w-full bg-background/60 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
             <div className="flex gap-2 justify-end">
               <button onClick={() => { setFallback({ open: false, text: "" }); reset(); }} className="text-xs px-3 py-2 rounded-lg border border-border hover:bg-secondary">Cancelar</button>
-              <button onClick={() => launch(fallback.text)} disabled={fallback.text.trim().length < 50 || running} className="btn-primary-nova text-xs px-4 py-2 rounded-lg disabled:opacity-50">Analizar con este texto</button>
+              <button onClick={() => launch(fallback.text)} disabled={fallback.text.trim().length < 50 || running} className="btn-primary-nova text-xs px-4 py-2 rounded-lg disabled:opacity-50">Analizar este texto · {CREDIT_COSTS.landing_intelligence} créditos</button>
             </div>
           </div>
         )}
@@ -181,12 +182,12 @@ export function IntelligenceAnalyzer() {
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="max-w-md border-border bg-card">
           <div className="space-y-4 pt-2">
-            <h3 className="font-display text-lg">Confirmar análisis</h3>
-            <p className="text-sm text-muted-foreground">Este análisis cuesta <strong className="text-primary">{CREDIT_COSTS.landing_intelligence} créditos</strong> (solo se cobran si el informe sale bien). Incluye fetch de la página, búsqueda en Ads Library y el informe IA completo (9 secciones).</p>
+            <h3 className="font-display text-lg">¿Analizamos esta página?</h3>
+            <p className="text-sm text-muted-foreground">Cuesta <strong className="text-primary">{CREDIT_COSTS.landing_intelligence} créditos</strong>, y solo se cobran si el informe sale bien. Leemos la página, buscamos sus anuncios activos en la Biblioteca de anuncios de Meta y la IA escribe el informe completo de 9 partes.</p>
             <div className="text-xs text-muted-foreground truncate font-mono bg-background/60 border border-border rounded px-3 py-2">{url}</div>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setConfirmOpen(false)} className="text-sm px-4 py-2 rounded-lg border border-border hover:bg-secondary">Cancelar</button>
-              <button onClick={() => launch()} className="btn-primary-nova text-sm px-5 py-2 rounded-lg">Sí, analizar ({CREDIT_COSTS.landing_intelligence} cr)</button>
+              <button onClick={() => launch()} className="btn-primary-nova text-sm px-5 py-2 rounded-lg">Sí, analizar · {CREDIT_COSTS.landing_intelligence} créditos</button>
             </div>
           </div>
         </DialogContent>
@@ -207,7 +208,7 @@ export function IntelligenceAnalyzer() {
         >
           <div className="flex items-center gap-3">
             <History className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-semibold">Mis análisis guardados</span>
+            <span className="text-sm font-semibold">Tus informes guardados</span>
             <span className="text-[11px] text-muted-foreground">({saved.length})</span>
           </div>
           <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${historyOpen ? "rotate-180" : ""}`} />
@@ -215,15 +216,15 @@ export function IntelligenceAnalyzer() {
         {historyOpen && (
           <div className="border-t border-border divide-y divide-border">
             {saved.length === 0 ? (
-              <div className="p-6 text-sm text-muted-foreground text-center">Aún no has analizado ninguna landing.</div>
+              <div className="p-6 text-sm text-muted-foreground text-center">Todavía no has analizado ninguna página. Cada informe que hagas se guarda aquí para volver a verlo sin pagar de nuevo.</div>
             ) : saved.map((row) => (
               <div key={row.id} className="flex items-center gap-3 p-3 hover:bg-secondary/30 transition-colors">
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold truncate">{row.domain}</div>
                   <div className="text-[11px] text-muted-foreground truncate">{new Date(row.created_at).toLocaleString("es-ES")} · {row.url}</div>
                 </div>
-                <button onClick={() => openSaved(row)} className="text-xs px-3 py-1.5 rounded-lg border border-border hover:border-primary hover:text-primary transition-colors">Ver</button>
-                <button onClick={() => deleteSaved(row.id)} className="text-muted-foreground hover:text-destructive transition-colors p-1.5" aria-label="Eliminar">
+                <button onClick={() => openSaved(row)} className="text-xs px-3 py-1.5 rounded-lg border border-border hover:border-primary hover:text-primary transition-colors">Ver informe</button>
+                <button onClick={() => deleteSaved(row.id)} className="text-muted-foreground hover:text-destructive transition-colors p-1.5" aria-label="Borrar informe">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -249,13 +250,13 @@ function ReportContent({ result, onClose }: { result: IntelligenceResult; onClos
       {/* Header */}
       <div className="px-7 pt-6 flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-primary font-bold">Intelligence Report</div>
+          <div className="text-[10px] uppercase tracking-[0.22em] text-primary font-bold">Informe del Oráculo</div>
           <div className="font-display text-2xl truncate mt-0.5">{result.domain}</div>
           <div className="text-[11px] text-muted-foreground mt-1">{new Date(result.createdAt).toLocaleString("es-ES")} · {wordCount(result.analysis).toLocaleString("es-ES")} palabras</div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <a href={result.url} target="_blank" rel="noopener noreferrer" className="text-xs px-3 py-1.5 rounded-lg border border-border hover:border-primary hover:text-primary flex items-center gap-1.5 transition-colors">
-            <ExternalLink className="w-3.5 h-3.5" /> Abrir URL
+            <ExternalLink className="w-3.5 h-3.5" /> Abrir la página
           </a>
           <ExportMenu result={result} />
           <button onClick={onClose} aria-label="Cerrar informe" className="text-xs p-2 rounded-lg border border-border hover:border-destructive hover:text-destructive transition-colors">
@@ -272,7 +273,7 @@ function ReportContent({ result, onClose }: { result: IntelligenceResult; onClos
         {result.ads.length > 0 && (
           <div>
             <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-3">
-              Anuncios activos encontrados ({result.ads.length})
+              Sus anuncios activos: encontramos {result.ads.length}
             </div>
             <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
               {result.ads.map((ad, i) => {
@@ -340,11 +341,11 @@ function wordCount(s: string) {
 function ExportMenu({ result }: { result: IntelligenceResult }) {
   const stamp = new Date(result.createdAt).toISOString().slice(0, 10);
   const baseName = `oraculo-${result.domain.replace(/[^a-z0-9.-]/gi, "_")}-${stamp}`;
-  const md = `# Intelligence Report — ${result.domain}\n\n_Fuente: ${result.url}_\n_Generado: ${new Date(result.createdAt).toLocaleString("es-ES")}_\n\n---\n\n${result.analysis}\n`;
+  const md = `# Informe del Oráculo — ${result.domain}\n\n_Fuente: ${result.url}_\n_Generado: ${new Date(result.createdAt).toLocaleString("es-ES")}_\n\n---\n\n${result.analysis}\n`;
   const plain = md.replace(/[#*_>`]/g, "").replace(/\n{3,}/g, "\n\n");
 
-  const copyMd = async () => { await navigator.clipboard.writeText(md); toast.success("Markdown copiado · pega en Notion"); };
-  const copyPlain = async () => { await navigator.clipboard.writeText(plain); toast.success("Texto copiado · pega en Word"); };
+  const copyMd = async () => { await navigator.clipboard.writeText(md); toast.success("Copiado con formato. Pégalo en Notion o en un documento."); };
+  const copyPlain = async () => { await navigator.clipboard.writeText(plain); toast.success("Texto copiado. Pégalo en Word o donde quieras."); };
   const downloadFile = (content: string, ext: string, mime: string) => {
     const blob = new Blob([content], { type: mime });
     const a = document.createElement("a");
@@ -358,15 +359,15 @@ function ExportMenu({ result }: { result: IntelligenceResult }) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className="text-xs px-3 py-1.5 rounded-lg border border-border hover:border-primary hover:text-primary flex items-center gap-1.5 transition-colors">
-          <Download className="w-3.5 h-3.5" /> Exportar
+          <Download className="w-3.5 h-3.5" /> Guardar o copiar
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
-        <DropdownMenuItem onClick={copyMd}><Copy className="w-3.5 h-3.5 mr-2" /> Copiar Markdown (Notion)</DropdownMenuItem>
-        <DropdownMenuItem onClick={copyPlain}><FileText className="w-3.5 h-3.5 mr-2" /> Copiar texto plano (Word)</DropdownMenuItem>
+        <DropdownMenuItem onClick={copyMd}><Copy className="w-3.5 h-3.5 mr-2" /> Copiar con formato (Notion)</DropdownMenuItem>
+        <DropdownMenuItem onClick={copyPlain}><FileText className="w-3.5 h-3.5 mr-2" /> Copiar solo texto (Word)</DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => downloadFile(md, "md", "text/markdown")}><Download className="w-3.5 h-3.5 mr-2" /> Descargar .md</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => downloadFile(plain, "txt", "text/plain")}><Download className="w-3.5 h-3.5 mr-2" /> Descargar .txt</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => downloadFile(md, "md", "text/markdown")}><Download className="w-3.5 h-3.5 mr-2" /> Descargar archivo .md</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => downloadFile(plain, "txt", "text/plain")}><Download className="w-3.5 h-3.5 mr-2" /> Descargar archivo .txt</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -374,16 +375,16 @@ function ExportMenu({ result }: { result: IntelligenceResult }) {
 
 function NextSteps() {
   const items = [
-    { icon: "🧬", title: "Genera tu Mega-Prompt Replicador", desc: "Convierte todo el informe en un prompt maestro para Claude/GPT-5 — listo para crear una versión MEJORADA, ya sea como campaña de ads o como app/SaaS." },
-    { icon: "⚡", title: "Lanza creativos en 24 h", desc: "Usa 'Generar mis Creativos' para sacar 5 hooks + 3 ad copies. Testea con $50-$100 antes de escalar." },
-    { icon: "👤", title: "Construye el avatar profundo", desc: "Saca demografía exacta, miedos, deseos y los 5 niveles de consciencia. Base de todo el copy serio." },
-    { icon: "📦", title: "Diseña el funnel completo", desc: "VSL + secuencia de 5 emails + upsell + order bump. Para cuando ya tengas el ángulo validado." },
-    { icon: "📄", title: "Clona la landing con un giro", desc: "Genera tu propia versión con ángulo sofisticado, sin copiar literal." },
+    { icon: "⚡", title: "Si vas a anunciar ya: tus anuncios", desc: "Con «Mis anuncios» recibes 5 ganchos y 3 textos de anuncio (corto, medio y largo) basados en este informe. Empieza con poco presupuesto y mide antes de subirlo." },
+    { icon: "👤", title: "Si no tienes claro a quién le vendes", desc: "«Mi cliente ideal» te describe quién compra: qué le preocupa, qué desea y qué lo frena. Es la base de todos tus textos." },
+    { icon: "📄", title: "Si necesitas tu página de ventas", desc: "«Mi página de ventas» te escribe todos los textos de una página propia, con otro enfoque y sin copiar la original." },
+    { icon: "📦", title: "Cuando ya tengas un anuncio que vende", desc: "«Mi embudo completo» te da el recorrido del cliente, el inicio de tu VSL (video de ventas), 5 correos y las ofertas extra para después de la compra." },
+    { icon: "🧬", title: "Si trabajas con otra IA (Claude, ChatGPT, Lovable)", desc: "El «Mega-Prompt» convierte el informe en instrucciones para pegar en otra IA y crear tu versión, como campaña de anuncios o como app." },
   ];
   return (
     <div className="rounded-xl border border-border bg-background/40 p-5 space-y-3">
       <div className="text-[10px] uppercase tracking-[0.22em] text-primary font-bold flex items-center gap-1.5">
-        <ArrowRight className="w-3 h-3" /> Qué hacer con este informe
+        <ArrowRight className="w-3 h-3" /> Qué hacer ahora con este informe
       </div>
       <div className="grid sm:grid-cols-2 gap-2">
         {items.map((it) => (
@@ -401,11 +402,11 @@ type GenKind = "creativos" | "landing" | "avatar" | "funnel" | "master_prompt";
 
 // El precio NO va aquí: sale de CREDIT_COSTS[credit] (decía 2–5 créditos y el servidor cobraba 15–50).
 const GEN_META: Record<GenKind, { label: string; icon: string; credit: "gen_ad_copies" | "gen_landing" | "gen_avatar" | "gen_funnel" | "gen_master_prompt"; highlight?: boolean }> = {
-  master_prompt: { label: "Mega-Prompt Replicador", icon: "🧬", credit: "gen_master_prompt", highlight: true },
-  creativos:     { label: "Generar mis Creativos",  icon: "⚡", credit: "gen_ad_copies" },
-  landing:       { label: "Clonar esta Landing",    icon: "📄", credit: "gen_landing" },
-  avatar:        { label: "Avatar Profundo",        icon: "👤", credit: "gen_avatar" },
-  funnel:        { label: "Funnel Completo",        icon: "📦", credit: "gen_funnel" },
+  master_prompt: { label: "Mega-Prompt para otra IA", icon: "🧬", credit: "gen_master_prompt", highlight: true },
+  creativos:     { label: "Mis anuncios: 5 ganchos + 3 textos", icon: "⚡", credit: "gen_ad_copies" },
+  landing:       { label: "Mi página de ventas",    icon: "📄", credit: "gen_landing" },
+  avatar:        { label: "Mi cliente ideal",       icon: "👤", credit: "gen_avatar" },
+  funnel:        { label: "Mi embudo completo",     icon: "📦", credit: "gen_funnel" },
 };
 
 function OraculoGenerators({ result }: { result: IntelligenceResult }) {
@@ -415,7 +416,7 @@ function OraculoGenerators({ result }: { result: IntelligenceResult }) {
 
   const run = async (kind: GenKind) => {
     const meta = GEN_META[kind];
-    if (!canAfford(meta.credit)) { toast.error("Sin créditos suficientes"); return; }
+    if (!canAfford(meta.credit)) { toast.error(`Te faltan créditos: esto cuesta ${CREDIT_COSTS[meta.credit]}`, { description: "Recarga créditos o espera a que se renueven el mes que viene." }); return; }
     setLoading(kind);
     try {
       const { data, error } = await supabase.functions.invoke<{
@@ -424,21 +425,21 @@ function OraculoGenerators({ result }: { result: IntelligenceResult }) {
         body: { kind, analysis: result.analysis, brand: result.brandName, url: result.url },
       });
       if (error || data?.error) {
-        toast.error(data?.error || await invokeErrorMessage(error, "Error generando"));
+        toast.error(data?.error || await invokeErrorMessage(error, "No se pudo crear. Inténtalo de nuevo."));
         return;
       }
       const content = data?.content ?? "";
-      if (!content.trim()) { toast.error("Respuesta vacía"); return; }
+      if (!content.trim()) { toast.error("La IA no devolvió nada. Inténtalo de nuevo."); return; }
       // Lo cobró el servidor (y lo devuelve solo si la IA falla).
       if (data?.billing) applyServerCharge(meta.credit, data.billing, kind);
       setOutputs((p) => ({ ...p, [kind]: content }));
-      toast.success(`✓ ${meta.label} listo`);
+      toast.success(`Listo: ${meta.label}. Lo tienes abajo.`);
       // scroll al output
       requestAnimationFrame(() => {
         document.getElementById(`gen-output-${kind}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error inesperado");
+      toast.error(e instanceof Error ? e.message : "Algo salió mal. Inténtalo de nuevo.");
     } finally {
       setLoading(null);
     }
@@ -448,10 +449,10 @@ function OraculoGenerators({ result }: { result: IntelligenceResult }) {
     <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent p-5 space-y-4">
       <div>
         <div className="text-[10px] uppercase tracking-[0.22em] text-primary font-bold flex items-center gap-1.5">
-          <Sparkles className="w-3 h-3" /> Acciones del Oráculo
+          <Sparkles className="w-3 h-3" /> Crea tu versión a partir del informe
         </div>
         <div className="text-sm text-foreground mt-1 font-display">
-          Continúa el informe con activos listos para usar
+          Elige qué quieres que la IA te escriba. Cada botón muestra lo que cuesta.
         </div>
       </div>
 
@@ -477,7 +478,7 @@ function OraculoGenerators({ result }: { result: IntelligenceResult }) {
               <div className="text-[12px] font-semibold leading-tight">{m.label}</div>
               <div className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
                 {isLoading ? <><Loader2 className="w-3 h-3 animate-spin" /> Generando…</> :
-                 done ? <><CheckCircle2 className="w-3 h-3 text-success" /> Listo · regenerar</> :
+                 done ? <><CheckCircle2 className="w-3 h-3 text-success" /> Listo · hacer otro ({CREDIT_COSTS[m.credit]} créditos)</> :
                  <>{CREDIT_COSTS[m.credit]} créditos</>}
               </div>
             </button>
@@ -562,7 +563,7 @@ function AdCard({ item }: { item: Omit<AdHistoryItem, "visitedAt"> }) {
       target="_blank"
       rel="noopener noreferrer"
       onClick={onClick}
-      title="Abrir en Facebook Ads Library"
+      title="Abrir en la Biblioteca de anuncios de Meta"
       className="group shrink-0 w-64 rounded-xl border border-border bg-background/60 p-3 hover:border-primary hover:bg-primary/5 transition-colors flex flex-col relative"
     >
       <button
@@ -584,7 +585,7 @@ function AdCard({ item }: { item: Omit<AdHistoryItem, "visitedAt"> }) {
       </div>
       <div className="text-xs text-foreground mt-1 line-clamp-3">{item.title ?? "—"}</div>
       <div className="text-[10px] text-muted-foreground mt-2 line-clamp-3">{item.body}</div>
-      <div className="text-[10px] text-muted-foreground/70 mt-2 pt-2 border-t border-border/50">Ver en Ads Library →</div>
+      <div className="text-[10px] text-muted-foreground/70 mt-2 pt-2 border-t border-border/50">Ver el anuncio en Meta →</div>
     </a>
   );
 }
@@ -613,7 +614,7 @@ function AdHistoryBar() {
             onClick={() => setTab("history")}
             className={`text-[11px] uppercase tracking-[0.18em] font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors ${tab === "history" ? "bg-primary/15 text-primary border border-primary/30" : "text-muted-foreground hover:text-foreground"}`}
           >
-            <Eye className="w-3 h-3" /> Visitados <span className="opacity-60">({history.length})</span>
+            <Eye className="w-3 h-3" /> Anuncios que abriste <span className="opacity-60">({history.length})</span>
           </button>
           <button
             onClick={() => setTab("favorites")}
@@ -636,7 +637,7 @@ function AdHistoryBar() {
           )}
           {tab === "history" && history.length > 0 && (
             <button onClick={clearHistory} className="text-[10px] text-muted-foreground hover:text-destructive flex items-center gap-1">
-              <Trash2 className="w-3 h-3" /> Limpiar
+              <Trash2 className="w-3 h-3" /> Borrar lista
             </button>
           )}
         </div>
@@ -644,7 +645,7 @@ function AdHistoryBar() {
 
       {slice.length === 0 ? (
         <div className="text-xs text-muted-foreground text-center py-3">
-          {tab === "favorites" ? "Aún no marcaste favoritos. Pulsa el ♥ en cualquier tarjeta." : "Aún no visitaste anuncios en esta sesión."}
+          {tab === "favorites" ? "Todavía no tienes favoritos. Toca el ♥ de un anuncio para guardarlo aquí." : "Todavía no has abierto ningún anuncio."}
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">

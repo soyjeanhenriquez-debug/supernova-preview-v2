@@ -46,15 +46,15 @@ export interface OfferIntel {
 export const FUNNEL_LABEL: Record<string, string> = {
   pagina_ventas: "Página de ventas",
   vsl: "Video de ventas (VSL)",
-  advertorial: "Advertorial → venta",
-  quiz: "Quiz",
+  advertorial: "Artículo tipo noticia que lleva a la venta",
+  quiz: "Cuestionario (quiz) que lleva a la venta",
   webinar: "Clase / webinar",
-  aplicacion: "Aplicación + llamada (ticket alto)",
-  captura: "Página de captura",
+  aplicacion: "Formulario + llamada de venta (precio alto)",
+  captura: "Página para dejar tu correo o WhatsApp",
   tienda: "Tienda online",
   app: "App (tienda de apps)",
   whatsapp: "Venta por WhatsApp",
-  checkout_directo: "Directo al checkout",
+  checkout_directo: "Directo a la página de pago",
 };
 
 const COLS = "offer_id, landing_url, landing_domain, landing_title, checkout_url, checkout_platform, funnel_type, price_text, verdict, status, verdict_at, updated_at";

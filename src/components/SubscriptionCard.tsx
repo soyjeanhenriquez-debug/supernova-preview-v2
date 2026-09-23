@@ -28,14 +28,14 @@ type State =
 
 const STATUS_ES: Record<string, { label: string; dot: string }> = {
   active:   { label: "Activa",            dot: "bg-success" },
-  trialing: { label: "Período de prueba", dot: "bg-primary" },
+  trialing: { label: "Prueba gratis", dot: "bg-primary" },
   past_due: { label: "Pago pendiente",    dot: "bg-warning" },
   canceled: { label: "Cancelada",         dot: "bg-destructive" },
   completed:{ label: "Activa",            dot: "bg-success" },
 };
 
 function statusBadge(status: string, cancelAtEnd?: boolean) {
-  if (cancelAtEnd) return { label: "Se cancela al final del período", dot: "bg-warning" };
+  if (cancelAtEnd) return { label: "Cancelada: no se renueva", dot: "bg-warning" };
   return STATUS_ES[status] ?? { label: status, dot: "bg-muted-foreground" };
 }
 
@@ -104,17 +104,29 @@ export function SubscriptionCard() {
 
   if (state.kind === "whop") {
     const badge = statusBadge(state.status);
+    const trialing = state.status === "trialing";
+    const endDate = state.periodEnd
+      ? new Date(state.periodEnd).toLocaleDateString("es-ES", { day: "numeric", month: "long" })
+      : null;
     return (
       <div className="card-surface rounded-2xl overflow-hidden">
         <SubHeader
-          title="SUPERNOVA Membresía"
+          title="Tu plan SUPERNOVA"
           badge={badge}
-          detail={state.periodEnd ? `Renueva el ${new Date(state.periodEnd).toLocaleDateString("es-ES", { day: "numeric", month: "long" })}` : null}
+          detail={endDate
+            ? (trialing ? `Tu prueba gratis termina el ${endDate}. Ese día se cobra tu primer mes.` : `Se renueva el ${endDate}`)
+            : null}
         />
+        {trialing && (
+          <div className="px-5 py-3 border-b border-border/60 text-xs text-muted-foreground leading-relaxed">
+            ¿No te convence? Cancela antes de esa fecha y <span className="text-foreground font-medium">no pagas nada</span>.
+            Se hace en Whop → Mis compras, en un par de clics.
+          </div>
+        )}
         <MenuRow
           icon={<Settings2 className="w-4 h-4" />}
-          label="Administrar suscripción"
-          sub="Método de pago, facturas y cancelación en Whop"
+          label="Administrar o cancelar mi plan"
+          sub="En Whop → Mis compras: cancelar, cambiar tarjeta o ver tus pagos"
           onClick={() => window.open("https://whop.com/orders/", "_blank", "noopener")}
         />
       </div>
@@ -133,22 +145,22 @@ export function SubscriptionCard() {
   return (
     <div className="card-surface rounded-2xl overflow-hidden">
       <SubHeader
-        title={info.plan || "SUPERNOVA Membresía"}
+        title={info.plan || "Tu plan SUPERNOVA"}
         badge={badge}
         detail={[price, renews ? (info.cancel_at_period_end ? `Acceso hasta el ${renews}` : `Renueva el ${renews}`) : null].filter(Boolean).join(" · ") || null}
       />
 
       {/* Menú agrupado estilo Apple: cada fila entra al portal ya autenticado */}
       <div className="divide-y divide-border/60">
-        <MenuRow icon={<Settings2 className="w-4 h-4" />} label="Administrar suscripción" sub="Cambiar de plan o revisar tu membresía" onClick={openPortal} busy={opening} />
-        <MenuRow icon={<CreditCard className="w-4 h-4" />} label="Método de pago" sub="Actualizar tu tarjeta" onClick={openPortal} busy={opening} />
-        <MenuRow icon={<FileText className="w-4 h-4" />} label="Historial de facturas" sub="Descargar recibos" onClick={openPortal} busy={opening} />
-        <MenuRow icon={<XCircle className="w-4 h-4" />} label="Cancelar suscripción" sub="Sin llamadas, sin correos — al instante" onClick={openPortal} busy={opening} danger />
+        <MenuRow icon={<Settings2 className="w-4 h-4" />} label="Administrar mi plan" sub="Cambiar de plan o revisar tu suscripción" onClick={openPortal} busy={opening} />
+        <MenuRow icon={<CreditCard className="w-4 h-4" />} label="Tarjeta de pago" sub="Cambiar la tarjeta con la que pagas" onClick={openPortal} busy={opening} />
+        <MenuRow icon={<FileText className="w-4 h-4" />} label="Mis pagos" sub="Ver y descargar tus recibos" onClick={openPortal} busy={opening} />
+        <MenuRow icon={<XCircle className="w-4 h-4" />} label="Cancelar mi plan" sub="Al instante, sin llamadas ni correos" onClick={openPortal} busy={opening} danger />
       </div>
 
       <div className="px-5 py-3 bg-secondary/30 text-[11px] text-muted-foreground flex items-center gap-1.5">
         <BadgeCheck className="w-3.5 h-3.5 text-success shrink-0" />
-        Entras directo a tu panel seguro de facturación — sin volver a pedir tu correo.
+        Entras directo a tu panel de pagos seguro, sin volver a escribir tu correo.
       </div>
     </div>
   );

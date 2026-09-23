@@ -49,18 +49,19 @@ export function DailyPicksHero({ onNavigate }: Props) {
             <Sparkles className="w-3 h-3" /> Seleccionados hoy · {today}
           </div>
           <h3 className="font-display font-semibold text-2xl text-foreground tracking-tight">
-            Tus 3 negocios de hoy, listos para copiar
+            3 negocios elegidos para ti hoy
           </h3>
           <p className="text-[13px] text-muted-foreground mt-1.5 max-w-2xl">
-            Elegidos entre {totalOffers ? totalOffers.toLocaleString("es-ES") : "miles de"} ofertas que están pagando anuncios ahora mismo.
-            Nunca te repetimos uno. Cada día: 3 mercados distintos (español, brasileño, americano, ruso).
+            Salen de {totalOffers ? totalOffers.toLocaleString("es-ES") : "miles de"} ofertas digitales que hoy están pagando anuncios. Si alguien paga anuncios
+            durante semanas, normalmente es porque le funciona. Nunca te repetimos uno, y cada día vienen de 3 mercados distintos
+            (español, brasileño, americano o ruso) para que veas ideas que aún no circulan en tu país.
           </p>
         </div>
         <button
           onClick={() => onNavigate?.("Ofertas")}
           className="text-[12px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
         >
-          Ver todas las ofertas <ArrowRight className="w-3 h-3" />
+          Ver todas las ofertas analizadas <ArrowRight className="w-3 h-3" />
         </button>
       </div>
 
@@ -105,30 +106,30 @@ function PickCard({ pick, onCopy, onNavigate }: { pick: Pick; onCopy: () => void
       {o.mechanism && <p className="text-[13px] text-foreground/90 mt-3 leading-relaxed line-clamp-3">{o.mechanism}</p>}
       {o.why_wins && (
         <p className="text-[12px] text-muted-foreground mt-2 leading-relaxed line-clamp-3">
-          <span className="text-primary font-semibold">Por qué gana:</span> {o.why_wins}
+          <span className="text-primary font-semibold">Por qué funciona:</span> {o.why_wins}
         </p>
       )}
 
       {/* La prueba con dinero real */}
       <div className="mt-4 pt-3 border-t border-border/60 flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
-        <span className="inline-flex items-center gap-1 text-primary font-semibold"><Flame className="w-3 h-3" /> {o.days_active} días pagando</span>
+        <span className="inline-flex items-center gap-1 text-primary font-semibold"><Flame className="w-3 h-3" /> {o.days_active} días con anuncios</span>
         <span>{o.active_ads} anuncios activos</span>
-        <span>Score {o.winner_score}</span>
+        <span title="Qué tan fuerte es la señal de que vende, de 0 a 100">Puntaje {o.winner_score}/100</span>
         <span className="ml-auto font-semibold text-foreground">{scaleLabel(o)}</span>
       </div>
 
       <div className="mt-4 flex items-center gap-2">
-        <button onClick={onCopy} className="flex-1 btn-primary-nova py-2.5 rounded-lg text-[13px] font-semibold flex items-center justify-center gap-1.5">
-          <Zap className="w-3.5 h-3.5" /> Copiar este negocio <span className="opacity-70 text-[11px]">· {CREDIT_COSTS.gen_master_prompt}⚡</span>
+        <button onClick={onCopy} title={`La IA te arma tu propia versión: la idea, la mini app, los textos de venta y los anuncios. Gasta ${CREDIT_COSTS.gen_master_prompt} créditos.`} className="flex-1 btn-primary-nova py-2.5 rounded-lg text-[13px] font-semibold flex items-center justify-center gap-1.5">
+          <Zap className="w-3.5 h-3.5" /> Hacer mi versión <span className="opacity-70 text-[11px]">· {CREDIT_COSTS.gen_master_prompt} créditos</span>
         </button>
         <button
           onClick={() => openOfferAdsInRadar(o, onNavigate)}
-          title="Ver todos sus anuncios en el radar"
+          title="Ver todos los anuncios de esta oferta en el Radar"
           className="px-3 py-2.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
         >
           <Radar className="w-4 h-4" />
         </button>
-        <a href={metaUrl} target="_blank" rel="noopener noreferrer" title="Ver en Meta Ads Library"
+        <a href={metaUrl} target="_blank" rel="noopener noreferrer" title="Ver sus anuncios en la biblioteca oficial de anuncios de Facebook"
           className="px-3 py-2.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/40">
           <ExternalLink className="w-4 h-4" />
         </a>

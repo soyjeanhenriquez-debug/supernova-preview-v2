@@ -70,11 +70,11 @@ export const NICHE_LABEL: Record<string, string> = {
 };
 
 export const OFFER_TYPE_LABEL: Record<string, string> = {
-  infoproducto: "Infoproducto",
-  ecommerce: "Ecommerce",
-  saas_app: "App / SaaS",
+  infoproducto: "Producto digital (curso, guía)",
+  ecommerce: "Producto físico (tienda online)",
+  saas_app: "App o programa",
   servicio: "Servicio",
-  comunidad: "Comunidad",
+  comunidad: "Comunidad o membresía",
   evento: "Evento",
   otro: "Otro",
 };
@@ -82,8 +82,8 @@ export const OFFER_TYPE_LABEL: Record<string, string> = {
 export const MODEL_LABEL: Record<string, string> = {
   pago_unico: "Pago único",
   suscripcion: "Suscripción",
-  freemium: "Freemium",
-  lead_gratis: "Lead gratis",
+  freemium: "Gratis con versión de pago",
+  lead_gratis: "Regalo gratis para captar contactos",
   otro: "Otro",
 };
 
@@ -124,16 +124,16 @@ export function copyLabel(score: number | null | undefined): { label: string; sh
   if (score == null) return { label: "Sin evaluar", short: "Sin evaluar", cls: "bg-secondary text-muted-foreground" };
   if (score >= 5) return { label: "Muy fácil de replicar", short: "Muy fácil", cls: "bg-success/15 text-success" };
   if (score >= 4) return { label: "Fácil de replicar", short: "Fácil", cls: "bg-success/10 text-success" };
-  if (score >= 3) return { label: "Requiere inversión", short: "Con inversión", cls: "bg-warning/15 text-warning" };
+  if (score >= 3) return { label: "Necesita inversión para replicar", short: "Con inversión", cls: "bg-warning/15 text-warning" };
   return { label: "Difícil de replicar", short: "Difícil", cls: "bg-destructive/10 text-destructive" };
 }
 
 /** Etiqueta DR de escala: qué tan fuerte está pagando el anunciante ahora mismo. */
 export function scaleLabel(o: Pick<Offer, "active_ads" | "days_active">): string {
   if (o.active_ads >= 30 && o.days_active >= 60) return "Dominando";
-  if (o.active_ads >= 10 && o.days_active >= 30) return "Escalando";
+  if (o.active_ads >= 10 && o.days_active >= 30) return "Creciendo";
   if (o.active_ads >= 5) return "Despegando";
-  return "Probando";
+  return "En prueba";
 }
 
 const DEMO_MARKETS: AdMarket[] = ["BR", "US", "ES", "MX", "RU"];

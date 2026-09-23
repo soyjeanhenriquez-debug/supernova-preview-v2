@@ -37,7 +37,7 @@ const PLATFORMS: { id: Platform; label: string }[] = [
   { id: "meta", label: "Meta (Facebook/Instagram)" },
   { id: "tiktok", label: "TikTok Ads" },
   { id: "youtube", label: "YouTube Ads" },
-  { id: "organico", label: "Orgánico · $0" },
+  { id: "organico", label: "Sin pagar anuncios (orgánico)" },
 ];
 
 const STAGES: Stage[] = [
@@ -219,13 +219,14 @@ function verdict(ad: AdRow, price: number): { tone: "good" | "bad" | "wait" | "f
   const spend = Number(ad.spend), sales = Number(ad.sales ?? 0), ctr = ad.ctr == null ? null : Number(ad.ctr);
   if (sales > 0) {
     const cpa = spend / sales;
-    if (!price || cpa <= price) return { tone: "good", text: `Ganador: cada venta te costó $${cpa.toFixed(2)}. Márcalo como ganador, crea variaciones y sube el presupuesto poco a poco (≈20% cada 2 días).` };
-    return { tone: "fix", text: `Vende, pero cada venta cuesta $${cpa.toFixed(2)} (más que el precio). Se sostiene solo si subes el ticket con order bump y upsells (Generadores → Ecosistema) o pruebas otro gancho.` };
+    const cpaTxt = cpa.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (!price || cpa <= price) return { tone: "good", text: `Ganador: cada venta te costó ${cpaTxt} USD. Márcalo como ganador, pide variaciones y sube el presupuesto poco a poco (más o menos un 20% cada 2 días).` };
+    return { tone: "fix", text: `Vende, pero cada venta te cuesta ${cpaTxt} USD, más de lo que cobras. Solo te conviene si cada cliente te compra más (un extra antes de pagar o una oferta después: Generadores → Escalera de productos) o si pruebas otro gancho.` };
   }
-  if (price && spend >= price * 2) return { tone: "bad", text: "Gastó más de 2 veces el precio sin vender: apágalo y gira la rueda para otro ángulo." };
-  if (ctr != null && ctr < 0.8) return { tone: "fix", text: "Poca gente se detiene (CTR bajo): el problema es el gancho. Cambia los primeros 3 segundos o el ángulo." };
-  if (ctr != null && ctr >= 0.8 && spend > 0) return { tone: "fix", text: "El anuncio atrae pero todavía no vende: si sigue así al llegar a 2 veces el precio, revisa la página de ventas y la oferta (Oráculo)." };
-  return { tone: "wait", text: "Aún es pronto: déjalo correr hasta gastar unas 2 veces el precio del producto antes de decidir." };
+  if (price && spend >= price * 2) return { tone: "bad", text: "Ya gastaste 2 veces el precio de tu producto y no vendió: apágalo y prueba otro ángulo en la rueda." };
+  if (ctr != null && ctr < 0.8) return { tone: "fix", text: "Menos del 0,8% de quienes lo ven hacen clic (CTR bajo): casi nadie se detiene. Cambia los primeros 3 segundos o el ángulo." };
+  if (ctr != null && ctr >= 0.8 && spend > 0) return { tone: "fix", text: "La gente hace clic, pero todavía no compra. Si sigue así cuando hayas gastado 2 veces el precio, revisa tu página de ventas y tu oferta (el Oráculo te ayuda)." };
+  return { tone: "wait", text: "Aún es pronto para decidir: déjalo correr hasta gastar unas 2 veces el precio de tu producto." };
 }
 
 // Reto del día: el mismo para todos ese día, una restricción concreta para crear hoy.
@@ -345,7 +346,7 @@ export function MandalaPage() {
 
   const stream = async (id: string, title: string, content: string): Promise<string | null> => {
     const { action } = generatorCost(id);
-    if (!canAfford(action)) { toast.error("Sin créditos suficientes", { description: "Recarga tu saldo o espera al próximo ciclo." }); return null; }
+    if (!canAfford(action)) { toast.error(`Te faltan créditos: esto cuesta ${generatorCost(id).cost}`, { description: "Recarga créditos o espera a que se renueven el mes que viene." }); return null; }
     setLoading(true); setOutput(""); setOutputTitle(title);
     try {
       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
@@ -378,7 +379,7 @@ export function MandalaPage() {
       }
       return full;
     } catch (err: unknown) {
-      toast.error(err instanceof Error && err.message ? err.message : "Error al generar");
+      toast.error(err instanceof Error && err.message ? err.message : "No se pudo crear. Inténtalo de nuevo en un momento.");
       return null;
     } finally {
       setLoading(false);
@@ -388,7 +389,7 @@ export function MandalaPage() {
   const requireBrief = () => {
     if (briefReady(brief)) return true;
     setBriefOpen(true); setOpenStep(null);
-    toast.error("Primero completa tu oferta", { description: "Qué vendes, para quién y qué resultado promete. Son 30 segundos." });
+    toast.error("Primero cuéntanos qué vendes", { description: "Qué es, para quién y qué logra la persona. Te toma unos 30 segundos." });
     document.getElementById("mandala-brief")?.scrollIntoView({ behavior: "smooth", block: "center" });
     return false;
   };
@@ -402,8 +403,8 @@ export function MandalaPage() {
     const full = await stream("mandala-ad", title, `${adPrompt(s, a, format, platform)}\n${businessHint(brief)}\n\nOFERTA DEL USUARIO:\n${text.slice(0, 2500)}`);
     if (!full) return;
     const { error } = await adsTable().insert({ stage: s.id, angle: a.id, format, platform, brief: text.slice(0, 3000), output: full.slice(0, 30000) });
-    if (error) toast.error("Se creó, pero no se pudo guardar en Mis anuncios", { description: "Cópialo antes de salir." });
-    else { toast.success("Anuncio creado y guardado en Mis anuncios"); loadAds(); }
+    if (error) toast.error("El anuncio está listo, pero no se pudo guardar en Mis anuncios", { description: "Cópialo antes de salir de esta pantalla." });
+    else { toast.success("Anuncio listo. Quedó guardado en Mis anuncios."); loadAds(); }
   };
 
   const createSequence = async () => {
@@ -421,12 +422,12 @@ export function MandalaPage() {
   const updateAd = async (id: string, patch: Partial<AdRow>) => {
     setAds(list => list.map(a => (a.id === id ? { ...a, ...patch } : a)));
     const { error } = await adsTable().update(patch).eq("id", id);
-    if (error) { toast.error("No se pudo guardar"); loadAds(); }
+    if (error) { toast.error("No se pudo guardar el cambio. Inténtalo de nuevo."); loadAds(); }
   };
   const deleteAd = async (id: string) => {
-    if (!window.confirm("¿Borrar este anuncio de tu mándala?")) return;
+    if (!window.confirm("¿Borrar este anuncio? No se puede recuperar.")) return;
     const { error } = await adsTable().delete().eq("id", id);
-    if (error) toast.error("No se pudo borrar"); else setAds(list => list.filter(a => a.id !== id));
+    if (error) toast.error("No se pudo borrar. Inténtalo de nuevo."); else setAds(list => list.filter(a => a.id !== id));
   };
 
   const toMediaStudio = (text: string) => {
@@ -476,9 +477,9 @@ export function MandalaPage() {
         if (v && (replaceAll || !brief[k].trim())) next[k] = v;
       });
       setBrief(next); saveBrief(next);
-      toast.success("Listo: revísalo y cámbialo a tu gusto");
+      toast.success("Listo: revísalo y cámbialo a tu gusto.");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "No se pudo generar el ejemplo");
+      toast.error(e instanceof Error ? e.message : "No se pudo escribir el ejemplo. Prueba otra vez.");
     }
   };
   const examples = PROFILE_EXAMPLES[brief.business_type === "ecommerce" ? "ecommerce" : "default"];
@@ -536,7 +537,7 @@ export function MandalaPage() {
         <span>¿Aún no tienes oferta?</span>
         <a href="#/ofertas" className="text-primary hover:underline">Elige una que ya vende en Ofertas</a>
         <span>·</span>
-        <a href="#/generadores" className="text-primary hover:underline">Diseña tu escalera en Generadores → Embudo completo</a>
+        <a href="#/generadores" className="text-primary hover:underline">Arma qué vender en Generadores → Escalera de productos</a>
       </div>
     </>
   );
@@ -577,10 +578,10 @@ export function MandalaPage() {
           <div className="flex gap-3">
             {/video|avatar/i.test(format) && (
               <button onClick={() => toMediaStudio(output)} className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline">
-                <Video className="w-3.5 h-3.5" /> Llevar a Media Studio
+                <Video className="w-3.5 h-3.5" /> Hacer el video con avatar (Media Studio)
               </button>
             )}
-            <button onClick={() => { navigator.clipboard.writeText(output); toast.success("Copiado"); }}
+            <button onClick={() => { navigator.clipboard.writeText(output); toast.success("Copiado. Ya puedes pegarlo."); }}
               className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
               <Copy className="w-3.5 h-3.5" /> Copiar
             </button>
@@ -588,7 +589,7 @@ export function MandalaPage() {
         )}
       </div>
       <div className="prose prose-sm prose-invert max-w-none text-foreground">
-        {output ? <ReactMarkdown>{output}</ReactMarkdown> : <p className="text-muted-foreground text-sm flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Creando…</p>}
+        {output ? <ReactMarkdown>{output}</ReactMarkdown> : <p className="text-muted-foreground text-sm flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Escribiendo tu anuncio…</p>}
       </div>
     </div>
   );
@@ -598,16 +599,20 @@ export function MandalaPage() {
       <div className="flex flex-col gap-1">
         <h1 className="font-display font-bold text-2xl text-foreground">Mándala Creativa</h1>
         <p className="text-sm text-muted-foreground max-w-2xl">
-          Te dice qué anuncios crear para tu oferta, en qué orden, y cuál apagar o escalar cuando ya tienes resultados.
+          Te guía para crear tus primeros {ROUTE.length} anuncios, uno por uno y en el orden que conviene cuando hay poco presupuesto.
+          Cuando ya los publicaste, anotas tus números y te dice cuál apagar y cuál escalar.
+        </p>
+        <p className="text-xs text-muted-foreground max-w-2xl">
+          Empieza por el paso 1: cuenta qué vendes. Cada anuncio cuesta {adCost} créditos y la IA lo escribe completo, con 3 ganchos, el texto y cómo publicarlo.
         </p>
       </div>
 
       {/* Modos */}
       <div className="flex gap-1 rounded-xl bg-secondary/60 p-1 w-full sm:w-fit overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {([
-          ["ruta", Route, `Paso a paso · ${autoStep}/5`],
+          ["ruta", Route, `Paso a paso · vas en el ${autoStep} de 5`],
           ["rueda", Orbit, "Rueda libre"],
-          ["mis", ListChecks, `Mis anuncios · ${ads.length}`],
+          ["mis", ListChecks, `Mis anuncios (${ads.length})`],
         ] as const).map(([id, Icon, label]) => (
           <button key={id} onClick={() => setTab(id)}
             className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold ${tab === id ? "bg-card text-foreground shadow" : "text-muted-foreground"}`}>
@@ -624,7 +629,7 @@ export function MandalaPage() {
                 <p className="text-sm font-semibold text-foreground flex items-center gap-2">
                   {briefReady(brief) ? <Check className="w-4 h-4 text-emerald-400" /> : <span className="text-primary">Primero ·</span>} Tu negocio
                 </p>
-                <p className="text-xs text-muted-foreground truncate">{briefReady(brief) ? `${brief.product} · ${brief.who}` : "Qué vendes, para quién y qué promete. Todo sale de aquí."}</p>
+                <p className="text-xs text-muted-foreground truncate">{briefReady(brief) ? `${brief.product} · ${brief.who}` : "Qué vendes, para quién y qué logra. Todos tus anuncios salen de aquí."}</p>
               </div>
               {briefOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
             </button>
@@ -635,7 +640,21 @@ export function MandalaPage() {
               </div>
             )}
           </div>
-          {tab === "rueda" && pickers()}
+          {tab === "rueda" && (
+            <>
+              <p className="text-xs text-muted-foreground max-w-2xl">
+                Para cuando ya hiciste el Paso a paso o te quedaste sin ideas. Cada anuncio junta una etapa (a quién le hablas) con un ángulo
+                (cómo lo cuentas): gira la rueda para que te toque una combinación que aún no hiciste, o toca la que quieras.
+              </p>
+              {pickers()}
+            </>
+          )}
+          {tab === "mis" && ads.length > 0 && (
+            <p className="text-xs text-muted-foreground max-w-2xl">
+              Cuando publiques un anuncio, cambia su estado a Publicado y anota cuánto gastaste, su CTR y las ventas. Debajo verás qué hacer:
+              apagarlo, esperar o escalarlo.
+            </p>
+          )}
         </>
       )}
 
@@ -647,28 +666,28 @@ export function MandalaPage() {
 
           <div id="mandala-brief">
             <Step n={1} title="Cuéntanos de tu negocio" done={briefDone} active={step === 1} onOpen={() => openStepN(1)}
-              summary={briefReady(brief) ? `${brief.product} · ${brief.who}` : "Qué vendes, para quién y qué promete. 30 segundos."}>
-              <p className="text-sm text-muted-foreground">Todos los anuncios salen de aquí. Mientras más concreto, mejores anuncios.</p>
+              summary={briefReady(brief) ? `${brief.product} · ${brief.who}` : "Qué vendes, para quién y qué logra. Te toma 30 segundos."}>
+              <p className="text-sm text-muted-foreground">Todos tus anuncios salen de aquí: mientras más concreto seas, mejores salen. Se guarda para el resto de la app.</p>
               {briefFields()}
               <Btn primary disabled={!briefReady(brief)} onClick={() => { saveBrief(brief); setBriefOpen(false); setOpenStep(null); }}>
                 Siguiente paso →
               </Btn>
-              {!briefReady(brief) && <p className="text-xs text-muted-foreground">Llena al menos qué vendes, para quién y qué promete.</p>}
+              {!briefReady(brief) && <p className="text-xs text-muted-foreground">Para seguir, llena al menos qué vendes, para quién y qué logra.</p>}
             </Step>
           </div>
 
           <Step n={2} title="Elige dónde lo vas a publicar" done={setupOk && briefDone} active={step === 2} onOpen={() => openStepN(2)}
             summary={`${PLATFORMS.find(p => p.id === platform)?.label} · ${format}`}>
-            <p className="text-sm text-muted-foreground">La idea del anuncio es la misma; esto cambia el formato y cómo publicarlo. Si no sabes, deja Meta y Video corto.</p>
+            <p className="text-sm text-muted-foreground">La idea del anuncio no cambia; esto ajusta el formato y los pasos para publicarlo. Si no sabes cuál elegir, deja Meta (Facebook/Instagram) y Video corto.</p>
             {pickers()}
             <Btn primary onClick={confirmSetup}>Siguiente paso →</Btn>
           </Step>
 
           <Step n={3} title={`Crea tus ${ROUTE.length} anuncios, uno por uno`} done={routeDone >= ROUTE.length} active={step === 3} onOpen={() => openStepN(3)}
-            summary={`${routeDone} de ${ROUTE.length} creados`}>
+            summary={`Llevas ${routeDone} de ${ROUTE.length} anuncios creados`}>
             <p className="text-sm text-muted-foreground">
               Van en este orden porque con poco presupuesto primero hay que vender: 3 anuncios para quien no te conoce y 2 para quien visitó tu página y no compró.
-              La IA escribe cada uno completo; se guardan solos en Mis anuncios.
+              La IA escribe cada uno completo ({adCost} créditos por anuncio) y se guardan solos en Mis anuncios.
             </p>
             <div className="space-y-2">
               {ROUTE.map((r, i) => {
@@ -690,7 +709,7 @@ export function MandalaPage() {
                         <div className="flex flex-wrap gap-2">
                           <Btn primary={!isDone} onClick={() => { setRoutePick(i); setOpenStep(3); createAd(s, a, key); }}>
                             {loading && outputAt === key ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                            {isDone ? "Crear otra versión" : `Crear anuncio ${i + 1}`} · {adCost} ⚡
+                            {isDone ? "Crear otra versión" : `Crear anuncio ${i + 1}`} · {adCost} créditos
                           </Btn>
                           {isDone && !loading && (i < ROUTE.length - 1
                             ? <Btn onClick={() => { setRoutePick(i + 1); setOutputAt(null); }}>Siguiente anuncio →</Btn>
@@ -711,25 +730,26 @@ export function MandalaPage() {
           </Step>
 
           <Step n={4} title="Publícalos y anota cómo les va" done={measured} active={step === 4} onOpen={() => openStepN(4)}
-            summary="Déjalos correr 3 días y anota los números.">
+            summary="Déjalos correr 3 días y anota cuánto gastaste, los clics y las ventas.">
             {platform === "organico" ? (
-              <p className="text-sm text-muted-foreground">Publica uno por día. A los 3 días mira cuál trajo más mensajes o clics en el link y márcalo como ganador en Mis anuncios.</p>
+              <p className="text-sm text-muted-foreground">Publica uno por día. A los 3 días mira cuál te trajo más mensajes o clics en el enlace y márcalo como Ganador en Mis anuncios.</p>
             ) : (
               <ol className="text-sm text-muted-foreground space-y-1.5 list-decimal pl-4">
-                <li>Publica los 3 anuncios "para vender", cada uno con el mismo presupuesto diario, bajo.</li>
+                <li>Publica los 3 anuncios "para vender", cada uno con el mismo presupuesto diario, bajo. Cada anuncio trae los pasos para publicarlo.</li>
                 <li>Publica los 2 "para quien casi compra" con un presupuesto aún más bajo, mostrados solo a quien visitó tu página.</li>
                 <li>No toques nada durante 3 días.</li>
-                <li>Anota en cada anuncio cuánto gastaste, su CTR y cuántas ventas trajo. La app te dice cuál apagar y cuál escalar.</li>
+                <li>Anota en cada anuncio cuánto gastaste, su CTR (el % de personas que lo vieron e hicieron clic; lo ves en tu administrador de anuncios) y cuántas ventas trajo. La app te dice cuál apagar y cuál escalar.</li>
               </ol>
             )}
             <Btn primary onClick={() => setTab("mis")}><ListChecks className="w-4 h-4" /> Anotar resultados</Btn>
           </Step>
 
           <Step n={5} title="Escala el que gana" done={hasWinner} active={step === 5} onOpen={() => openStepN(5)}
-            summary="Variaciones del ganador y anuncios nuevos para traer más gente.">
+            summary="Pide variaciones del que vende y crea anuncios para traer gente nueva.">
             <p className="text-sm text-muted-foreground">
-              Cuando un anuncio vende a menos de lo que cuesta el producto, es tu ganador. No le cambies el mensaje: pide variaciones (ganchos nuevos) en Mis anuncios
-              y sube el presupuesto poco a poco. Después usa la Rueda libre en Atraer y Conectar para que te conozca gente nueva.
+              Cuando cada venta te cuesta en anuncios lo mismo o menos que el precio de tu producto, ese anuncio es tu ganador. No le cambies el mensaje:
+              en Mis anuncios pide variaciones (5 ganchos nuevos y 2 versiones, {iterCost} créditos) y sube el presupuesto poco a poco.
+              Después usa la Rueda libre en Atraer y Conectar para que te conozca gente nueva.
             </p>
             <div className="flex flex-wrap gap-2">
               <Btn primary onClick={() => setTab("mis")}><Repeat className="w-4 h-4" /> Ver mis anuncios</Btn>
@@ -790,7 +810,7 @@ export function MandalaPage() {
               <Btn onClick={() => pick(challenge.stage, challenge.angle)}><Sparkles className="w-4 h-4 text-primary" /> Reto de hoy</Btn>
             </div>
             <div className="w-full">
-              <p className="text-xs text-muted-foreground mb-1.5">Tu mándala: {done.size} de {total} cruces creados</p>
+              <p className="text-xs text-muted-foreground mb-1.5">Llevas {done.size} de {total} combinaciones posibles (etapa × ángulo). Cada cuadro es un anuncio distinto.</p>
               <div className="grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${ANGLES.length}, minmax(0,1fr))` }}>
                 {STAGES.flatMap(s => ANGLES.map(a => {
                   const k = `${s.id}:${a.id}`, on = done.has(k), sel = s.id === stage.id && a.id === angle.id;
@@ -817,9 +837,9 @@ export function MandalaPage() {
             </div>
             <div className="flex flex-wrap gap-2 pt-1">
               <Btn primary onClick={() => createAd(stage, angle)}>
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Crear este anuncio · {adCost} ⚡
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Crear este anuncio · {adCost} créditos
               </Btn>
-              <Btn onClick={createSequence}><Layers className="w-4 h-4 text-primary" /> Secuencia de las 4 etapas · {seqCost} ⚡</Btn>
+              <Btn onClick={createSequence}><Layers className="w-4 h-4 text-primary" /> Crear 4 anuncios en cadena, uno por etapa · {seqCost} créditos</Btn>
             </div>
           </div>
         </div>
@@ -829,7 +849,7 @@ export function MandalaPage() {
         <div className="space-y-3">
           {ads.length === 0 && (
             <div className="card-surface rounded-xl p-6 text-center text-sm text-muted-foreground">
-              Aún no creaste anuncios. Empieza por la <button className="text-primary hover:underline" onClick={() => setTab("ruta")}>ruta guiada</button>.
+              Todavía no has creado anuncios. Empieza por el <button className="text-primary hover:underline" onClick={() => setTab("ruta")}>Paso a paso</button>: te guía para crear tus primeros {ROUTE.length}.
             </div>
           )}
           {ads.map(ad => {
@@ -851,7 +871,7 @@ export function MandalaPage() {
                 </div>
                 {ad.platform !== "organico" && ad.status !== "borrador" && (
                   <div className="grid grid-cols-3 gap-2">
-                    {([["spend", "Gasto USD"], ["ctr", "CTR %"], ["sales", "Ventas"]] as const).map(([k, label]) => (
+                    {([["spend", "Gastado (USD)"], ["ctr", "CTR (% de clics)"], ["sales", "Ventas"]] as const).map(([k, label]) => (
                       <label key={k} className="flex flex-col gap-1 text-[11px] text-muted-foreground">
                         {label}
                         <input type="number" min="0" step={k === "sales" ? "1" : "0.01"} inputMode="decimal"
@@ -869,17 +889,17 @@ export function MandalaPage() {
                 {v && (
                   <p className={`text-xs rounded-lg p-2.5 ${v.tone === "good" ? "bg-emerald-500/10 text-emerald-300" : v.tone === "bad" ? "bg-red-500/10 text-red-300" : v.tone === "fix" ? "bg-amber-500/10 text-amber-200" : "bg-secondary text-muted-foreground"}`}>
                     {v.tone === "fix" && <AlertTriangle className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />}{v.text}
-                    {!price && " (Pon el precio en Tu negocio para un veredicto más preciso.)"}
+                    {!price && " (Pon el precio de tu producto en Tu negocio para que el veredicto sea más preciso.)"}
                   </p>
                 )}
                 <div className="flex flex-wrap gap-2">
                   <Btn onClick={() => setOpenAd(open ? null : ad.id)}>{open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />} {open ? "Ocultar" : "Ver anuncio"}</Btn>
                   {(ad.status === "ganador" || v?.tone === "good") && (
-                    <Btn primary onClick={() => iterate(ad)}><Repeat className="w-4 h-4" /> Variaciones del ganador · {iterCost} ⚡</Btn>
+                    <Btn primary onClick={() => iterate(ad)}><Repeat className="w-4 h-4" /> 5 ganchos nuevos + 2 versiones · {iterCost} créditos</Btn>
                   )}
-                  {/video|avatar/i.test(ad.format) && <Btn onClick={() => toMediaStudio(ad.output)}><Video className="w-4 h-4" /> Llevar a Media Studio</Btn>}
-                  <button onClick={() => { navigator.clipboard.writeText(ad.output); toast.success("Copiado"); }} className="p-2.5 text-muted-foreground hover:text-foreground" aria-label="Copiar"><Copy className="w-4 h-4" /></button>
-                  <button onClick={() => deleteAd(ad.id)} className="p-2.5 text-muted-foreground hover:text-red-400" aria-label="Borrar"><Trash2 className="w-4 h-4" /></button>
+                  {/video|avatar/i.test(ad.format) && <Btn onClick={() => toMediaStudio(ad.output)}><Video className="w-4 h-4" /> Hacer el video con avatar</Btn>}
+                  <button onClick={() => { navigator.clipboard.writeText(ad.output); toast.success("Copiado. Ya puedes pegarlo."); }} className="p-2.5 text-muted-foreground hover:text-foreground" aria-label="Copiar anuncio"><Copy className="w-4 h-4" /></button>
+                  <button onClick={() => deleteAd(ad.id)} className="p-2.5 text-muted-foreground hover:text-red-400" aria-label="Borrar anuncio"><Trash2 className="w-4 h-4" /></button>
                 </div>
                 {open && <div className="prose prose-sm prose-invert max-w-none text-foreground border-t border-border pt-3"><ReactMarkdown>{ad.output}</ReactMarkdown></div>}
               </div>

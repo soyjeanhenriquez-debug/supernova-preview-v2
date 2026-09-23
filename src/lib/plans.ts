@@ -9,14 +9,16 @@ export const PLANS = {
     price: 29.99,
     period: "/mes",
     checkout: "https://whop.com/checkout/plan_ukBjctlEKufto",
-    tagline: "Todo el software, para vender tú solo",
+    tagline: "Todo el programa para encontrar qué vender y crear tus anuncios, aunque empieces de cero",
     // Solo lo que la app hace hoy. El video con avatar va aparte (Media Credits): no se promete aquí.
+    // Cada número dice qué cuenta (pedido de Jean): nada de "+7.500" suelto.
     features: [
-      "3 negocios ganadores elegidos para ti cada día",
-      "Veredicto de venta de cada oferta: qué copiar y qué cambiar",
-      "Radar de anuncios que llevan semanas pagando",
-      "Generadores de copy, hooks y guiones",
-      "2.000 créditos cada mes",
+      "3 negocios que ya están vendiendo, elegidos para ti cada día",
+      "Más de 7.500 ofertas digitales analizadas, 300 de ellas ganadoras (llevan meses pagando anuncios)",
+      "Radar con más de 114.000 anuncios reales guardados para mirar e inspirarte",
+      "26 generadores con IA que te escriben anuncios, textos de venta y guiones",
+      "Mándala: una guía paso a paso para tus primeros 5 anuncios",
+      "2.000 créditos al mes para usar la IA (mirar ofertas, el radar y los ganchos es gratis)",
     ],
   },
   comunidad: {
@@ -24,12 +26,21 @@ export const PLANS = {
     price: 99,
     period: "/mes",
     checkout: "https://www.skool.com/creativos-10x-6085",
-    tagline: "El software + acompañamiento en vivo",
-    features: ["Todo lo de PRO", "Comunidad privada en Skool", "Llamadas y revisiones en vivo"],
+    tagline: "El programa + una comunidad + llamadas en vivo para no avanzar solo",
+    features: [
+      "Todo lo de PRO",
+      "Comunidad privada en Skool con otras personas que están aprendiendo a vender en internet",
+      "Llamadas en vivo para resolver tus dudas",
+    ],
   },
 } as const;
 
 export type PlanKey = keyof typeof PLANS;
+
+/** Precio con formato en español: "US$29,99", "US$99". */
+export function formatUsd(n: number) {
+  return `US$${n.toLocaleString("es-ES", { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
+}
 
 /**
  * Separa "Todo lo de PRO" (lo que el plan hereda) de lo que añade. Feedback del primer

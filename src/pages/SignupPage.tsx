@@ -1,12 +1,12 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { PLANS, checkoutUrl, type PlanKey } from "@/lib/plans";
+import { PLANS, checkoutUrl, formatUsd, type PlanKey } from "@/lib/plans";
 import { Turnstile } from "@/components/Turnstile";
-import { PlanFeatures } from "@/components/PlanFeatures";
+import { PlanFeatures, TrialTerms } from "@/components/PlanFeatures";
 import { authErrorMessage } from "./AuthPage";
 
 const CAPTCHA_ENABLED = Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY);
@@ -18,7 +18,7 @@ const CAPTCHA_ENABLED = Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY);
  *  3. Crear cuenta + activar trial (checkout con tarjeta si hay URL configurada)
  *
  * El checkout se toma de VITE_CHECKOUT_URL (link de plan de Whop o Stripe
- * Payment Link con trial de 7 días). Si no está configurado, la cuenta se
+ * Payment Link; en Whop el plan PRO tiene 3 días de prueba). Si no está configurado, la cuenta se
  * crea igual y el usuario entra directo a la app.
  */
 
@@ -29,45 +29,49 @@ type Quiz = {
   main_goal: string;
 };
 
+// Las respuestas se guardan tal cual (user_onboarding) y la IA las lee. En `sells_what`,
+// businessProfile.ts y form-assist deducen el tipo de negocio con regex EN ESTE ORDEN:
+// /shopify|tienda|f[ií]sico/ → /infoproducto|curso/ → /servicio|agencia/ → /afiliado/.
+// Si cambias un texto, conserva su palabra clave y no metas la de otra opción.
 const QUESTIONS: { key: keyof Quiz; title: string; options: string[] }[] = [
   {
     key: "experience_level",
-    title: "¿Cuál es tu nivel en direct response marketing?",
+    title: "¿Cuánta experiencia tienes vendiendo por internet?",
     options: [
       "Estoy empezando desde cero",
-      "Ya lancé campañas, sin resultados consistentes",
-      "Facturo con ads, quiero escalar",
-      "Vivo de esto hace años",
+      "Ya probé con anuncios, pero todavía no vendo seguido",
+      "Ya vendo con anuncios y quiero vender más",
+      "Llevo años viviendo de esto",
     ],
   },
   {
     key: "runs_ads",
-    title: "¿Corres publicidad online actualmente?",
+    title: "¿Estás pagando anuncios en internet ahora mismo?",
     options: [
-      "Sí, en Meta Ads",
-      "Sí, en otras plataformas",
-      "Todavía no, pero voy a empezar",
+      "Sí, en Facebook e Instagram (Meta)",
+      "Sí, en otras redes (TikTok, Google, YouTube…)",
+      "Todavía no, pero quiero empezar",
     ],
   },
   {
     key: "sells_what",
-    title: "¿Qué vendes (o quieres vender)?",
+    title: "¿Qué vendes o qué te gustaría vender?",
     options: [
-      "Infoproducto o curso propio",
-      "Tienda online / Shopify (productos físicos)",
-      "Servicios / agencia",
-      "Afiliado de productos de otros",
-      "Aún no lo tengo claro",
+      "Cursos, guías o productos digitales propios (infoproducto)",
+      "Productos físicos en una tienda online (Shopify u otra)",
+      "Un servicio (diseño, clases, agencia…)",
+      "Productos de otras personas a cambio de una comisión (afiliado)",
+      "Todavía no lo sé: quiero ideas",
     ],
   },
   {
     key: "main_goal",
-    title: "¿Qué esperas de SUPERNOVA?",
+    title: "¿En qué quieres que SUPERNOVA te ayude primero?",
     options: [
-      "Encontrar ofertas ganadoras",
-      "Copiar ángulos y copy que venden",
-      "Construir mi funnel completo",
-      "Vigilar a mi competencia",
+      "Encontrar un producto digital que ya se esté vendiendo",
+      "Ver anuncios que funcionan y escribir los míos",
+      "Armar mi negocio completo: oferta, página de venta y anuncios",
+      "Ver qué está haciendo mi competencia",
     ],
   },
 ];
@@ -186,21 +190,22 @@ export default function SignupPage() {
             <motion.div key="datos" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.5 }}>
               {paid && (
                 <div className="mb-6 rounded-lg border border-[#22c55e]/40 bg-[#22c55e]/10 px-4 py-3 font-[Inter,sans-serif] text-sm leading-relaxed text-[#F5F5F7]">
-                  ✅ <b>Pago recibido.</b> Ahora crea tu cuenta con el <b>mismo correo</b> que usaste al pagar: así tu acceso se activa solo.
+                  ✅ <b>Listo, tu plan quedó activado.</b> Ahora crea tu cuenta con el <b>mismo correo</b> que usaste al pagar: así tu acceso se activa solo.
                 </div>
               )}
               <p className="mb-5 font-[Inter,sans-serif] text-[10px] uppercase tracking-[0.35em] text-[#C5A880]">
-                {paid ? "— Último paso" : "— Cuenta gratis"}
+                {paid ? "— Último paso" : "— Crea tu cuenta"}
               </p>
               <h1 className="font-['Playfair_Display',serif] text-4xl font-medium leading-[1.1] sm:text-5xl">
-                Tu negocio recurrente
+                Encuentra qué vender
                 <br />
-                <span className="italic text-[#C5A880]">arranca esta semana.</span>
+                <span className="italic text-[#C5A880]">y crea tus anuncios.</span>
               </h1>
               <p className="mt-5 font-[Inter,sans-serif] text-sm font-light leading-relaxed text-[#86868B]">
-                Te creamos la cuenta en 30 segundos. 3 días gratis con acceso
-                completo al radar de ofertas y las herramientas para cobrar en
-                tu moneda.
+                Crear tu cuenta toma 30 segundos. Luego te hacemos 4 preguntas
+                rápidas y eliges tu plan. El plan PRO empieza con 3 días gratis
+                con acceso completo: hoy no pagas nada, y si cancelas antes del
+                día 4, tampoco.
               </p>
 
               <form onSubmit={startQuiz} className="mt-10 space-y-5">
@@ -243,6 +248,9 @@ export default function SignupPage() {
               <h1 className="font-['Playfair_Display',serif] text-3xl font-medium leading-[1.15] sm:text-4xl">
                 {q.title}
               </h1>
+              <p className="mt-3 font-[Inter,sans-serif] text-xs text-[#86868B]">
+                No hay respuestas malas: con esto adaptamos la app a lo que necesitas.
+              </p>
               <div className="mt-10 space-y-3">
                 {q.options.map((opt) => (
                   <button
@@ -268,7 +276,7 @@ export default function SignupPage() {
           {step === QUESTIONS.length + 1 && paid && (
             <motion.div key="final-paid" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <p className="mb-5 text-center font-[Inter,sans-serif] text-[10px] uppercase tracking-[0.35em] text-[#22c55e]">
-                — Pago recibido · cuenta creada
+                — Plan activado · cuenta creada
               </p>
               <h1 className="text-center font-['Playfair_Display',serif] text-4xl font-medium leading-[1.1]">
                 Ya casi estás dentro.
@@ -297,12 +305,12 @@ export default function SignupPage() {
                 — Tu cuenta está creada
               </p>
               <h1 className="text-center font-['Playfair_Display',serif] text-4xl font-medium leading-[1.1]">
-                Elige tu nivel.
+                Empieza tus 3 días gratis.
               </h1>
               <p className="mx-auto mt-4 max-w-sm text-center font-[Inter,sans-serif] text-sm font-light leading-relaxed text-[#86868B]">
                 {done === "confirm"
-                  ? `Paga con ${email} y confirma tu correo con el enlace que te mandamos (solo vale el último).`
-                  : "Desbloquea el radar completo con 3 días gratis."}
+                  ? `En el pago usa este mismo correo (${email}) para que tu acceso se active solo. Después confirma tu correo con el enlace que te mandamos (vale solo el último).`
+                  : "Úsalo todo durante 3 días sin pagar. Abajo te explicamos, paso a paso, cómo funciona."}
               </p>
 
               <div className="mt-10 space-y-4">
@@ -312,8 +320,8 @@ export default function SignupPage() {
                   return (
                     // PRO va al checkout de Whop con el correo y el código de fundador ya puestos;
                     // Comunidad, a Skool. (Antes PRO llevaba a "/" y no cobraba nada.)
+                    <Fragment key={key}>
                     <a
-                      key={key}
                       href={checkoutUrl(key, email.trim().toLowerCase())}
                       className={`block rounded-xl border p-5 transition-all duration-500 ${
                         featured
@@ -331,13 +339,19 @@ export default function SignupPage() {
                           )}
                         </span>
                         <span className="font-['Playfair_Display',serif] text-2xl text-[#C5A880]">
-                          ${p.price}
+                          {formatUsd(p.price)}
                           <span className="font-[Inter,sans-serif] text-xs text-[#86868B]">{p.period}</span>
                         </span>
                       </div>
                       <p className="mt-1 font-[Inter,sans-serif] text-xs text-[#86868B]">{p.tagline}</p>
                       <PlanFeatures plan={key} accent="text-[#C5A880]" />
+                      <span className="mt-4 inline-flex items-center gap-1.5 font-[Inter,sans-serif] text-xs font-semibold text-[#C5A880]">
+                        {featured ? "Empezar mis 3 días gratis" : "Ver la comunidad en Skool"} <ArrowRight className="h-3.5 w-3.5" />
+                      </span>
                     </a>
+                    {/* Lo que pasa con la tarjeta, el día 4 y cómo cancelar: justo debajo del botón, antes de pagar */}
+                    {featured && <TrialTerms tone="signup" />}
+                    </Fragment>
                   );
                 })}
               </div>
@@ -349,11 +363,11 @@ export default function SignupPage() {
                 >
                   {done === "confirm"
                     ? "Confirmaré mi correo y decido después"
-                    : "Explorar primero con la cuenta gratis"}
+                    : "Decidir después (tu cuenta queda guardada)"}
                 </Link>
                 <p className="mt-5 flex items-center justify-center gap-1.5 font-[Inter,sans-serif] text-[11px] text-[#86868B]">
                   <Lock className="h-3 w-3" />
-                  3 días gratis en planes PRO · Pago seguro vía Whop · Cancela cuando quieras
+                  Los 3 días gratis son del plan PRO · Pago seguro con Whop · Cancelas cuando quieras
                 </p>
               </div>
             </motion.div>

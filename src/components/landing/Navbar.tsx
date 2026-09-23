@@ -23,7 +23,7 @@ export function Navbar() {
             to="/signup"
             className="border border-[#C5A880]/70 px-3 py-2.5 font-[Inter,sans-serif] text-xs font-medium uppercase tracking-[0.12em] sm:px-5 sm:tracking-[0.18em] text-[#C5A880] transition-all duration-500 hover:bg-[#C5A880] hover:text-black"
           >
-            Empezar
+            3 días gratis
           </Link>
         </div>
       </nav>

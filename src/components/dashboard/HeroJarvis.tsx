@@ -65,15 +65,15 @@ export function HeroJarvis({ firstName }: Props) {
         </h2>
         <div className="flex items-center gap-2 text-[14px] text-primary font-medium animate-jarvis-fade">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-          JARVIS · <span className="tabular-nums font-bold">{hours}h</span> {t("common.today")}
+          Radar buscando anuncios nuevos · <span className="tabular-nums font-bold">{hours}h</span> {t("common.today")}
         </div>
 
         <div className="flex flex-wrap gap-2 pt-2">
           <Pill icon={<Globe className="w-3 h-3" />}>
-            {activeKeywords ?? "—"} keywords
+            {activeKeywords ?? "—"} temas vigilados
           </Pill>
-          <Pill icon={<Languages className="w-3 h-3" />}>4 idiomas</Pill>
-          <Pill icon={<span className="live-dot" />}>LIVE</Pill>
+          <Pill icon={<Languages className="w-3 h-3" />}>Anuncios en 4 idiomas</Pill>
+          <Pill icon={<span className="live-dot" />}>En vivo</Pill>
         </div>
       </div>
 
@@ -88,10 +88,10 @@ export function HeroJarvis({ firstName }: Props) {
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
             {t("common.online")}
           </div>
-          <div className="text-[11px] text-muted-foreground mb-5">Biblioteca de anuncios de Meta · 13 países</div>
+          <div className="text-[11px] text-muted-foreground mb-5">Revisa la biblioteca pública de anuncios de Facebook e Instagram en 13 países</div>
           <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border">
-            <MiniStat label="Procesados" value={adsToday === null ? "—" : adsToday.toLocaleString()} />
-            <MiniStat label="Temperatura" value={fires || "—"} mono />
+            <MiniStat label="Anuncios nuevos hoy" value={adsToday === null ? "—" : adsToday.toLocaleString()} />
+            <MiniStat label="Movimiento del mercado hoy" value={fires || "—"} mono />
           </div>
         </div>
       </div>

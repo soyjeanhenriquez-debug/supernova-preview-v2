@@ -34,7 +34,7 @@ export function StatCardSparkline({ label, sub, value, format, series, delta, al
         {typeof delta === "number" && (
           <span className={`inline-flex items-center gap-1 font-medium ${delta > 0 ? "text-green-500" : delta < 0 ? "text-destructive" : ""}`}>
             {delta > 0 ? <ArrowUp className="w-3 h-3" /> : delta < 0 ? <ArrowDown className="w-3 h-3" /> : null}
-            {delta > 0 ? `+${delta}` : delta} vs ayer
+            {delta === 0 ? "Igual que ayer" : `${delta > 0 ? `+${delta}` : delta} respecto a ayer`}
           </span>
         )}
         <span className="ml-auto">{footer}</span>

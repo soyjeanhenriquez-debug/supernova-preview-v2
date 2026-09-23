@@ -77,16 +77,20 @@ const STATUS_OPTIONS: { value: "ACTIVE" | "INACTIVE" | "ALL"; label: string; dot
 
 
 const TIERS: Record<Tier, { label: string; cls: string; icon: string }> = {
-  mega:   { label: "MEGA WINNER",  cls: "tier-mega",  icon: "🏆" },
-  rising: { label: "RISING STAR",  cls: "tier-rising", icon: "📈" },
-  solid:  { label: "SOLID",        cls: "tier-solid",  icon: "✅" },
+  mega:   { label: "SÚPER GANADOR",  cls: "tier-mega",  icon: "🏆" },
+  rising: { label: "EN ASCENSO",  cls: "tier-rising", icon: "📈" },
+  solid:  { label: "SÓLIDO",       cls: "tier-solid",  icon: "✅" },
 };
 
-const DAY_OPTIONS = [{ v: 0, l: "Todos" }, { v: 7, l: "7+" }, { v: 14, l: "14+" }, { v: 30, l: "30+" }, { v: 60, l: "60+" }];
-const DUP_OPTIONS = [{ v: 0, l: "Todos" }, { v: 3, l: "3+" }, { v: 5, l: "5+" }, { v: 10, l: "10+" }];
+const DAY_OPTIONS = [{ v: 0, l: "Todos" }, { v: 7, l: "7+ días" }, { v: 14, l: "14+ días" }, { v: 30, l: "30+ días" }, { v: 60, l: "60+ días" }];
+const DUP_OPTIONS = [{ v: 0, l: "Todos" }, { v: 3, l: "3+ copias" }, { v: 5, l: "5+ copias" }, { v: 10, l: "10+ copias" }];
 const REGION_OPTIONS = ["Todos", "LATAM", "USA", "Brasil", "España"];
-const SCORE_OPTIONS = [{ v: 0, l: "Todos" }, { v: 40, l: "40+" }, { v: 60, l: "60+" }, { v: 80, l: "80+" }];
+const SCORE_OPTIONS = [{ v: 0, l: "Todos" }, { v: 40, l: "40+ de 100" }, { v: 60, l: "60+ de 100" }, { v: 80, l: "80+ de 100" }];
 const SORT_OPTIONS = ["Mayor Score", "Más Recientes", "Más Duplicados", "Más Días"];
+// Lo que ve el usuario (el valor interno de arriba no cambia: lo usa la consulta).
+const SORT_LABEL: Record<string, string> = {
+  "Mayor Score": "Mayor puntaje", "Más Recientes": "Los más nuevos", "Más Duplicados": "Más copias del anuncio", "Más Días": "Más días activo",
+};
 
 interface FacebookAdLibraryItem {
   id?: string | number;
@@ -644,9 +648,9 @@ export function WinningAdsPage() {
   const currentPage = Math.min(page, totalPages);
 
   const handleSearch = async () => {
-    if (!canAfford("search_ads")) { toast.error("Sin créditos suficientes"); return; }
+    if (!canAfford("search_ads")) { toast.error("No te alcanzan los créditos para buscar en vivo. Mientras tanto, mirar el radar es gratis."); return; }
     setLoadingReal(true);
-    toast.info(`Buscando "${keyword || "todos"}" en ${searchCountry} (${searchStatus}, límite ${searchLimit})...`);
+    toast.info(`Buscando "${keyword || "todos"}" en ${searchCountry}: hasta ${searchLimit} anuncios…`);
     try {
       const { data, error } = await supabase.functions.invoke<FacebookAdsResponse>("facebook-ads", {
         body: { search_terms: keyword || "ad", country: searchCountry, limit: searchLimit, ad_active_status: searchStatus },
@@ -701,7 +705,7 @@ export function WinningAdsPage() {
       });
       const grouped = groupByAdvertiser(mapped, items);
       setRealAds(grouped);
-      toast.success(`✓ ${grouped.length} anunciantes únicos (${mapped.length} anuncios)`);
+      toast.success(`✓ Encontramos ${mapped.length} anuncios de ${grouped.length} anunciantes distintos`);
     } catch (e: unknown) {
       console.error(e);
       toast.error(e instanceof Error ? e.message : "La búsqueda en vivo no está disponible.", { description: "No se te cobró. Mientras tanto puedes explorar el catálogo guardado." });
@@ -727,7 +731,7 @@ export function WinningAdsPage() {
           <div className="flex items-center gap-2 text-sm">
             <span className="text-base">🚀</span>
             <span className="font-semibold text-foreground">Nuevo:</span>
-            <span className="text-muted-foreground">filtros por vertical, búsquedas guardadas y vista lista. <span className="text-primary font-semibold">TikTok Ads</span> próximamente.</span>
+            <span className="text-muted-foreground">filtra por tipo de negocio, guarda tus búsquedas con la estrella y cambia a vista de lista.</span>
           </div>
           <button onClick={dismissBanner} className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-secondary transition-colors" aria-label="Cerrar">
             <X className="w-3.5 h-3.5" />
@@ -739,7 +743,14 @@ export function WinningAdsPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 className="page-heading font-display text-2xl text-foreground">RADAR DE ANUNCIOS</h2>
-          <p className="text-sm text-muted-foreground mt-3">Anuncios validados con datos reales. Encuentra, analiza, clona.</p>
+          <p className="text-sm text-muted-foreground mt-3 max-w-2xl">
+            Más de 100.000 anuncios reales de Facebook e Instagram, guardados para que veas qué están vendiendo otros y cómo lo anuncian.
+            Cada día entran anuncios nuevos. Mirar es gratis; solo la búsqueda en vivo gasta créditos.
+          </p>
+          <p className="text-[13px] text-muted-foreground mt-2 max-w-2xl">
+            <span className="text-foreground font-medium">¿Empiezas de cero?</span> En "Días activo" elige 30+: si alguien paga un anuncio
+            más de un mes, normalmente es porque le funciona. Luego pulsa "¿Por qué funciona este anuncio?" en el que te guste.
+          </p>
         </div>
         {updatedLabel && (
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 pulse-hot">
@@ -945,12 +956,12 @@ export function WinningAdsPage() {
 
       {/* Global stats bar */}
       <div className="card-surface rounded-xl p-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-        <span className="flex items-center gap-2 text-success font-semibold"><span className="live-dot" /> ⚡ JARVIS ACTIVO</span>
-        <span className="text-muted-foreground"><strong className="text-foreground">{liveStats.total.toLocaleString()}</strong> anuncios</span>
-        <span className="text-muted-foreground"><strong className="text-foreground">{liveStats.unique.toLocaleString()}</strong> únicos</span>
-        <span className="flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-mega))" }} /> <strong>{liveStats.mega}</strong> mega</span>
-        <span className="flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-rising))" }} /> <strong>{liveStats.rising.toLocaleString()}</strong> rising</span>
-        <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-solid))" }} /> <strong>{liveStats.solid.toLocaleString()}</strong> solid</span>
+        <span className="flex items-center gap-2 text-success font-semibold"><span className="live-dot" /> ⚡ RADAR ACTIVO</span>
+        <span className="text-muted-foreground"><strong className="text-foreground">{liveStats.total.toLocaleString("es-ES")}</strong> anuncios guardados</span>
+        <span className="text-muted-foreground"><strong className="text-foreground">{liveStats.unique.toLocaleString("es-ES")}</strong> anunciantes distintos</span>
+        <span className="flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-mega))" }} /> <strong>{liveStats.mega.toLocaleString("es-ES")}</strong> súper ganadores</span>
+        <span className="flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-rising))" }} /> <strong>{liveStats.rising.toLocaleString("es-ES")}</strong> en ascenso</span>
+        <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" style={{ color: "hsl(var(--tier-solid))" }} /> <strong>{liveStats.solid.toLocaleString("es-ES")}</strong> sólidos</span>
       </div>
 
 
@@ -965,11 +976,11 @@ export function WinningAdsPage() {
               className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-3 text-base focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
-          <button onClick={saveCurrentSearch} className="px-4 py-3 rounded-lg text-sm flex items-center gap-2 whitespace-nowrap border border-border bg-secondary/60 text-foreground hover:border-primary/40 hover:text-primary transition-colors" title="Guardar esta búsqueda">
+          <button onClick={saveCurrentSearch} className="px-4 py-3 rounded-lg text-sm flex items-center gap-2 whitespace-nowrap border border-border bg-secondary/60 text-foreground hover:border-primary/40 hover:text-primary transition-colors" title="Guardar esta búsqueda para repetirla luego">
             <Star className="w-4 h-4" />
           </button>
           <button onClick={handleSearch} disabled={loadingReal} className="btn-primary-nova px-6 py-3 rounded-lg text-sm flex items-center gap-2 whitespace-nowrap disabled:opacity-60">
-            {loadingReal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} {loadingReal ? "Buscando..." : "Buscar Anuncios"} <span className="opacity-70">· {CREDIT_COSTS.search_ads} créditos</span>
+            {loadingReal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} {loadingReal ? "Buscando…" : "Buscar en vivo en Facebook"} <span className="opacity-70">· {CREDIT_COSTS.search_ads} créditos</span>
           </button>
         </div>
 
@@ -1015,12 +1026,12 @@ export function WinningAdsPage() {
       <div className="rounded-2xl p-5 sticky top-[80px] z-10 border border-border bg-card/80 backdrop-blur-xl space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.18em]">
-            <Filter className="w-3.5 h-3.5" /> Filtros de calidad
+            <Filter className="w-3.5 h-3.5" /> Filtra los anuncios
           </div>
           {/* Toggle vista grid/list + selector de columnas */}
           <div className="flex items-center gap-2">
             {viewMode === "grid" && (
-              <div className="inline-flex items-center gap-1 bg-secondary/60 rounded-full p-1 border border-border/60" title="Columnas">
+              <div className="inline-flex items-center gap-1 bg-secondary/60 rounded-full p-1 border border-border/60" title="Anuncios por fila">
                 <Columns3 className="w-3 h-3 text-muted-foreground ml-1.5" />
                 {[2, 3, 4, 5, 6].map((n) => (
                   <button
@@ -1034,7 +1045,7 @@ export function WinningAdsPage() {
             )}
             <div className="inline-flex bg-secondary/60 rounded-full p-1 border border-border/60">
               <button onClick={() => setViewMode("grid")} aria-label="Vista grid" className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${viewMode === "grid" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
-                <LayoutGrid className="w-3 h-3" /> Grid
+                <LayoutGrid className="w-3 h-3" /> Cuadrícula
               </button>
               <button onClick={() => setViewMode("list")} aria-label="Vista lista" className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${viewMode === "list" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
                 <List className="w-3 h-3" /> Lista
@@ -1047,7 +1058,7 @@ export function WinningAdsPage() {
         <div className="flex flex-wrap gap-1.5">
           {(["Todas", "infoproducto", "ecommerce", "app_saas", "servicio", "salud", "crypto", "otro"] as const).map((v) => {
             const active = verticalFilter === v;
-            const label = v === "Todas" ? "Todas" : (CATEGORY_LABEL as Record<string, string>)[v] ?? v;
+            const label = v === "Todas" ? "Todos los tipos" : (CATEGORY_LABEL as Record<string, string>)[v] ?? v;
             return (
               <button
                 key={v}
@@ -1066,13 +1077,13 @@ export function WinningAdsPage() {
 
         <div className="flex flex-wrap gap-2">
           <PillSelect label="Idioma" value={market} onChange={setMarket} options={MARKETS.map((m) => ({ value: m.id, label: `${m.flag} ${m.label}` }))} />
-          <PillSelect label="Días mínimos" value={String(minDays)} onChange={(v) => setMinDays(Number(v))} options={DAY_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
-          <PillSelect label="Repeticiones" value={String(minDups)} onChange={(v) => setMinDups(Number(v))} options={DUP_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
+          <PillSelect label="Días activo" value={String(minDays)} onChange={(v) => setMinDays(Number(v))} options={DAY_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
+          <PillSelect label="Copias del anuncio" value={String(minDups)} onChange={(v) => setMinDups(Number(v))} options={DUP_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
           {/* El filtro "Tipo" se quitó: la columna offer_type está vacía en todos los anuncios
               y cualquier opción dejaba la lista en cero. Para eso están los chips de vertical. */}
           <PillSelect label="Mercado" value={regionFilter} onChange={setRegionFilter} options={REGION_OPTIONS.map((o) => ({ value: o, label: o }))} />
-          <PillSelect label="Score mínimo" value={String(minScore)} onChange={(v) => setMinScore(Number(v))} options={SCORE_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
-          <PillSelect label="Ordenar" value={sort} onChange={setSort} options={SORT_OPTIONS.map((o) => ({ value: o, label: o }))} />
+          <PillSelect label="Puntaje mínimo" value={String(minScore)} onChange={(v) => setMinScore(Number(v))} options={SCORE_OPTIONS.map((o) => ({ value: String(o.v), label: o.l }))} />
+          <PillSelect label="Ordenar" value={sort} onChange={setSort} options={SORT_OPTIONS.map((o) => ({ value: o, label: SORT_LABEL[o] ?? o }))} />
         </div>
       </div>
 
@@ -1087,21 +1098,21 @@ export function WinningAdsPage() {
             <>
               <div className="flex items-end justify-between mb-3 flex-wrap gap-2">
                 <div>
-                  <h3 className="font-display font-bold text-xl text-foreground">OFERTAS ESCALANDO AHORA</h3>
+                  <h3 className="font-display font-bold text-xl text-foreground">ANUNCIOS QUE ESTÁN CRECIENDO</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Infoproductos y ofertas en escalada detectadas en tiempo real desde Ads Library.
+                    Anuncios que siguen activos y suman versiones nuevas: señal de que les está funcionando. Salen de la biblioteca pública de anuncios de Facebook.
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   {autoLoading && (
                     <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-widest text-muted-foreground">
-                      <Loader2 className="w-3 h-3 animate-spin" /> ESCANEANDO…
+                      <Loader2 className="w-3 h-3 animate-spin" /> BUSCANDO…
                     </span>
                   )}
                   <span className="text-[10px] font-bold tracking-widest text-primary border border-primary/30 bg-primary/10 px-2 py-1 rounded">
                     {lastAutoRun
-                      ? `JARVIS ACTUALIZÓ HACE ${Math.max(0, Math.floor((Date.now() - lastAutoRun.getTime()) / 60_000))} MIN`
-                      : "JARVIS INICIANDO…"}
+                      ? `RADAR ACTUALIZADO HACE ${Math.max(0, Math.floor((Date.now() - lastAutoRun.getTime()) / 60_000))} MIN`
+                      : "CARGANDO EL RADAR…"}
                   </span>
                 </div>
               </div>
@@ -1125,8 +1136,8 @@ export function WinningAdsPage() {
         {filteredTotal === 0 ? (
           <div className="card-surface rounded-xl py-16 text-center">
             <div className="empty-icon mb-4"><Trophy className="w-9 h-9" /></div>
-            <div className="font-display font-bold text-lg mb-1">Aún no hay ganadores en este filtro</div>
-            <div className="text-sm text-muted-foreground max-w-sm mx-auto">Ajusta días, repeticiones o cambia de mercado para descubrir más oportunidades</div>
+            <div className="font-display font-bold text-lg mb-1">No hay anuncios con estos filtros</div>
+            <div className="text-sm text-muted-foreground max-w-sm mx-auto">Baja los días activo o las copias del anuncio, o cambia de mercado.</div>
           </div>
         ) : (
           <>
@@ -1279,11 +1290,11 @@ function PaginationBar({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 py-3 px-1">
       <div className="text-xs text-muted-foreground">
-        Mostrando <span className="text-foreground font-medium">{from.toLocaleString()}–{to.toLocaleString()}</span> de{" "}
-        <span className="text-foreground font-medium">{total.toLocaleString()}</span> ads
+        Mostrando <span className="text-foreground font-medium">{from.toLocaleString("es-ES")}–{to.toLocaleString("es-ES")}</span> de{" "}
+        <span className="text-foreground font-medium">{total.toLocaleString("es-ES")}</span> anuncios
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Por página</span>
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Anuncios por página</span>
         <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
           <SelectTrigger className="h-8 w-[80px] rounded-full text-xs">
             <SelectValue />
@@ -1398,32 +1409,32 @@ const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, onMiniApp
 
   // (preview ahora va inline en la card; no necesita estado de dialog)
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(ad.body).then(() => toast.success("Copy copiado")).catch(() => toast.error("No se pudo copiar"));
+    navigator.clipboard.writeText(ad.body).then(() => toast.success("Texto del anuncio copiado")).catch(() => toast.error("No se pudo copiar"));
   };
   const translateUrl = `https://translate.google.com/?sl=auto&tl=es&text=${encodeURIComponent(ad.body)}&op=translate`;
   const landingDomain = ad.landingUrl ? extractDomain(ad.landingUrl) : "";
 
   // Razones por las que es ganador — derivadas de métricas reales
   const winnerReasons: { icon: string; title: string; detail: string }[] = [];
-  if (ad.daysActive >= 90) winnerReasons.push({ icon: "🔥", title: "Always-on +90 días", detail: "Lleva más de 3 meses corriendo sin parar. Si no rentara, lo habrían pausado hace semanas." });
-  else if (ad.daysActive >= 30) winnerReasons.push({ icon: "📅", title: `Evergreen ${ad.daysActive}d`, detail: "Más de 30 días activos = el anunciante validó CPA rentable y está escalando." });
-  else if (ad.daysActive >= 14) winnerReasons.push({ icon: "✅", title: `Validado ${ad.daysActive}d`, detail: "Pasó el periodo de aprendizaje de Meta y sigue activo." });
+  if (ad.daysActive >= 90) winnerReasons.push({ icon: "🔥", title: "Más de 90 días activo", detail: "Lleva más de 3 meses publicado sin parar. Si no le funcionara, lo más probable es que ya lo hubieran apagado." });
+  else if (ad.daysActive >= 30) winnerReasons.push({ icon: "📅", title: `${ad.daysActive} días activo`, detail: "Más de un mes pagando este anuncio: buena señal de que le trae ventas." });
+  else if (ad.daysActive >= 14) winnerReasons.push({ icon: "✅", title: `${ad.daysActive} días activo`, detail: "Ya pasó las primeras 2 semanas, cuando se apagan muchos de los anuncios que no funcionan." });
 
-  if ((ad.activeCount ?? 1) >= 20) winnerReasons.push({ icon: "🧪", title: `Split-test ×${ad.activeCount}`, detail: "Tantas variantes activas indican presupuesto serio y proceso de optimización agresivo." });
-  else if ((ad.activeCount ?? 1) >= 5) winnerReasons.push({ icon: "🔬", title: `${ad.activeCount} variantes A/B`, detail: "Está testeando ángulos en paralelo — señal de equipo profesional buscando winner." });
+  if ((ad.activeCount ?? 1) >= 20) winnerReasons.push({ icon: "🧪", title: `${ad.activeCount} versiones a la vez`, detail: "Tener tantas versiones activas indica que invierten en serio y prueban qué mensaje vende más." });
+  else if ((ad.activeCount ?? 1) >= 5) winnerReasons.push({ icon: "🔬", title: `${ad.activeCount} versiones a prueba`, detail: "Prueba varios mensajes al mismo tiempo para ver cuál vende más. Así trabajan los anunciantes con experiencia." });
 
-  if (ad.duplicates >= 10) winnerReasons.push({ icon: "♻️", title: `${ad.duplicates} duplicados`, detail: "Duplica el creativo para escalar presupuesto sin reiniciar el aprendizaje. Clásico de escala." });
-  else if (ad.duplicates >= 3) winnerReasons.push({ icon: "📈", title: `${ad.duplicates}× duplicado`, detail: "Empezó a duplicarse — early signal de que está rindiendo." });
+  if (ad.duplicates >= 10) winnerReasons.push({ icon: "♻️", title: `${ad.duplicates} copias del anuncio`, detail: "Copian el mismo anuncio para meterle más dinero. Eso se hace cuando algo está funcionando." });
+  else if (ad.duplicates >= 3) winnerReasons.push({ icon: "📈", title: `Copiado ${ad.duplicates} veces`, detail: "Empezaron a copiarlo: primera señal de que está dando resultado." });
 
-  if ((ad.historicalCount ?? 0) >= 1000) winnerReasons.push({ icon: "🏆", title: `Anunciante veterano ${Math.floor((ad.historicalCount ?? 0) / 1000)}K+ ads`, detail: "Página con historial masivo — saben lo que hacen y este ad sobrevivió a su filtro interno." });
-  else if ((ad.historicalCount ?? 0) >= 100) winnerReasons.push({ icon: "👤", title: `${ad.historicalCount}+ ads históricos`, detail: "Anunciante experimentado, no es su primer rodeo." });
+  if ((ad.historicalCount ?? 0) >= 1000) winnerReasons.push({ icon: "🏆", title: `Anunciante con ${Math.floor((ad.historicalCount ?? 0) / 1000)}.000+ anuncios`, detail: "Han publicado miles de anuncios. Saben lo que hacen, y este sigue activo." });
+  else if ((ad.historicalCount ?? 0) >= 100) winnerReasons.push({ icon: "👤", title: `${ad.historicalCount}+ anuncios publicados`, detail: "No es su primer anuncio: el anunciante tiene experiencia." });
 
-  if ((ad.platforms?.length ?? 0) >= 3) winnerReasons.push({ icon: "📡", title: `${ad.platforms!.length} plataformas`, detail: "Corre en FB + IG + más → Meta está distribuyendo bien y el ROAS lo aguanta." });
-  if ((ad.countries?.length ?? 0) >= 3) winnerReasons.push({ icon: "🌍", title: `${ad.countries!.length} países`, detail: "Escalando geo — oferta validada en múltiples mercados." });
-  if (ad.checkoutPlatform) winnerReasons.push({ icon: "💳", title: `Checkout: ${ad.checkoutPlatform}`, detail: "Plataforma de venta detectada — confirma que es oferta real, no branding." });
-  if (ad.score >= 80) winnerReasons.push({ icon: "⭐", title: `Score ${ad.score}/100 — MEGA`, detail: "Combinación de antigüedad + duplicados + plataformas en el top de detección." });
+  if ((ad.platforms?.length ?? 0) >= 3) winnerReasons.push({ icon: "📡", title: `En ${ad.platforms!.length} plataformas`, detail: "Se muestra en Facebook, Instagram y más. Pagar en tantos sitios suele indicar que le sale a cuenta." });
+  if ((ad.countries?.length ?? 0) >= 3) winnerReasons.push({ icon: "🌍", title: `En ${ad.countries!.length} países`, detail: "Lo anuncian en varios países a la vez. Suele pasar cuando la oferta funciona en más de un mercado." });
+  if (ad.checkoutPlatform) winnerReasons.push({ icon: "💳", title: `Cobra con ${ad.checkoutPlatform}`, detail: "Detectamos dónde cobra: es una venta real, no solo publicidad de marca." });
+  if (ad.score >= 80) winnerReasons.push({ icon: "⭐", title: `Puntaje ${ad.score}/100: muy alto`, detail: "Suma tiempo activo, copias y plataformas. Está entre los más fuertes que detectamos." });
 
-  if (winnerReasons.length === 0) winnerReasons.push({ icon: "👀", title: "En observación", detail: "Aún pocos datos. Vuelve a revisar en 24-48h para ver si despega." });
+  if (winnerReasons.length === 0) winnerReasons.push({ icon: "👀", title: "En observación", detail: "Todavía hay pocos datos. Vuelve en 1 o 2 días para ver si crece." });
 
   return (
     <div className="card-surface rounded-xl p-5 flex flex-col gap-3 ad-card-hover">
@@ -1439,10 +1450,10 @@ const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, onMiniApp
           })}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={onSave} className="text-muted-foreground hover:text-primary transition-colors">
+          <button onClick={onSave} title={saved ? "Quitar de guardados" : "Guardar este anuncio"} className="text-muted-foreground hover:text-primary transition-colors">
             <Heart className={`w-4 h-4 ${saved ? "fill-primary text-primary" : ""}`} />
           </button>
-          <span className="text-2xl font-display font-extrabold text-foreground">{ad.score}</span>
+          <span title="Puntaje de 0 a 100: qué tan fuerte es la señal de que este anuncio funciona" className="text-2xl font-display font-extrabold text-foreground">{ad.score}</span>
         </div>
       </div>
 
@@ -1457,7 +1468,7 @@ const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, onMiniApp
           <span className="text-muted-foreground">· {ad.flag} {ad.marketLabel}</span>
         )}
         <span className="text-muted-foreground">· {ad.lang.toUpperCase()}</span>
-        {ad.checkoutPlatform && <span className="text-muted-foreground">· via {ad.checkoutPlatform}</span>}
+        {ad.checkoutPlatform && <span className="text-muted-foreground">· cobra con {ad.checkoutPlatform}</span>}
       </div>
 
       {/* Preview real (screenshot/video del Ad Library renderizado server-side) */}
@@ -1489,10 +1500,10 @@ const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, onMiniApp
 
       <div className="flex flex-wrap gap-1.5">
         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${daysBadgeCls}`}>
-          <Flame className="w-3 h-3" /> {ad.daysActive} Días Activo
+          <Flame className="w-3 h-3" /> {ad.daysActive} días activo
         </span>
         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${dupsBadgeCls}`}>
-          <Zap className="w-3 h-3" /> {ad.duplicates} Duplicados
+          <Zap className="w-3 h-3" /> {ad.duplicates} copias
         </span>
         {typeof ad.activeCount === "number" && ad.activeCount > 1 && (
           <span className="text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 bg-primary/15 text-primary border border-primary/30">
@@ -1540,20 +1551,20 @@ const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, onMiniApp
 
             const intel: { label: string; tone: "amber" | "neutral" | "danger" }[] = [];
 
-            if (ad.daysActive >= 90) intel.push({ label: "Always-on 90d+", tone: "amber" });
-            else if (ad.daysActive >= 30) intel.push({ label: "Evergreen 30d+", tone: "amber" });
+            if (ad.daysActive >= 90) intel.push({ label: "90+ días activo", tone: "amber" });
+            else if (ad.daysActive >= 30) intel.push({ label: "30+ días activo", tone: "amber" });
 
-            if (active >= 20) intel.push({ label: `Split-test ×${active}`, tone: "danger" });
-            else if (active >= 5) intel.push({ label: `${active} variantes A/B`, tone: "neutral" });
+            if (active >= 20) intel.push({ label: `${active} versiones a la vez`, tone: "danger" });
+            else if (active >= 5) intel.push({ label: `${active} versiones a prueba`, tone: "neutral" });
 
-            if (adsPerWeek >= 3) intel.push({ label: `${adsPerWeek.toFixed(1)} ads/sem`, tone: "amber" });
+            if (adsPerWeek >= 3) intel.push({ label: `${adsPerWeek.toLocaleString("es-ES", { maximumFractionDigits: 1 })} anuncios por semana`, tone: "amber" });
 
-            if (historical >= 1000) intel.push({ label: `Veterano ${Math.floor(historical / 1000)}K+ ads`, tone: "danger" });
-            else if (historical >= 100) intel.push({ label: `${historical}+ ads históricos`, tone: "neutral" });
+            if (historical >= 1000) intel.push({ label: `Veterano: ${Math.floor(historical / 1000)}.000+ anuncios`, tone: "danger" });
+            else if (historical >= 100) intel.push({ label: `${historical}+ anuncios en total`, tone: "neutral" });
 
-            if (iterationRatio >= 20) intel.push({ label: `Itera ×${Math.round(iterationRatio)}`, tone: "amber" });
+            if (iterationRatio >= 20) intel.push({ label: `Prueba mucho (×${Math.round(iterationRatio)})`, tone: "amber" });
 
-            if (ad.checkoutPlatform) intel.push({ label: `Checkout: ${ad.checkoutPlatform}`, tone: "neutral" });
+            if (ad.checkoutPlatform) intel.push({ label: `Cobra con ${ad.checkoutPlatform}`, tone: "neutral" });
 
             const toneCls = {
               amber: "bg-primary/15 text-primary border-primary/30",
@@ -1564,8 +1575,8 @@ const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, onMiniApp
             return (
               <>
                 <div className="text-[10px] text-muted-foreground mt-0.5 tabular-nums">
-                  {active.toLocaleString()} activos
-                  {historical > 0 && <> · {historical.toLocaleString()}+ históricos</>}
+                  {active.toLocaleString("es-ES")} anuncios activos
+                  {historical > 0 && <> · {historical.toLocaleString("es-ES")}+ en total</>}
                 </div>
                 {intel.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1.5">
@@ -1591,15 +1602,15 @@ const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, onMiniApp
           <button
             className="w-full py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary transition-all mt-1"
           >
-            <Info className="w-3.5 h-3.5" /> ¿Por qué gana este ad?
+            <Info className="w-3.5 h-3.5" /> ¿Por qué funciona este anuncio?
           </button>
         </PopoverTrigger>
         <PopoverContent side="top" align="end" className="w-80 p-0 border-border bg-popover/95 backdrop-blur-xl">
           <div className="p-3 border-b border-border/60 flex items-center gap-2">
             <Trophy className="w-4 h-4 text-primary" />
             <div>
-              <div className="text-xs font-display font-bold text-foreground">Diagnóstico ganador</div>
-              <div className="text-[10px] text-muted-foreground">Score {ad.score}/100 · {winnerReasons.length} señales detectadas</div>
+              <div className="text-xs font-display font-bold text-foreground">Señales de que funciona</div>
+              <div className="text-[10px] text-muted-foreground">Puntaje {ad.score}/100 · {winnerReasons.length} señales encontradas</div>
             </div>
           </div>
           <div className="max-h-80 overflow-y-auto p-2 space-y-1.5">
@@ -1617,11 +1628,11 @@ const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, onMiniApp
       </Popover>
 
       <button onClick={onMiniApp} className="btn-primary-nova w-full py-2.5 rounded-lg text-sm flex items-center justify-center gap-2 mt-1">
-        🧬 CREAR MI APP → <span className="opacity-70 text-xs">· {CREDIT_COSTS.gen_master_prompt} ⚡</span>
+        🧬 HACER MI VERSIÓN → <span className="opacity-70 text-xs">· {CREDIT_COSTS.gen_master_prompt} créditos</span>
       </button>
 
       <button onClick={onSofisticar} className="w-full py-2 rounded-lg text-xs border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 flex items-center justify-center gap-1.5 transition-colors">
-        <Sparkles className="w-3.5 h-3.5" /> Sofisticar oferta · {CREDIT_COSTS.sofisticar} ⚡
+        <Sparkles className="w-3.5 h-3.5" /> Mejorar esta oferta · {CREDIT_COSTS.sofisticar} créditos
       </button>
 
       <a href={ad.adUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-muted-foreground hover:text-primary flex items-center gap-1 justify-center group">

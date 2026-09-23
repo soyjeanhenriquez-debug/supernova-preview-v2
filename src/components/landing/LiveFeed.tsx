@@ -14,7 +14,7 @@ export function LiveFeed() {
     <div className="w-full max-w-md rounded-xl border border-[#ffffff10] bg-[#0f0f11]/80 p-5 shadow-[0_40px_120px_-40px_rgba(197,168,128,0.25)] backdrop-blur">
       <div className="mb-4 flex items-center justify-between">
         <span className="font-[Inter,sans-serif] text-[10px] uppercase tracking-[0.3em] text-[#86868B]">
-          Live feed · Mega winners
+          Ejemplos · Ofertas del radar
         </span>
         <span className="flex items-center gap-1.5 font-[Inter,sans-serif] text-[10px] uppercase tracking-[0.2em] text-[#C5A880]">
           <motion.span
@@ -58,8 +58,8 @@ export function LiveFeed() {
       </ul>
 
       <div className="mt-4 flex items-center justify-between border-t border-[#ffffff10] pt-3.5 font-[Inter,sans-serif] text-[10px] uppercase tracking-[0.2em] text-[#86868B]">
-        <span>+600 nuevas ayer</span>
-        <span>38 mega winners activos</span>
+        <span>43.500 anuncios nuevos en 30 días</span>
+        <span>300 ganadoras</span>
       </div>
     </div>
   );

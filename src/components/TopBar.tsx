@@ -36,7 +36,7 @@ export function TopBar({ activePage, onOpenMobileNav }: TopBarProps) {
         {onOpenMobileNav && (
           <button
             onClick={onOpenMobileNav}
-            aria-label="Menu"
+            aria-label="Abrir el menú"
             className="lg:hidden -ml-1 w-9 h-9 rounded-full border border-border/70 text-muted-foreground hover:text-foreground hover:border-foreground/30 flex items-center justify-center transition-colors"
           >
             <Menu className="w-[15px] h-[15px]" strokeWidth={1.8} />

@@ -8,7 +8,7 @@ export function DailyQuoteWidget() {
         <p className="font-display text-[20px] leading-[1.4] text-foreground italic tracking-tight">
           "{q}"
         </p>
-        <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground font-medium mt-4">— Filosofía DR</div>
+        <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground font-medium mt-4">— Frase del día</div>
       </div>
     </section>
   );

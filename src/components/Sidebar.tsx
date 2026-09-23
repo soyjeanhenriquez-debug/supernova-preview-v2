@@ -25,18 +25,18 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
   const { t } = useTranslation();
 
   const navItems = [
-    { icon: LayoutDashboard, key: "Dashboard", label: t("nav.dashboard") },
-    { icon: Gem, key: "Ofertas", label: t("nav.offers") },
-    { icon: Boxes, key: "Mini Apps", label: t("nav.kits") },
-    { icon: Trophy, key: "Buscar Ofertas Winner", label: t("nav.winners") },
-    { icon: Quote, key: "Hooks", label: t("nav.hooks") },
-    { icon: Orbit, key: "Mándala", label: t("nav.mandala") },
-    { icon: Store, key: "Mercado", label: t("nav.mercado") },
-    { icon: Telescope, key: "Oráculo", label: t("nav.oracle") },
-    { icon: FileText, key: "Generadores", label: t("nav.generators") },
-    { icon: Video, key: "Media Studio", label: t("nav.mediaStudio") },
-    { icon: FolderKanban, key: "Proyectos", label: t("nav.projects") },
-    { icon: Coins, key: "Créditos", label: t("nav.credits") },
+    { icon: LayoutDashboard, key: "Dashboard", label: t("nav.dashboard"), hint: t("nav.hint.dashboard") },
+    { icon: Gem, key: "Ofertas", label: t("nav.offers"), hint: t("nav.hint.offers") },
+    { icon: Boxes, key: "Mini Apps", label: t("nav.kits"), hint: t("nav.hint.kits") },
+    { icon: Trophy, key: "Buscar Ofertas Winner", label: t("nav.winners"), hint: t("nav.hint.winners") },
+    { icon: Quote, key: "Hooks", label: t("nav.hooks"), hint: t("nav.hint.hooks") },
+    { icon: Orbit, key: "Mándala", label: t("nav.mandala"), hint: t("nav.hint.mandala") },
+    { icon: Store, key: "Mercado", label: t("nav.mercado"), hint: t("nav.hint.mercado") },
+    { icon: Telescope, key: "Oráculo", label: t("nav.oracle"), hint: t("nav.hint.oracle") },
+    { icon: FileText, key: "Generadores", label: t("nav.generators"), hint: t("nav.hint.generators") },
+    { icon: Video, key: "Media Studio", label: t("nav.mediaStudio"), hint: t("nav.hint.mediaStudio") },
+    { icon: FolderKanban, key: "Proyectos", label: t("nav.projects"), hint: t("nav.hint.projects") },
+    { icon: Coins, key: "Créditos", label: t("nav.credits"), hint: t("nav.hint.credits") },
   ];
 
   const [collapsed, setCollapsed] = useState<boolean>(() => localStorage.getItem(COLLAPSE_KEY) === "1");
@@ -62,8 +62,8 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
       {!mobile && (
         <button
           onClick={() => setCollapsed((c) => !c)}
-          title={collapsed ? "Expandir" : "Colapsar"}
-          aria-label={collapsed ? "Expandir" : "Colapsar"}
+          title={collapsed ? "Mostrar el menú" : "Ocultar el menú"}
+          aria-label={collapsed ? "Mostrar el menú" : "Ocultar el menú"}
           className="hidden lg:flex absolute -right-3 top-7 z-20 w-6 h-6 rounded-full bg-card border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 items-center justify-center shadow-sm transition-colors"
         >
           {collapsed ? <PanelLeftOpen className="w-3 h-3" strokeWidth={1.8} /> : <PanelLeftClose className="w-3 h-3" strokeWidth={1.8} />}
@@ -88,7 +88,7 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
             <div className="font-display font-semibold text-foreground text-[28px] tracking-[-0.045em]">
               supern<span className="text-primary">o</span>va
             </div>
-            <div className="text-[9px] text-muted-foreground tracking-[0.24em] uppercase font-medium mt-2">DR Intelligence</div>
+            <div className="text-[9px] text-muted-foreground tracking-[0.24em] uppercase font-medium mt-2">Qué vender y cómo anunciarlo</div>
           </div>
         )}
       </div>
@@ -103,7 +103,7 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
               key={item.key}
               data-tour={`nav-${item.key}`}
               onClick={() => handleNav(item.key)}
-              title={isCollapsed ? item.label : undefined}
+              title={isCollapsed ? `${item.label}: ${item.hint}` : item.hint}
               className={`flex items-center gap-3 w-full rounded-lg transition-colors text-left ${isCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2"} ${
                 isActive
                   ? "sidebar-active"
@@ -146,7 +146,7 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
         ) : (
           <button
             onClick={() => handleNav("Proyectos")}
-            title={t("nav.brain")}
+            title={`${t("nav.brain")}: ${t("nav.brainSub")}`}
             className="w-full mt-4 flex items-center justify-center py-2.5 rounded-lg border border-border hover:border-foreground/20 hover:bg-secondary/40 transition-colors"
           >
             <Brain className="w-[15px] h-[15px] text-muted-foreground" strokeWidth={1.6} />

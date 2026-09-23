@@ -17,15 +17,15 @@ const categories = [
   { icon: Heart, label: "Recomendados", id: "recommended" },
   { icon: Star, label: "Favoritos", id: "favorites" },
   { divider: true },
-  { icon: Layers, label: "Embudo completo", id: "funnel" },
-  { icon: Globe, label: "Redes Sociales", id: "social" },
-  { icon: FileText, label: "Copywriting", id: "copywriting" },
+  { icon: Layers, label: "Embudo de ventas", id: "funnel" },
+  { icon: Globe, label: "Anuncios y redes", id: "social" },
+  { icon: FileText, label: "Página de ventas", id: "copywriting" },
   { icon: ShoppingBag, label: "Producto", id: "product" },
   { icon: DollarSign, label: "Ventas", id: "sales" },
   { icon: Youtube, label: "YouTube", id: "youtube" },
   { icon: Instagram, label: "Instagram", id: "instagram" },
-  { icon: Mail, label: "E-mails", id: "emails" },
-  { icon: MessageSquare, label: "Mensajes", id: "messages" },
+  { icon: Mail, label: "Correos", id: "emails" },
+  { icon: MessageSquare, label: "WhatsApp y DM", id: "messages" },
   { icon: BarChart2, label: "Estrategia", id: "strategy" },
 ];
 
@@ -183,176 +183,176 @@ ${FORMAT_RULES}`;
 const generators: Generator[] = [
   {
     id: "ecosystem",
-    title: "Ecosistema de productos (escalera de valor)",
-    description: "Tu producto de entrada, order bump, upsells, downsell, continuidad y ascensión, con precios y ticket promedio estimado.",
+    title: "Escalera de productos: qué venderle a un mismo cliente",
+    description: "Todo lo que puedes ofrecerle a quien te compra, en orden: un producto de entrada barato, un extra antes de pagar (order bump), ofertas justo después de comprar (upsell y downsell), una suscripción y un servicio de precio alto. Con precios sugeridos y cuánto te dejaría cada cliente, como estimación. Si no sabes por dónde empezar tu embudo, empieza aquí.",
     category: "funnel",
     recommended: true,
     prompt: ECOSYSTEM_PROMPT,
   },
   {
     id: "vsl-main",
-    title: "VSL principal (8–12 minutos)",
-    description: "La VSL de tu oferta de entrada: gancho, historia, mecanismo único, oferta, garantía y cierre, con marcas de tiempo.",
+    title: "VSL principal: guion del video que vende (8–12 min)",
+    description: "El guion completo del video de ventas de tu producto, con los minutos marcados: 3 formas de abrir, tu historia, por qué tu método es distinto, la oferta, la garantía y el cierre. Listo para grabarlo tú o leerlo con un avatar.",
     category: "funnel",
     recommended: true,
     prompt: VSL_MAIN_PROMPT,
   },
   {
     id: "order-bump",
-    title: "Order bump (el extra antes de pagar)",
-    description: "3 opciones de order bump con precio, titular y el texto del checkbox para tu checkout.",
+    title: "Order bump: el extra que se agrega antes de pagar",
+    description: "3 ideas de un producto pequeño que el cliente suma con un clic en la página de pago. Cada una con precio, titular y el texto de la casilla (\"¡Sí, lo quiero!\").",
     category: "funnel",
     prompt: ORDER_BUMP_PROMPT,
   },
   {
     id: "ascension-offer",
-    title: "Oferta de ascensión (ticket alto)",
-    description: "El siguiente escalón: mentoría o programa, cómo invitar, formulario de aplicación y guion de llamada.",
+    title: "Oferta de precio alto para quien ya te compró",
+    description: "El siguiente paso para tus clientes (una mentoría o un programa): qué incluye y cuánto cobrar, el mensaje para invitarlos, un formulario de 5 a 7 preguntas y el guion de la llamada de venta.",
     category: "funnel",
     prompt: ASCENSION_PROMPT,
   },
   {
     id: "meta-campaign",
-    title: "Estructura de campaña en Meta Ads",
-    description: "Campaña de prueba, conjuntos, presupuesto inicial, métricas, reglas para apagar o escalar y plan de 7 días.",
+    title: "Tu primera campaña en Meta Ads (Facebook e Instagram)",
+    description: "Cómo armar una campaña de prueba con poco dinero: cuántos anuncios poner, a quién mostrarlos, cuánto gastar al día, qué números mirar, cuándo apagar o subir el presupuesto y qué hacer cada día de la primera semana.",
     category: "funnel",
     recommended: true,
     prompt: META_CAMPAIGN_PROMPT,
   },
   {
     id: "ugc-script",
-    title: "Guiones UGC para anuncios (15–30 s)",
-    description: "3 guiones estilo cliente real con gancho, demostración, CTA e indicaciones de grabación. Listos para el avatar de Media Studio.",
+    title: "Guiones UGC: anuncios que parecen de un cliente real (15–30 s)",
+    description: "3 guiones de video corto con qué decir en los primeros 3 segundos, qué mostrar, cómo cerrar y cómo grabarlo. Puedes grabarlos tú, pedírselos a un creador o hacerlos con el avatar de Media Studio.",
     category: "funnel",
     prompt: UGC_PROMPT,
   },
   {
     id: "creative-brief",
-    title: "Plan de 10 creativos para testear",
-    description: "10 ángulos distintos con gancho, texto del anuncio y qué se ve, más cómo leer los resultados.",
+    title: "10 anuncios distintos para probar cuál funciona",
+    description: "10 anuncios, cada uno contado desde un enfoque distinto (dolor, deseo, curiosidad, historia, comparación…): la primera frase, el texto y qué se ve en la imagen o el video. Te dice en qué orden lanzarlos y cómo leer los resultados a los 3 días.",
     category: "funnel",
     prompt: CREATIVE_BRIEF_PROMPT,
   },
   {
     id: "yapping-script",
-    title: "Guion Video Yapping (T→MAES→A/N)",
-    description: "Guion hablado a cámara con el framework T→MAES→A/N: hook, desarrollo con metáfora/ejemplo/historia y cierre con CTA. La versión corta sale lista para Media Studio.",
+    title: "Guion para hablarle a la cámara (video yapping)",
+    description: "Un guion para grabarte hablando, estilo TikTok o Reels: una primera frase que frena el scroll, una explicación con un ejemplo o una historia y un cierre que dice qué hacer. Trae una versión corta de unas 150 palabras (entra directo en Media Studio), una larga y 3 aperturas más. Usa el método T→MAES→A/N.",
     category: "social",
     recommended: true,
     prompt: YAPPING_PROMPT,
   },
   {
     id: "vsl-downsell",
-    title: "VSL Downsell (5–7 minutos)",
-    description: "Genera una VSL de downsell corta y de alta conversión.",
+    title: "VSL downsell: video para quien dijo que no (5–7 min)",
+    description: "Guion de un video de ventas de 5 a 7 minutos que le ofrece una versión más barata (downsell) a quien no aceptó tu oferta anterior.",
     category: "funnel",
     recommended: true,
   },
   {
     id: "vsl-upsell-2",
-    title: "VSL Segundo Upsell (5–7 minutos)",
-    description: "Genera una VSL de segundo upsell corta y de alta conversión.",
+    title: "VSL segundo upsell: segunda oferta tras la compra (5–7 min)",
+    description: "Guion de un video de ventas de 5 a 7 minutos para ofrecer un segundo producto extra (upsell) a quien ya compró y aceptó el primero.",
     category: "funnel",
     recommended: true,
   },
   {
     id: "vsl-upsell-1",
-    title: "VSL Primer Upsell (5–7 minutos)",
-    description: "Genera una VSL de upsell corta y de alta conversión.",
+    title: "VSL primer upsell: oferta justo después de comprar (5–7 min)",
+    description: "Guion de un video de ventas de 5 a 7 minutos para ofrecer un producto extra (upsell) a quien acaba de comprar.",
     category: "funnel",
   },
   {
     id: "landing-copy",
-    title: "Copywriting para Páginas de Venta",
-    description: "Genera todo el texto para tus páginas de venta con alta conversión.",
+    title: "Textos para tu página de ventas",
+    description: "Todo el texto de tu página de ventas, de arriba abajo: titular, el problema, qué gana la persona, qué incluye la oferta, bonos, garantía, preguntas frecuentes y el botón de compra.",
     category: "copywriting",
   },
   {
     id: "email-sequence",
-    title: "Secuencia de Emails (5-7 emails)",
-    description: "Crea una secuencia completa de emails de venta automatizada.",
+    title: "Secuencia de 5 a 7 correos de venta",
+    description: "De 5 a 7 correos para enviar, uno por día, a quien te dejó su email: presentan el problema, tu solución y tu oferta. Cada uno con asunto y texto listos para pegar en tu herramienta de correo.",
     category: "emails",
     recommended: true,
   },
   {
     id: "email-launch",
-    title: "Emails de Lanzamiento",
-    description: "Genera emails persuasivos para lanzamientos de productos digitales.",
+    title: "Correos para lanzar un producto digital",
+    description: "Los correos para anunciar un producto nuevo: antes de abrir la venta, el día que abre y el último día. Cada uno con asunto y texto listos.",
     category: "emails",
   },
   {
     id: "hooks-meta",
-    title: "Hooks para Meta Ads",
-    description: "Genera 10+ hooks de alta conversión para tus anuncios de Facebook e Instagram.",
+    title: "10 hooks para anuncios de Facebook e Instagram",
+    description: "10 ganchos (hooks) para tu anuncio: la primera frase o los primeros 3 segundos, lo que hace que la gente deje de deslizar y se quede a ver.",
     category: "social",
     recommended: true,
   },
   {
     id: "hooks-tiktok",
-    title: "Hooks para TikTok Ads",
-    description: "Crea hooks virales optimizados para TikTok y contenido vertical.",
+    title: "10 hooks para anuncios de TikTok",
+    description: "10 ganchos (hooks) para los primeros 3 segundos de tus videos verticales en TikTok, con qué decir y qué mostrar.",
     category: "social",
   },
   {
     id: "captions-ig",
-    title: "Captions para Instagram",
-    description: "Genera captions atractivos y optimizados para engagement en Instagram.",
+    title: "Textos para tus publicaciones de Instagram",
+    description: "Captions (el texto que va debajo de la foto o del Reel) que invitan a comentar, guardar y escribirte, con una llamada a la acción y hashtags.",
     category: "instagram",
   },
   {
     id: "reels-script",
-    title: "Guiones para Reels/Shorts",
-    description: "Crea guiones virales para Reels, Shorts y TikToks con estructura probada.",
+    title: "Guiones para Reels, Shorts y TikTok",
+    description: "Guiones de videos cortos con gancho, desarrollo y cierre, pensados para que la gente los vea hasta el final.",
     category: "instagram",
   },
   {
     id: "yt-script",
-    title: "Guión para YouTube",
-    description: "Genera guiones completos optimizados para retención y conversión.",
+    title: "Guion para un video de YouTube",
+    description: "Un guion completo: una apertura que retiene, el contenido en orden y un cierre que invita a comprar o a suscribirse.",
     category: "youtube",
   },
   {
     id: "yt-titles",
-    title: "Títulos y Thumbnails YouTube",
-    description: "Crea títulos clickbait éticos y conceptos de thumbnails que generan clicks.",
+    title: "Títulos y miniaturas para YouTube",
+    description: "Títulos que dan ganas de hacer clic sin engañar, y una idea de miniatura (thumbnail) para cada uno.",
     category: "youtube",
   },
   {
     id: "product-desc",
-    title: "Descripción de Producto",
-    description: "Genera descripciones persuasivas para productos físicos o digitales.",
+    title: "Descripción de tu producto",
+    description: "Una descripción que vende tu producto físico o digital: qué es, para quién es, qué gana la persona y por qué comprarlo ahora. Sirve para tu tienda, tu catálogo o WhatsApp.",
     category: "product",
   },
   {
     id: "offer-stack",
-    title: "Stack de Oferta Irresistible",
-    description: "Diseña una oferta irresistible con bonos, garantía y urgencia.",
+    title: "Tu oferta completa: bonos, garantía y urgencia",
+    description: "Tu oferta armada y lista para presentar (lo que en inglés llaman offer stack): qué incluye, qué bonos sumar, qué garantía dar y una razón real para comprar hoy.",
     category: "funnel",
     recommended: true,
   },
   {
     id: "dm-script",
-    title: "Script de Cierre por DM",
-    description: "Genera scripts de cierre de venta por mensajes directos.",
+    title: "Guion para cerrar ventas por mensaje directo (DM)",
+    description: "Qué responder, paso a paso, cuando alguien te escribe por Instagram o Facebook: saludo, preguntas, oferta, dudas y cierre.",
     category: "messages",
   },
   {
     id: "funnel-strategy",
-    title: "Estrategia de Funnel Completo",
-    description: "Diseña un embudo de ventas optimizado de principio a fin.",
+    title: "Plan de tu embudo de ventas",
+    description: "El camino de tu cliente, del anuncio a la compra (el funnel o embudo): qué pieza necesitas en cada paso (anuncio, página, correos, WhatsApp) y en qué orden hacerlas.",
     category: "funnel",
     recommended: true,
   },
   {
     id: "audience-research",
-    title: "Investigación de Audiencia",
-    description: "Genera un perfil detallado de tu avatar ideal con dolores y deseos.",
+    title: "Perfil de tu cliente ideal",
+    description: "Quién te va a comprar: qué le duele, qué desea, qué lo frena y qué palabras usa. Es la base para escribir todos tus anuncios.",
     category: "strategy",
   },
   {
     id: "whatsapp-sequence",
-    title: "Secuencia de WhatsApp",
-    description: "Crea una secuencia de mensajes de WhatsApp para nurturing y cierre.",
+    title: "Secuencia de mensajes de WhatsApp",
+    description: "Los mensajes para escribirle por WhatsApp a quien mostró interés: conversar, resolver dudas y cerrar la venta sin sonar insistente.",
     category: "messages",
   },
 ];
@@ -375,7 +375,7 @@ export function GeneradoresPage() {
       const s = await assist.generate({ generador: title, ya_escrito: generatorInput });
       if (typeof s.text === "string" && s.text) setGeneratorInput(s.text.slice(0, 2000));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "No se pudo generar el ejemplo");
+      toast.error(e instanceof Error ? e.message : "No se pudo escribir el ejemplo. Prueba otra vez.");
     }
   };
 
@@ -394,14 +394,14 @@ export function GeneradoresPage() {
 
   const runGenerator = async (generator: typeof generators[0]) => {
     if (!generatorInput.trim()) {
-      toast.error("Escribe los detalles de tu producto/servicio");
+      toast.error("Primero cuenta qué vendes: qué es, para quién y cuánto cuesta.");
       return;
     }
-    // Costo interno por tipo de generador (silencioso, sin mostrar en UI)
-    const { action } = generatorCost(generator.id);
+    // Costo por tipo de generador (el mismo que se ve en la tarjeta y en el botón)
+    const { action, cost } = generatorCost(generator.id);
     if (!canAfford(action)) {
-      toast.error("Sin créditos suficientes para generar", {
-        description: "Recarga tu saldo o espera al próximo ciclo mensual.",
+      toast.error(`Te faltan créditos: este generador cuesta ${cost}`, {
+        description: "Recarga créditos o espera a que se renueven el mes que viene.",
       });
       return;
     }
@@ -467,9 +467,9 @@ export function GeneradoresPage() {
           }
         }
       }
-      toast.success("¡Contenido generado!");
+      toast.success("Listo. Revísalo y cópialo.");
     } catch (err: unknown) {
-      toast.error(err instanceof Error && err.message ? err.message : "Error al generar contenido");
+      toast.error(err instanceof Error && err.message ? err.message : "No se pudo generar. Inténtalo de nuevo en un momento.");
     } finally {
       setLoading(false);
     }
@@ -517,10 +517,14 @@ export function GeneradoresPage() {
               <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-primary/10 to-accent/5" />
               <div className="relative px-5 py-8 md:px-8 md:py-10 text-center">
                 <h2 className="font-display font-bold text-2xl text-foreground mb-2">
-                  Generadores de Contenido con IA
+                  {generators.length} generadores de textos para vender
                 </h2>
-                <p className="text-sm text-muted-foreground max-w-lg mx-auto">
-                  Genera copy, guiones, emails y estrategias con IA entrenada en marketing de alto rendimiento
+                <p className="text-sm text-muted-foreground max-w-xl mx-auto">
+                  Elige lo que necesitas (un anuncio, un guion de video, correos, tu página de ventas), cuenta en 2 o 3 líneas qué vendes
+                  y la IA te lo escribe en español, listo para copiar. Cada tarjeta muestra lo que cuesta en créditos antes de abrirla.
+                </p>
+                <p className="text-xs text-muted-foreground max-w-xl mx-auto mt-2">
+                  ¿Empiezas de cero? Abre <b className="text-foreground">Recomendados</b> y prueba primero los hooks o la escalera de productos.
                 </p>
               </div>
             </div>
@@ -561,19 +565,10 @@ export function GeneradoresPage() {
 
                   <div className="flex items-center justify-between gap-2 w-full">
                   <span className="text-xs px-2.5 py-1 rounded-md bg-secondary border border-border text-muted-foreground capitalize">
-                    {gen.category === "funnel" ? "Embudo completo" :
-                     gen.category === "copywriting" ? "Copywriting" :
-                     gen.category === "emails" ? "E-mails" :
-                     gen.category === "social" ? "Redes Sociales" :
-                     gen.category === "instagram" ? "Instagram" :
-                     gen.category === "youtube" ? "YouTube" :
-                     gen.category === "product" ? "Producto" :
-                     gen.category === "sales" ? "Ventas" :
-                     gen.category === "messages" ? "Mensajes" :
-                     gen.category === "strategy" ? "Estrategia" : gen.category}
+                    {categories.find((c) => "id" in c && c.id === gen.category)?.label ?? gen.category}
                   </span>
                   {/* El precio se ve ANTES de entrar: nadie debería enterarse al cobrarle. */}
-                  <span className="text-[11px] font-semibold text-primary tabular-nums whitespace-nowrap">{generatorCost(gen.id).cost} ⚡</span>
+                  <span className="text-[11px] font-semibold text-primary tabular-nums whitespace-nowrap">{generatorCost(gen.id).cost} créditos</span>
                   </div>
                 </div>
                 );
@@ -585,12 +580,12 @@ export function GeneradoresPage() {
                     {activeCategory === "favorites" ? "⭐" : "🔍"}
                   </div>
                   <div className="font-display font-semibold text-foreground mb-1">
-                    {activeCategory === "favorites" ? "Sin favoritos aún" : "Sin generadores"}
+                    {activeCategory === "favorites" ? "Todavía no tienes favoritos" : "Aún no hay generadores aquí"}
                   </div>
                   <div className="text-sm text-muted-foreground">
                     {activeCategory === "favorites"
-                      ? "Marca generadores como favoritos haciendo clic en la estrella"
-                      : "No hay generadores en esta categoría"}
+                      ? "Toca la estrella de un generador para tenerlo a mano en esta lista."
+                      : "Prueba con otra categoría o mira Todos."}
                   </div>
                 </div>
               )}
@@ -604,7 +599,7 @@ export function GeneradoresPage() {
                 onClick={() => setActiveGenerator(null)}
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                ← Volver a generadores
+                ← Ver todos los generadores
               </button>
 
               <div>
@@ -615,20 +610,23 @@ export function GeneradoresPage() {
               <div className="card-surface rounded-xl p-5 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <label className="text-sm font-semibold text-foreground">
-                    Describe tu producto o servicio
+                    ¿Qué vendes? Cuéntalo en 2 o 3 líneas
                   </label>
                   <div className="flex flex-wrap items-center gap-2">
                     {myBusiness && generatorInput.trim() !== myBusiness && (
                       <button type="button" onClick={() => setGeneratorInput(myBusiness)}
-                        className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground">Usar mi negocio</button>
+                        className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground">Usar los datos de mi negocio</button>
                     )}
                     <AssistButton onClick={() => fillInput(selectedGen.title)} loading={assist.loading} filled={!!generatorInput.trim()} />
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Qué es, para quién es y cuánto cuesta. ¿No sabes qué poner? Toca <b className="text-foreground">Rellenar con IA</b>: es gratis y te escribe un ejemplo que puedes cambiar.
+                </p>
                 <textarea
                   value={generatorInput}
                   onChange={(e) => setGeneratorInput(e.target.value)}
-                  placeholder={assist.text() ? `Ej.: ${assist.text()}` : "ej: Curso online de marketing digital para emprendedores que quieren escalar sus ventas con Meta Ads. Precio: $497. Público: emprendedores hispanos de 25-45 años..."}
+                  placeholder={assist.text() ? `Ej.: ${assist.text()}` : "Ej.: Curso online de repostería para vender postres desde casa. Para mamás de 25 a 45 años en República Dominicana y México. Precio: 27 USD."}
                   rows={5}
                   className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all resize-none"
                 />
@@ -638,9 +636,9 @@ export function GeneradoresPage() {
                   className="flex items-center gap-2 px-6 py-3 gradient-brand text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-60 glow-primary"
                 >
                   {loading ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Generando...</>
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Escribiendo…</>
                   ) : (
-                    <><Sparkles className="w-4 h-4" /> Generar <span className="opacity-75 font-medium">· {generatorCost(selectedGen.id).cost} ⚡</span></>
+                    <><Sparkles className="w-4 h-4" /> Escribirlo <span className="opacity-75 font-medium">· {generatorCost(selectedGen.id).cost} créditos</span></>
                   )}
                 </button>
               </div>
@@ -648,10 +646,10 @@ export function GeneradoresPage() {
               {(generatorOutput || loading) && (
                 <div className="card-surface rounded-xl p-5">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-semibold text-foreground">Resultado</span>
+                    <span className="text-sm font-semibold text-foreground">Tu texto</span>
                     {generatorOutput && !loading && (
                       <button
-                        onClick={() => { navigator.clipboard.writeText(generatorOutput); toast.success("Copiado"); }}
+                        onClick={() => { navigator.clipboard.writeText(generatorOutput); toast.success("Copiado. Ya puedes pegarlo donde quieras."); }}
                         className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
                       >
                         <Copy className="w-3.5 h-3.5" /> Copiar
@@ -667,7 +665,7 @@ export function GeneradoresPage() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 text-muted-foreground">
-                        <Loader2 className="w-4 h-4 animate-spin" /> Generando contenido...
+                        <Loader2 className="w-4 h-4 animate-spin" /> Escribiendo tu texto… los más largos tardan un poco más.
                       </div>
                     )}
                   </div>

@@ -3,7 +3,7 @@ import { MessageCircle, X, Send, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { CREDIT_COSTS } from "@/hooks/useCredits";
+import { CREDIT_COSTS, generatorCost } from "@/hooks/useCredits";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -26,21 +26,23 @@ Funciones de la app que conoces (menú lateral):
 
 5. **Hooks**: banco de ganchos sacados de anuncios ganadores, para copiar y adaptar.
 
-6. **Oráculo**: pegas la URL de una página de ventas y la disecciona (oferta, avatar, embudo, qué copiar). Oráculo completo: ${CREDIT_COSTS.landing_intelligence} créditos.
+5b. **Mercado**: para quien aún no tiene producto. Dos pestañas: **Ideas para WhatsApp** (la IA propone 5 productos sencillos, casi siempre digitales, inspirados en lo que se vende en Etsy, con precio, cómo hacerlos y el mensaje para venderlos por WhatsApp; cuesta ${generatorCost("etsy-ideas").cost} créditos cada tanda) y **Catálogo y Radar** (productos de ClickBank y Digistore24 para vender como afiliado, productos de Etsy como inspiración y anunciantes que llevan días pagando anuncios). "Vender esto" lleva el producto a la Mándala.
 
-7. **Generadores**: plantillas de copy (hooks, captions, emails, guiones, VSL, landing). La categoría **Embudo completo** cubre las 6 piezas de una operación que vende a diario: ecosistema de productos (escalera de valor), VSL principal, order bump, VSL de upsell y downsell, oferta de ascensión (ticket alto), estructura de campaña en Meta Ads, guiones UGC y plan de 10 creativos. Si alguien pregunta "¿por dónde empiezo mi embudo?", recomienda primero "Ecosistema de productos". Cuestan ${CREDIT_COSTS.gen_light}, ${CREDIT_COSTS.gen_medium} o ${CREDIT_COSTS.gen_heavy} créditos según el tamaño; el precio se ve antes de generar y se cobra solo si sale bien.
+6. **Oráculo**: pegas el enlace de una página de ventas y recibes un informe de 9 partes (quién es, la oferta, a quién le vende, sus anuncios activos, por qué funciona, puntos débiles, cómo superarlo, plan de 30 días y un gancho listo). Cuesta ${CREDIT_COSTS.landing_intelligence} créditos y solo se cobra si sale bien. Si la página no se deja leer, se puede pegar su texto. Después del informe hay botones para crear tu versión: Mis anuncios (5 ganchos + 3 textos), Mi página de ventas, Mi cliente ideal, Mi embudo completo y Mega-Prompt para otra IA; cada uno muestra su precio.
 
-8. **Mándala Creativa** (menú lateral): cruza 4 etapas (Atraer, Conectar, Convertir, Recuperar) con 18 ángulos = 72 anuncios por oferta. Primero se llena **Tu oferta** (qué vende, para quién, qué promete, precio). Tres modos: **Ruta guiada** (5 anuncios en el orden que conviene a quien empieza: 3 de Convertir y 2 de Recuperar, luego publicar y medir 3 días), **Rueda libre** (girar, reto de hoy, secuencia de 4 etapas) y **Mis anuncios** (se guardan; anota gasto, CTR y ventas y da un veredicto: apagar, esperar o escalar; del ganador pide variaciones). Sirve para Meta, TikTok, YouTube u orgánico sin pagar. Un anuncio cuesta ${CREDIT_COSTS.gen_light} créditos; la secuencia y las variaciones del ganador, ${CREDIT_COSTS.gen_medium}. Los guiones de video se llevan a Media Studio con un botón. Recomiéndala a quien no sabe qué anuncio hacer, se quedó sin ideas o no sabe si su anuncio funciona.
+7. **Generadores**: la IA escribe textos listos para copiar (hooks, textos de Instagram, correos, guiones, VSL, página de ventas, mensajes de WhatsApp y DM). Se cuenta en 2 o 3 líneas qué vendes (o se toca "Rellenar con IA", que es gratis) y se toca el botón. La categoría **Embudo de ventas** tiene las piezas de un embudo: escalera de productos (qué venderle a un mismo cliente), VSL principal, order bump, VSL de upsell y downsell, oferta de precio alto, primera campaña en Meta Ads, guiones UGC, 10 anuncios para probar, oferta completa y plan del embudo. Si alguien pregunta "¿por dónde empiezo mi embudo?", recomienda primero "Escalera de productos". Si empieza de cero, recomienda la categoría **Recomendados**. Cuestan ${CREDIT_COSTS.gen_light}, ${CREDIT_COSTS.gen_medium} o ${CREDIT_COSTS.gen_heavy} créditos según el generador; el precio se ve en cada tarjeta antes de abrirla y se devuelve si la IA falla.
 
-9. **Media Studio**: videos con avatar de IA a partir de un guion. Usa **Media Credits** (saldo aparte): 10 por video. Si el video falla, se devuelven solos. Packs: Starter 50/$10, Pro 150/$29.99, Scale 400/$69.99.
+8. **Mándala Creativa** (menú lateral): cruza 4 etapas (Atraer, Conectar, Convertir, Recuperar) con 18 ángulos = 72 anuncios posibles por oferta. Primero se llena **Tu negocio** (qué vende, para quién, qué logra, precio), que se comparte con el resto de la app. Tres pestañas: **Paso a paso** (5 pasos; en el paso 3 crea sus primeros 5 anuncios en el orden que conviene a quien empieza: 3 para vender y 2 para quien visitó y no compró; luego publicar y medir 3 días), **Rueda libre** (girar, reto de hoy, 4 anuncios en cadena, uno por etapa) y **Mis anuncios** (se guardan; anota gasto, CTR y ventas y da un veredicto con reglas simples: CTR menor a 0,8% → cambiar el gancho; gastó 2 veces el precio sin ventas → apagar; costo por venta igual o menor al precio → ganador; del ganador pide 5 ganchos nuevos y 2 versiones). Sirve para Meta, TikTok, YouTube u orgánico sin pagar. Un anuncio cuesta ${CREDIT_COSTS.gen_light} créditos; la secuencia y las variaciones del ganador, ${CREDIT_COSTS.gen_medium}. Los guiones de video se llevan a Media Studio con un botón. Recomiéndala a quien no sabe qué anuncio hacer, se quedó sin ideas o no sabe si su anuncio funciona.
 
-10. **Proyectos / SUPERNOVA BRAIN**: 6 pilares (Detectar, Analizar, Diseñar, Producir, Lanzar, Escalar) para llevar una campaña de principio a fin. Cada pilar tiene "Ayuda IA" (${CREDIT_COSTS.pillar_assist} créditos).
+9. **Media Studio**: convierte un guion de hasta 160 palabras en un video vertical de 45 a 60 segundos hablado por un avatar de IA. Usa **Media Credits** (saldo aparte de los créditos normales): 10 por video. Si el video falla, se devuelven solos. Packs: Starter 50 por US$10, Pro 150 por US$29,99, Scale 400 por US$69,99.
 
-11. **Créditos**: la membresía incluye 2,000 créditos cada mes (se renuevan por ciclo, NO se acumulan). Packs de recarga: Boost 500/$10, Power 2,000/$20, Nuclear 4,500/$39; los comprados SÍ se acumulan y no caducan. El historial de gastos está en esa misma página. Este chat de ayuda es gratis.
+10. **Proyectos**: cada negocio que guardas como proyecto (desde Ofertas, Mini Apps, el Radar o Modo Crear) con 6 pasos (Detectar, Analizar, Diseñar, Producir, Lanzar, Escalar), notas por paso y "Ayuda de la IA" (${CREDIT_COSTS.pillar_assist} créditos por paso).
+
+11. **Créditos**: el plan PRO trae 2.000 créditos cada mes (se renuevan por ciclo, NO se acumulan). Packs de recarga: Boost 500 por US$10, Power 2.000 por US$20, Nuclear 4.500 por US$39; los comprados SÍ se acumulan y no caducan. "Rellenar con IA" en los formularios es gratis. El historial de gastos está en esa misma página. Este chat de ayuda es gratis.
 
 Si algo cobró y falló, los créditos se devuelven automáticamente; si no fue así, que escriba a soporte.
 
-Estilo: Respuestas cortas, directas, en español. Usa listas y **negritas** para claridad. Si no sabes algo específico de la app, dilo y sugiere contactar soporte. Nunca inventes precios ni funciones que no estén en esta lista.`;
+Estilo: Respuestas cortas, directas, en español, tuteando. Usa listas y **negritas** para claridad. Explica en pocas palabras cualquier término técnico (VSL = video de ventas, CTR = % de personas que hacen clic, upsell = oferta extra después de comprar). Números con formato en español (2.000, 0,8%). Nunca prometas ingresos ni resultados. Si no sabes algo específico de la app, dilo y sugiere contactar soporte. Nunca inventes precios ni funciones que no estén en esta lista.`;
 
 export function HelpAssistant() {
   const [open, setOpen] = useState(false);
@@ -95,9 +97,9 @@ export function HelpAssistant() {
       });
 
       if (!res.ok || !res.body) {
-        if (res.status === 429) toast.error("Demasiadas peticiones. Espera un momento.");
-        else if (res.status === 402) toast.error("Créditos de IA agotados.");
-        else toast.error("Error al contactar al asistente.");
+        if (res.status === 429) toast.error("Hiciste muchas preguntas seguidas. Espera un minuto y vuelve a intentarlo.");
+        else if (res.status === 402) toast.error("El asistente no está disponible ahora mismo. Inténtalo más tarde.");
+        else toast.error("No pudimos hablar con el asistente. Inténtalo de nuevo.");
         setStreaming(false);
         return;
       }
@@ -132,7 +134,7 @@ export function HelpAssistant() {
       }
     } catch (e) {
       console.error(e);
-      toast.error("Error de conexión");
+      toast.error("Se cortó la conexión. Revisa tu internet e inténtalo de nuevo.");
     } finally {
       setStreaming(false);
     }
@@ -164,7 +166,7 @@ export function HelpAssistant() {
               </div>
               <div className="leading-tight">
                 <div className="text-[13px] font-semibold text-foreground">Asistente SUPERNOVA</div>
-                <div className="text-[10px] text-muted-foreground">Ayuda sobre cómo usar la app</div>
+                <div className="text-[10px] text-muted-foreground">Dudas sobre cómo usar la app · gratis</div>
               </div>
             </div>
             <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-secondary" aria-label="Cerrar">
@@ -176,12 +178,12 @@ export function HelpAssistant() {
             {messages.length === 0 && (
               <div className="text-center py-6 space-y-3">
                 <div className="text-[12px] text-muted-foreground">
-                  Pregúntame cómo usar cualquier función de SUPERNOVA.
+                  Pregúntame cómo usar cualquier parte de SUPERNOVA. Es gratis: no gasta créditos.
                 </div>
                 <div className="flex flex-col gap-1.5">
                   {[
+                    "No tengo producto, ¿por dónde empiezo?",
                     "¿Cómo busco anuncios ganadores?",
-                    "¿Para qué sirven los 6 pilares?",
                     "¿Cómo funcionan los créditos?",
                   ].map(q => (
                     <button

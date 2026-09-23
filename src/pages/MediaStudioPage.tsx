@@ -36,7 +36,7 @@ export function MediaStudioPage() {
       const s = await assist.generate({ ya_escrito: script });
       if (typeof s.text === "string" && s.text) setScript(s.text);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "No se pudo generar el ejemplo");
+      toast.error(e instanceof Error ? e.message : "No se pudo escribir el ejemplo. Prueba otra vez.");
     }
   };
 
@@ -60,7 +60,7 @@ export function MediaStudioPage() {
       } else if (res.voices[0]) {
         setVoiceId(res.voices[0].voice_id);
       }
-    }).catch((e) => toast.error(e.message || "Error cargando avatares"));
+    }).catch((e) => toast.error(e.message || "No se pudieron cargar los avatares. Recarga la página."));
 
     loadJobs();
     return () => { if (pollRef.current) window.clearInterval(pollRef.current); };
@@ -88,7 +88,7 @@ export function MediaStudioPage() {
         setJobs((prev) => {
           const justFailed = fresh.find((j) => j.status === "failed" && prev.some((p) => p.id === j.id && p.status !== "failed"));
           if (justFailed) {
-            toast.error("HeyGen no pudo generar ese video", { description: "Te devolvimos tus Media Credits." });
+            toast.error("No se pudo crear ese video", { description: "Te devolvimos tus Media Credits. Puedes intentarlo de nuevo." });
             refreshCredits();
           }
           return fresh;
@@ -114,12 +114,12 @@ export function MediaStudioPage() {
     setGenerating(true);
     try {
       const res = await generateVideo({ script: script.trim(), avatar_id: avatarId, voice_id: voiceId, kind: selectedAvatar?.kind });
-      toast.success(res.dry_run ? "🎬 Video simulado generado (modo demo)" : "🎬 Generando tu video — listo en 1-3 min");
+      toast.success(res.dry_run ? "Video de prueba creado (modo de prueba, no es un video real)" : "Estamos creando tu video. Tarda unos minutos: aparecerá abajo, en Tus videos.");
       setScript("");
       await refreshCredits();
       await loadJobs();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error generando el video");
+      toast.error(e instanceof Error ? e.message : "No se pudo crear el video. Si se cobró, te devolvemos los Media Credits.");
       // Si HeyGen rechazó el video, el servidor ya devolvió los Media Credits.
       await refreshCredits();
       await loadJobs();
@@ -135,12 +135,17 @@ export function MediaStudioPage() {
           <h2 className="page-heading font-display text-2xl text-foreground flex items-center gap-2">
             <Video className="w-6 h-6 text-primary" /> MEDIA STUDIO
           </h2>
-          <p className="text-sm text-muted-foreground mt-3">
-            Tu próximo hook en video, listo en minutos. Un guion corto (45-60s) → un avatar con IA lo graba por ti.
+          <p className="text-sm text-muted-foreground mt-3 max-w-2xl">
+            Convierte un guion corto en un video vertical de 45 a 60 segundos, hablado por un avatar con IA. Sirve para Reels, TikTok
+            y anuncios, sin que tengas que grabarte.
+          </p>
+          <p className="text-xs text-muted-foreground mt-1.5 max-w-2xl">
+            Cómo empezar: pega tu guion (o toca Rellenar con IA), elige un avatar y una voz, y toca Crear video. Cada video cuesta{" "}
+            {MEDIA_COST_PER_VIDEO} Media Credits, un saldo aparte de tus créditos normales.
           </p>
         </div>
         <div className="card-surface rounded-xl px-4 py-3 text-right">
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Media Credits</div>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Tus Media Credits</div>
           <div className="font-display font-bold text-xl text-primary">{creditsLoading ? "…" : balance}</div>
         </div>
       </div>
@@ -148,14 +153,14 @@ export function MediaStudioPage() {
       {dryRunMode && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-lg border border-warning/30 bg-warning/10 text-sm text-warning">
           <AlertTriangle className="w-4 h-4 shrink-0" />
-          Modo simulado: aún no hay conexión real con HeyGen configurada. Los videos generados aquí son de prueba.
+          Modo de prueba: por ahora los videos que crees aquí no son reales, solo sirven para probar la pantalla.
         </div>
       )}
 
       <div className="card-surface rounded-xl p-6 space-y-5">
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs uppercase tracking-wider text-muted-foreground" htmlFor="ms-script">Guion del hook</label>
+            <label className="text-xs uppercase tracking-wider text-muted-foreground" htmlFor="ms-script">Lo que dirá el avatar</label>
             <span className="flex items-center gap-3">
             <AssistButton onClick={fillScript} loading={assist.loading} filled={!!script.trim()} />
             <span className={`text-xs tabular-nums ${overLimit ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
@@ -168,19 +173,19 @@ export function MediaStudioPage() {
             value={script}
             onChange={(e) => setScript(e.target.value)}
             rows={5}
-            placeholder="Pega aquí tu hook — el gancho de 45-60 segundos que quieres que el avatar diga a cámara…"
+            placeholder="Pega aquí lo que quieres que diga el avatar a cámara. Máximo 160 palabras (unos 45 a 60 segundos). Empieza con una frase que frene el scroll."
             className="w-full bg-secondary border border-border rounded-lg p-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
           {overLimit && (
             <p className="text-xs text-destructive mt-1.5">
-              Media Studio genera hooks cortos, no el VSL completo. Recorta el guion a {MAX_WORDS} palabras.
+              Te pasaste de {MAX_WORDS} palabras. Media Studio hace videos cortos, no un video de ventas largo: recorta el guion para seguir.
             </p>
           )}
         </div>
 
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-1.5">Avatar</label>
+            <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-1.5">Quién lo dice (avatar)</label>
             <div className="grid grid-cols-2 gap-2">
               {avatars.map((a) => (
                 <button
@@ -225,7 +230,7 @@ export function MediaStudioPage() {
 
         <div className="flex items-center justify-between flex-wrap gap-3 pt-2 border-t border-border">
           <p className="text-xs text-muted-foreground">
-            Cada video cuesta <span className="text-foreground font-semibold">{MEDIA_COST_PER_VIDEO} Media Credits</span> (~1 min de duración).
+            Cada video (de 45 a 60 segundos) cuesta <span className="text-foreground font-semibold">{MEDIA_COST_PER_VIDEO} Media Credits</span>. Si falla, te los devolvemos.
           </p>
           <button
             onClick={handleGenerate}
@@ -233,23 +238,23 @@ export function MediaStudioPage() {
             className="gradient-brand text-primary-foreground px-6 py-2.5 rounded-lg font-semibold text-sm hover:opacity-90 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {generating ? "Generando…" : `Generar video · ${MEDIA_COST_PER_VIDEO} ⚡`}
+            {generating ? "Enviando…" : `Crear video · ${MEDIA_COST_PER_VIDEO} Media Credits`}
           </button>
         </div>
         {!creditsLoading && balance < MEDIA_COST_PER_VIDEO && (
-          <p className="text-xs text-warning">No tienes suficientes Media Credits. Recarga desde la página de Créditos.</p>
+          <p className="text-xs text-warning">Te faltan Media Credits: necesitas {MEDIA_COST_PER_VIDEO} para un video y tienes {balance}. Puedes comprar más en la página Créditos.</p>
         )}
       </div>
 
       <div className="card-surface rounded-xl">
         <div className="px-5 py-3 border-b border-border flex items-center justify-between">
           <h3 className="font-display font-bold text-base">Tus videos recientes</h3>
-          <button onClick={loadJobs} className="text-muted-foreground hover:text-primary transition-colors" title="Actualizar">
+          <button onClick={loadJobs} className="text-muted-foreground hover:text-primary transition-colors" title="Ver el estado actualizado" aria-label="Ver el estado actualizado">
             <RefreshCw className="w-4 h-4" />
           </button>
         </div>
         {jobs.length === 0 ? (
-          <div className="p-6 text-center text-sm text-muted-foreground">Aún no has generado ningún video</div>
+          <div className="p-6 text-center text-sm text-muted-foreground">Todavía no has creado videos. Cuando crees uno, aparecerá aquí.</div>
         ) : (
           <div className="divide-y divide-border">
             {jobs.map((job) => <JobRow key={job.id} job={job} />)}
@@ -261,7 +266,7 @@ export function MediaStudioPage() {
 }
 
 const STATUS_LABEL: Record<MediaJob["status"], string> = {
-  pending: "En cola", processing: "Generando…", completed: "Listo", failed: "Falló",
+  pending: "En espera", processing: "Creándose…", completed: "Listo", failed: "No se pudo crear",
 };
 const STATUS_CLASS: Record<MediaJob["status"], string> = {
   pending: "text-muted-foreground", processing: "text-warning", completed: "text-success", failed: "text-destructive",
@@ -288,14 +293,14 @@ function JobRow({ job }: { job: MediaJob }) {
             {(job.status === "pending" || job.status === "processing") && <Loader2 className="w-3 h-3 inline animate-spin mr-1" />}
             {STATUS_LABEL[job.status]}
           </span>
-          {job.dry_run && <span className="text-[10px] uppercase tracking-wider text-muted-foreground border border-border rounded px-1.5 py-0.5">Simulado</span>}
+          {job.dry_run && <span className="text-[10px] uppercase tracking-wider text-muted-foreground border border-border rounded px-1.5 py-0.5">De prueba</span>}
           <span className="text-xs text-muted-foreground">{new Date(job.created_at).toLocaleString("es-ES")}</span>
         </div>
         {job.status === "failed" && job.error && (
           <p className="text-xs text-destructive mt-1 truncate">{job.error}</p>
         )}
         {job.status === "completed" && job.dry_run && !job.video_url && (
-          <p className="text-xs text-muted-foreground mt-1">Modo simulado: no se generó un video real (falta configurar HEYGEN_API_KEY).</p>
+          <p className="text-xs text-muted-foreground mt-1">Modo de prueba: no se creó un video real.</p>
         )}
       </div>
       {videoUrl && (

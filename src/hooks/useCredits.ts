@@ -34,18 +34,18 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
 };
 
 export const ACTION_LABEL: Record<CreditAction, string> = {
-  search_ads: "Búsqueda de anuncios", analyze_url: "Analizar URL básico",
-  landing_intelligence: "Oráculo completo (IA)", sofisticar: "Sofisticar oferta",
-  blueprint: "Blueprint completo", adaptar: "Adaptar anuncio al mercado",
-  pain_discovery: "Pain Discovery", chat_message: "Consulta IA (por mensaje)",
-  ai_intel: "Análisis IA del ad", gen_landing: "Generar landing page",
-  gen_ad_copies: "10 variaciones de ad copy", gen_avatar: "Avatar del comprador",
-  gen_funnel: "Funnel completo VSL+emails", gen_master_prompt: "Mega-Prompt Replicador",
-  pillar_assist: "Asistente IA de Pilar", gen_light: "Generador corto (hooks, captions, DMs)",
-  gen_medium: "Generador medio (emails, guiones, landing)", gen_heavy: "Generador largo (VSL)",
-  gen_ad_image: "Creativo de anuncio (imagen IA)",
-  follow_offer: "Seguir oferta (Cazador de ROI)",
-  unlock_kit: "Desbloquear Mini App Rentable",
+  search_ads: "Buscar anuncios", analyze_url: "Revisar una página (rápido)",
+  landing_intelligence: "Oráculo: análisis completo de una página de venta", sofisticar: "Mejorar una oferta",
+  blueprint: "Plan completo de un negocio", adaptar: "Adaptar un anuncio a tu país",
+  pain_discovery: "Buscar problemas que la gente quiere resolver", chat_message: "Pregunta al asistente",
+  ai_intel: "Análisis de un anuncio con IA", gen_landing: "Escribir una página de venta",
+  gen_ad_copies: "10 textos para tu anuncio", gen_avatar: "Retrato de tu cliente ideal",
+  gen_funnel: "Camino de venta completo (video de venta + correos)", gen_master_prompt: "Instrucciones para crear tu propia versión",
+  pillar_assist: "Ayuda de la IA en un pilar", gen_light: "Texto corto con IA (ganchos, publicaciones, mensajes)",
+  gen_medium: "Texto medio con IA (correos, guiones, páginas)", gen_heavy: "Texto largo con IA (guion de video de venta)",
+  gen_ad_image: "Imagen para tu anuncio con IA",
+  follow_offer: "Seguir una oferta",
+  unlock_kit: "Desbloquear una Mini App",
 };
 
 const GEN_LIGHT_IDS = new Set(["captions-ig","yt-titles","hooks-meta","hooks-tiktok","reels-script","dm-script","whatsapp-sequence","order-bump","ugc-script","mandala-ad","market-idea","etsy-ideas"]);

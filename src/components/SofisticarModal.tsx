@@ -34,7 +34,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
   }, [streamText]);
 
   const run = async (action: "sofisticar" | "adaptar" | "blueprint") => {
-    if (!canAfford(action as "sofisticar" | "adaptar" | "blueprint")) { toast.error("Sin créditos suficientes"); return; }
+    if (!canAfford(action as "sofisticar" | "adaptar" | "blueprint")) { toast.error("No te alcanzan los créditos para esto. Puedes conseguir más en Créditos."); return; }
     setLoading(true); setStreamText("");
 
     try {
@@ -55,7 +55,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
           body: JSON.stringify(payload),
         },
       );
-      if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "Error de análisis"));
+      if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "No pudimos hacer el análisis. Inténtalo de nuevo."));
       applyServerCharge(action, readBilling(resp), ad.title); // lo cobró el servidor
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -76,9 +76,9 @@ export function SofisticarModal({ ad, onClose }: Props) {
           } catch {/* ignore */}
         }
       }
-      toast.success("✓ Análisis completado");
+      toast.success("✓ Listo. Tu análisis está abajo.");
     } catch (e: unknown) {
-      toast.error(e instanceof Error && e.message ? e.message : "Error generando análisis");
+      toast.error(e instanceof Error && e.message ? e.message : "No pudimos hacer el análisis. Inténtalo de nuevo.");
     } finally { setLoading(false); }
   };
 
@@ -89,7 +89,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
       mode: projectMode as "sofisticar" | "crear" | "blueprint",
       context: { ad, analysis: streamText, mode },
     });
-    toast.success("✓ Guardado en SUPERNOVA BRAIN");
+    toast.success("✓ Guardado en tus Proyectos");
   };
 
   return (
@@ -102,7 +102,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="w-4 h-4" /> {mode === "choose" ? "Cerrar" : "Volver"}
           </button>
-          <span className="text-xs uppercase tracking-widest text-primary font-bold">⚡ Sofisticar</span>
+          <span className="text-xs uppercase tracking-widest text-primary font-bold">⚡ Mejorar esta oferta</span>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
         </div>
 
@@ -112,9 +112,9 @@ export function SofisticarModal({ ad, onClose }: Props) {
           <div className="flex flex-wrap gap-2 mt-2 text-[11px] text-muted-foreground">
             <span className="text-primary font-bold">{OFFER_TYPE_LABEL[ad.offerType]}</span>
             <span>· {ad.flag} {ad.marketLabel}</span>
-            <span>· {ad.daysActive} días activo</span>
-            <span>· {ad.duplicates} duplicados</span>
-            <span>· score {ad.score}</span>
+            <span>· {ad.daysActive} días con anuncios</span>
+            <span title="Cuántas versiones del anuncio tiene activas. Más versiones suele indicar que le funciona.">· {ad.duplicates} versiones del anuncio</span>
+            <span>· puntaje {ad.score}/100</span>
           </div>
         </div>
 
@@ -122,26 +122,26 @@ export function SofisticarModal({ ad, onClose }: Props) {
         <div className="flex-1 overflow-hidden">
           {mode === "choose" && (
             <div className="p-6 space-y-4">
-              <h3 className="font-display font-bold text-lg">Antes de continuar: ¿qué quieres hacer con esta oferta?</h3>
+              <h3 className="font-display font-bold text-lg">¿Qué quieres hacer con esta oferta? Elige una opción:</h3>
               <div className="grid md:grid-cols-3 gap-4">
-                <ModeCard icon={<Sparkles className="w-5 h-5" />} title="⚡ SOFISTICAR"
-                  desc="Existe un curso, ebook o PDF con demanda probada. Entiendes por qué vende y construyes algo MEJOR que resuelve ese dolor de forma más instantánea."
-                  cost={`${CREDIT_COSTS.sofisticar} ⚡`} onClick={() => setMode("sofisticar")} />
+                <ModeCard icon={<Sparkles className="w-5 h-5" />} title="⚡ HACER UNA VERSIÓN MEJOR"
+                  desc="Ya hay gente comprando este curso, libro o guía. Te explicamos por qué se vende y cómo crear tu propia versión, más rápida y más fácil de usar para quien la compra."
+                  cost={`${CREDIT_COSTS.sofisticar} créditos`} onClick={() => setMode("sofisticar")} />
                 <ModeCard icon={<Globe2 className="w-5 h-5" />} title="🌍 ADAPTAR A MI MERCADO"
-                  desc="Este anuncio está en otro idioma o mercado. Lo adaptamos culturalmente a tu audiencia — no es traducción, es recreación."
-                  cost={`${CREDIT_COSTS.adaptar} ⚡`}
+                  desc="Este anuncio es de otro país o idioma. Lo reescribimos para la gente de tu país: con sus palabras, sus costumbres y sus precios. No es solo traducir."
+                  cost={`${CREDIT_COSTS.adaptar} créditos`}
                   extra={
                     <div className="flex gap-2 mt-2">
                       <button onClick={() => { setAdaptTo("es"); setMode("adaptar"); run("adaptar"); }}
-                        className="flex-1 text-xs px-3 py-1.5 rounded bg-primary/20 text-primary hover:bg-primary/30">→ Adaptar Español</button>
+                        className="flex-1 text-xs px-3 py-1.5 rounded bg-primary/20 text-primary hover:bg-primary/30">→ Pasarlo a español</button>
                       <button onClick={() => { setAdaptTo("en"); setMode("adaptar"); run("adaptar"); }}
-                        className="flex-1 text-xs px-3 py-1.5 rounded bg-primary/20 text-primary hover:bg-primary/30">→ Adaptar Inglés</button>
+                        className="flex-1 text-xs px-3 py-1.5 rounded bg-primary/20 text-primary hover:bg-primary/30">→ Pasarlo a inglés</button>
                     </div>
                   }
                 />
-                <ModeCard icon={<Target className="w-5 h-5" />} title="🎯 BLUEPRINT COMPLETO"
-                  desc="Análisis profundo: por qué gana, cómo clonarlo, el avatar, la estructura de la oferta y tu plan de acción."
-                  cost={`${CREDIT_COSTS.blueprint} ⚡`} onClick={() => { setMode("blueprint"); run("blueprint"); }} />
+                <ModeCard icon={<Target className="w-5 h-5" />} title="🎯 PLAN COMPLETO PASO A PASO"
+                  desc="Todo en un solo documento: por qué se vende, quién la compra, cómo está armada la oferta y qué pasos seguir para lanzar la tuya."
+                  cost={`${CREDIT_COSTS.blueprint} créditos`} onClick={() => { setMode("blueprint"); run("blueprint"); }} />
               </div>
             </div>
           )}
@@ -149,8 +149,9 @@ export function SofisticarModal({ ad, onClose }: Props) {
           {mode === "sofisticar" && (
             <div className="grid md:grid-cols-5 h-full">
               <div className="md:col-span-2 border-r border-border p-6 space-y-4 overflow-y-auto">
-                <h4 className="font-display font-bold">Contexto del análisis</h4>
-                <Field label="Tu mercado objetivo">
+                <h4 className="font-display font-bold">Cuéntanos un poco de ti</h4>
+                <p className="text-xs text-muted-foreground">Con esto la IA ajusta el análisis a tu situación.</p>
+                <Field label="¿En qué país quieres vender?">
                   <div className="flex flex-wrap gap-1.5">
                     {MARKETS.map((m) => <Chip key={m} active={targetMarket === m} onClick={() => setTargetMarket(m)}>{m}</Chip>)}
                   </div>
@@ -160,7 +161,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
                     {HAS_PRODUCT.map((m) => <Chip key={m} active={hasProduct === m} onClick={() => setHasProduct(m)}>{m}</Chip>)}
                   </div>
                 </Field>
-                <Field label="Presupuesto para crear">
+                <Field label="¿Cuánto dinero tienes para crear tu producto? (USD)">
                   <div className="flex flex-wrap gap-1.5">
                     {BUDGETS.map((m) => <Chip key={m} active={budget === m} onClick={() => setBudget(m)}>{m}</Chip>)}
                   </div>
@@ -168,7 +169,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
                 <button onClick={() => run("sofisticar")} disabled={loading}
                   className="btn-primary-nova w-full py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  Analizar y Sofisticar → <span className="opacity-70 text-xs">{CREDIT_COSTS.sofisticar} créditos</span>
+                  Crear mi versión mejorada → <span className="opacity-70 text-xs">{CREDIT_COSTS.sofisticar} créditos</span>
                 </button>
               </div>
               <div className="md:col-span-3 p-6 overflow-y-auto" ref={scrollRef}>
@@ -194,7 +195,7 @@ function ModeCard({ icon, title, desc, cost, onClick, extra }: { icon: React.Rea
     <div className="card-surface rounded-xl p-5 flex flex-col gap-3 hover:border-primary/40 transition-all">
       <div className="flex items-center gap-2 text-primary">{icon} <span className="font-display font-bold text-base">{title}</span></div>
       <p className="text-xs text-muted-foreground leading-relaxed flex-1">{desc}</p>
-      <div className="text-[10px] uppercase tracking-wider text-primary/80">Costo: {cost}</div>
+      <div className="text-[10px] uppercase tracking-wider text-primary/80">Cuesta: {cost}</div>
       {extra ? extra : (
         <button onClick={onClick} className="btn-primary-nova w-full py-2 rounded-lg text-xs">Empezar →</button>
       )}
@@ -222,17 +223,17 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 
 function StreamOutput({ text, loading, onSave }: { text: string; loading: boolean; onSave: () => void }) {
   if (!text && !loading) {
-    return <div className="text-center text-sm text-muted-foreground py-20">Selecciona inputs y haz clic en "Analizar"</div>;
+    return <div className="text-center text-sm text-muted-foreground py-20">Elige tus respuestas a la izquierda y pulsa "Crear mi versión mejorada".</div>;
   }
   return (
     <div className="space-y-4">
       <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:text-primary">
         <ReactMarkdown>{text}</ReactMarkdown>
-        {loading && <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="w-3 h-3 animate-spin" /> Generando…</div>}
+        {loading && <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="w-3 h-3 animate-spin" /> Escribiendo tu análisis…</div>}
       </div>
       {text && !loading && (
         <button onClick={onSave} className="btn-primary-nova px-4 py-2 rounded-lg text-sm">
-          → Guardar como Proyecto en SUPERNOVA BRAIN
+          → Guardar en mis Proyectos
         </button>
       )}
     </div>

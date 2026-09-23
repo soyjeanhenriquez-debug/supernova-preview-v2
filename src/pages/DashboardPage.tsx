@@ -75,33 +75,33 @@ export function DashboardPage({ onNavigate }: Props) {
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCardSparkline
           sub="Hoy"
-          label="Anuncios procesados"
+          label="Ofertas que analizaste"
           value={stats.analyzed}
           series={analyzedSeries.map(s => s.count)}
           delta={stats.analyzedDelta}
         />
         <StatCardSparkline
           sub="Hoy"
-          label="Búsquedas realizadas"
+          label="Búsquedas en vivo que hiciste"
           value={stats.searches}
           series={searchSeries.map(s => s.count)}
           delta={stats.searchesDelta}
         />
         <StatCardSparkline
-          sub={balance < 300 ? "Saldo bajo" : "Disponibles"}
-          label="Créditos JARVIS"
+          sub={balance < 300 ? "Te quedan pocos" : "Para usar con la IA"}
+          label="Créditos disponibles"
           value={balance}
           alert={balance < 300}
           accent="primary"
-          footer={`Renueva en ${renewal.days}d`}
+          footer={`Se renuevan en ${renewal.days} días`}
         />
         <StatCardSparkline
-          sub="Acumulado"
-          label="Horas ahorradas"
+          sub="Cálculo aproximado"
+          label="Horas de trabajo ahorradas"
           value={stats.totalHours}
           format={(n) => `${n}h`}
           accent="primary"
-          footer="desde tu registro"
+          footer="desde que te registraste"
         />
       </section>
 
@@ -132,23 +132,23 @@ export function DashboardPage({ onNavigate }: Props) {
           icon={<Search className="w-5 h-5" strokeWidth={1.8} />}
           tint="primary"
           title="Radar de anuncios"
-          subtitle="Explorar es gratis · búsqueda en vivo en Meta"
+          subtitle="Mira anuncios reales que otros están pagando en Facebook e Instagram. Mirar es gratis; buscar en vivo cuesta créditos."
           cost={`${CREDIT_COSTS.search_ads} créditos`}
           onClick={() => onNavigate("Buscar Ofertas Winner")}
         />
         <QuickAction
           icon={<Sparkles className="w-5 h-5" strokeWidth={1.8} />}
           tint="purple"
-          title="Oráculo"
-          subtitle="Disecciona cualquier landing en segundos"
+          title="Oráculo: analiza una página"
+          subtitle="Pega el enlace de una página de ventas y te explico qué vende, a quién y por qué convence."
           cost={`${CREDIT_COSTS.landing_intelligence} créditos`}
           onClick={() => onNavigate("Oráculo")}
         />
         <QuickAction
           icon={<Wand2 className="w-5 h-5" strokeWidth={1.8} />}
           tint="green"
-          title="Sofisticar oferta"
-          subtitle="Convierte un winner en tu versión superior"
+          title="Mejorar una oferta"
+          subtitle="Toma una oferta que ya se vende bien y crea tu propia versión, mejorada y diferente."
           cost={`${CREDIT_COSTS.sofisticar} créditos`}
           onClick={() => onNavigate("Buscar Ofertas Winner")}
         />
@@ -171,8 +171,8 @@ export function DashboardPage({ onNavigate }: Props) {
         {recent.length === 0 ? (
           <div className="card-surface rounded-2xl py-20 text-center">
             <div className="empty-icon mb-5"><Brain className="w-7 h-7" strokeWidth={1.4} /></div>
-            <div className="font-display font-semibold text-base mb-1">Tu primer proyecto está a un click</div>
-            <div className="text-sm text-muted-foreground">Crea uno desde Ofertas o el Radar de anuncios</div>
+            <div className="font-display font-semibold text-base mb-1">Aún no tienes proyectos</div>
+            <div className="text-sm text-muted-foreground">Un proyecto es donde guardas el trabajo de una oferta. Empieza eligiendo una en Ofertas o en el Radar de anuncios.</div>
           </div>
         ) : (
           <div className="grid md:grid-cols-3 gap-4">
@@ -181,10 +181,10 @@ export function DashboardPage({ onNavigate }: Props) {
               return (
                 <div key={p.id} className="card-surface rounded-2xl p-4 ad-card-hover group cursor-pointer" onClick={() => onNavigate("Proyectos")}>
                   <ProjectThumb seed={p.name} className="mb-4" />
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium">{p.mode === "sofisticar" ? "Sofisticar" : p.mode === "crear" ? "Crear" : "Blueprint"}</div>
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium">{p.mode === "sofisticar" ? "Mejorar oferta" : p.mode === "crear" ? "Crear desde cero" : "Plan paso a paso"}</div>
                   <div className="font-display font-semibold text-[15px] mt-1 truncate">{p.name}</div>
                   <div className="text-[12px] text-muted-foreground mt-1">
-                    Pilar {p.pillar} · {PILLARS[p.pillar - 1]?.name} · {Math.round(pct)}% completado
+                    Paso {p.pillar} de 6 · {PILLARS[p.pillar - 1]?.name} · {Math.round(pct)}% completado
                   </div>
                   <div className="w-full h-[3px] bg-secondary rounded-full overflow-hidden mt-4">
                     <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${pct}%` }} />
@@ -203,11 +203,12 @@ export function DashboardPage({ onNavigate }: Props) {
       <section className="card-surface rounded-2xl p-7">
         <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium mb-1">Plan mensual</div>
+            <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium mb-1">Tu plan del mes</div>
             <div className="font-display font-semibold text-lg text-foreground">Créditos disponibles</div>
+            <div className="text-[12px] text-muted-foreground mt-1">Mirar ofertas, el Radar y los ganchos es gratis. Lo que hace la IA por ti gasta créditos.</div>
             <div className="text-[12px] text-muted-foreground mt-1">Se renuevan en {renewal.days} días · {renewal.formatted}</div>
           </div>
-          <button onClick={() => onNavigate("Créditos")} className="btn-primary-nova px-4 py-2 rounded-lg text-[13px]">Conseguir más</button>
+          <button onClick={() => onNavigate("Créditos")} className="btn-primary-nova px-4 py-2 rounded-lg text-[13px]">Conseguir más créditos</button>
         </div>
         <div className="flex items-baseline gap-2 mb-3">
           <span className="font-display text-[40px] font-semibold tabular-nums leading-none text-foreground">
@@ -242,7 +243,7 @@ function QuickAction({ icon, tint, title, subtitle, cost, onClick }: {
       </div>
       <div className="font-display font-semibold text-[16px] text-foreground tracking-tight">{title}</div>
       <div className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed">{subtitle}</div>
-      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mt-4">{cost} por uso</div>
+      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mt-4">{cost} cada vez que lo usas</div>
     </button>
   );
 }

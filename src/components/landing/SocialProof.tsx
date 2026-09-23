@@ -1,6 +1,6 @@
 import { FadeIn } from "./FadeIn";
 
-const MARKETS = ["USA", "Brasil", "España", "LATAM", "Negocios Recurrentes"];
+const MARKETS = ["USA", "Brasil", "España", "LATAM", "Productos digitales"];
 
 /**
  * Social proof en escala de grises que se funde con el fondo.
@@ -11,7 +11,7 @@ export function SocialProof() {
     <section className="border-y border-[#ffffff10] py-14">
       <FadeIn>
         <p className="mb-8 text-center font-[Inter,sans-serif] text-[10px] uppercase tracking-[0.35em] text-[#86868B]/70">
-          Escaneando los mercados grandes, todos los días
+          114.000 anuncios reales revisados de estos mercados
         </p>
         <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-x-12 gap-y-5 px-6 grayscale">
           {MARKETS.map((m) => (

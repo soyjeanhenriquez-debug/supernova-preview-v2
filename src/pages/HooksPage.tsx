@@ -30,7 +30,7 @@ interface VaultHook {
 
 const CATEGORY_LABEL: Record<string, string> = {
   dolor: "Dolor", curiosidad: "Curiosidad", prueba_social: "Prueba social",
-  autoridad: "Autoridad", urgencia: "Urgencia", contrarian: "Contrarian",
+  autoridad: "Autoridad", urgencia: "Urgencia", contrarian: "Llevar la contraria",
   historia: "Historia", caso_estudio: "Caso de estudio", lista: "Lista",
 };
 
@@ -97,7 +97,7 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
 
   const copyHook = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success("Hook copiado");
+    toast.success("Gancho copiado. Pégalo donde quieras.");
   };
 
   const videoFromHook = (h: VaultHook) => {
@@ -105,13 +105,13 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
     // como arranque del guion, listo para que el usuario lo complete.
     localStorage.setItem(MEDIA_PREFILL_KEY, h.hook_text);
     onNavigate?.("Media Studio");
-    toast.success("Hook cargado en Media Studio");
+    toast.success("Gancho listo en Media Studio para hacer tu video");
   };
 
   const copiesFromHook = (h: VaultHook) => {
     navigator.clipboard.writeText(h.hook_template);
     onNavigate?.("Generadores");
-    toast.success("Plantilla copiada — pégala en el generador que elijas");
+    toast.success("Plantilla copiada. Pégala en el generador de textos que elijas.");
   };
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -131,11 +131,13 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
     <div className="space-y-6">
       <div>
         <h2 className="page-heading font-display text-2xl text-foreground flex items-center gap-2">
-          <Quote className="w-6 h-6 text-primary" /> BÓVEDA DE HOOKS
+          <Quote className="w-6 h-6 text-primary" /> BÓVEDA DE GANCHOS (HOOKS)
         </h2>
         <p className="text-sm text-muted-foreground mt-3 max-w-2xl">
-          Ganchos extraídos de anuncios que siguen corriendo con dinero real — no views, sino
-          anunciantes que siguieron pagando. Copia la plantilla o conviértela en video/copies en 1 clic.
+          Un gancho (en inglés, "hook") es la primera frase de un anuncio: la que hace que alguien deje de deslizar y preste atención.
+          Aquí tienes más de 200 ganchos sacados de anuncios reales que siguen activos. No son los que tuvieron más vistas: son los que
+          sus dueños siguen pagando por mostrar. Cada uno viene como plantilla para que cambies los datos por los de tu producto.
+          Mirarlos y copiarlos es gratis.
         </p>
       </div>
 
@@ -146,14 +148,14 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por texto, plantilla o anunciante…"
+            placeholder="Busca una palabra o un tema (ej: dinero, piel, inglés)…"
             className="w-full bg-secondary border border-border rounded-lg pl-9 pr-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
         {([
-          { key: "todos", label: "Todos" },
-          { key: "favoritos", label: "⭐ Favoritos" },
-          { key: "nuevos", label: "🆕 Nuevos hoy" },
+          { key: "todos", label: "Todos los ganchos" },
+          { key: "favoritos", label: "⭐ Mis guardados" },
+          { key: "nuevos", label: "🆕 Añadidos hoy" },
         ] as const).map((v) => (
           <button
             key={v.key}
@@ -175,7 +177,7 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
             category === "todos" ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"
           }`}
         >
-          Todas
+          Todos los tipos
         </button>
         {Object.entries(CATEGORY_LABEL).map(([key, label]) => (
           <button
@@ -192,12 +194,12 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
 
       {/* Lista */}
       {loading ? (
-        <div className="card-surface rounded-xl py-16 text-center text-sm text-muted-foreground">Cargando la bóveda…</div>
+        <div className="card-surface rounded-xl py-16 text-center text-sm text-muted-foreground">Cargando los ganchos…</div>
       ) : filtered.length === 0 ? (
         <div className="card-surface rounded-xl py-16 text-center">
           <div className="empty-icon mb-4"><Quote className="w-9 h-9" /></div>
           <div className="text-sm text-muted-foreground">
-            {view === "favoritos" ? "Aún no tienes hooks favoritos — marca los que quieras guardar" : "Sin resultados con estos filtros"}
+            {view === "favoritos" ? "Aún no guardaste ningún gancho. Toca la estrella de los que te gusten y aparecerán aquí." : "Ningún gancho coincide. Prueba con otra palabra o quita el filtro de tipo."}
           </div>
         </div>
       ) : (
@@ -240,7 +242,7 @@ function HookCard({ hook: h, isFavorite, onToggleFavorite, onCopy, onVideo, onCo
         <button
           onClick={onToggleFavorite}
           className={isFavorite ? "text-primary" : "text-muted-foreground hover:text-primary"}
-          title={isFavorite ? "Quitar de favoritos" : "Guardar en favoritos"}
+          title={isFavorite ? "Quitar de mis guardados" : "Guardar este gancho"}
         >
           <Star className="w-4 h-4" fill={isFavorite ? "currentColor" : "none"} />
         </button>
@@ -251,7 +253,7 @@ function HookCard({ hook: h, isFavorite, onToggleFavorite, onCopy, onVideo, onCo
       </p>
 
       <button onClick={() => setShowOriginal(!showOriginal)} className="text-[11px] text-muted-foreground hover:text-primary text-left">
-        {showOriginal ? "− Ocultar el original" : "+ Ver el gancho original"}
+        {showOriginal ? "− Ocultar el original" : "+ Ver la frase original del anuncio"}
       </button>
       {showOriginal && (
         <p className="text-[13px] text-muted-foreground italic border-l-2 border-primary/40 pl-3">
@@ -263,11 +265,11 @@ function HookCard({ hook: h, isFavorite, onToggleFavorite, onCopy, onVideo, onCo
       {/* La prueba con dinero real */}
       <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
         <span className="flex items-center gap-1 text-primary font-semibold">
-          <Flame className="w-3 h-3" /> {h.days_active ?? "?"} días corriendo
+          <Flame className="w-3 h-3" /> {h.days_active ?? "?"} días en el aire
         </span>
         <span>· {h.duplicate_count ?? 1} anuncios activos</span>
-        <span>· score {h.winner_score ?? "—"}</span>
-        <span>· {flag}</span>
+        <span title="Qué tan fuerte es la señal de que funciona, de 0 a 100">· puntaje {h.winner_score ?? "—"}/100</span>
+        <span title="País del anuncio">· {flag}</span>
       </div>
 
       <div className="flex items-center gap-2 pt-2 border-t border-border">
@@ -275,21 +277,21 @@ function HookCard({ hook: h, isFavorite, onToggleFavorite, onCopy, onVideo, onCo
           onClick={() => { onCopy(); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
           className="flex-1 py-2 rounded-lg border border-border text-xs font-semibold text-foreground hover:bg-secondary flex items-center justify-center gap-1.5"
         >
-          {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />} Copiar
+          {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />} Copiar plantilla
         </button>
         <button
           onClick={onVideo}
-          title="Generar video de este hook con tu avatar IA"
+          title="Crea un video corto con este gancho, narrado por un avatar hecho con IA (gasta créditos)"
           className="flex-1 py-2 rounded-lg bg-primary/15 text-primary text-xs font-semibold hover:bg-primary/25 flex items-center justify-center gap-1.5"
         >
           <Video className="w-3.5 h-3.5" /> Video
         </button>
         <button
           onClick={onCopies}
-          title="Usar esta plantilla en los generadores de copy"
+          title="Usa este gancho para escribir textos de anuncio con la IA (gasta créditos)"
           className="flex-1 py-2 rounded-lg bg-primary/15 text-primary text-xs font-semibold hover:bg-primary/25 flex items-center justify-center gap-1.5"
         >
-          <Sparkles className="w-3.5 h-3.5" /> Copies
+          <Sparkles className="w-3.5 h-3.5" /> Textos
         </button>
       </div>
     </div>

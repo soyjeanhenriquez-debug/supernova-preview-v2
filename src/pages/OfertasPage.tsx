@@ -33,12 +33,12 @@ type Tab = "ganadoras" | "todas" | "apps" | "info" | "siguiendo";
 const PAGE_SIZE = 24;
 
 const SORTS = [
-  { v: "rank", l: "Mejor ranking" },
-  { v: "score", l: "Mayor score" },
-  { v: "copy", l: "Más copiable" },
+  { v: "rank", l: "Las mejores primero" },
+  { v: "score", l: "Mayor puntaje" },
+  { v: "copy", l: "Más fáciles de replicar" },
   { v: "ads", l: "Más anuncios activos" },
-  { v: "days", l: "Más días pagando" },
-  { v: "recent", l: "Detectadas recientemente" },
+  { v: "days", l: "Más días con anuncios" },
+  { v: "recent", l: "Las más nuevas" },
 ];
 
 interface Stats { offers: number; active_ads: number; markets: number; niches: number; updated_at: string | null; }
@@ -164,32 +164,37 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
         <div>
           <h2 className="page-heading font-display text-2xl text-foreground">OFERTAS GANADORAS</h2>
           <p className="text-sm text-muted-foreground mt-3 max-w-2xl">
-            Productos que están <span className="text-foreground font-medium">pagando anuncios ahora mismo</span>, agrupados por anunciante y
-            leídos por IA: qué venden, a quién, por qué convierten y si TÚ puedes copiarlo. Navegar es gratis.
+            Más de 7.000 productos digitales que alguien está <span className="text-foreground font-medium">pagando por anunciar ahora mismo</span>.
+            Si alguien paga anuncios durante semanas, normalmente es porque vende. La IA ya leyó cada uno: qué vende, a quién,
+            por qué funciona y si tú podrías hacer algo parecido. Mirar es gratis.
+          </p>
+          <p className="text-[13px] text-muted-foreground mt-2 max-w-2xl">
+            <span className="text-foreground font-medium">¿Empiezas de cero?</span> Quédate en Ganadoras, abre 3 o 4 que te llamen la atención y
+            lee por qué funcionan. Cuando una te guste, pulsa "Crear mi versión".
           </p>
         </div>
         {stats?.updated_at && (
           <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1.5">
-            <RefreshCw className="w-3 h-3" /> Actualizado {new Date(stats.updated_at).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
+            <RefreshCw className="w-3 h-3" /> Lista actualizada el {new Date(stats.updated_at).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
           </span>
         )}
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatTile icon={<Gem className="w-4 h-4" />} label="Ofertas en el radar" value={stats?.offers} />
-        <StatTile icon={<Layers className="w-4 h-4" />} label="Anuncios activos" value={stats?.active_ads} />
-        <StatTile icon={<Globe2 className="w-4 h-4" />} label="Países" value={stats?.markets} />
-        <StatTile icon={<TagIcon className="w-4 h-4" />} label="Nichos" value={stats?.niches} />
+        <StatTile icon={<Gem className="w-4 h-4" />} label="Ofertas analizadas" value={stats?.offers} />
+        <StatTile icon={<Layers className="w-4 h-4" />} label="Anuncios que siguen activos" value={stats?.active_ads} />
+        <StatTile icon={<Globe2 className="w-4 h-4" />} label="Países donde se anuncian" value={stats?.markets} />
+        <StatTile icon={<TagIcon className="w-4 h-4" />} label="Temas (nichos)" value={stats?.niches} />
       </div>
 
       {/* Tabs */}
       <div className="flex flex-wrap gap-2">
         {([
-          { k: "ganadoras", l: "🏆 Ganadoras" },
+          { k: "ganadoras", l: "🏆 Las 300 ganadoras" },
           { k: "todas", l: "🔎 Explorar todo" },
-          { k: "info", l: "🎓 Infoproductos" },
-          { k: "apps", l: "🧩 Apps & SaaS" },
+          { k: "info", l: "🎓 Cursos y guías" },
+          { k: "apps", l: "🧩 Apps y programas" },
           { k: "siguiendo", l: `⭐ Siguiendo${follows.followingIds.size ? ` · ${follows.followingIds.size}` : ""}` },
         ] as { k: Tab; l: string }[]).map((t) => (
           <button key={t.k} onClick={() => setTab(t.k)}
@@ -204,7 +209,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
           <button onClick={() => setOnlyCopiable((v) => !v)}
             className={`ml-auto px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
               onlyCopiable ? "bg-success/15 text-success border-success/40" : "bg-secondary/40 text-muted-foreground border-border hover:text-foreground"}`}>
-            ✓ Solo copiables por un emprendedor
+            ✓ Solo las que puedes hacer tú solo
           </button>
         )}
       </div>
@@ -216,28 +221,28 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
       <div className="card-surface rounded-xl p-3 grid grid-cols-1 md:grid-cols-5 gap-2">
         <div className="relative md:col-span-2">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar producto, anunciante, mecanismo…"
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Busca un producto, una marca o un tema (ej: ansiedad, inglés)…"
             className="w-full bg-secondary/50 border border-border rounded-lg pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50" />
         </div>
         <Select value={group} onValueChange={setGroup}>
-          <SelectTrigger className="bg-secondary/50"><SelectValue placeholder="Mercado" /></SelectTrigger>
+          <SelectTrigger className="bg-secondary/50"><SelectValue placeholder="Idioma del mercado" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">🌍 Todos los mercados</SelectItem>
             {Object.entries(MARKET_GROUP).map(([k, g]) => <SelectItem key={k} value={k}>{g.flag} {g.label}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={niche} onValueChange={setNiche}>
-          <SelectTrigger className="bg-secondary/50"><SelectValue placeholder="Nicho" /></SelectTrigger>
+          <SelectTrigger className="bg-secondary/50"><SelectValue placeholder="Tema" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos los nichos</SelectItem>
+            <SelectItem value="all">Todos los temas</SelectItem>
             {nicheOptions.map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
           </SelectContent>
         </Select>
         <div className="grid grid-cols-2 gap-2">
           <Select value={model} onValueChange={setModel}>
-            <SelectTrigger className="bg-secondary/50"><SelectValue placeholder="Modelo" /></SelectTrigger>
+            <SelectTrigger className="bg-secondary/50"><SelectValue placeholder="Cómo cobran" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Modelo</SelectItem>
+              <SelectItem value="all">Cualquier forma de cobro</SelectItem>
               {Object.entries(MODEL_LABEL).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -248,7 +253,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
         </div>
       </div>
 
-      <div className="text-[12px] text-muted-foreground">{loading && page === 0 ? "Buscando…" : `${total.toLocaleString("es-ES")} ofertas`}</div>
+      <div className="text-[12px] text-muted-foreground">{loading && page === 0 ? "Buscando…" : `${total.toLocaleString("es-ES")} ofertas encontradas`}</div>
 
       {/* Grid */}
       {loading && page === 0 ? (
@@ -258,11 +263,11 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
       ) : rows.length === 0 ? (
         <div className="card-surface rounded-2xl py-20 text-center">
           <div className="empty-icon mb-5"><Gem className="w-7 h-7" strokeWidth={1.4} /></div>
-          <div className="font-display font-semibold text-base mb-1">Sin ofertas con esos filtros</div>
+          <div className="font-display font-semibold text-base mb-1">No hay ofertas con esos filtros</div>
           <div className="text-sm text-muted-foreground">
             {tab === "ganadoras"
-              ? "Ninguna ganadora coincide. Quita algún filtro o mira en Explorar todo."
-              : "Prueba quitando \"solo copiables\" o cambiando de mercado."}
+              ? "Ninguna de las ganadoras coincide. Quita algún filtro o busca en Explorar todo."
+              : "Prueba quitando \"Solo las que puedes hacer tú solo\" o cambia de mercado."}
           </div>
         </div>
       ) : (
@@ -274,7 +279,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
             <div className="flex justify-center pt-2">
               <button onClick={() => setPage((p) => p + 1)} disabled={loading}
                 className="px-5 py-2.5 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground hover:border-primary/40 flex items-center gap-2 disabled:opacity-50">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Cargar más ({(total - rows.length).toLocaleString("es-ES")} restantes)
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Ver más ofertas (quedan {(total - rows.length).toLocaleString("es-ES")})
               </button>
             </div>
           )}
@@ -309,10 +314,10 @@ function FollowingList({ rows, follows, onCreate, onOpen }: {
     return (
       <div className="card-surface rounded-2xl py-16 text-center px-6">
         <div className="empty-icon mb-5"><Crosshair className="w-7 h-7" strokeWidth={1.4} /></div>
-        <div className="font-display font-semibold text-base mb-1">Tu Cazador de ROI está vacío</div>
+        <div className="font-display font-semibold text-base mb-1">Todavía no sigues ninguna oferta</div>
         <div className="text-sm text-muted-foreground max-w-md mx-auto">
-          Pulsa el corazón en cualquier oferta para seguirla ({CREDIT_COSTS.follow_offer} ⚡). Cada día guardamos sus anuncios activos y su score,
-          y aquí verás cuáles están escalando y cuáles se apagan — antes que todos.
+          Pulsa el corazón en una oferta para seguirla ({CREDIT_COSTS.follow_offer} créditos). Cada día anotamos cuántos anuncios tiene activos
+          y aquí verás cuáles ponen más anuncios (les está funcionando) y cuáles los apagan.
         </div>
       </div>
     );

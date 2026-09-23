@@ -5,60 +5,60 @@ type Row = { num: string; title: string; body: string; stat: string; statLabel: 
 const MINER_ROWS: Row[] = [
   {
     num: "/01",
-    title: "Keywords curadas que sabemos que venden",
-    body: "Llevamos meses curando exactamente qué frases usan los marketers que VENDEN — no las obvias, las reales. Dolores específicos, mecanismos únicos, power words que aparecen en ads ganadoras.",
+    title: "Palabras clave elegidas a mano",
+    body: "Llevamos meses juntando las frases que usan los anuncios que llevan tiempo pagando: los problemas concretos que mencionan, cómo explican su solución y las palabras que se repiten.",
     stat: "458",
-    statLabel: "Keywords curadas",
+    statLabel: "Palabras clave",
   },
   {
     num: "/02",
-    title: "Escaneo continuo, día y noche",
-    body: "JARVIS corre crons sincronizados que cruzan esas keywords contra Meta Ad Library. USA, LATAM y Brasil en paralelo. No descansa los fines de semana.",
-    stat: "24/7",
-    statLabel: "Sin pausa",
+    title: "Búsqueda diaria",
+    body: "Cada día buscamos esas palabras en la Biblioteca de Anuncios de Meta (Facebook e Instagram), en Estados Unidos, Latinoamérica y Brasil. Hoy hay 114.000 anuncios reales guardados, 43.500 nuevos en los últimos 30 días.",
+    stat: "114.000",
+    statLabel: "Anuncios en el Radar",
   },
   {
     num: "/03",
     title: "Una IA descarta lo que no quieres",
-    body: "Antes de que tú veas la oferta, un clasificador revisa la landing y decide: ¿es producto digital? Si es dropshipping, e-commerce físico, MLM o cripto — descartado.",
+    body: "Antes de que tú veas la oferta, un clasificador revisa la landing y decide: ¿es producto digital? Si es venta de productos físicos, multinivel o cripto, se descarta.",
     stat: "100%",
     statLabel: "Productos digitales",
   },
   {
     num: "/04",
-    title: "Rankeado por temperatura real",
-    body: "Cada oferta superviviente se cruza con su historial: días corriendo, duplicados activos, alcance, longevidad de la página. El resultado: tiers MEGA, RISING y SOLID. Tú ves solo lo que vale tu tiempo.",
-    stat: "🔥",
-    statLabel: "No likes. Señales reales.",
+    title: "Ordenado por señales reales",
+    body: "Cada oferta que pasa el filtro se mide por cuántos días lleva pagando anuncios, cuántas versiones tiene activas y cuánto tiempo lleva viva su página. De 7.517 ofertas analizadas, 300 están marcadas como ganadoras.",
+    stat: "300",
+    statLabel: "Ofertas ganadoras",
   },
 ];
 
 const BUILDER_ROWS: Row[] = [
   {
     num: "/01",
-    title: "Sofisticar: clona lo que ya factura",
-    body: "Tomas el negocio que ya funciona en un mercado grande y SUPERNOVA lo adapta a tu idioma, tu país y tu ángulo. Mismo modelo probado, versión tuya.",
+    title: "Haz tu versión de lo que ya vende",
+    body: "Tomas un negocio que ya funciona en otro país y SUPERNOVA te ayuda a adaptarlo a tu idioma, tu país y tu forma de contarlo. Misma idea, versión tuya.",
     stat: "1 clic",
     statLabel: "De ajeno a tuyo",
   },
   {
     num: "/02",
     title: "El Oráculo descifra el negocio completo",
-    body: "Pegas la landing y te devuelve el avatar, la promesa, el precio y la estructura completa. Lo que te tomaría semanas de prueba y error, en 3 minutos.",
-    stat: "3 min",
+    body: "Pegas el link de una página de ventas y te dice a quién le habla, qué promete, a qué precio y cómo está armada. En unos 25 segundos.",
+    stat: "25 s",
     statLabel: "Análisis completo",
   },
   {
     num: "/03",
-    title: "Generadores para lanzar sin equipo",
-    body: "Copy, landing, avatar, secuencia de emails, VSL. Todo generado desde el modelo que copiaste. Sin diseñador, copywriter ni programador.",
-    stat: "18",
-    statLabel: "Generadores listos",
+    title: "26 generadores de textos con IA",
+    body: "Textos de anuncios, página de ventas, correos y guiones de video de venta, escritos a partir de la oferta que elegiste. Y la Mándala Creativa te da 72 anuncios posibles por oferta, la ruta para tus primeros 5 y, con tus números, si apagar, esperar o escalar. Sin diseñador, redactor ni programador.",
+    stat: "29",
+    statLabel: "Generadores con IA",
   },
   {
     num: "/04",
-    title: "Cóbralo en tu moneda, esta semana",
-    body: "Pesos, dólares o lo que uses en tu país. Por WhatsApp con cobro manual, o con un link de pago automático — tú eliges. Tu negocio recurrente arranca donde tú vendes, no donde vende Silicon Valley.",
+    title: "Cóbralo en tu moneda",
+    body: "Pesos, dólares o lo que uses en tu país. Por WhatsApp con cobro manual, o con un link de pago automático — tú eliges. Tú decides el precio y la forma de cobrar según tu país.",
     stat: "COP·DOP·USD",
     statLabel: "Tu moneda, tu forma de cobrar",
   },
@@ -131,9 +131,9 @@ export function MinerEngine() {
       kicker="Motor 1 · El radar"
       title={
         <>
-          Esto <span className="italic text-[#86868B]">no</span> es un spy tool.
+          Esto <span className="italic text-[#86868B]">no</span> es otra herramienta espía.
           <br />
-          Es tu <span className="text-[#C5A880]">radar de mercados grandes.</span>
+          Es tu <span className="text-[#C5A880]">radar de lo que ya se vende.</span>
         </>
       }
       rows={MINER_ROWS}
@@ -150,10 +150,10 @@ export function BuilderEngine() {
         <>
           No solo la encuentras.
           <br />
-          <span className="text-[#C5A880]">Montas tu negocio recurrente.</span>
+          <span className="text-[#C5A880]">Te ayudamos a armar tu versión.</span>
         </>
       }
-      intro="Encontrar el negocio que funciona es la mitad del trabajo. La otra mitad — adaptarlo, lanzarlo y cobrarlo en tu moneda — la hace SUPERNOVA contigo, esta semana."
+      intro="Encontrar un negocio que funciona es la mitad del trabajo. La otra mitad —adaptarlo, crear tus anuncios y publicarlos— la haces tú, con SUPERNOVA guiándote."
       rows={BUILDER_ROWS}
     />
   );

@@ -7,21 +7,21 @@ export function Insight() {
       <div className="mx-auto max-w-4xl">
         <FadeIn>
           <p className="mb-6 font-[Inter,sans-serif] text-[10px] uppercase tracking-[0.35em] text-[#C5A880]">
-            — El insight
+            — Por qué funciona
           </p>
           <h2 className="font-['Playfair_Display',serif] text-3xl font-medium leading-[1.2] text-[#F5F5F7] sm:text-5xl">
-            Otros ya gastaron miles{" "}
-            <span className="text-[#C5A880]">probando.</span>
+            Otros ya pagaron{" "}
+            <span className="text-[#C5A880]">las pruebas.</span>
             <br />
-            Tú solo copias{" "}
-            <span className="italic text-[#86868B]">lo que funcionó.</span>
+            Tú partes{" "}
+            <span className="italic text-[#86868B]">de lo que funcionó.</span>
           </h2>
         </FadeIn>
 
         <FadeIn delay={0.15}>
           <div className="mt-14 grid gap-10 font-[Inter,sans-serif] text-sm font-light leading-relaxed text-[#86868B] sm:grid-cols-2">
             <p>
-              Montar un negocio recurrente desde cero significa{" "}
+              Empezar un negocio digital desde cero significa{" "}
               <span className="font-normal text-[#F5F5F7]">
                 probar precios y ángulos a ciegas
               </span>{" "}
@@ -32,16 +32,16 @@ export function Insight() {
               <p>
                 SUPERNOVA te muestra qué{" "}
                 <span className="font-normal text-[#F5F5F7]">
-                  ya está facturando
+                lleva meses pagando anuncios
                 </span>{" "}
-                en mercados grandes — USA, Brasil, España — validado con miles
-                de dólares en anuncios reales de otros. Tú lo copias, lo
-                adaptas a tu país y lo cobras en tu moneda.
+                en Estados Unidos, Brasil, España y Latinoamérica: 300 ofertas
+                ganadoras de 7.517 analizadas. Tú haces tu versión, la adaptas
+                a tu país y la cobras en tu moneda.
               </p>
               <p className="mt-6 text-[#C5A880]">
-                SUPERNOVA cierra las dos puntas: encuentra el negocio que ya
-                funciona y te da todo para cobrarlo en tu mercado, esta
-                semana.
+                Si empiezas de cero, te guía paso a paso. Si ya lanzaste
+                campañas y no te salen, te muestra qué hacen los anuncios que
+                sí llevan meses funcionando.
               </p>
             </div>
           </div>

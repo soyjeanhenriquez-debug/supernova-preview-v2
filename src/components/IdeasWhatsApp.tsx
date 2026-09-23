@@ -7,6 +7,7 @@ import { useCredits, generatorCost } from "@/hooks/useCredits";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import { useFormAssist } from "@/lib/formAssist";
 import { AssistButton } from "@/components/AssistButton";
+import { useBusinessProfile } from "@/lib/businessProfile";
 
 /**
  * Fábrica de ideas para vender por WhatsApp.
@@ -87,6 +88,7 @@ function separar(texto: string): Idea[] {
 
 export function IdeasWhatsApp({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { user } = useAuth();
+  const { profile: business, setProfile: setBusiness, save: saveBusiness } = useBusinessProfile();
   const { applyServerCharge, canAfford } = useCredits();
   const key = `sn_ideas_whatsapp_${user?.id ?? "anon"}`;
   const [cat, setCat] = useState(CATEGORIAS[0]);
@@ -109,13 +111,13 @@ export function IdeasWhatsApp({ onNavigate }: { onNavigate?: (page: string) => v
       const s = await assist.generate({ tipo: cat, para_quien: pub, para_cuando: oca, ya_escrito: visto });
       if (typeof s.text === "string" && s.text) setVisto(s.text.slice(0, 1500));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "No se pudo generar el ejemplo");
+      toast.error(e instanceof Error ? e.message : "No se pudo escribir el ejemplo. Prueba otra vez.");
     }
   };
 
   const generar = async () => {
     const { action } = generatorCost("etsy-ideas");
-    if (!canAfford(action)) { toast.error("Sin créditos suficientes", { description: "Recarga tu saldo o espera al próximo ciclo." }); return; }
+    if (!canAfford(action)) { toast.error(`Te faltan créditos: 5 ideas cuestan ${generatorCost("etsy-ideas").cost}`, { description: "Recarga créditos o espera a que se renueven el mes que viene." }); return; }
     setLoading(true); setBorrador("");
     try {
       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
@@ -146,17 +148,17 @@ export function IdeasWhatsApp({ onNavigate }: { onNavigate?: (page: string) => v
         }
       }
       const nuevas = separar(full);
-      if (!nuevas.length) throw new Error("La respuesta no trajo ideas con el formato esperado. Prueba otra vez.");
+      if (!nuevas.length) throw new Error("Las ideas salieron con un formato que no pudimos leer. Prueba otra vez.");
       guardar([...nuevas, ...ideas]);
       setBorrador("");
-      toast.success(`${nuevas.length} ideas nuevas`);
+      toast.success(`Listo: ${nuevas.length} ideas nuevas guardadas abajo`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "No se pudieron generar las ideas");
     } finally { setLoading(false); }
   };
 
   /** Lleva la idea a la Mándala como oferta, lista para crear anuncios u orgánico. */
-  const aMandala = (idea: Idea) => {
+  const aMandala = async (idea: Idea) => {
     const precio = idea.precio.match(/(\d+[.,]?\d*)/)?.[1] ?? "";
     const brief = {
       product: idea.nombre.slice(0, 300),
@@ -165,8 +167,11 @@ export function IdeasWhatsApp({ onNavigate }: { onNavigate?: (page: string) => v
       price: precio.replace(",", "."),
       proof: "",
     };
-    try { localStorage.setItem(`sn_mandala_brief_${user?.id ?? "anon"}`, JSON.stringify(brief)); } catch { /* sin almacenamiento */ }
-    toast.success("Idea cargada en la Mándala", { description: "Elige “Orgánico · $0” para contenido de WhatsApp e Instagram." });
+    // La Mándala lee la ficha de "Mi negocio" (business_profile): se guarda ahí, sin perder el tipo de negocio.
+    const next = { ...business, ...brief };
+    setBusiness(next);
+    if (!(await saveBusiness(next))) { toast.error("No se pudo cargar la oferta en la Mándala. Intenta de nuevo."); return; }
+    toast.success("Idea cargada en la Mándala", { description: "Si vas a vender sin pagar anuncios, elige “Sin pagar anuncios (orgánico)”." });
     if (onNavigate) onNavigate("Mándala"); else window.location.hash = "#/mandala";
   };
 
@@ -191,8 +196,11 @@ export function IdeasWhatsApp({ onNavigate }: { onNavigate?: (page: string) => v
             <MessageCircle className="w-5 h-5 text-primary" /> Ideas para vender por WhatsApp
           </h2>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-            Lo que ya se vende en Etsy, convertido en productos que puedes hacer esta semana, en español,
-            y vender a tu comunidad. Cada tanda trae 5 ideas nuevas que no repiten las anteriores.
+            Si aún no tienes producto, empieza aquí. Partimos de lo que ya se vende en Etsy (una tienda en línea muy grande) y la IA lo convierte
+            en productos sencillos (casi siempre digitales, hechos con herramientas como Canva) que puedes hacer esta semana, en español, y vender por WhatsApp.
+          </p>
+          <p className="text-xs text-muted-foreground mt-1.5 max-w-2xl">
+            Elige qué tipo de producto, para quién y para cuándo. Cada tanda trae 5 ideas nuevas, con precio sugerido, cómo hacerlo y el mensaje para vender, y no repite las anteriores.
           </p>
         </div>
 
@@ -201,7 +209,7 @@ export function IdeasWhatsApp({ onNavigate }: { onNavigate?: (page: string) => v
           <div><p className="text-xs font-semibold text-foreground mb-1.5">Para quién</p><Chips items={PUBLICOS} value={pub} set={setPub} /></div>
           <div><p className="text-xs font-semibold text-foreground mb-1.5">Para cuándo</p><Chips items={OCASIONES} value={oca} set={setOca} /></div>
           <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-            <span><b className="text-foreground">¿Viste algo en Etsy que te gustó?</b> Pega aquí su título o descripción (opcional). Se usa como inspiración, no para copiarlo.</span>
+            <span><b className="text-foreground">¿Viste algo en Etsy que te gustó?</b> Pega aquí su título o descripción (es opcional). La IA lo usa como inspiración, no para copiarlo.</span>
             <AssistButton onClick={rellenarVisto} loading={assist.loading} filled={!!visto.trim()} className="self-start" />
             <textarea value={visto} onChange={e => setVisto(e.target.value)} rows={2} maxLength={1500}
               placeholder={assist.text() ? `Ej.: ${assist.text()}` : "Ej.: Printable Christmas Planner, 30 pages, instant download…"}
@@ -212,7 +220,7 @@ export function IdeasWhatsApp({ onNavigate }: { onNavigate?: (page: string) => v
         <button onClick={generar} disabled={loading}
           className="inline-flex items-center gap-2 rounded-lg gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : ideas.length ? <Plus className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
-          {ideas.length ? "5 ideas más" : "Dame 5 ideas"} · {coste} ⚡
+          {ideas.length ? "Dame 5 ideas más" : "Dame 5 ideas"} · {coste} créditos
         </button>
       </div>
 
@@ -225,8 +233,8 @@ export function IdeasWhatsApp({ onNavigate }: { onNavigate?: (page: string) => v
       {ideas.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-foreground">Tus ideas · {ideas.length}</p>
-            <button onClick={() => { if (window.confirm("¿Borrar todas tus ideas guardadas?")) guardar([]); }}
+            <p className="text-sm font-semibold text-foreground">Tus ideas guardadas ({ideas.length})</p>
+            <button onClick={() => { if (window.confirm(`¿Borrar tus ${ideas.length} ideas guardadas? No se pueden recuperar.`)) guardar([]); }}
               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /> Borrar todas</button>
           </div>
           <div className="grid gap-3 lg:grid-cols-2">
@@ -242,9 +250,9 @@ export function IdeasWhatsApp({ onNavigate }: { onNavigate?: (page: string) => v
                 <div className="flex flex-wrap gap-2 pt-1 mt-auto">
                   <button onClick={() => aMandala(idea)}
                     className="inline-flex items-center gap-1.5 rounded-lg gradient-brand px-3 py-2 text-xs font-bold text-primary-foreground">
-                    <Sparkles className="w-3.5 h-3.5" /> Crear contenido y anuncios
+                    <Sparkles className="w-3.5 h-3.5" /> Crear anuncios y publicaciones
                   </button>
-                  <button onClick={() => { navigator.clipboard.writeText(`${idea.nombre}\n\n${idea.texto}`); toast.success("Copiada"); }}
+                  <button onClick={() => { navigator.clipboard.writeText(`${idea.nombre}\n\n${idea.texto}`); toast.success("Idea copiada"); }}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground">
                     <Copy className="w-3.5 h-3.5" /> Copiar
                   </button>
@@ -256,8 +264,9 @@ export function IdeasWhatsApp({ onNavigate }: { onNavigate?: (page: string) => v
           </div>
           <p className="text-[11px] text-muted-foreground flex items-start gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-            Son ideas, no garantías: antes de invertir, pregunta a 10 personas de tu público si lo comprarían y a qué precio.
-            Usa diseño propio o recursos con licencia comercial, nunca personajes ni marcas con derechos.
+            Son ideas, no garantías de venta: antes de invertir tiempo o dinero, pregunta a 10 personas de tu público si lo comprarían y a qué precio.
+            Usa diseños propios o recursos con licencia comercial; nunca personajes ni marcas de otros (Disney, equipos de fútbol…).
+            Las ideas se guardan solo en este navegador.
           </p>
         </div>
       )}

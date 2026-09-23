@@ -172,7 +172,7 @@ export function AuthPage() {
             <img src="/supernova-icon.png" alt="SUPERNOVA" className="w-14 h-14" />
           </div>
           <h1 className="font-display font-bold text-3xl text-foreground">SUPERNOVA</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Acceso restringido · Solo miembros</p>
+          <p className="text-muted-foreground mt-1 text-sm">Entra a tu cuenta</p>
         </div>
 
         <div className="card-surface rounded-2xl p-8 animate-fade-up delay-100" style={{ animationFillMode: "forwards" }}>
@@ -224,7 +224,7 @@ export function AuthPage() {
                 ¿No tienes contraseña o la olvidaste? <span className="text-primary">Entra con un código por correo</span>
               </button>
               <p className="mt-3 text-center text-xs text-muted-foreground">
-                ¿Aún no tienes cuenta? <a href="/signup" className="text-primary hover:underline">Créala aquí</a>
+                ¿Aún no tienes cuenta? <a href="/signup" className="text-primary hover:underline">Créala y prueba 3 días gratis</a>
               </p>
             </>
           )}
@@ -305,15 +305,21 @@ export function AuthPage() {
                 </div>
               </div>
               <div className="text-center">
-                <h2 className="font-display font-semibold text-xl text-foreground mb-1">Este email no tiene acceso</h2>
+                <h2 className="font-display font-semibold text-xl text-foreground mb-1">Este correo todavía no tiene un plan activo</h2>
                 <p className="text-sm text-muted-foreground">
-                  SUPERNOVA es exclusivo para miembros de nuestra comunidad. Puedes solicitar acceso a continuación.
+                  Si aún no te registras, crea tu cuenta y prueba el plan PRO 3 días gratis, con todo abierto.
+                </p>
+                <a href="/signup" className="mt-3 inline-block text-sm font-semibold text-primary hover:underline">
+                  Crear mi cuenta y probar 3 días gratis →
+                </a>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  ¿Ya pagaste con este correo o crees que es un error? Déjanos tus datos y lo revisamos.
                 </p>
               </div>
 
               <form onSubmit={handleRequestAccess} className="space-y-3 pt-2">
                 <div className="px-3 py-2 rounded-lg bg-secondary/60 border border-border text-xs text-muted-foreground">
-                  Solicitando para: <span className="text-foreground font-medium">{email}</span>
+                  Correo: <span className="text-foreground font-medium">{email}</span>
                 </div>
                 <input
                   type="text" placeholder="Tu nombre completo (opcional)" value={requestName}
@@ -329,13 +335,13 @@ export function AuthPage() {
                   type="submit" disabled={loading}
                   className="w-full gradient-brand text-primary-foreground py-3 rounded-lg font-semibold text-sm hover:opacity-90 flex items-center justify-center gap-2 glow-primary disabled:opacity-60"
                 >
-                  {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</> : <><Send className="w-4 h-4" /> Solicitar acceso</>}
+                  {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</> : <><Send className="w-4 h-4" /> Pedir que lo revisen</>}
                 </button>
                 <button
                   type="button" onClick={() => { setStep("email"); setEmail(""); }}
                   className="w-full text-xs text-muted-foreground hover:text-foreground"
                 >
-                  ← Intentar con otro email
+                  ← Probar con otro correo
                 </button>
               </form>
             </div>
@@ -351,7 +357,7 @@ export function AuthPage() {
               <h2 className="font-display font-semibold text-xl text-foreground">Solicitud enviada</h2>
               <p className="text-sm text-muted-foreground">
                 Hemos recibido tu solicitud para <span className="text-foreground font-medium">{email}</span>.
-                Revisaremos y te contactaremos pronto.
+                La revisamos y te respondemos lo antes posible.
               </p>
               <button
                 type="button" onClick={() => { setStep("password"); setEmail(""); setRequestName(""); setRequestMessage(""); }}

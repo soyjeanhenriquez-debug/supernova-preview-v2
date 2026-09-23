@@ -16,7 +16,7 @@ export function DailyMissionWidget() {
         <span className="text-[11px] text-muted-foreground capitalize">{today}</span>
       </div>
       <p className="text-[13px] text-muted-foreground mb-5">
-        Completa las {totalTasks} misiones y gana <span className="text-primary font-semibold">+50 créditos bonus</span>
+        Pequeñas tareas para que aprendas a usar la app. Completa las {totalTasks} y te regalamos <span className="text-primary font-semibold">50 créditos extra</span>.
       </p>
 
       <div className="space-y-2.5 mb-5">
@@ -32,7 +32,7 @@ export function DailyMissionWidget() {
                 <div className={`text-[13px] font-medium ${done ? "text-foreground" : "text-foreground/90"}`}>{t.label}</div>
                 <div className="text-[10px] text-muted-foreground tabular-nums">{Math.min(cur, t.count)}/{t.count}</div>
               </div>
-              <span className="text-[11px] font-semibold text-primary whitespace-nowrap">+{t.xp} XP</span>
+              <span className="text-[11px] font-semibold text-primary whitespace-nowrap">+{t.xp} puntos</span>
             </div>
           );
         })}
@@ -49,9 +49,9 @@ export function DailyMissionWidget() {
       </div>
 
       {allDone && progress.claimed ? (
-        <div className="text-[12px] text-primary font-medium">⚡ Misión completada · +50 créditos otorgados</div>
+        <div className="text-[12px] text-primary font-medium">⚡ Misión completada · ya tienes tus 50 créditos extra</div>
       ) : (
-        <p className="text-[12px] text-muted-foreground italic">"Los ganadores no esperan inspiración. Crean hábitos."</p>
+        <p className="text-[12px] text-muted-foreground italic">"Un poco cada día rinde más que mucho de vez en cuando."</p>
       )}
     </section>
   );

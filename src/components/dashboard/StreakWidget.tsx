@@ -36,10 +36,10 @@ export function StreakWidget({ streak, lastLoginDate }: Props) {
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Flame className="w-4 h-4 text-primary" />
-          <span className="text-[12px] font-bold uppercase tracking-wider text-foreground">Racha JARVIS</span>
+          <span className="text-[12px] font-bold uppercase tracking-wider text-foreground">Tu racha de días</span>
         </div>
         <div className="text-[12px] text-muted-foreground">
-          {streak === 0 ? "Empieza tu racha hoy" : streak === 1 ? "1 día" : `${streak} días consecutivos`}
+          {streak === 0 ? "Empieza tu racha hoy" : streak === 1 ? "1 día" : `${streak} días seguidos`}
         </div>
       </div>
 
@@ -50,7 +50,7 @@ export function StreakWidget({ streak, lastLoginDate }: Props) {
 
       <div className="mb-3">
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[11px] text-muted-foreground">{weeklyProgress}/7 días para badge semanal</span>
+          <span className="text-[11px] text-muted-foreground">{weeklyProgress} de 7 días para ganar la insignia de la semana</span>
         </div>
         <div className="w-full h-[3px] bg-secondary rounded-full overflow-hidden">
           <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${pct}%` }} />
@@ -71,7 +71,7 @@ export function StreakWidget({ streak, lastLoginDate }: Props) {
 
       {streak > 0 && (
         <p className="text-[12px] text-muted-foreground mt-4 italic">
-          Llevas {streak} {streak === 1 ? "día" : "días"} seguidos. ¡No rompas la racha!
+          Llevas {streak} {streak === 1 ? "día" : "días"} seguidos. Entra mañana para no perderla.
         </p>
       )}
     </section>

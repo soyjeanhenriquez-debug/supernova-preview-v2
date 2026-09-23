@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Users, Activity, Coins, Search } from "lucide-react";
+import { LandingAB } from "@/components/admin/LandingAB";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -143,6 +144,8 @@ export default function AdminOverview() {
           Métricas en tiempo real del sistema · actualiza cada 30s
         </p>
       </header>
+
+      <LandingAB />
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

@@ -3,8 +3,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { ProductProvider } from "@/contexts/ProductContext";
 import LandingPage from "./pages/LandingPage";
 import SignupPage from "./pages/SignupPage";
@@ -46,8 +47,24 @@ function StaticHome() {
   return <LandingPage />;
 }
 
+/** Liga la visita a la landing (test A/B, localStorage "sn_ab_v1") con la cuenta, una sola vez. */
+function useClaimLandingVisit(userId: string | undefined) {
+  useEffect(() => {
+    if (!userId) return;
+    try {
+      const ab = JSON.parse(localStorage.getItem("sn_ab_v1") || "null");
+      if (!ab?.id || ab.claimed) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).rpc("claim_landing_visitor", { p_visitor: ab.id }).then(({ error }: { error: unknown }) => {
+        if (!error) localStorage.setItem("sn_ab_v1", JSON.stringify({ ...ab, claimed: true }));
+      });
+    } catch { /* sin almacenamiento */ }
+  }, [userId]);
+}
+
 function AppRoutes() {
   const { user, loading } = useAuth();
+  useClaimLandingVisit(user?.id);
 
   // La baja del correo funciona con o sin sesión y sin pasar por el muro de
   // acceso: quien llega desde su correo debe poder darse de baja con un clic.

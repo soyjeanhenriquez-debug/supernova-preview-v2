@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useProjects } from "@/hooks/useProjects";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useNavigate } from "react-router-dom";
+import { useFeatureAccess } from "@/lib/features";
 
 interface SidebarProps {
   activePage: string;
@@ -21,6 +22,7 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
   const { user, signOut } = useAuth();
   const { projects } = useProjects();
   const { isAdmin } = useIsAdmin();
+  const { canSee } = useFeatureAccess();
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -37,7 +39,7 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
     { icon: Video, key: "Media Studio", label: t("nav.mediaStudio"), hint: t("nav.hint.mediaStudio") },
     { icon: FolderKanban, key: "Proyectos", label: t("nav.projects"), hint: t("nav.hint.projects") },
     { icon: Coins, key: "Créditos", label: t("nav.credits"), hint: t("nav.hint.credits") },
-  ];
+  ].filter(item => canSee(item.key));
 
   const [collapsed, setCollapsed] = useState<boolean>(() => localStorage.getItem(COLLAPSE_KEY) === "1");
   useEffect(() => { localStorage.setItem(COLLAPSE_KEY, collapsed ? "1" : "0"); }, [collapsed]);
@@ -127,8 +129,8 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
           </button>
         )}
 
-        {/* SUPERNOVA BRAIN */}
-        {!isCollapsed ? (
+        {/* SUPERNOVA BRAIN (Proyectos: en pausa para clientes, ver src/lib/features.ts) */}
+        {!canSee("Proyectos") ? null : !isCollapsed ? (
           <button
             onClick={() => handleNav("Proyectos")}
             data-tour="nav-brain"

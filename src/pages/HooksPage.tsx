@@ -3,6 +3,7 @@ import { Quote, Copy, Check, Star, Video, Sparkles, Search, Flame } from "lucide
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFeatureAccess } from "@/lib/features";
 
 /**
  * Bóveda de Hooks: ganchos extraídos de anuncios ganadores REALES del radar.
@@ -55,6 +56,7 @@ const MEDIA_PREFILL_KEY = "supernova_media_prefill";
 
 export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { user } = useAuth();
+  const { canSee } = useFeatureAccess();
   const [hooks, setHooks] = useState<VaultHook[]>([]);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -211,7 +213,7 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
               isFavorite={favorites.has(h.id)}
               onToggleFavorite={() => toggleFavorite(h.id)}
               onCopy={() => copyHook(h.hook_template)}
-              onVideo={() => videoFromHook(h)}
+              onVideo={canSee("Media Studio") ? () => videoFromHook(h) : undefined}
               onCopies={() => copiesFromHook(h)}
             />
           ))}
@@ -226,7 +228,7 @@ function HookCard({ hook: h, isFavorite, onToggleFavorite, onCopy, onVideo, onCo
   isFavorite: boolean;
   onToggleFavorite: () => void;
   onCopy: () => void;
-  onVideo: () => void;
+  onVideo?: () => void;
   onCopies: () => void;
 }) {
   const [showOriginal, setShowOriginal] = useState(false);
@@ -279,13 +281,13 @@ function HookCard({ hook: h, isFavorite, onToggleFavorite, onCopy, onVideo, onCo
         >
           {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />} Copiar plantilla
         </button>
-        <button
+        {onVideo && <button
           onClick={onVideo}
           title="Crea un video corto con este gancho, narrado por un avatar hecho con IA (gasta créditos)"
           className="flex-1 py-2 rounded-lg bg-primary/15 text-primary text-xs font-semibold hover:bg-primary/25 flex items-center justify-center gap-1.5"
         >
           <Video className="w-3.5 h-3.5" /> Video
-        </button>
+        </button>}
         <button
           onClick={onCopies}
           title="Usa este gancho para escribir textos de anuncio con la IA (gasta créditos)"

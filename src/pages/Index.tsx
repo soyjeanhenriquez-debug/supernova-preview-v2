@@ -8,6 +8,7 @@ import { OnboardingTour } from "@/components/OnboardingTour";
 import { FloatingWinnerButton } from "@/components/FloatingWinnerButton";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useVersionCheck, updateIsReady } from "@/hooks/useVersionCheck";
+import { useFeatureAccess } from "@/lib/features";
 
 // Carga diferida: cada pantalla es su propio chunk → la primera carga solo
 // baja el Dashboard, el resto llega bajo demanda al navegar.
@@ -93,7 +94,10 @@ const Index = () => {
     return () => { window.removeEventListener("popstate", sync); window.removeEventListener("hashchange", sync); };
   }, []);
 
+  const { canSee, loading: accessLoading } = useFeatureAccess();
   const renderPage = () => {
+    // Secciones en pausa (src/lib/features.ts): un cliente que llega por un enlace viejo va al inicio.
+    if (!canSee(activePage)) return accessLoading ? null : <DashboardPage onNavigate={setActivePage} />;
     switch (activePage) {
       case "Dashboard": return <DashboardPage onNavigate={setActivePage} />;
       case "Ofertas": return <OfertasPage onNavigate={setActivePage} />;

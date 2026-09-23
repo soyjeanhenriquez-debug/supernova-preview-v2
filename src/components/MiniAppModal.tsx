@@ -10,6 +10,7 @@ import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import type { DemoAd } from "@/lib/demo-winning-ads";
 import { OFFER_TYPE_LABEL } from "@/lib/demo-winning-ads";
 import { ModalPortal } from "@/components/ModalPortal";
+import { useFeatureAccess } from "@/lib/features";
 
 interface Props { ad: DemoAd; onClose: () => void; }
 
@@ -32,6 +33,7 @@ const COUNTRIES = [
  *  Claude), escalar con anuncios y armar el embudo. Precio único.
  */
 export function MiniAppModal({ ad, onClose }: Props) {
+  const { canSee } = useFeatureAccess();
   const { applyServerCharge, canAfford } = useCredits();
   const { create, update } = useProjects();
   const { balance: mediaBalance, canAfford: canAffordVideo } = useMediaCredits();
@@ -367,7 +369,7 @@ export function MiniAppModal({ ad, onClose }: Props) {
               </article>
 
               {/* VSL elegido + guion listo: ofrecer generar el video del hook */}
-              {tab === "vender" && salesPath === "vsl" && salesScript && !salesLoading && (
+              {canSee("Media Studio") && tab === "vender" && salesPath === "vsl" && salesScript && !salesLoading && (
                 <div className="mt-6 rounded-xl border border-primary/25 bg-primary/5 p-5">
                   <div className="flex items-start gap-3">
                     <Video className="w-5 h-5 text-primary shrink-0 mt-0.5" />

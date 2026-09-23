@@ -19,6 +19,7 @@ import { DailyMissionWidget } from "@/components/dashboard/DailyMissionWidget";
 import { LevelXPWidget } from "@/components/dashboard/LevelXPWidget";
 import { DailyQuoteWidget } from "@/components/dashboard/DailyQuoteWidget";
 import { LevelUpModal } from "@/components/dashboard/LevelUpModal";
+import { useFeatureAccess } from "@/lib/features";
 
 interface Props { onNavigate: (p: string) => void; }
 
@@ -30,6 +31,7 @@ function formatRenewal(d: Date) {
 
 export function DashboardPage({ onNavigate }: Props) {
   const { balance, limit, history, renewalDate } = useCredits();
+  const { canSee } = useFeatureAccess();
   const { projects } = useProjects();
   const { user } = useAuth();
   const { xp, streak, lastLoginDate, badges, levelUpTo, dismissLevelUp } = useGamification();
@@ -136,14 +138,14 @@ export function DashboardPage({ onNavigate }: Props) {
           cost={`${CREDIT_COSTS.search_ads} créditos`}
           onClick={() => onNavigate("Buscar Ofertas Winner")}
         />
-        <QuickAction
+        {canSee("Oráculo") && <QuickAction
           icon={<Sparkles className="w-5 h-5" strokeWidth={1.8} />}
           tint="purple"
           title="Oráculo: analiza una página"
           subtitle="Pega el enlace de una página de ventas y te explico qué vende, a quién y por qué convence."
           cost={`${CREDIT_COSTS.landing_intelligence} créditos`}
           onClick={() => onNavigate("Oráculo")}
-        />
+        />}
         <QuickAction
           icon={<Wand2 className="w-5 h-5" strokeWidth={1.8} />}
           tint="green"
@@ -154,8 +156,8 @@ export function DashboardPage({ onNavigate }: Props) {
         />
       </section>
 
-      {/* 10. Proyectos recientes */}
-      <section>
+      {/* 10. Proyectos recientes (en pausa para clientes) */}
+      {canSee("Proyectos") && <section>
         <div className="flex items-end justify-between mb-6">
           <div>
             <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium mb-1">Recientes</div>
@@ -197,7 +199,7 @@ export function DashboardPage({ onNavigate }: Props) {
             })}
           </div>
         )}
-      </section>
+      </section>}
 
       {/* Créditos */}
       <section className="card-surface rounded-2xl p-7">

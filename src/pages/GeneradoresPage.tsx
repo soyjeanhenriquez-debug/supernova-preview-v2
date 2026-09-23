@@ -51,7 +51,7 @@ ESTRUCTURA OBLIGATORIA — framework T→MAES→A/N:
 
 FORMATO EXACTO de tu respuesta:
 
-## 🎬 Guion corto (~150 palabras — listo para Media Studio / avatar IA)
+## 🎬 Guion corto (~150 palabras — listo para grabar o para un avatar con IA)
 [Guion hablado corrido, sin encabezados internos. Tono conversacional, primera persona, frases cortas.]
 
 ## 🎬 Versión extendida (90-120 segundos)
@@ -166,7 +166,7 @@ Para cada guion:
 - Llamada a la acción
 - Texto en pantalla (subtítulos clave)
 - Indicaciones de grabación: plano, lugar, tono, qué mostrar
-Al final: "Puedes grabarlo tú, pedírselo a un creador o hacerlo con el avatar de Media Studio (guion de máximo 160 palabras)."
+Al final: "Puedes grabarlo tú, pedírselo a un creador o hacerlo con un avatar de IA (guion de máximo 160 palabras)."
 ${FORMAT_RULES}`;
 
 const CREATIVE_BRIEF_PROMPT = `Eres un estratega de creativos para Meta Ads. Arma un PLAN DE 10 CREATIVOS para testear esta oferta, cada uno con un ángulo distinto (dolor, deseo, miedo, curiosidad, prueba social, autoridad, contrario, historia, comparación, oferta).
@@ -222,7 +222,7 @@ const generators: Generator[] = [
   {
     id: "ugc-script",
     title: "Guiones UGC: anuncios que parecen de un cliente real (15–30 s)",
-    description: "3 guiones de video corto con qué decir en los primeros 3 segundos, qué mostrar, cómo cerrar y cómo grabarlo. Puedes grabarlos tú, pedírselos a un creador o hacerlos con el avatar de Media Studio.",
+    description: "3 guiones de video corto con qué decir en los primeros 3 segundos, qué mostrar, cómo cerrar y cómo grabarlo. Puedes grabarlos tú, pedírselos a un creador o hacerlos con un avatar de IA.",
     category: "funnel",
     prompt: UGC_PROMPT,
   },
@@ -236,7 +236,7 @@ const generators: Generator[] = [
   {
     id: "yapping-script",
     title: "Guion para hablarle a la cámara (video yapping)",
-    description: "Un guion para grabarte hablando, estilo TikTok o Reels: una primera frase que frena el scroll, una explicación con un ejemplo o una historia y un cierre que dice qué hacer. Trae una versión corta de unas 150 palabras (entra directo en Media Studio), una larga y 3 aperturas más. Usa el método T→MAES→A/N.",
+    description: "Un guion para grabarte hablando, estilo TikTok o Reels: una primera frase que frena el scroll, una explicación con un ejemplo o una historia y un cierre que dice qué hacer. Trae una versión corta de unas 150 palabras (ideal para un video con avatar), una larga y 3 aperturas más. Usa el método T→MAES→A/N.",
     category: "social",
     recommended: true,
     prompt: YAPPING_PROMPT,

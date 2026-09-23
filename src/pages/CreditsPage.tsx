@@ -6,6 +6,7 @@ import { CountUp } from "@/components/CountUp";
 import { SubscriptionCard } from "@/components/SubscriptionCard";
 import { startCheckout, consumeCheckoutResult } from "@/lib/stripe";
 import { formatUsd } from "@/lib/plans";
+import { useFeatureAccess } from "@/lib/features";
 
 const PACKS = [
   { id: "boost",   name: "PACK BOOST",   credits: 500,  price: 10, tagline: "Alcanza para unos 33 textos cortos (15 créditos cada uno)", save: null },
@@ -51,6 +52,7 @@ const FRIENDLY_LABEL: Partial<Record<keyof typeof ACTION_LABEL, string>> = {
 export function CreditsPage() {
   const { balance, monthly, purchased, limit, renewalDate, history } = useCredits();
   const { balance: mediaBalance, loading: mediaLoading } = useMediaCredits();
+  const { canSee } = useFeatureAccess();
   // Anillo: progreso del saldo mensual (los comprados se muestran aparte)
   const pct = (monthly / limit) * 100;
 
@@ -181,8 +183,8 @@ export function CreditsPage() {
         </p>
       </div>
 
-      {/* Media Credits — pool separado, para dejar clarísimo que es otra economía */}
-      <div className="border-t-2 border-dashed border-border pt-8">
+      {/* Media Credits — pool separado, para dejar clarísimo que es otra economía. En pausa para clientes (src/lib/features.ts). */}
+      {canSee("Media Studio") && <div className="border-t-2 border-dashed border-border pt-8">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
           <div className="flex items-center gap-2">
             <Video className="w-4 h-4 text-primary" />
@@ -226,7 +228,7 @@ export function CreditsPage() {
         <p className="text-[11px] text-muted-foreground mt-4 text-center">
           Los Media Credits no caducan y no se mezclan con tus créditos normales.
         </p>
-      </div>
+      </div>}
 
       {/* History */}
       <div className="card-surface rounded-xl">

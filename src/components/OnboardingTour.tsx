@@ -52,16 +52,9 @@ const STEPS: Step[] = [
   },
   {
     target: "nav-Generadores",
-    title: "Generadores y Oráculo",
+    title: "Generadores",
     page: "26 generadores de textos con IA",
-    body: "Te escriben ganchos (la primera frase que hace que alguien se detenga), anuncios, páginas de venta, correos y guiones. Cada uno gasta 15, 30 o 75 créditos. El <strong>Oráculo</strong> analiza la página de venta de un competidor (50 créditos). Solo pagas si la IA te entrega el resultado.",
-    placement: "right",
-  },
-  {
-    target: "nav-brain",
-    title: "SUPERNOVA BRAIN",
-    page: "Tu proyecto en 6 pasos",
-    body: "Detectar → Analizar → Diseñar → Producir → Lanzar → Escalar. En cada paso puedes pedir <strong>Ayuda IA (10 créditos)</strong> y te guía paso a paso.",
+    body: "Te escriben ganchos (la primera frase que hace que alguien se detenga), anuncios, páginas de venta, correos y guiones. Cada uno gasta 15, 30 o 75 créditos. Solo pagas si la IA te entrega el resultado.",
     placement: "right",
   },
   {

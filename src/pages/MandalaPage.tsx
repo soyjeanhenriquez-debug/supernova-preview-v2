@@ -14,6 +14,7 @@ import { AssistButton } from "@/components/AssistButton";
 import {
   useBusinessProfile, profileText, profileReady, businessHint, BUSINESS_TYPES, PROFILE_EXAMPLES, type BusinessProfile,
 } from "@/lib/businessProfile";
+import { useFeatureAccess } from "@/lib/features";
 
 /**
  * Mándala Creativa: la rueda para no quedarse nunca sin anuncios.
@@ -225,7 +226,7 @@ function verdict(ad: AdRow, price: number): { tone: "good" | "bad" | "wait" | "f
   }
   if (price && spend >= price * 2) return { tone: "bad", text: "Ya gastaste 2 veces el precio de tu producto y no vendió: apágalo y prueba otro ángulo en la rueda." };
   if (ctr != null && ctr < 0.8) return { tone: "fix", text: "Menos del 0,8% de quienes lo ven hacen clic (CTR bajo): casi nadie se detiene. Cambia los primeros 3 segundos o el ángulo." };
-  if (ctr != null && ctr >= 0.8 && spend > 0) return { tone: "fix", text: "La gente hace clic, pero todavía no compra. Si sigue así cuando hayas gastado 2 veces el precio, revisa tu página de ventas y tu oferta (el Oráculo te ayuda)." };
+  if (ctr != null && ctr >= 0.8 && spend > 0) return { tone: "fix", text: "La gente hace clic, pero todavía no compra. Si sigue así cuando hayas gastado 2 veces el precio, revisa tu página de ventas y tu oferta: qué prometes, qué incluye y el precio." };
   return { tone: "wait", text: "Aún es pronto para decidir: déjalo correr hasta gastar unas 2 veces el precio de tu producto." };
 }
 
@@ -286,6 +287,7 @@ export function MandalaPage() {
   const [briefOpen, setBriefOpen] = useState(true);
   const [platform, setPlatform] = useState<Platform>("meta");
   const [format, setFormat] = useState(FORMATS[0]);
+  const { canSee } = useFeatureAccess();
   const [ads, setAds] = useState<AdRow[]>([]);
   const [output, setOutput] = useState("");
   const [outputTitle, setOutputTitle] = useState("");
@@ -559,7 +561,7 @@ export function MandalaPage() {
       <div className="space-y-1.5">
         <p className="text-xs text-muted-foreground">¿Qué tipo de anuncio?</p>
         <div className="flex flex-wrap gap-2">
-          {FORMATS.map(f => (
+          {FORMATS.filter(f => canSee("Media Studio") || !/avatar/i.test(f)).map(f => (
             <button key={f} onClick={() => setFormat(f)}
               className={`rounded-full border px-3 py-1.5 text-xs ${format === f ? "border-foreground/60 bg-secondary text-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}>
               {f}
@@ -576,7 +578,7 @@ export function MandalaPage() {
         <h3 className="font-semibold text-foreground text-sm">{outputTitle || "Resultado"}</h3>
         {output && !loading && (
           <div className="flex gap-3">
-            {/video|avatar/i.test(format) && (
+            {canSee("Media Studio") && /video|avatar/i.test(format) && (
               <button onClick={() => toMediaStudio(output)} className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline">
                 <Video className="w-3.5 h-3.5" /> Hacer el video con avatar (Media Studio)
               </button>
@@ -897,7 +899,7 @@ export function MandalaPage() {
                   {(ad.status === "ganador" || v?.tone === "good") && (
                     <Btn primary onClick={() => iterate(ad)}><Repeat className="w-4 h-4" /> 5 ganchos nuevos + 2 versiones · {iterCost} créditos</Btn>
                   )}
-                  {/video|avatar/i.test(ad.format) && <Btn onClick={() => toMediaStudio(ad.output)}><Video className="w-4 h-4" /> Hacer el video con avatar</Btn>}
+                  {canSee("Media Studio") && /video|avatar/i.test(ad.format) && <Btn onClick={() => toMediaStudio(ad.output)}><Video className="w-4 h-4" /> Hacer el video con avatar</Btn>}
                   <button onClick={() => { navigator.clipboard.writeText(ad.output); toast.success("Copiado. Ya puedes pegarlo."); }} className="p-2.5 text-muted-foreground hover:text-foreground" aria-label="Copiar anuncio"><Copy className="w-4 h-4" /></button>
                   <button onClick={() => deleteAd(ad.id)} className="p-2.5 text-muted-foreground hover:text-red-400" aria-label="Borrar anuncio"><Trash2 className="w-4 h-4" /></button>
                 </div>

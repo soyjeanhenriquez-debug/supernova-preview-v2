@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useCredits } from "@/hooks/useCredits";
 import { CountUp } from "@/components/CountUp";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useFeatureAccess, MULTI_LANGUAGE_FOR_CLIENTS } from "@/lib/features";
 
 interface TopBarProps {
   activePage: string;
@@ -13,6 +14,12 @@ interface TopBarProps {
 export function TopBar({ activePage, onOpenMobileNav }: TopBarProps) {
   const { balance, limit } = useCredits();
   const { t, i18n } = useTranslation();
+  // Inglés y portugués en pausa para clientes (src/lib/features.ts): la app va en español.
+  const { isAdmin, loading: accessLoading } = useFeatureAccess();
+  const multiLang = isAdmin || MULTI_LANGUAGE_FOR_CLIENTS;
+  useEffect(() => {
+    if (!accessLoading && !multiLang && i18n.resolvedLanguage !== "es") i18n.changeLanguage("es");
+  }, [accessLoading, multiLang, i18n]);
   const low = balance < 100;
   // Mismo nombre que en el menú (la clave interna de la página no es para mostrarla).
   const NAV_KEY: Record<string, string> = {
@@ -66,7 +73,7 @@ export function TopBar({ activePage, onOpenMobileNav }: TopBarProps) {
           <span className="text-muted-foreground/70 hidden sm:inline">/ {limit.toLocaleString()}</span>
         </div>
 
-        <LanguageSwitcher />
+        {multiLang && <LanguageSwitcher />}
 
         <div className="hidden md:flex items-center gap-2 h-8 px-3 rounded-full bg-success/10 border border-success/30 text-[10px] font-semibold tracking-[0.18em] text-success">
           <span className="live-dot" />

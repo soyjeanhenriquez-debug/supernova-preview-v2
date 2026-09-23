@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CREDIT_COSTS, generatorCost } from "@/hooks/useCredits";
+import { useFeatureAccess, ADMIN_ONLY_PAGES } from "@/lib/features";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -44,7 +45,11 @@ Si algo cobró y falló, los créditos se devuelven automáticamente; si no fue 
 
 Estilo: Respuestas cortas, directas, en español, tuteando. Usa listas y **negritas** para claridad. Explica en pocas palabras cualquier término técnico (VSL = video de ventas, CTR = % de personas que hacen clic, upsell = oferta extra después de comprar). Números con formato en español (2.000, 0,8%). Nunca prometas ingresos ni resultados. Si no sabes algo específico de la app, dilo y sugiere contactar soporte. Nunca inventes precios ni funciones que no estén en esta lista.`;
 
+// Secciones en pausa para clientes (src/lib/features.ts): el asistente no debe mandarlos a pantallas que no ven.
+const PAUSED_NOTE = `\n\nIMPORTANTE: para este usuario estas secciones NO están disponibles por ahora: ${[...ADMIN_ONLY_PAGES].map(p => p === "Crear" ? "Modo Crear" : p).join(", ")}; tampoco los Media Credits ni los idiomas inglés y portugués. No las recomiendes ni expliques cómo usarlas; si pregunta por ellas, di que llegarán más adelante y ofrécele lo que sí tiene: Ofertas, Hacer mi versión (Mini Apps), Radar, Ganchos, Mándala y Generadores.`;
+
 export function HelpAssistant() {
+  const { isAdmin } = useFeatureAccess();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Msg[]>(() => {
@@ -91,7 +96,7 @@ export function HelpAssistant() {
         },
         body: JSON.stringify({
           messages: next.map(m => ({ role: m.role, content: m.content })),
-          systemPrompt: SYSTEM_PROMPT,
+          systemPrompt: isAdmin ? SYSTEM_PROMPT : SYSTEM_PROMPT + PAUSED_NOTE,
           model: "google/gemini-3-flash-preview",
         }),
       });

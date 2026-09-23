@@ -45,7 +45,7 @@ export function BrainPage() {
           <div className="card-surface rounded-xl py-16 text-center">
             <div className="empty-icon mb-4"><Brain className="w-9 h-9" /></div>
             <div className="font-display font-bold text-lg mb-1">Todavía no tienes proyectos</div>
-            <div className="text-sm text-muted-foreground max-w-sm mx-auto">Se crean solos cuando guardas algo como proyecto, por ejemplo desde Ofertas, Mini Apps, el Radar de anuncios o Modo Crear. Empieza por Ofertas si aún no sabes qué vender.</div>
+            <div className="text-sm text-muted-foreground max-w-sm mx-auto">Se crean solos cuando guardas algo como proyecto, por ejemplo desde Ofertas, Mini Apps o el Radar de anuncios. Empieza por Ofertas si aún no sabes qué vender.</div>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">

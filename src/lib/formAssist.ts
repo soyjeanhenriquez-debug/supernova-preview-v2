@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
  * El ejemplo se usa como placeholder en cuanto llega y, con el botón, rellena los campos.
  * Se guarda un día en este navegador para no pedir lo mismo cada vez que se abre la página.
  */
-export type AssistForm = "mandala-brief" | "generator" | "media-script" | "whatsapp-visto" | "crear-keyword";
+export type AssistForm = "mandala-brief" | "generator" | "media-script" | "whatsapp-visto" | "crear-keyword" | "launch-task";
 export type Suggestion = Record<string, string | string[]>;
 
 const TTL = 24 * 60 * 60 * 1000;
@@ -24,6 +24,10 @@ async function requestSuggestion(form: AssistForm, current: Record<string, unkno
   if (!data?.suggestion) throw new Error(data?.error || "No se pudo generar el ejemplo.");
   return data.suggestion as Suggestion;
 }
+
+/** Una llamada suelta (sin caché), para pantallas con muchos campos distintos, como las tareas del plan. */
+export const askAssist = (form: AssistForm, current: Record<string, unknown>, context: string) =>
+  requestSuggestion(form, current, context, 0);
 
 /**
  * @param form      qué formulario

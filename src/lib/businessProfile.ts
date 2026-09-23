@@ -19,7 +19,14 @@ export type Journey = { done?: Record<string, boolean> };
 /** Etapa 2 · Matriz de validación: respuestas verdadero/falso por id de pregunta (src/pages/ValidationPage.tsx). */
 export type Validation = { answers: Record<string, boolean>; completed_at?: string | null; score?: number | null };
 /** Etapa 4 · Plan de lanzamiento (src/pages/LaunchPlanPage.tsx). due = 'YYYY-MM-DD'. */
-export type LaunchTask = { id: string; title: string; group: string; due: string | null; done: boolean };
+export type LaunchTask = {
+  id: string; title: string; group: string; due: string | null; done: boolean;
+  /** Lo que el usuario hizo DENTRO de SUPERNOVA para esta tarea (todo queda registrado para guiarlo). */
+  answer?: string;                  // texto escrito (promesa, garantía, mensaje, ajustes…)
+  link?: string;                    // enlace (app, pago, página de venta)
+  feedback?: string[];              // opiniones de las personas que probaron
+  checks?: Record<string, boolean>; // pasos de una mini lista (píxel, compra de prueba…)
+};
 export type LaunchPlan = { start: string; tasks: LaunchTask[] };
 /** Etapa 6 · Recuperación de ventas por WhatsApp (src/pages/RecoveryPage.tsx). */
 export type RecoveryMessage = { day: number; when: string; text: string };

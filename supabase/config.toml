@@ -75,3 +75,6 @@ verify_jwt = false
 
 [functions.content-ideas]
 verify_jwt = false
+
+[functions.form-assist]
+verify_jwt = false

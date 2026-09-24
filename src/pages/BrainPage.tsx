@@ -56,7 +56,7 @@ export function BrainPage({ onNavigate }: { onNavigate?: (page: string) => void 
       {builderOn && onNavigate && (
         <div>
           <div className="flex items-center justify-between gap-3 mb-3">
-            <h3 className="font-display font-bold text-lg">Tus productos ({builds.length})</h3>
+            <h3 className="font-display font-bold text-lg">Tus ebooks y cursos ({builds.length})</h3>
             <button onClick={() => openBuild()} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:border-primary/60">
               <Plus className="w-3.5 h-3.5" /> Crear producto
             </button>
@@ -89,7 +89,10 @@ export function BrainPage({ onNavigate }: { onNavigate?: (page: string) => void 
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projects.map((proj) => <ProjectCard key={proj.id} p={proj} onOpen={() => setOpenId(proj.id)} onDelete={() => remove(proj.id)} />)}
+            {projects.map((proj) => <ProjectCard key={proj.id} p={proj} onOpen={() => setOpenId(proj.id)} onDelete={() => {
+              // Lo guardado costó créditos: se confirma antes de borrarlo para siempre.
+              if (window.confirm(`¿Borrar «${proj.name}»? Te costó créditos y no se puede recuperar.`)) remove(proj.id);
+            }} />)}
           </div>
         )}
       </div>

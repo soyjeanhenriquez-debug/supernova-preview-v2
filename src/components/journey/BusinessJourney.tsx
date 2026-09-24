@@ -8,6 +8,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { useBusinessProfile, profileReady, type BusinessProfile } from "@/lib/businessProfile";
 import { WeeklyPlan } from "@/components/journey/WeeklyPlan";
 import { useFeatureAccess } from "@/lib/features";
+import { journeyStages, buildIsDone, buildTasksProgress, type BuildRow } from "@/lib/journey";
 
 /**
  * Recorrido "Mi negocio": el Método Negocio Gemelo en 6 etapas, con el producto del usuario en el
@@ -43,8 +44,8 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
     if (!user || !activeId) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any).from("product_builds").select("status,pieces_done,pieces_total").eq("product_id", activeId).limit(30)
-      .then(({ data }: { data: { status: string; pieces_done: number; pieces_total: number }[] | null }) => {
-        setHasBuiltProduct((data ?? []).some(b => b.status === "listo" || (b.pieces_total > 0 && b.pieces_done >= b.pieces_total)));
+      .then(({ data }: { data: BuildRow[] | null }) => {
+        setHasBuiltProduct((data ?? []).some(buildIsDone));
       });
   }, [user, activeId]);
 
@@ -61,15 +62,18 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
   });
 
   const planTasks = profile.launch_plan?.tasks ?? [];
-  const planPct = planTasks.length ? planTasks.filter(t => t.done).length / planTasks.length : 0;
+  const build = buildTasksProgress(planTasks);
   const answered = Object.keys(profile.validation?.answers ?? {}).length;
   const hasRecovery = (profile.recovery?.messages?.length ?? 0) > 0;
 
-  const stages: Stage[] = useMemo(() => [
+  const stages: Stage[] = useMemo(() => {
+    // Qué etapa está hecha lo decide src/lib/journey.ts (la misma regla que "Mis productos").
+    const { done } = journeyStages(profile, ads, hasBuiltProduct);
+    return [
     {
       n: 1, key: "1", short: "Elegir", title: "Elige qué vas a vender",
       why: "Escoge una oferta que ya se vende y cuéntala en tu ficha.", doneNote: "Ya tienes tu ficha",
-      done: profileReady(profile),
+      done: done[0],
       actions: [
         { label: "Ver ofertas ganadoras", page: "Ofertas", primary: true },
         { label: "Ya sé qué vender", page: "Mi negocio" },
@@ -79,7 +83,7 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
       n: 2, key: "2", short: "Validar", title: "Comprueba que se vende",
       why: "14 preguntas de sí o no. Unos 3 minutos.", doneNote: "Tu oferta pasó la matriz",
       // Hecha si la matriz está completa y la oferta pasa (nota ≥ 50); con nota baja hay que ajustarla.
-      done: !!profile.validation?.completed_at && (profile.validation?.score == null || profile.validation.score >= 50),
+      done: done[1],
       progress: profile.validation?.completed_at && profile.validation?.score != null && profile.validation.score < 50
         ? `Nota ${profile.validation.score}: ajusta tu oferta`
         : answered && !profile.validation?.completed_at ? `${answered} de 14` : undefined,
@@ -91,15 +95,16 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
     {
       n: 3, key: "3", short: "Precio", title: "Ponle precio",
       why: "Mira cuánto te queda por venta antes de pagar anuncios.", doneNote: "Tu precio está elegido",
-      done: !!profile.pricing?.chosen,
+      done: done[2],
       actions: [{ label: "Calcular mi precio", page: "Precio", primary: true }],
     },
     {
       n: 4, key: "4", short: "Construir", title: "Construye tu producto",
-      why: "Tu mini app y un plan de 14 días, tarea por tarea.", doneNote: hasBuiltProduct ? "Tu producto está escrito" : "Tu plan va al 80% o más",
-      done: planPct >= 0.8 || hasBuiltProduct || (hasMiniApp && manual("4")),
-      progress: planTasks.length ? `${Math.round(planPct * 100)}% del plan` : hasMiniApp ? "Mini app lista" : undefined,
-      manual: hasMiniApp && planPct < 0.8 && !hasBuiltProduct,
+      why: "Tu producto y tu página de cobro, tarea por tarea.", doneNote: hasBuiltProduct ? "Tu producto está escrito" : "Tu producto y tu cobro están listos",
+      done: done[3],
+      progress: build.total ? `${build.done} de ${build.total} tareas de producto y cobro` : hasMiniApp ? "Mini app lista" : undefined,
+      // "Ya lo hice": para quien hizo su mini app fuera del plan.
+      manual: hasMiniApp && !done[3],
       // Si no es tienda y aún no hay libro: primero crear el producto aquí mismo; el plan va de segundo.
       actions: builderOn && profile.business_type !== "ecommerce" && !hasBuiltProduct
         ? [
@@ -115,7 +120,7 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
     {
       n: 5, key: "5", short: "Vender", title: "Crea tus anuncios",
       why: "La IA te escribe tus primeros 5 anuncios, uno por uno.", doneNote: "Tienes tus 5 anuncios",
-      done: (ads?.count ?? 0) >= 5,
+      done: done[4],
       progress: ads ? `${Math.min(ads.count, 5)} de 5 anuncios` : undefined,
       actions: [
         { label: "Crear mis anuncios", page: "Mándala", primary: true },
@@ -125,15 +130,16 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
     {
       n: 6, key: "6", short: "Medir", title: "Mide y recupera",
       why: "Anota tus números y te decimos qué apagar y qué escalar.", doneNote: "Mides y recuperas ventas",
-      done: !!ads?.measured && hasRecovery,
+      done: done[5],
       progress: ads?.measured && !hasRecovery ? "Falta la recuperación" : !ads?.measured && hasRecovery ? "Faltan tus números" : undefined,
       actions: [
         { label: "Anotar mis resultados", page: "Resultados", primary: true },
         { label: "Recuperar ventas", page: "Recuperar" },
       ],
     },
+    ];
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [profile, ads, hasMiniApp, hasBuiltProduct, builderOn]);
+  }, [profile, ads, hasMiniApp, hasBuiltProduct, builderOn]);
 
   // El socio semanal decide con el estado de las etapas; se le pasa cuando ya se conocen los anuncios.
   const stagesForPlan = useMemo(

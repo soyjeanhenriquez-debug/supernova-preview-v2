@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Check, Heart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useFeatureAccess } from "@/lib/features";
 
 /**
  * "Apoya SUPERNOVA": aportes de pago único en Whop (tabla support_plans; el webhook acredita con
@@ -12,6 +14,10 @@ type Plan = { plan_id: string; tier: "apoyo" | "impulso" | "fundador"; label: st
 export function SupportCard({ compact }: { compact?: boolean }) {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [supporter, setSupporter] = useState(false);
+  const { user } = useAuth();
+  const { canSee } = useFeatureAccess();
+  // Whop acredita por correo: el checkout llega con el correo de la cuenta ya puesto.
+  const email = user?.email ? `?email=${encodeURIComponent(user.email)}` : "";
 
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,7 +45,7 @@ export function SupportCard({ compact }: { compact?: boolean }) {
 
       <div className="grid gap-3 sm:grid-cols-3">
         {plans.map(p => (
-          <a key={p.plan_id} href={`https://whop.com/checkout/${p.plan_id}`} target="_blank" rel="noopener"
+          <a key={p.plan_id} href={`https://whop.com/checkout/${p.plan_id}${email}`} target="_blank" rel="noopener"
             className={`rounded-xl border p-4 flex flex-col gap-2 transition-colors hover:border-primary ${p.tier === "impulso" ? "border-primary/60 bg-primary/5" : "border-border"}`}>
             <span className="flex items-baseline justify-between gap-2">
               <span className="text-sm font-semibold text-foreground">{p.label}</span>
@@ -47,7 +53,7 @@ export function SupportCard({ compact }: { compact?: boolean }) {
             </span>
             <ul className="space-y-1 text-xs text-muted-foreground flex-1">
               <li className="flex gap-1.5"><Check className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" /> {p.bonus_credits.toLocaleString("es")} créditos de regalo</li>
-              <li className="flex gap-1.5"><Check className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" /> Desbloquea "Crea tu producto"</li>
+              {canSee("Crear producto") && <li className="flex gap-1.5"><Check className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" /> Desbloquea "Crea tu producto"</li>}
               {p.perks.map(k => <li key={k} className="flex gap-1.5"><Check className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" /> {k}</li>)}
             </ul>
             <span className="rounded-lg gradient-brand px-3 py-2 text-center text-xs font-semibold text-primary-foreground">Aportar US${Number(p.amount_usd).toLocaleString("es")}</span>

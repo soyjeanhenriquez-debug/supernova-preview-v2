@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import {
   ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, Check, Copy, Download, FileText, Loader2, Pencil, Plus,
-  Printer, RotateCcw, Sparkles, Trash2, X,
+  Lock, Printer, RotateCcw, Sparkles, Trash2, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
@@ -86,8 +86,16 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
   // Escribir se desbloquea con la primera recarga pagada (el índice es la muestra gratis).
   const [unlocked, setUnlocked] = useState<boolean | null>(null);
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).rpc("my_builder_unlocked").then(({ data }: { data: boolean | null }) => setUnlocked(data === true));
+    const check = () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).rpc("my_builder_unlocked").then(({ data, error }: { data: boolean | null; error: unknown }) => {
+        if (!error) setUnlocked(data === true);
+      });
+    };
+    check();
+    // Vuelve de pagar en otra pestaña (Whop o Stripe): al volver a esta, se revisa otra vez.
+    window.addEventListener("focus", check);
+    return () => window.removeEventListener("focus", check);
   }, []);
 
   const [build, setBuild] = useState<Build | null>(null);
@@ -309,7 +317,7 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
     }
     // Los mensajes con reembolso ya dicen "No se te cobró".
     const err = r.data as BuilderError;
-    if (err.code === "needs_recharge") { setUnlocked(false); return "stop"; }
+    if (err.code === "needs_recharge") { setUnlocked(false); toast.error(err.error); return "stop"; }
     toast.error(err.error);
     if (typeof err.balance === "number") balanceRef.current = err.balance;
     if (r.status === 409) return "skip";
@@ -411,6 +419,11 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
             <button onClick={createOutline} disabled={outlining} className={`${primaryBtn} w-full sm:w-auto`}>
               {outlining ? <><Loader2 className="w-4 h-4 animate-spin" /> Armando tu índice…</> : <><Sparkles className="w-4 h-4" /> Crear índice · Gratis</>}
             </button>
+            {unlocked === false && (
+              <p className="text-xs text-muted-foreground">
+                El índice es gratis. Para escribirlo, activa la escritura con tu primera recarga (desde US$10); después usas tus créditos normales.
+              </p>
+            )}
           </Card>
         )}
       </div>
@@ -577,8 +590,8 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
           <div className="rounded-xl border border-primary/40 bg-primary/5 p-4 space-y-2">
             <p className="text-sm font-semibold text-foreground flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /> Tu índice está listo. Desbloquea la escritura.</p>
             <p className="text-xs text-muted-foreground">
-              Se desbloquea para siempre con tu primera recarga, desde US$10. Esos créditos te sirven para escribirlo:
-              un ebook completo con la IA Estándar usa unos {totalCost || 135} créditos. Menos que un mes de cualquier IA de pago.
+              Se activa para siempre con tu primera recarga (desde US$10) o con un aporte de abajo: cualquiera de los dos sirve.
+              Esos créditos te sirven para escribirlo: un ebook completo con la IA Estándar usa unos {totalCost || 135} créditos.
             </p>
             <button onClick={() => onNavigate?.("Créditos")} className={primaryBtn}>Ver recargas <ArrowRight className="w-4 h-4" /></button>
           </div>
@@ -617,7 +630,8 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
       <div className="space-y-3">
         {sorted.map(p => (
           <PieceCard key={p.id} piece={p} label={labels[p.id]} cost={cost}
-            writing={writingId === p.id} failed={failed.has(p.id)} disabled={busy || !model || balance < cost}
+            writing={writingId === p.id} failed={failed.has(p.id)} disabled={busy || !model || balance < cost || unlocked === false}
+            locked={unlocked === false} onUnlock={() => onNavigate?.("Créditos")}
             saving={pb.saving} savedAt={pb.lastSavedAt}
             onWrite={instr => writeSingle(p, instr)}
             onEdit={content => editPiece(p.id, { content })} />
@@ -638,8 +652,10 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
 }
 
 // ---------- Pieza (capítulo, lección o bono) ----------
-function PieceCard({ piece, label, cost, writing, failed, disabled, saving, savedAt, onWrite, onEdit }: {
+function PieceCard({ piece, label, cost, writing, failed, disabled, locked, onUnlock, saving, savedAt, onWrite, onEdit }: {
   piece: Piece; label: string; cost: number; writing: boolean; failed: boolean; disabled: boolean;
+  /** Escritura sin activar (falta la primera recarga): el botón lleva a Créditos. */
+  locked: boolean; onUnlock: () => void;
   saving: boolean; savedAt: number | null;
   onWrite: (instructions?: string) => void; onEdit: (content: string) => void;
 }) {
@@ -678,7 +694,11 @@ function PieceCard({ piece, label, cost, writing, failed, disabled, saving, save
       {!hasBody && piece.brief && <p className="text-xs text-muted-foreground">{piece.brief}</p>}
 
       <div className="flex flex-wrap gap-2">
-        {!hasBody ? (
+        {!hasBody && locked ? (
+          <button onClick={onUnlock} className={ghostBtn}>
+            <Lock className="w-3.5 h-3.5 text-primary" /> Activar para escribir
+          </button>
+        ) : !hasBody ? (
           <button onClick={() => onWrite()} disabled={disabled} className={ghostBtn}>
             <Sparkles className="w-3.5 h-3.5 text-primary" /> {failed ? "Reintentar" : "Escribir"} · {cost} créditos
           </button>

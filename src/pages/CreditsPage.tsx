@@ -50,6 +50,14 @@ const FRIENDLY_LABEL: Partial<Record<keyof typeof ACTION_LABEL, string>> = {
   unlock_kit: "Desbloquear una Mini App (negocio listo para copiar)",
 };
 
+/** Pantalla donde se gasta cada acción: si está en pausa para el cliente (features.ts), su precio no se muestra. */
+const ACTION_PAGE: Partial<Record<keyof typeof ACTION_LABEL, string>> = {
+  analyze_url: "Oráculo", landing_intelligence: "Oráculo", gen_avatar: "Oráculo", gen_landing: "Oráculo",
+  gen_funnel: "Oráculo", gen_ad_copies: "Oráculo", pain_discovery: "Crear",
+  build_piece_std: "Crear producto", build_piece_sonnet: "Crear producto", build_piece_opus: "Crear producto",
+  build_piece_fable: "Crear producto", build_piece_gpt: "Crear producto",
+};
+
 export function CreditsPage() {
   const { balance, monthly, purchased, limit, renewalDate, history } = useCredits();
   const { balance: mediaBalance, loading: mediaLoading } = useMediaCredits();
@@ -125,7 +133,10 @@ export function CreditsPage() {
         <div className="card-surface rounded-xl p-6 lg:col-span-2">
           <h3 className="font-display font-bold text-base mb-3">Cuántos créditos gasta cada cosa</h3>
           <div className="grid sm:grid-cols-2 gap-2">
-            {Object.entries(CREDIT_COSTS).map(([action, cost]) => (
+            {Object.entries(CREDIT_COSTS).filter(([action]) => {
+              const page = ACTION_PAGE[action as keyof typeof ACTION_LABEL];
+              return !page || canSee(page);
+            }).map(([action, cost]) => (
               <div key={action} className="flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/40">
                 <span className="text-sm text-foreground">{FRIENDLY_LABEL[action as keyof typeof ACTION_LABEL] ?? ACTION_LABEL[action as keyof typeof ACTION_LABEL]}</span>
                 <span className="flex items-center gap-1 text-primary font-bold text-sm">
@@ -152,7 +163,7 @@ export function CreditsPage() {
           <h3 className="font-display font-bold text-lg">RECARGA TUS CRÉDITOS</h3>
         </div>
         <p className="text-sm text-muted-foreground mb-5 max-w-xl">
-          Tu plan trae 2.000 créditos cada mes. Si se te acaban antes de que se recarguen, puedes comprar un paquete extra. Es opcional.
+          Tu plan trae 2.000 créditos cada mes. Si se te acaban antes de que se recarguen, puedes comprar un paquete extra.{canSee("Crear producto") ? " Tu primera recarga también activa la escritura de tu ebook o curso." : " Es opcional."}
         </p>
 
         <div className="grid md:grid-cols-3 gap-4">

@@ -144,8 +144,13 @@ function navMaps(p: BusinessProfile, builder = false) {
 }
 
 function createPlan(p: BusinessProfile, start: string, builder = false): LaunchPlan {
+  // La promesa ya escrita en la ficha no se vuelve a pedir: la tarea nace hecha y con ese texto.
+  const promise = p.promise.trim();
   const tasks: LaunchTask[] = buildTemplate(p, builder).flatMap(g =>
-    g.tasks.map(t => ({ id: `tpl-${t.key}`, title: t.title, group: g.name, due: addDays(start, t.day), done: false })),
+    g.tasks.map(t => {
+      const task: LaunchTask = { id: `tpl-${t.key}`, title: t.title, group: g.name, due: addDays(start, t.day), done: false };
+      return t.key === "promise" && promise.length >= MIN_ANSWER ? { ...task, done: true, answer: promise, checks: { auto: true } } : task;
+    }),
   );
   return { start, tasks };
 }
@@ -362,6 +367,7 @@ export function LaunchPlanPage({ onNavigate }: { onNavigate?: (page: string) => 
     .filter((x): x is { p: typeof x.p; text: string } => typeof x.text === "string" && x.text.trim().length > 0)
     .sort((a, b) => (b.p.updatedAt || "").localeCompare(a.p.updatedAt || ""))[0] ?? null;
   const detected: Record<string, boolean> = {
+    "tpl-promise": profile.promise.trim().length >= MIN_ANSWER,
     "tpl-prompt": !!miniapp || hasBuiltProduct,
     "tpl-build": hasBuiltProduct,
     "tpl-price": !!profile.pricing?.chosen,
@@ -381,7 +387,11 @@ export function LaunchPlanPage({ onNavigate }: { onNavigate?: (page: string) => 
     if (!hit.length) return;
     persist({
       ...cur,
-      tasks: cur.tasks.map(t => (hit.includes(t) ? { ...t, done: true, checks: { ...t.checks, auto: true } } : t)),
+      tasks: cur.tasks.map(t => (hit.includes(t) ? {
+        ...t, done: true, checks: { ...t.checks, auto: true },
+        // La promesa de la ficha se copia en la tarea si aún no escribió nada.
+        ...(t.id === "tpl-promise" && !t.answer?.trim() ? { answer: profile.promise.trim().slice(0, 2000) } : {}),
+      } : t)),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, plan, detectedKey]);

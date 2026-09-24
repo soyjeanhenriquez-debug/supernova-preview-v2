@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { X, Rocket, Loader2, Copy, Check, Save, MessageCircle, Play, Video, Sparkles, ChevronDown } from "lucide-react";
+import { X, Rocket, Loader2, Copy, Check, Save, MessageCircle, Play, Video, Sparkles, ChevronDown, Briefcase } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
@@ -11,8 +11,14 @@ import type { DemoAd } from "@/lib/demo-winning-ads";
 import { OFFER_TYPE_LABEL } from "@/lib/demo-winning-ads";
 import { ModalPortal } from "@/components/ModalPortal";
 import { useFeatureAccess } from "@/lib/features";
+import { useSellThis, type SellBrief } from "@/lib/sellThis";
 
-interface Props { ad: DemoAd; onClose: () => void; }
+interface Props {
+  ad: DemoAd; onClose: () => void;
+  /** Datos de la oferta para "Vender esto" (si no llegan, se usa el título del anuncio). */
+  brief?: SellBrief;
+  onNavigate?: (page: string) => void;
+}
 
 type Phase = "idle" | "blueprint" | "miniapp" | "done" | "error";
 type Tab = "blueprint" | "miniapp" | "vender";
@@ -33,8 +39,10 @@ const COUNTRIES = [
  *  Parte 2 — Tu mini app: prompts para cualquier IA / constructor de apps.
  *  Parte 3 — Cómo venderla: guion de WhatsApp o de video de ventas.
  */
-export function MiniAppModal({ ad, onClose }: Props) {
+export function MiniAppModal({ ad, onClose, brief, onNavigate }: Props) {
   const { canSee } = useFeatureAccess();
+  // Al terminar: la versión pasa gratis a la ficha de "Mi negocio" (cierra el modal y lleva allí).
+  const { sell, selling } = useSellThis((page) => { onClose(); if (onNavigate) onNavigate(page); else { window.location.hash = "#/mi-negocio"; window.scrollTo({ top: 0 }); } });
   const { applyServerCharge, canAfford, balance } = useCredits();
   const { create, update } = useProjects();
   const { balance: mediaBalance, canAfford: canAffordVideo } = useMediaCredits();
@@ -524,6 +532,18 @@ export function MiniAppModal({ ad, onClose }: Props) {
               {saved ? <Check className="w-4 h-4 text-success" /> : <Save className="w-4 h-4" />}
               {saved ? "Guardado ✓" : "Guardar en Lo que creaste"}
             </button>
+            {phase === "done" && (
+              <button
+                onClick={() => void sell(brief ?? { product: ad.title })}
+                disabled={busy || selling}
+                title="Gratis: llena tu ficha de Mi negocio con esta oferta"
+                className="px-4 py-2.5 rounded-lg border border-primary/40 text-sm font-semibold text-primary hover:bg-primary/10 flex items-center gap-2 disabled:opacity-50"
+              >
+                {selling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Briefcase className="w-4 h-4" />}
+                <span className="hidden sm:inline">Vender esto: usarlo como mi producto · gratis</span>
+                <span className="sm:hidden">Usar como mi producto</span>
+              </button>
+            )}
           </div>
         )}
       </div>

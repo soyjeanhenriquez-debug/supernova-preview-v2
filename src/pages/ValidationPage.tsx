@@ -426,7 +426,22 @@ export function ValidationPage({ onNavigate }: { onNavigate?: (page: string) => 
 
       {complete && (
         <div className="sn-no-print flex flex-wrap items-center gap-2 pt-1">
-          {onNavigate && (
+          {/* Nota baja (< 50): primero se ajusta la oferta; el precio queda como opción secundaria. */}
+          {onNavigate && score !== null && score < 50 ? (
+            <>
+              <button onClick={() => onNavigate("Mi negocio")}
+                className="inline-flex items-center gap-2 rounded-lg gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground">
+                Ajustar mi ficha <ArrowRight className="w-4 h-4" />
+              </button>
+              <button onClick={() => onNavigate("Ofertas")}
+                className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm text-foreground hover:border-primary/50">
+                Buscar otra oferta
+              </button>
+              <button onClick={() => onNavigate("Precio")} className="text-sm text-muted-foreground hover:text-foreground px-2 py-2">
+                Ponle precio igual →
+              </button>
+            </>
+          ) : onNavigate && (
             <button onClick={() => onNavigate("Precio")}
               className="inline-flex items-center gap-2 rounded-lg gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground">
               Siguiente paso: ponle precio <ArrowRight className="w-4 h-4" />

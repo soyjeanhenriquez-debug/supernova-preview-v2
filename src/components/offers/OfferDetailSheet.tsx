@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   X, Flame, CalendarDays, Trophy, Copy, Check, ExternalLink, ShoppingCart, Radar, Heart, Zap, Loader2,
   Target, Tag as TagIcon, Globe2, Users, CreditCard, Route, Layers, Languages, Flag, ThumbsUp, AlertTriangle,
-  MapPin, Lightbulb, BadgeDollarSign, Sparkles, RefreshCw,
+  MapPin, Lightbulb, BadgeDollarSign, Sparkles, RefreshCw, Briefcase,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ModalPortal } from "@/components/ModalPortal";
@@ -15,6 +15,7 @@ import {
 import {
   type OfferIntel, type OfferVerdict, FUNNEL_LABEL, loadOfferIntel, safeExternalUrl, reportOffer, verdictToText,
 } from "@/lib/offerIntel";
+import { useSellThis, offerBrief } from "@/lib/sellThis";
 
 /**
  * Ficha de una oferta. Pensada primero para el teléfono: hoja que sube desde
@@ -45,6 +46,7 @@ export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const { sell, selling } = useSellThis();
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -108,7 +110,13 @@ export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate
           </div>
 
           {/* Acción principal fija abajo: siempre a un toque, sin importar cuánto se haya leído */}
-          <footer className="shrink-0 border-t border-border bg-card/95 backdrop-blur px-4 sm:px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-2">
+          <footer className="shrink-0 border-t border-border bg-card/95 backdrop-blur px-4 sm:px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-2">
+            {/* Gratis: la oferta pasa a tu ficha de "Mi negocio" (con el precio que vimos, si lo hay). */}
+            <button onClick={() => void sell({ ...offerBrief(o), price: intel?.price_text || o.price_hint })} disabled={selling}
+              className="w-full h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-primary/50 hover:text-primary flex items-center justify-center gap-2 disabled:opacity-60 transition-colors">
+              {selling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Briefcase className="w-4 h-4" />} Vender esto: usarlo como mi producto <span className="opacity-70 font-medium">· gratis</span>
+            </button>
+            <div className="flex items-center gap-2">
             <button onClick={onToggleFollow}
               aria-label={following ? "Dejar de seguir" : "Seguir esta oferta"}
               title={following ? "Dejar de seguir" : `Seguir en el Cazador de ROI · ${CREDIT_COSTS.follow_offer} ⚡`}
@@ -118,6 +126,7 @@ export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate
             <button onClick={onCreate} className="flex-1 h-12 btn-primary-nova rounded-xl text-[14px] font-semibold flex items-center justify-center gap-2">
               <Zap className="w-4 h-4" /> Hacer mi versión <span className="opacity-70 font-medium">· {CREDIT_COSTS.gen_master_prompt} ⚡</span>
             </button>
+            </div>
           </footer>
         </div>
       </div>

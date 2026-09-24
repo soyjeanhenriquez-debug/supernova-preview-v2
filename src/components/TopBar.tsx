@@ -5,6 +5,10 @@ import { useCredits } from "@/hooks/useCredits";
 import { CountUp } from "@/components/CountUp";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useFeatureAccess, MULTI_LANGUAGE_FOR_CLIENTS } from "@/lib/features";
+import { supabase } from "@/integrations/supabase/client";
+
+/** El radar cuenta como activo si trajo anuncios en las últimas 48 h. */
+const RADAR_FRESH_MS = 48 * 3_600_000;
 
 interface TopBarProps {
   activePage: string;
@@ -36,6 +40,18 @@ export function TopBar({ activePage, onOpenMobileNav }: TopBarProps) {
     "Proyectos": "nav.projects", "Créditos": "nav.credits",
   };
   const title = NAV_KEY[activePage] ? t(NAV_KEY[activePage]) : (EXTRA_TITLES[activePage] ?? activePage);
+  // "Radar activo" solo si es verdad: una lectura barata del anuncio más reciente (usa el índice
+  // de scraped_at; nada de contar filas). Se consulta una vez por sesión de la barra.
+  const [radarLive, setRadarLive] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    supabase.from("winning_ads").select("scraped_at").order("scraped_at", { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => {
+        const at = data?.scraped_at ? new Date(data.scraped_at).getTime() : 0;
+        if (alive) setRadarLive(at > 0 && Date.now() - at < RADAR_FRESH_MS);
+      });
+    return () => { alive = false; };
+  }, []);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
@@ -82,10 +98,12 @@ export function TopBar({ activePage, onOpenMobileNav }: TopBarProps) {
 
         {multiLang && <LanguageSwitcher />}
 
-        <div className="hidden md:flex items-center gap-2 h-8 px-3 rounded-full bg-success/10 border border-success/30 text-[10px] font-semibold tracking-[0.18em] text-success">
-          <span className="live-dot" />
-          ⚡ {t("topbar.jarvisActive")}
-        </div>
+        {radarLive && (
+          <div className="hidden md:flex items-center gap-2 h-8 px-3 rounded-full bg-success/10 border border-success/30 text-[10px] font-semibold tracking-[0.18em] text-success">
+            <span className="live-dot" />
+            ⚡ {t("topbar.jarvisActive")}
+          </div>
+        )}
       </div>
     </header>
   );

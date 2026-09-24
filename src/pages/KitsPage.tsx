@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { Boxes, Lock, Unlock, Copy, Check, Save, X, Flame, ShieldCheck, Sparkles, Loader2, CalendarClock, RefreshCw, ArrowRight, Eye, ChevronDown } from "lucide-react";
+import { Boxes, Lock, Unlock, Copy, Check, Save, X, Flame, ShieldCheck, Sparkles, Loader2, CalendarClock, RefreshCw, ArrowRight, Eye, ChevronDown, Briefcase } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
@@ -11,6 +11,7 @@ import { MiniAppModal } from "@/components/MiniAppModal";
 import { OfferDetailSheet } from "@/components/offers/OfferDetailSheet";
 import { useOfferFollows } from "@/hooks/useOfferFollows";
 import { OFFERS_TAB_KEY } from "@/components/dashboard/RoiHunterWidget";
+import { useSellThis, offerBrief } from "@/lib/sellThis";
 
 /**
  * Mini Apps Rentables: negocios digitales listos para copiar y cobrar.
@@ -205,7 +206,7 @@ export function KitsPage({ onNavigate }: { onNavigate?: (page: string) => void }
         </section>
       )}
 
-      {open && <KitModal kit={open} onClose={() => setOpen(null)} onUnlock={() => unlock(open)} busy={unlocking === open.id} />}
+      {open && <KitModal kit={open} onClose={() => setOpen(null)} onUnlock={() => unlock(open)} busy={unlocking === open.id} onNavigate={onNavigate} />}
       {detail && (
         <OfferDetailSheet
           offer={detail}
@@ -216,7 +217,7 @@ export function KitsPage({ onNavigate }: { onNavigate?: (page: string) => void }
           onClose={() => setDetail(null)}
         />
       )}
-      {creating && <MiniAppModal ad={offerToDemoAd(creating)} onClose={() => setCreating(null)} />}
+      {creating && <MiniAppModal ad={offerToDemoAd(creating)} brief={offerBrief(creating)} onNavigate={onNavigate} onClose={() => setCreating(null)} />}
     </div>
   );
 }
@@ -308,8 +309,9 @@ function KitCard({ kit, busy, onUnlock, onOpen }: { kit: Kit; busy: boolean; onU
   );
 }
 
-function KitModal({ kit, onClose, onUnlock, busy }: { kit: Kit; onClose: () => void; onUnlock: () => void; busy: boolean }) {
+function KitModal({ kit, onClose, onUnlock, busy, onNavigate }: { kit: Kit; onClose: () => void; onUnlock: () => void; busy: boolean; onNavigate?: (page: string) => void }) {
   const { create } = useProjects();
+  const { sell, selling } = useSellThis(onNavigate ? (page) => { onClose(); onNavigate(page); } : undefined);
   const [content, setContent] = useState<KitContent | null>(null);
   const [section, setSection] = useState<Section>("blueprint");
   const [copied, setCopied] = useState(false);
@@ -406,6 +408,11 @@ function KitModal({ kit, onClose, onUnlock, busy }: { kit: Kit; onClose: () => v
               </button>
               <button onClick={saveToBrain} disabled={!content || saved} className="flex-1 sm:flex-none justify-center px-3 sm:px-4 py-2 rounded-lg border border-border text-[12px] text-foreground hover:border-primary/40 inline-flex items-center gap-1.5 disabled:opacity-60">
                 <Save className="w-3.5 h-3.5" /> {saved ? "Guardado en Lo que creaste" : "Guardar en Lo que creaste"}
+              </button>
+              {/* Gratis: el kit pasa a tu ficha de "Mi negocio". */}
+              <button onClick={() => void sell({ product: kit.title, promise: kit.tagline || kit.summary, price: kit.proof?.price_hint })} disabled={selling}
+                className="w-full sm:w-auto justify-center px-3 sm:px-4 py-2 rounded-lg border border-primary/40 text-[12px] font-semibold text-primary hover:bg-primary/10 inline-flex items-center gap-1.5 disabled:opacity-60">
+                {selling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Briefcase className="w-3.5 h-3.5" />} Vender esto: usarlo como mi producto · gratis
               </button>
               <span className="w-full sm:w-auto sm:ml-auto text-[11px] text-muted-foreground">
                 Fuente real: {kit.proof?.source_product ?? "oferta ganadora"} · {kit.proof?.days_active ?? "—"} días pagando anuncios

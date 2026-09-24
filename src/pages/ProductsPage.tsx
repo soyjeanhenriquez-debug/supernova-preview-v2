@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useProducts, type ProductSummary } from "@/contexts/ProductContext";
 import { PageHeader } from "@/components/PageHeader";
+import { journeyStages, buildTasksProgress, buildIsDone, STAGE_NAMES, type BuildRow } from "@/lib/journey";
 
 /**
  * "Mis productos": todos los productos del usuario y cuánto avanzó cada uno en el recorrido, para ver
@@ -11,22 +12,12 @@ import { PageHeader } from "@/components/PageHeader";
  */
 type AdStats = { count: number; measured: boolean; winners: number };
 
-function stageOf(p: ProductSummary, ads: AdStats | undefined) {
-  const ready = !!(p.product && p.product.trim().length > 2 && p.who && p.who.trim().length > 2);
-  const tasks = p.launch_plan?.tasks ?? [];
-  const planPct = tasks.length ? tasks.filter(t => t.done).length / tasks.length : 0;
-  const done = [
-    ready,
-    !!p.validation?.completed_at && (p.validation?.score == null || p.validation.score >= 50),
-    !!p.pricing?.chosen,
-    planPct >= 0.8,
-    (ads?.count ?? 0) >= 5,
-    !!ads?.measured && !!p.recovery?.messages?.length,
-  ];
-  const next = done.findIndex(d => !d);
-  return { doneCount: done.filter(Boolean).length, next: next === -1 ? null : next + 1, planPct };
+// Mismo estado de etapas que el recorrido (src/lib/journey.ts): las dos pantallas no pueden diferir.
+function stageOf(p: ProductSummary, ads: AdStats | undefined, built: boolean) {
+  const st = journeyStages(p, ads, built);
+  const b = buildTasksProgress(p.launch_plan?.tasks);
+  return { ...st, buildPct: b.total ? b.done / b.total : 0 };
 }
-const STAGE_NAMES = ["Elegir", "Validar", "Precio", "Construir", "Vender", "Medir"];
 
 export function ProductsPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { products, activeId, setActive, createProduct, rename, setStatus, limit, activeCount, refresh } = useProducts();
@@ -34,6 +25,10 @@ export function ProductsPage({ onNavigate }: { onNavigate?: (page: string) => vo
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [newName, setNewName] = useState("");
+  // Productos con su ebook o curso terminado (etapa 4).
+  const [built, setBuilt] = useState<Record<string, boolean>>({});
+  // Evita crear dos productos con un doble clic.
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => {
@@ -51,12 +46,22 @@ export function ProductsPage({ onNavigate }: { onNavigate?: (page: string) => vo
         }
         setAds(out);
       });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any).from("product_builds").select("product_id,status,pieces_done,pieces_total").limit(1000)
+      .then(({ data }: { data: (BuildRow & { product_id: string | null })[] | null }) => {
+        const out: Record<string, boolean> = {};
+        for (const b of data ?? []) if (b.product_id && buildIsDone(b)) out[b.product_id] = true;
+        setBuilt(out);
+      });
   }, [products.length]);
 
   const open = async (id: string) => { await setActive(id); onNavigate?.("Dashboard"); };
   const create = async () => {
+    if (creating) return;
+    setCreating(true);
     try { await createProduct(newName || "Nuevo producto"); setNewName(""); onNavigate?.("Mi negocio"); }
     catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo crear"); }
+    finally { setCreating(false); }
   };
   const toggleArchive = async (p: ProductSummary) => {
     try { await setStatus(p.id, p.status === "activo" ? "archivado" : "activo"); }
@@ -64,7 +69,7 @@ export function ProductsPage({ onNavigate }: { onNavigate?: (page: string) => vo
   };
 
   const card = (p: ProductSummary) => {
-    const st = stageOf(p, ads[p.id]);
+    const st = stageOf(p, ads[p.id], !!built[p.id]);
     const a = ads[p.id];
     const isActive = p.id === activeId;
     return (
@@ -91,7 +96,7 @@ export function ProductsPage({ onNavigate }: { onNavigate?: (page: string) => vo
         <p className="text-xs text-muted-foreground">
           {st.next ? <>Etapa {st.next} · {STAGE_NAMES[st.next - 1]}</> : <span className="text-emerald-400 flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Las 6 etapas hechas</span>}
           {a?.count ? ` · ${a.count} anuncios${a.winners ? ` · ${a.winners} ganador${a.winners > 1 ? "es" : ""}` : ""}` : ""}
-          {st.planPct > 0 && st.planPct < 1 ? ` · plan ${Math.round(st.planPct * 100)}%` : ""}
+          {st.next === 4 && st.buildPct > 0 && st.buildPct < 1 ? ` · construir ${Math.round(st.buildPct * 100)}%` : ""}
         </p>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -123,9 +128,9 @@ export function ProductsPage({ onNavigate }: { onNavigate?: (page: string) => vo
         {activeCount < limit ? (
           <div className="rounded-2xl border border-dashed border-border p-4 flex flex-col justify-center gap-2">
             <p className="text-sm font-semibold text-foreground flex items-center gap-2"><Plus className="w-4 h-4 text-primary" /> Nuevo producto</p>
-            <input value={newName} onChange={e => setNewName(e.target.value.slice(0, 120))} onKeyDown={e => { if (e.key === "Enter") create(); }}
+            <input value={newName} onChange={e => setNewName(e.target.value.slice(0, 120))} onKeyDown={e => { if (e.key === "Enter") void create(); }}
               placeholder="Ej.: Calistenia en casa" className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" />
-            <button onClick={create} className="rounded-lg gradient-brand px-3 py-2 text-sm font-semibold text-primary-foreground">Crear y empezar</button>
+            <button onClick={create} disabled={creating} className="rounded-lg gradient-brand px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60">{creating ? "Creando…" : "Crear y empezar"}</button>
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground flex items-center">

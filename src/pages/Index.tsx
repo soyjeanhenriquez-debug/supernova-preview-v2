@@ -185,7 +185,8 @@ const Index = () => {
           </ErrorBoundary>
         </main>
       </div>
-      <FloatingWinnerButton onClick={() => setActivePage("Buscar Ofertas Winner")} />
+      {/* Atajo al radar: solo donde se buscan ofertas (Inicio y Ofertas), no encima de las herramientas. */}
+      {(activePage === "Dashboard" || activePage === "Ofertas") && <FloatingWinnerButton onClick={() => setActivePage("Buscar Ofertas Winner")} />}
       <HelpAssistant />
       <OnboardingTour />
     </div>

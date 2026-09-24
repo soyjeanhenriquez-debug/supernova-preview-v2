@@ -87,6 +87,9 @@ const JSON_KEYS = new Set(["business_type", "pricing", "journey", "validation", 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const table = () => (supabase as any).from("products");
 
+/** Largo máximo del precio (check products_price_check en la base): cabe "US$9/mes · reto de entrada US$5". */
+export const PRICE_MAX = 40;
+
 export const profileReady = (p: BusinessProfile) =>
   p.product.trim().length > 2 && p.who.trim().length > 2 && p.promise.trim().length > 2;
 
@@ -162,20 +165,22 @@ export function useBusinessProfile() {
   /**
    * Guarda SOLO los campos indicados en el producto activo (y los aplica al estado local). Es el
    * único guardado: así una pantalla con la ficha desactualizada nunca pisa lo que guardó otra.
-   * Recorta los textos al tamaño que acepta la base (precio 30, el resto 300).
+   * Recorta los textos al tamaño que acepta la base (precio 40, el resto 300).
+   * `typing: true` es el autoguardado mientras se escribe: no toca el estado local (si no, el recorte
+   * se comería el espacio que acabas de escribir) ni renombra el producto con una palabra a medias.
    */
-  const savePatch = useCallback(async (patch: Partial<BusinessProfile>) => {
+  const savePatch = useCallback(async (patch: Partial<BusinessProfile>, opts: { typing?: boolean } = {}) => {
     if (!user || !activeId) return false;
     const clean: Record<string, unknown> = { ...patch };
     for (const k of ["product", "who", "promise", "proof", "store_url", "price"] as const) {
-      if (typeof clean[k] === "string") clean[k] = (clean[k] as string).trim().slice(0, k === "price" ? 30 : 300);
+      if (typeof clean[k] === "string") clean[k] = (clean[k] as string).trim().slice(0, k === "price" ? PRICE_MAX : 300);
     }
-    setProfile(prev => ({ ...prev, ...(clean as Partial<BusinessProfile>) }));
+    if (!opts.typing) setProfile(prev => ({ ...prev, ...(clean as Partial<BusinessProfile>) }));
     const { error } = await table().update(clean).eq("id", activeId);
     if (error) { console.error("products:", error.message); return false; }
     // Un producto con nombre genérico toma el nombre de lo que vende.
     const newName = typeof clean.product === "string" ? (clean.product as string) : "";
-    if (newName && active && /^(mi primer producto|nuevo producto|mi producto)$/i.test(active.name)) rename(activeId, newName.slice(0, 120));
+    if (!opts.typing && newName && active && /^(mi primer producto|nuevo producto|mi producto)$/i.test(active.name)) rename(activeId, newName.slice(0, 120));
     return true;
   }, [user, activeId, active, rename]);
 

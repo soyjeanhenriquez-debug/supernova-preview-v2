@@ -177,7 +177,7 @@ Tipo: ${clip(biz.business_type, 20) || "sin definir"}
 Producto: ${clip(biz.product, 300)}
 Para quién: ${clip(biz.who, 300) || "sin definir"}
 Resultado que promete: ${clip(biz.promise, 300) || "sin definir"}
-Precio: ${clip(biz.price, 30) || "sin definir"}
+Precio: ${clip(biz.price, 40) || "sin definir"}
 Prueba o garantía real: ${clip(biz.proof, 300) || "ninguna (no menciones garantías ni pruebas)"}
 DUDA O EXCUSA QUE MÁS LE DICEN: ${objection || "no la indicó: usa la más probable para este producto y precio"}`;
 

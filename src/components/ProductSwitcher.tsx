@@ -12,6 +12,8 @@ export function ProductSwitcher({ collapsed, onNavigate }: { collapsed?: boolean
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
+  // Mientras se crea: evita productos repetidos por doble clic o Enter repetido.
+  const [saving, setSaving] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -25,6 +27,8 @@ export function ProductSwitcher({ collapsed, onNavigate }: { collapsed?: boolean
   const full = activeCount >= limit;
 
   const create = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
       await createProduct(name || "Nuevo producto");
       setName(""); setCreating(false); setOpen(false);
@@ -32,6 +36,8 @@ export function ProductSwitcher({ collapsed, onNavigate }: { collapsed?: boolean
       onNavigate("Mi negocio");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "No se pudo crear el producto");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -64,9 +70,9 @@ export function ProductSwitcher({ collapsed, onNavigate }: { collapsed?: boolean
           <div className="border-t border-border mt-1 pt-1">
             {creating ? (
               <div className="p-2 space-y-2">
-                <input autoFocus value={name} onChange={e => setName(e.target.value.slice(0, 120))} onKeyDown={e => { if (e.key === "Enter") create(); }}
+                <input autoFocus value={name} onChange={e => setName(e.target.value.slice(0, 120))} onKeyDown={e => { if (e.key === "Enter") void create(); }}
                   placeholder="Nombre del producto" className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm text-foreground" />
-                <button onClick={create} className="w-full rounded-lg gradient-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground">Crear producto</button>
+                <button onClick={create} disabled={saving} className="w-full rounded-lg gradient-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60">{saving ? "Creando…" : "Crear producto"}</button>
               </div>
             ) : full ? (
               <p className="px-2 py-2 text-xs text-muted-foreground">Tu plan permite {limit} productos activos. Archiva uno en "Mis productos" o pásate a Comunidad para tener más.</p>

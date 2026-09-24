@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Flame, ExternalLink, Zap, Radar, ArrowRight, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { MiniAppModal } from "@/components/MiniAppModal";
+import { offerBrief } from "@/lib/sellThis";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { buildAdsLibraryPageUrl, type AdMarket } from "@/lib/demo-winning-ads";
 import {
@@ -71,7 +72,7 @@ export function DailyPicksHero({ onNavigate }: Props) {
           : picks.map((p) => <PickCard key={p.offer.id} pick={p} onCopy={() => setCopying(p.offer)} onNavigate={onNavigate} />)}
       </div>
 
-      {copying && <MiniAppModal ad={offerToDemoAd(copying)} onClose={() => setCopying(null)} />}
+      {copying && <MiniAppModal ad={offerToDemoAd(copying)} brief={offerBrief(copying)} onNavigate={onNavigate} onClose={() => setCopying(null)} />}
     </section>
   );
 }

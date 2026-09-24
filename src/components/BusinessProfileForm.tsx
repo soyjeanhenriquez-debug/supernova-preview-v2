@@ -1,14 +1,17 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Check } from "lucide-react";
 import { toast } from "sonner";
 import { useFormAssist } from "@/lib/formAssist";
 import { AssistButton } from "@/components/AssistButton";
 import {
-  profileReady, BUSINESS_TYPES, COPY_LEVELS, PROFILE_EXAMPLES, type BusinessProfile,
+  profileReady, BUSINESS_TYPES, COPY_LEVELS, PROFILE_EXAMPLES, PRICE_MAX, type BusinessProfile,
 } from "@/lib/businessProfile";
 
 /**
  * Formulario de "Mi negocio" (una sola vez; lo usan todas las herramientas). Vive en la página
  * Mi negocio (src/pages/MyBusinessPage.tsx). Guarda SOLO sus campos con savePatch, así no pisa lo
- * que guardan la calculadora, la matriz o el plan.
+ * que guardan la calculadora, la matriz o el plan. Se guarda solo: 0,8 s después de dejar de escribir,
+ * al salir del campo y al cerrar la pestaña.
  */
 const TEXT_KEYS = ["product", "who", "promise", "price", "proof"] as const;
 type TextKey = typeof TEXT_KEYS[number];
@@ -17,25 +20,72 @@ const inputCls = "rounded-lg border border-border bg-background px-3 py-2 text-s
 export function BusinessProfileForm({ profile, setProfile, savePatch }: {
   profile: BusinessProfile;
   setProfile: (updater: (p: BusinessProfile) => BusinessProfile) => void;
-  savePatch: (patch: Partial<BusinessProfile>) => Promise<boolean>;
+  savePatch: (patch: Partial<BusinessProfile>, opts?: { typing?: boolean }) => Promise<boolean>;
 }) {
   const assist = useFormAssist("mandala-brief");
+  const [saved, setSaved] = useState(false);
+  const savedTimer = useRef<number | null>(null);
+  const showSaved = () => {
+    setSaved(true);
+    if (savedTimer.current) window.clearTimeout(savedTimer.current);
+    savedTimer.current = window.setTimeout(() => setSaved(false), 2000);
+  };
   const persist = (patch: Partial<BusinessProfile>) =>
-    savePatch(patch).then(ok => { if (!ok) toast.error("No se pudo guardar tu negocio"); });
+    savePatch(patch).then(ok => { if (!ok) toast.error("No se pudo guardar tu negocio"); else showSaved(); return ok; });
+
+  // ---------- Autoguardado mientras se escribe ----------
+  const pending = useRef<Partial<BusinessProfile>>({});
+  const timer = useRef<number | null>(null);
+  const savePatchRef = useRef(savePatch);
+  savePatchRef.current = savePatch;
+  const flush = useCallback(() => {
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = null;
+    const patch = pending.current;
+    if (!Object.keys(patch).length) return;
+    pending.current = {};
+    void savePatchRef.current(patch, { typing: true }).then(ok => {
+      if (!ok) toast.error("No se pudo guardar tu negocio");
+      else showSaved();
+    });
+  }, []);
+  const queue = (k: TextKey | "store_url", v: string) => {
+    pending.current = { ...pending.current, [k]: v };
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(flush, 800);
+  };
+  // Cerrar la pestaña, cambiar de app en el móvil o salir de la pantalla: se guarda lo pendiente.
+  useEffect(() => {
+    window.addEventListener("beforeunload", flush);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      window.removeEventListener("pagehide", flush);
+      flush();
+      if (savedTimer.current) window.clearTimeout(savedTimer.current);
+    };
+  }, [flush]);
 
   // Con la ficha a medias, la IA completa solo lo vacío; con la ficha llena, propone otra entera.
   const fill = async () => {
+    const replaceAll = profileReady(profile);
+    if (replaceAll && !window.confirm("Esto reemplaza tu ficha actual. ¿Seguir?")) return;
+    flush();
     try {
-      const sug = await assist.generate(profileReady(profile) ? { business_type: profile.business_type } : profile);
-      const replaceAll = profileReady(profile);
+      const sug = await assist.generate(replaceAll ? { business_type: profile.business_type } : profile);
       const patch: Partial<BusinessProfile> = {};
+      const before: Partial<BusinessProfile> = {};
       TEXT_KEYS.forEach(k => {
         const raw = typeof sug[k] === "string" ? (sug[k] as string).slice(0, 300) : "";
         const v = k === "price" ? raw.replace(/[^\d.,]/g, "") : raw;
-        if (v && (replaceAll || !profile[k].trim())) patch[k] = v;
+        if (v && (replaceAll || !profile[k].trim())) { patch[k] = v; before[k] = profile[k]; }
       });
-      await persist(patch);
-      toast.success("Listo: revísalo y cámbialo a tu gusto.");
+      if (!(await persist(patch))) return;
+      // "Deshacer" vuelve a la ficha que había antes del ejemplo.
+      toast.success("Listo: revísalo y cámbialo a tu gusto.", {
+        duration: 8000,
+        action: { label: "Deshacer", onClick: () => { void persist(before).then(ok => { if (ok) toast.success("Volvió tu ficha anterior"); }); } },
+      });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "No se pudo escribir el ejemplo. Prueba otra vez.");
     }
@@ -50,9 +100,16 @@ export function BusinessProfileForm({ profile, setProfile, savePatch }: {
     <label key={k} className="flex flex-col gap-1 text-xs text-muted-foreground">
       {label}
       <input value={profile[k]} placeholder={opts.placeholder ?? (k === "store_url" ? "" : ph(k))} inputMode={opts.inputMode}
-        maxLength={k === "price" ? 30 : 300}
-        onChange={e => { const v = e.target.value; setProfile(p => ({ ...p, [k]: v })); }}
-        onBlur={e => persist({ [k]: e.target.value } as Partial<BusinessProfile>)}
+        maxLength={k === "price" ? PRICE_MAX : 300}
+        onChange={e => { const v = e.target.value; setProfile(p => ({ ...p, [k]: v })); queue(k, v); }}
+        onBlur={e => {
+          // Al salir del campo: guarda ya (y lo recorta), sin esperar al autoguardado.
+          const patch = { ...pending.current, [k]: e.target.value } as Partial<BusinessProfile>;
+          if (timer.current) window.clearTimeout(timer.current);
+          timer.current = null;
+          pending.current = {};
+          void persist(patch);
+        }}
         className={inputCls} />
     </label>
   );
@@ -75,7 +132,12 @@ export function BusinessProfileForm({ profile, setProfile, savePatch }: {
       <div className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">Qué vendes, para quién y qué logra. Todo sale de aquí.</p>
-          <AssistButton onClick={fill} loading={assist.loading} filled={profileReady(profile)} />
+          <div className="flex items-center gap-3">
+            <span aria-live="polite" className={`inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-opacity ${saved ? "opacity-100" : "opacity-0"}`}>
+              <Check className="w-3 h-3 text-emerald-400" /> Guardado
+            </span>
+            <AssistButton onClick={fill} loading={assist.loading} filled={profileReady(profile)} />
+          </div>
         </div>
         <div className="grid sm:grid-cols-2 gap-3">
           {text("product", ecommerce ? "Qué producto vendes" : "Qué vendes")}

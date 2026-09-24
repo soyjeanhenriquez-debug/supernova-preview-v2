@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { MiniAppModal } from "@/components/MiniAppModal";
 import { OfferCard } from "@/components/offers/OfferCard";
 import { OfferDetailSheet } from "@/components/offers/OfferDetailSheet";
+import { offerBrief } from "@/lib/sellThis";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { useOfferFollows } from "@/hooks/useOfferFollows";
 import { OFFERS_TAB_KEY, type FollowedRow } from "@/components/dashboard/RoiHunterWidget";
@@ -303,7 +304,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
           onClose={closeDetail}
         />
       )}
-      {creating && <MiniAppModal ad={offerToDemoAd(creating)} onClose={() => setCreating(null)} />}
+      {creating && <MiniAppModal ad={offerToDemoAd(creating)} brief={offerBrief(creating)} onNavigate={onNavigate} onClose={() => setCreating(null)} />}
     </div>
   );
 }

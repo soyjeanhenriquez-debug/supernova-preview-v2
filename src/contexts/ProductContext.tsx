@@ -11,12 +11,13 @@ import { useAuth } from "@/contexts/AuthContext";
  */
 export type ProductSummary = {
   id: string; name: string; status: "activo" | "archivado"; created_at: string;
-  product: string | null; who: string | null; business_type: string | null;
+  product: string | null; who: string | null; promise: string | null; business_type: string | null;
   // Estado de sus herramientas, para el panel "Mis productos".
   validation: { completed_at?: string | null; score?: number | null } | null;
   pricing: { chosen?: string | null } | null;
-  launch_plan: { tasks?: { done: boolean }[] } | null;
+  launch_plan: { tasks?: { done: boolean; group?: string }[] } | null;
   recovery: { messages?: unknown[] } | null;
+  journey: { done?: Record<string, boolean> } | null;
 };
 
 type Ctx = {
@@ -38,7 +39,7 @@ type Ctx = {
 const ProductContext = createContext<Ctx | null>(null);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = () => supabase as any;
-const COLS = "id,name,status,created_at,product,who,business_type,validation,pricing,launch_plan,recovery";
+const COLS = "id,name,status,created_at,product,who,promise,business_type,validation,pricing,launch_plan,recovery,journey";
 
 /** Mensaje claro cuando se pasa del límite de productos (lo lanza el trigger products_enforce_limit). */
 export function productLimitMessage(e: unknown, limit: number) {

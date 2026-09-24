@@ -31,6 +31,9 @@ export function WeeklyPlan({ onNavigate, stages }: {
   const asked = useRef(false);
   // Producto abierto ahora: descarta respuestas que llegan después de cambiar de producto.
   const currentProduct = useRef(activeId);
+  // Plan en pantalla (para conservar lo ya hecho cuando se pide "Otro plan").
+  const planRef = useRef<Plan | null>(null);
+  planRef.current = plan;
 
   // Cada producto tiene su propio plan semanal: al cambiar de producto se empieza de cero.
   useEffect(() => {
@@ -50,11 +53,28 @@ export function WeeklyPlan({ onNavigate, stages }: {
       const msg = ctx ? await ctx.json().then((b: { error?: string }) => b?.error).catch(() => null) : data?.error;
       setError(msg || "No se pudo armar tu semana.");
     } else {
-      setPlan(data.plan as Plan);
+      let next = data.plan as Plan;
+      // "Otro plan": el servidor reemplaza la semana entera. Aquí se conservan las tareas ya hechas
+      // y solo se cambia lo que falta; se guarda con el mismo update que usa tachar una tarea.
+      const doneBefore = force && data.created ? (planRef.current?.tasks ?? []).filter(t => t.done) : [];
+      if (doneBefore.length && user) {
+        const ids = new Set(doneBefore.map(t => t.id));
+        const titles = new Set(doneBefore.map(t => t.title.trim().toLowerCase()));
+        const fresh = next.tasks
+          .filter(t => !t.done && !titles.has(t.title.trim().toLowerCase()))
+          .map(t => (ids.has(t.id) ? { ...t, id: `${t.id}-r${next.regenerations}` } : t));
+        next = { ...next, tasks: [...doneBefore, ...fresh] };
+        const { error: saveError } = await plansTable().update({ tasks: next.tasks, updated_at: new Date().toISOString() })
+          .eq("user_id", user.id).eq("product_id", productId).eq("week_start", next.week_start);
+        if (currentProduct.current !== productId) return;
+        if (saveError) toast.error("No se pudo guardar tu semana");
+      }
+      setPlan(next);
+      if (force && data.created) toast.success("Cambiamos solo lo que te falta.");
       if (data.note) toast.info(data.note);
     }
     setLoading(false);
-  }, [stages, activeId]);
+  }, [stages, activeId, user]);
 
   // Se arma sola una vez por semana, cuando ya se conoce el estado del recorrido.
   useEffect(() => {

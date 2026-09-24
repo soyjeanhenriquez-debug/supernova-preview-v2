@@ -6,7 +6,8 @@ interface Props {
 
 /**
  * Botón flotante naranja: atajo a "Buscar Ofertas Winner".
- * Vive 80px encima del botón azul de ayuda (z-49 < z-50 del help).
+ * Vive 80px encima del botón azul de ayuda (z-49 < z-50 del help). Solo en Inicio y Ofertas
+ * (lo decide src/pages/Index.tsx) y solo en escritorio: en el móvil tapaba contenido.
  */
 export function FloatingWinnerButton({ onClick }: Props) {
   return (
@@ -14,7 +15,7 @@ export function FloatingWinnerButton({ onClick }: Props) {
       onClick={onClick}
       aria-label="Buscar Winner Ahora"
       title="Buscar Winner Ahora"
-      className="group fixed bottom-[104px] right-6 z-[49] w-[52px] h-[52px] rounded-full bg-[#f7a93d] text-white flex items-center justify-center transition-transform hover:scale-110"
+      className="group fixed bottom-[104px] right-6 z-[49] w-[52px] h-[52px] rounded-full bg-[#f7a93d] text-white hidden lg:flex items-center justify-center transition-transform hover:scale-110"
       style={{
         boxShadow: "0 0 20px rgba(249,115,22,0.5), 0 8px 24px rgba(0,0,0,0.25)",
         animation: "winnerPulse 4s ease-in-out infinite",

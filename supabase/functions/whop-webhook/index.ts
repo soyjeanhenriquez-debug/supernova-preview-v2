@@ -298,6 +298,27 @@ serve(async (req) => {
     }
   }
 
+  // ── Otros productos de Jean en la misma cuenta de Whop (tabla whop_other_plans) ──
+  // Sus ventas se anotan en whop_product_sales para el agente de ventas y NUNCA dan acceso a
+  // SUPERNOVA (antes cualquier membresía se volvía suscripción de la app).
+  if (/^plan_[A-Za-z0-9]{6,40}$/.test(evPlanId)) {
+    const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: other } = await db.from("whop_other_plans").select("plan_id,product").eq("plan_id", evPlanId).maybeSingle();
+    if (other) {
+      const num = (v: unknown) => (typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" && !isNaN(Number(v)) ? Number(v) : null);
+      const { error: saleErr } = await db.from("whop_product_sales").insert({
+        plan_id: other.plan_id, product: other.product, event: eventType.slice(0, 80),
+        status: mapEvent(eventType, data), email: extractEmail(data) || null,
+        membership_id: data.id ? String(data.id).slice(0, 80) : null,
+        amount: num(data.final_amount ?? data.amount ?? data.subtotal ?? data.total),
+        currency: typeof data.currency === "string" ? data.currency.slice(0, 8) : null,
+      });
+      if (saleErr) console.error("whop_product_sales:", saleErr.message);
+      console.log(`Otro producto ${other.product}: ${eventType}`);
+      return new Response(JSON.stringify({ ok: true, other_product: other.product }), { headers: { "Content-Type": "application/json" } });
+    }
+  }
+
   const newStatus = mapEvent(eventType, data);
   if (!newStatus) {
     return new Response(JSON.stringify({ ok: true, skipped: eventType }), {

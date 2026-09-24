@@ -350,7 +350,7 @@ Tipo de negocio: ${clip(p.business_type, 20) || "sin definir"}
 Qué vende: ${clip(p.product, 300)}
 Para quién: ${clip(p.who, 300)}
 Qué promete: ${clip(p.promise, 300)}
-Precio: ${clip(p.price, 30) || "sin definir"}
+Precio: ${clip(p.price, 40) || "sin definir"}
 Prueba o garantía real: ${clip(p.proof, 300) || "ninguna (no menciones garantías ni pruebas)"}`;
 }
 
@@ -368,6 +368,7 @@ Devuelves SOLO JSON:
 {"title":"título vendedor, ≤ 80 caracteres","subtitle":"subtítulo que aclara para quién y qué aprende, ≤ 160","promise":"lo que el producto enseña, en una frase","audience":"para quién es, en una frase","intro_hint":"de qué va la introducción, ≤ 300","closing_hint":"de qué va el cierre, ≤ 300","pieces":[{"kind":"capitulo|leccion|bono","module":"string o null","title":"≤ 90 caracteres","brief":"de qué trata y qué logra el lector al terminar, 1 a 3 frases, ≤ 400"}]}
 ${shape}
 Títulos concretos y atractivos (nada de "Introducción" ni "Conclusión" como capítulo). Nada repetido entre piezas.
+El título y el subtítulo NO prometen dominar algo ni resultados en un plazo ("domina la IA en 7 días", "en 30 días"): nombra el formato y lo que se aprende ("Reto de 7 días para perderle el miedo a la IA").
 ${GUARD}`;
 }
 

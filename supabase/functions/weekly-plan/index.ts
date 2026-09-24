@@ -20,6 +20,7 @@ const PAGES: Record<string, string> = {
   "Validar": "Etapa 2 · Matriz de validación (14 preguntas de sí o no)",
   "Precio": "Etapa 3 · Calculadora de precio y ganancia",
   "Plan": "Etapa 4 · Plan de lanzamiento con tareas y fechas",
+  "Crear producto": "Etapa 4 · Escribir su ebook o curso con IA (índice gratis, capítulos con créditos)",
   "Proyectos": "Etapa 4 · Mis productos guardados",
   "Mándala": "Etapa 5 · Mándala: crear los anuncios",
   "Hooks": "Etapa 5 · Bóveda de ganchos",
@@ -129,6 +130,9 @@ Deno.serve(async (req) => {
     admin.from("weekly_plans").select("week_start,focus,tasks").eq("user_id", gate.userId).eq("product_id", pid).lt("week_start", week).order("week_start", { ascending: false }).limit(1).maybeSingle(),
     admin.from("content_items").select("status,due").eq("user_id", gate.userId).eq("product_id", pid).limit(200),
   ]);
+  // Ebooks o cursos escritos con "Crea tu producto" (etapa 4).
+  const { data: builds } = await admin.from("product_builds").select("format,status,pieces_done,pieces_total")
+    .eq("user_id", gate.userId).eq("product_id", pid).limit(10);
   // Estado de las herramientas del recorrido, en una línea cada una.
   const plan = (biz?.launch_plan as { tasks?: { title: string; due: string | null; done: boolean }[] } | null)?.tasks ?? [];
   const today = new Date(Date.now() - 4 * 3600_000).toISOString().slice(0, 10); // hoy en hora RD
@@ -137,9 +141,23 @@ Deno.serve(async (req) => {
     plan.length ? `Plan de lanzamiento: ${plan.filter((t) => t.done).length} de ${plan.length} tareas; pendientes próximas: ${plan.filter((t) => !t.done).slice(0, 3).map((t) => `${clip(t.title, 60)}${t.due && t.due < today ? " (atrasada)" : ""}`).join(" · ") || "ninguna"}.` : "Plan de lanzamiento: no lo armó.",
     `Calendario de contenido: ${(content ?? []).length} piezas, ${(content ?? []).filter((c) => c.status === "publicado").length} publicadas.`,
     (biz?.recovery as { messages?: unknown[] } | null)?.messages?.length ? "Recuperación de ventas: mensajes listos." : "Recuperación de ventas: sin crear.",
+    (builds ?? []).length
+      ? `Crea tu producto: ${(builds ?? []).map((b) => `${b.format} ${b.pieces_done}/${b.pieces_total} partes escritas${b.status === "listo" ? " (listo)" : ""}`).join(" · ")}.`
+      : "Crea tu producto: no ha escrito su ebook o curso.",
   ].join("\n");
+  // Las etapas llegan de la pantalla; si no llegan, se estiman aquí con lo que hay en la base
+  // (así nunca pide "completa tu ficha" a quien ya la tiene).
+  const fichaOk = clip(biz?.product, 300).length > 2 && clip(biz?.who, 300).length > 2;
   const stages = Array.isArray(body.stages) ? body.stages.slice(0, 6).map((s: { n?: number; title?: string; done?: boolean }) =>
-    `${Number(s.n) || "?"}. ${clip(s.title, 60)}: ${s.done ? "hecha" : "pendiente"}`).join("\n") : "desconocido";
+    `${Number(s.n) || "?"}. ${clip(s.title, 60)}: ${s.done ? "hecha" : "pendiente"}`).join("\n")
+    : [
+      `1. Elegir (ficha de Mi negocio): ${fichaOk ? "hecha" : "pendiente"}`,
+      `2. Validar: ${(biz?.validation as { completed_at?: string } | null)?.completed_at ? "hecha" : "pendiente"}`,
+      `3. Precio: ${(biz?.pricing as { chosen?: string } | null)?.chosen ? "hecha" : "pendiente"}`,
+      `4. Construir: ${(builds ?? []).some((b) => b.status === "listo") ? "hecha" : "pendiente"}`,
+      `5. Vender: ${(ads ?? []).length >= 5 ? "hecha" : "pendiente"}`,
+      "6. Medir y recuperar: pendiente",
+    ].join("\n");
   const adsText = (ads ?? []).map((a) =>
     `- ${a.stage} × ${a.angle} · ${a.status}${a.spend != null ? ` · gasto ${a.spend}` : ""}${a.ctr != null ? ` · CTR ${a.ctr}%` : ""}${a.sales != null ? ` · ventas ${a.sales}` : ""}`).join("\n") || "ninguno todavía";
   const pricing = biz?.pricing as { chosen?: string; scenarios?: { id: string; price: number; adCostPerSale: number }[] } | null;

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="es" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="google" content="notranslate">
+<title>IA Sin Miedo · Reto de 7 días</title>
+<meta name="description" content="Aprende a usar ChatGPT, Gemini y Claude en tu trabajo real con 15 minutos al día y prompts listos para copiar. Reto de 7 días en español por US$5.">
+<meta property="og:title" content="IA Sin Miedo · Reto de 7 días por US$5">
+<meta property="og:description" content="15 minutos al día. Prompts listos para copiar. En español y sin tecnicismos.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0B0B10;--card:#14141C;--line:#26263A;--ink:#F6F5FB;--dim:#A9A7BD;--brand:#7C5CFF;--brand2:#22D3EE;--ok:#34D399;--warn:#FBBF24}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:Inter,-apple-system,Segoe UI,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.wrap{max-width:1040px;margin:0 auto;padding:0 18px}
+html:not([data-v="B"]) [data-ab="B"]{display:none!important}
+html[data-v="B"] [data-ab="A"]{display:none!important}
+.bar{background:linear-gradient(90deg,var(--brand),var(--brand2));color:#0B0B10;text-align:center;font-weight:700;font-size:13px;padding:9px 14px}
+header.top{display:flex;align-items:center;justify-content:space-between;padding:16px 0}
+.logo{font-weight:800;letter-spacing:-.02em;font-size:18px}.logo span{color:var(--brand2)}
+.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:center;padding:36px 0 56px}
+@media(max-width:860px){.hero{grid-template-columns:1fr;gap:28px;padding-top:18px}}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.14em;color:var(--brand2);margin-bottom:14px}
+h1{font-size:clamp(2rem,5.4vw,3.4rem);line-height:1.04;letter-spacing:-.035em;font-weight:800}
+h1 em{font-style:normal;background:linear-gradient(90deg,var(--brand),var(--brand2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--dim);font-size:clamp(1rem,2.2vw,1.18rem);margin-top:18px;max-width:52ch}
+.ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:26px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;cursor:pointer;font:700 1rem Inter,sans-serif;border-radius:14px;padding:16px 24px;text-decoration:none}
+.btn-main{background:linear-gradient(90deg,var(--brand),#9B7BFF);color:#fff;box-shadow:0 16px 40px -16px rgba(124,92,255,.8)}
+.btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.fine{font-size:12.5px;color:var(--dim);margin-top:12px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.chip{font-size:12.5px;border:1px solid var(--line);border-radius:999px;padding:6px 11px;color:var(--dim)}
+.demo{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:0 30px 80px -30px rgba(0,0,0,.8)}
+.demo .lbl{font-size:11px;letter-spacing:.12em;color:var(--dim);font-weight:700}
+.bubble{border-radius:14px;padding:12px 14px;font-size:14px;margin-top:10px}
+.me{background:#1E1E2B;border:1px solid var(--line)}
+.ai{background:rgba(124,92,255,.12);border:1px solid rgba(124,92,255,.35)}
+.demo .t{font-size:12px;color:var(--ok);margin-top:12px;font-weight:600}
+section{padding:56px 0;border-top:1px solid var(--line)}
+h2{font-size:clamp(1.6rem,3.6vw,2.3rem);letter-spacing:-.03em;line-height:1.1;font-weight:800;max-width:24ch}
+.lead{color:var(--dim);margin-top:12px;max-width:60ch}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:28px}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:28px}
+@media(max-width:760px){.grid3,.grid2{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px}
+.card h3{font-size:1.05rem;margin-bottom:6px}
+.card p{color:var(--dim);font-size:14.5px}
+.day{display:flex;gap:12px;align-items:flex-start}
+.day b{flex:none;width:34px;height:34px;border-radius:10px;background:rgba(34,211,238,.12);color:var(--brand2);display:flex;align-items:center;justify-content:center;font-size:13px}
+.price{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:28px}
+@media(max-width:760px){.price{grid-template-columns:1fr}}
+.pcard{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:10px}
+.pcard.hot{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand) inset}
+.amount{font-size:2.6rem;font-weight:800;letter-spacing:-.03em}
+.amount small{font-size:1rem;color:var(--dim);font-weight:500}
+.local{font-size:13px;color:var(--dim)}
+ul.ok{list-style:none;display:flex;flex-direction:column;gap:8px;margin:6px 0 10px}
+ul.ok li{padding-left:24px;position:relative;font-size:14.5px}
+ul.ok li::before{content:"✓";position:absolute;left:0;color:var(--ok);font-weight:800}
+.tag{align-self:flex-start;font-size:11px;font-weight:800;letter-spacing:.1em;background:var(--brand);color:#fff;border-radius:999px;padding:4px 10px}
+.faq details{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-top:10px}
+.faq summary{cursor:pointer;font-weight:600;list-style:none}
+.faq summary::-webkit-details-marker{display:none}
+.faq p{color:var(--dim);margin-top:8px;font-size:14.5px}
+.guar{display:flex;gap:14px;align-items:center;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.3);border-radius:18px;padding:18px;margin-top:22px}
+footer{padding:36px 0 60px;color:var(--dim);font-size:12.5px;border-top:1px solid var(--line)}
+.sticky{position:fixed;left:0;right:0;bottom:0;padding:10px 14px;background:rgba(11,11,16,.92);backdrop-filter:blur(8px);border-top:1px solid var(--line);display:none;z-index:50}
+.sticky .btn{width:100%}
+@media(max-width:760px){.sticky.show{display:block}}
+/* Quiz */
+.q-bg{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:14px}
+.q{width:100%;max-width:460px;background:#111118;border:1px solid var(--line);border-radius:20px;padding:24px 20px 20px;position:relative;max-height:92vh;overflow:auto}
+.q-x{position:absolute;top:10px;right:14px;background:none;border:0;color:var(--dim);font-size:24px;cursor:pointer}
+.q-step{font-size:11px;letter-spacing:.14em;color:var(--dim);font-weight:700}
+.q-bar{display:flex;gap:4px;margin:10px 0 16px}.q-bar i{flex:1;height:4px;border-radius:4px;background:var(--line)}.q-bar i.on{background:var(--brand2)}
+.q h3{font-size:1.3rem;line-height:1.25;letter-spacing:-.02em;margin-bottom:14px}
+.opt{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);color:var(--ink);border-radius:12px;padding:14px;margin-bottom:8px;font:500 .98rem Inter,sans-serif;cursor:pointer}
+.opt:hover{border-color:var(--brand2)}
+.q input{width:100%;background:var(--card);border:1px solid var(--line);color:var(--ink);border-radius:12px;padding:14px;font:1rem Inter,sans-serif;margin-bottom:10px;outline:none}
+.q input:focus{border-color:var(--brand2)}
+.q .btn{width:100%}
+.q .note{font-size:12px;color:var(--dim);margin-top:10px}
+.q .err{color:#F87171;font-size:13px;margin:-4px 0 8px}
+.prompt{background:#0E0E16;border:1px dashed var(--brand);border-radius:12px;padding:12px;font-size:14px;margin:10px 0 14px;white-space:pre-wrap}
+.copy{background:none;border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:8px 12px;font:600 13px Inter,sans-serif;cursor:pointer;margin-bottom:14px}
+</style>
+<script>
+(function(){
+  // Test A/B: cada visitante ve siempre la misma versión; ?v=a o ?v=b la fija (un conjunto de anuncios por versión).
+  var K='ism_ab_v1',v=null,q=new URLSearchParams(location.search),f=(q.get('v')||'').toUpperCase();
+  try{v=localStorage.getItem(K)}catch(e){}
+  if(f==='A'||f==='B')v=f;
+  if(v!=='A'&&v!=='B')v=Math.random()<.5?'A':'B';
+  try{localStorage.setItem(K,v)}catch(e){}
+  window.__ab=v;document.documentElement.setAttribute('data-v',v);
+})();
+</script>
+</head>
+<body>
+<div class="bar">Precio de lanzamiento: reto completo por US$5 · solo los primeros 100 inscritos</div>
+
+<div class="wrap">
+  <header class="top">
+    <div class="logo">IA <span>Sin Miedo</span></div>
+    <a href="#precio" class="btn btn-ghost" style="padding:10px 16px;font-size:14px">Ver precio</a>
+  </header>
+
+  <div class="hero">
+    <div>
+      <div class="eyebrow">RETO DE 7 DÍAS · EN ESPAÑOL · 15 MIN AL DÍA</div>
+      <h1 data-ab="A">Deja de ver cómo otros usan la IA. <em>Empieza a usarla tú mañana.</em></h1>
+      <h1 data-ab="B">Tu asistente de IA personal, <em>listo en 7 días de 15 minutos.</em></h1>
+      <p class="sub" data-ab="A">Mientras lo piensas, tus compañeros ya escriben correos, cotizaciones y publicaciones en minutos. Te enseñamos a hacerlo tú, paso a paso, con prompts listos para copiar. Sin tecnicismos y sin vergüenza de preguntar.</p>
+      <p class="sub" data-ab="B">Aprende a usar ChatGPT, Gemini y Claude para lo que ya haces todos los días: correos, cotizaciones, planillas y redes. Las herramientas son gratis; nosotros te damos el camino y los prompts.</p>
+      <div class="ctas">
+        <button class="btn btn-main" data-quiz>Descubre tu Día 1 en 30 segundos →</button>
+        <a href="#precio" class="btn btn-ghost">Quiero el reto por US$5</a>
+      </div>
+      <div class="chips"><span class="chip">✓ Funciona con las versiones gratis</span><span class="chip">✓ Desde el celular</span><span class="chip">✓ Grupo para tus dudas</span></div>
+    </div>
+    <div class="demo" aria-hidden="true">
+      <div class="lbl">ASÍ SE VE EL DÍA 2 DEL RETO</div>
+      <div class="bubble me">Reescribe este correo para que suene amable pero firme, en 5 líneas: "Llevo 3 semanas esperando el pago de la factura 418…"</div>
+      <div class="bubble ai">Hola, Andrés: te escribo por la factura 418, que venció hace tres semanas. Entiendo que pueden surgir retrasos; ¿me confirmas una fecha de pago esta semana? Así puedo cerrar el mes sin pendientes. Quedo atenta. Gracias.</div>
+      <div class="t">⏱ Listo en 40 segundos. Copias, pegas y envías.</div>
+    </div>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <h2>No es que seas malo con la tecnología. Nadie te lo explicó en tu idioma.</h2>
+    <p class="lead">Los cursos de IA hablan de "modelos", "tokens" y "automatizaciones". Tú solo quieres terminar tu trabajo más rápido. Por eso el reto es de 15 minutos, con capturas de cada paso y ejemplos de tu oficio.</p>
+    <div class="grid3">
+      <div class="card"><h3>😩 Antes</h3><p>Una hora para un correo delicado. Cotizaciones copiadas de la vez pasada. Excel que te gana.</p></div>
+      <div class="card"><h3>🧭 Durante</h3><p>Un tema por día. Copias el prompt, lo adaptas a tu caso y lo pruebas en tu propio trabajo.</p></div>
+      <div class="card"><h3>💪 Después</h3><p>Tienes tu kit de prompts, tu rutina de 15 minutos y un grupo donde nadie se burla de tu pregunta.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Lo que haces cada día</h2>
+    <div class="grid2">
+      <div class="card day"><b>1</b><div><h3>Tu primera conversación sin enredos</h3><p>ChatGPT y Gemini desde cero, en el celular o la compu.</p></div></div>
+      <div class="card day"><b>2</b><div><h3>Correos y mensajes difíciles</h3><p>Cobrar, reclamar o decir que no, con respeto y en minutos.</p></div></div>
+      <div class="card day"><b>3</b><div><h3>Cotizaciones y propuestas claras</h3><p>Tres opciones de precio que se entienden a la primera.</p></div></div>
+      <div class="card day"><b>4</b><div><h3>Hojas de cálculo sin sufrir</h3><p>Fórmulas y tablas explicadas por la IA, paso a paso.</p></div></div>
+      <div class="card day"><b>5</b><div><h3>Tus redes de la semana</h3><p>Ideas y textos listos para publicar.</p></div></div>
+      <div class="card day"><b>6</b><div><h3>Claude como asistente</h3><p>Resumir documentos largos y planificar tu semana.</p></div></div>
+      <div class="card day"><b>7</b><div><h3>Tu rutina de 15 minutos</h3><p>Para no volver a quedarte atrás.</p></div></div>
+      <div class="card day"><b>🎁</b><div><h3>Bonos</h3><p>50 prompts por oficio y la guía "IA segura": qué datos nunca pegar.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="precio">
+  <div class="wrap">
+    <h2>Menos que un café. Más útil que un curso de 40 horas.</h2>
+    <div class="price">
+      <div class="pcard hot">
+        <span class="tag">EMPIEZA AQUÍ</span>
+        <h3>Reto IA Sin Miedo · 7 días</h3>
+        <div class="amount">US$5 <small>pago único</small></div>
+        <div class="local">≈ COP 17.900 · MXN 89 · pagas con tarjeta, PSE, Nequi u OXXO</div>
+        <ul class="ok">
+          <li>7 lecciones de 15 minutos (PDF con capturas)</li>
+          <li>50 prompts listos por oficio</li>
+          <li>Guía "IA segura"</li>
+          <li>7 días en el grupo para tus dudas</li>
+        </ul>
+        <button class="btn btn-main" data-buy="reto">Quiero el reto por US$5</button>
+      </div>
+      <div class="pcard">
+        <h3>Club IA Sin Miedo</h3>
+        <div class="amount">US$9 <small>/ mes</small></div>
+        <div class="local">Opcional al terminar el reto · primer mes a US$5 · cancelas con un clic</div>
+        <ul class="ok">
+          <li>Cada lunes: 10 prompts nuevos de un tema</li>
+          <li>Cada miércoles: miniclase de 5 a 8 minutos</li>
+          <li>Cada viernes: un desafío con corrección</li>
+          <li>Una sesión en vivo de preguntas al mes</li>
+        </ul>
+        <button class="btn btn-ghost" data-buy="club">Quiero entrar al club</button>
+      </div>
+    </div>
+    <div class="guar"><div style="font-size:28px">🛡️</div><div><b>Garantía de 7 días.</b> <span style="color:var(--dim)">Si haces el reto y no te sirvió, escríbenos y te devolvemos tus US$5. Sin preguntas incómodas.</span></div></div>
+  </div>
+</section>
+
+<section class="faq">
+  <div class="wrap">
+    <h2>Preguntas que seguro tienes</h2>
+    <details><summary>ChatGPT es gratis, ¿para qué pagar?</summary><p>Porque lo que falta no es la herramienta, es saber qué pedirle. Te damos el camino y los prompts probados; todo funciona con las versiones gratis.</p></details>
+    <details><summary>No tengo tiempo.</summary><p>Son 15 minutos al día y cada lección la aplicas en algo que ya tenías que hacer. Ganas tiempo desde el primer día que la usas.</p></details>
+    <details><summary>Soy malo con la tecnología.</summary><p>El reto empieza desde cero, con capturas de cada paso. Si te trabas, preguntas en el grupo.</p></details>
+    <details><summary>¿Me van a cobrar cada mes?</summary><p>No. El reto es un pago único de US$5. El club es aparte, opcional, y se cancela con un clic.</p></details>
+    <details><summary>¿Y si no me sirve?</summary><p>Tienes 7 días de garantía: te devolvemos tus US$5.</p></details>
+  </div>
+</section>
+
+<div class="wrap">
+  <section style="text-align:center">
+    <h2 style="margin:0 auto">El mejor momento para empezar con la IA fue hace un año. El segundo mejor es mañana, 15 minutos.</h2>
+    <div class="ctas" style="justify-content:center"><button class="btn btn-main" data-quiz>Descubre tu Día 1 →</button></div>
+  </section>
+</div>
+
+<footer><div class="wrap">IA Sin Miedo · Aprendes a usar herramientas de IA; lo que logres depende de tu práctica. No prometemos ingresos ni resultados específicos. ChatGPT, Gemini y Claude son marcas de sus dueños; no estamos afiliados.</div></footer>
+
+<div class="sticky" id="sticky"><button class="btn btn-main" data-quiz>Descubre tu Día 1 en 30 segundos →</button></div>
+
+<script>
+(function(){
+  var SLUG='ia-sin-miedo', V=window.__ab||'A';
+  // Cuando existan los productos en Whop, se pegan aquí sus enlaces de pago. Mientras estén vacíos,
+  // el botón funciona como PREVENTA: guarda el contacto y mide la intención real de compra.
+  var CHECKOUT={reto:'',club:''};
+  var KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtyZmRvb2Z3aHRjeGJ5aGtqb2lrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMjMzMDQsImV4cCI6MjA5ODY5OTMwNH0.2QsRkQgQ64KB5ignkAtBwHQZemVC9KxPBH8QiV4tRC8';
+  function rpc(fn,body){return fetch('https://krfdoofwhtcxbyhkjoik.supabase.co/rest/v1/rpc/'+fn,{method:'POST',keepalive:true,headers:{apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'},body:JSON.stringify(body)})}
+  function track(ev){try{rpc('funnel_track',{p_slug:SLUG,p_variant:V,p_event:ev}).catch(function(){})}catch(e){}}
+  track('view');
+
+  var sticky=document.getElementById('sticky');
+  window.addEventListener('scroll',function(){sticky.classList.toggle('show',window.scrollY>500)},{passive:true});
+
+  var QS=[
+    {k:'oficio',t:'¿A qué te dedicas?',o:[['oficina','Oficina o administración'],['docente','Docente'],['negocio','Tengo un negocio'],['ventas','Ventas o redes sociales'],['estudiante','Estudio'],['otro','Otra cosa']]},
+    {k:'nivel',t:'¿Qué tanto has usado la IA?',o:[['nunca','Nunca la he usado'],['probe','La probé y no le entendí'],['aveces','La uso a veces']]},
+    {k:'meta',t:'¿Qué te gustaría resolver primero?',o:[['correos','Correos y mensajes'],['documentos','Cotizaciones y documentos'],['excel','Excel y tablas'],['redes','Redes sociales'],['estudiar','Estudiar y aprender']]}
+  ];
+  var PROMPTS={
+    oficina:'Actúa como mi asistente. Reescribe este correo para que suene amable pero firme, en máximo 5 líneas:\n[pega aquí tu correo]',
+    docente:'Crea 5 preguntas de opción múltiple sobre [tema] para estudiantes de [grado]. Marca la respuesta correcta y explica en una línea por qué.',
+    negocio:'Hazme una cotización clara para [tu servicio] con 3 opciones (básica, recomendada y completa), qué incluye cada una y un cierre amable.',
+    ventas:'Dame 5 ideas de publicaciones para Instagram sobre [tu producto]. Cada una con un gancho, un texto corto y una llamada a la acción.',
+    estudiante:'Explícame [tema] como si tuviera 12 años. Después hazme 3 preguntas para ver si entendí.',
+    otro:'Actúa como mi asistente personal. Te voy a contar una tarea que me quita tiempo y quiero que me propongas cómo hacerla en la mitad del tiempo: [describe tu tarea]'
+  };
+  var NIVEL={nunca:'Empiezas desde cero, justo como está pensado el Día 1.',probe:'Te pasó lo de casi todos: nadie te dijo qué pedirle. Eso es lo que vas a aprender.',aveces:'Ya diste el primer paso; el reto te da método y prompts para usarla todos los días.'};
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+  var bg=null, CONTACT=null; // contacto ya dejado en esta visita
+  function close(){if(bg){bg.remove();bg=null}}
+  function frame(label,n){var b='';for(var i=0;i<4;i++)b+='<i class="'+(i<n?'on':'')+'"></i>';return '<button class="q-x" aria-label="Cerrar" data-x>×</button><div class="q-step">'+label+'</div><div class="q-bar">'+b+'</div>'}
+  function open(mode){
+    if(bg)return;
+    var ans={},i=0;
+    bg=document.createElement('div');bg.className='q-bg';bg.setAttribute('role','dialog');bg.setAttribute('aria-modal','true');
+    var box=document.createElement('div');box.className='q';bg.appendChild(box);document.body.appendChild(bg);
+    bg.addEventListener('click',function(e){if(e.target===bg||e.target.hasAttribute('data-x'))close()});
+    function question(){var Q=QS[i];box.innerHTML=frame('PREGUNTA '+(i+1)+' DE 3',i+1)+'<h3>'+esc(Q.t)+'</h3>'+Q.o.map(function(o){return '<button class="opt" data-v="'+o[0]+'">'+esc(o[1])+'</button>'}).join('');
+      box.querySelectorAll('.opt').forEach(function(b){b.onclick=function(){ans[Q.k]=b.getAttribute('data-v');i++;if(i<QS.length)question();else{track('quiz_done');contact('quiz')}}})}
+    function contact(kind){
+      var pre=kind==='quiz';
+      box.innerHTML=frame(pre?'TU DÍA 1 ESTÁ LISTO':'PRECIO DE LANZAMIENTO',4)+
+        '<h3>'+(pre?'¿A dónde te mandamos tu Día 1 y tu prompt?':'Abrimos inscripciones en horas. Te guardamos el precio de US$5.')+'</h3>'+
+        '<input data-c placeholder="Tu correo o tu WhatsApp" autocomplete="email" inputmode="email">'+
+        '<div class="err" data-e hidden></div>'+
+        '<button class="btn btn-main" data-go>'+(pre?'Ver mi Día 1':'Guárdame el precio')+'</button>'+
+        (pre?'<button class="opt" style="text-align:center;margin-top:8px;background:none" data-skip>Verlo sin dejar mis datos</button>':'')+
+        '<p class="note">Solo te escribimos sobre el reto. Te das de baja cuando quieras.</p>';
+      var inp=box.querySelector('[data-c]'),err=box.querySelector('[data-e]'),go=box.querySelector('[data-go]');inp.focus();
+      function send(){var c=inp.value.trim();var ok=/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(c)||c.replace(/\D/g,'').length>=8;
+        if(!ok){err.textContent='Revisa tu correo o tu número (con código de país).';err.hidden=false;return}
+        go.disabled=true;go.textContent='Guardando…';
+        var a=Object.assign({},ans,{interes:kind});
+        rpc('funnel_lead',{p_slug:SLUG,p_variant:V,p_contact:c,p_answers:a}).then(function(r){return r.json()}).then(function(ok){if(ok!==true)throw 0;CONTACT=c;pre?result():thanks()})
+          .catch(function(){go.disabled=false;go.textContent=pre?'Ver mi Día 1':'Guárdame el precio';err.textContent='No se pudo guardar. Intenta de nuevo.';err.hidden=false})}
+      go.onclick=send;inp.onkeydown=function(e){if(e.key==='Enter')send()};
+      var sk=box.querySelector('[data-skip]');if(sk)sk.onclick=result;
+    }
+    function result(){
+      var p=PROMPTS[ans.oficio]||PROMPTS.otro;
+      box.innerHTML=frame('TU DÍA 1',4)+'<h3>Tu primer prompt, listo para copiar</h3><p style="color:var(--dim);font-size:14px">'+esc(NIVEL[ans.nivel]||NIVEL.nunca)+' Pruébalo ahora en ChatGPT o Gemini (gratis):</p>'+
+        '<div class="prompt">'+esc(p)+'</div><button class="copy" data-copy>Copiar prompt</button>'+
+        '<p style="font-size:14.5px;margin-bottom:14px">En el reto tienes 50 como este para tu oficio y 7 días para convertirlos en costumbre.</p>'+
+        '<button class="btn btn-main" data-buy="reto">Quiero el reto completo por US$5</button><p class="note">Garantía de 7 días.</p>';
+      box.querySelector('[data-copy]').onclick=function(){try{navigator.clipboard.writeText(p);this.textContent='¡Copiado!'}catch(e){}};
+    }
+    function thanks(){box.innerHTML=frame('LISTO',4)+'<h3>¡Te guardamos el precio de US$5! 🎉</h3><p style="color:var(--dim)">Te escribimos apenas abran las inscripciones. Mientras, prueba tu primer prompt:</p><button class="btn btn-main" style="margin-top:14px" data-quiz-inner>Ver mi Día 1 →</button>';
+      box.querySelector('[data-quiz-inner]').onclick=function(){i=0;track('quiz_start');question()}}
+    if(mode==='buy'){if(CONTACT)thanks();else contact('preventa')}else{track('quiz_start');question()}
+  }
+  document.addEventListener('click',function(e){
+    var t=e.target.closest?e.target:null;if(!t)return;
+    var q=t.closest('[data-quiz]');if(q){e.preventDefault();open('quiz');return}
+    var b=t.closest('[data-buy]');if(b){e.preventDefault();track('cta');var url=CHECKOUT[b.getAttribute('data-buy')];if(url){location.href=url}else{close();open('buy')}}
+  });
+})();
+</script>
+</body>
+</html>

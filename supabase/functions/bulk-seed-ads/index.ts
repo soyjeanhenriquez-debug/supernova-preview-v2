@@ -245,6 +245,13 @@ Deno.serve(async (req) => {
           const platforms = it.publisher_platforms ?? ["facebook"];
           const tier = days >= 60 ? "mega" : days >= 14 ? "rising" : "solid";
           const score = Math.min(100, 40 + Math.floor(days / 2));
+          // La API no da la URL de destino, pero sí el dominio que se ve en el
+          // anuncio ("hotmart.com", "misitio.com"): es gratis y agrupa ofertas
+          // por sitio de venta. Antes se pedía y se tiraba.
+          const linkDomain = domainFromCaption(it.ad_creative_link_captions?.[0]);
+          const languages = Array.isArray(it.languages)
+            ? it.languages.filter((l: unknown) => typeof l === "string" && /^[a-z]{2,3}$/i.test(l)).slice(0, 5)
+            : null;
 
           rows.push({
             keyword: r.kw,
@@ -260,6 +267,8 @@ Deno.serve(async (req) => {
             delivery_start_time: start?.toISOString() ?? null,
             delivery_stop_time: it.ad_delivery_stop_time ?? null,
             market: r.country,
+            link_domain: linkDomain,
+            languages: languages?.length ? languages : null,
             days_active: days,
             tier,
             winner_score: score,
@@ -297,3 +306,15 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+/** "WWW.MiSitio.com/oferta" → "misitio.com". Null si no parece un dominio
+ *  (hay anuncios cuyo caption es texto libre o un dominio de Meta). */
+function domainFromCaption(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const host = raw.trim().toLowerCase()
+    .replace(/^https?:\/\//, "").replace(/^www\./, "")
+    .split(/[\/\s?#]/)[0];
+  if (!host || host.length > 100 || !/^[a-z0-9.-]+\.[a-z]{2,}$/.test(host)) return null;
+  if (/(^|\.)(facebook\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|whatsapp\.com|wa\.me)$/.test(host)) return null;
+  return host;
+}

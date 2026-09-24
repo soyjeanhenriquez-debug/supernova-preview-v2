@@ -117,13 +117,21 @@ Deno.serve(async (req) => {
 
     const failed = !cleanVideo && !imageUrl;
 
-    // 2) Persist (no esperar al usuario)
+    // El mismo HTML trae a dónde lleva el anuncio. Se guarda para que
+    // offer-intel lo lea de la caché en vez de pagar otro scrape.
+    const link = extractLink(html, links);
+
+    // 2) Persist (no esperar al usuario). Solo se escriben las columnas de
+    // enlace si se encontró algo: no se pisa lo que ya guardó offer-intel.
     admin.from("ad_media_cache").upsert({
       ad_id: id,
       image_url: imageUrl || null,
       video_url: cleanVideo,
       failed,
       updated_at: new Date().toISOString(),
+      ...(link.linkUrl ? { link_url: link.linkUrl } : {}),
+      ...(link.caption ? { link_caption: link.caption } : {}),
+      ...(link.cta ? { cta_text: link.cta } : {}),
     }).then(() => {});
 
     if (failed) {
@@ -158,6 +166,34 @@ function unescapeUrl(u: string): string {
     .replace(/\\u002F/gi, "/")
     .replace(/\\\//g, "/")
     .replace(/&amp;/g, "&");
+}
+
+// Misma lógica que parseSnapshot() de offer-intel (enlace, dominio y CTA);
+// si cambia una, cambiar la otra.
+const TRACKING = /^(utm_[a-z_]+|fbclid|gclid|gbraid|wbraid|ttclid|msclkid|sck|xcod|src|bid|hsa_[a-z_]+|campaign_id|adset_id|ad_id|placement|site_source_name|h|__tn__|c\[\d+\])$/i;
+const META_HOSTS = /(^|\.)(facebook\.com|fb\.com|fb\.me|instagram\.com|messenger\.com|fbcdn\.net|meta\.com|fbsbx\.com)$/i;
+
+function extractLink(html: string, links: string[]): { linkUrl: string | null; caption: string | null; cta: string | null } {
+  const candidates = [
+    ...matchAll(html, /"link_url"\s*:\s*"([^"]+)"/g).map(unescapeUrl),
+    ...matchAll(html, /l\.facebook\.com\\?\/l\.php\?u=([^"&\\]+)/g).map((u) => { try { return decodeURIComponent(u); } catch { return ""; } }),
+    ...links.filter((l) => /l\.facebook\.com\/l\.php\?u=/.test(l)).map((l) => { try { return new URL(l).searchParams.get("u") ?? ""; } catch { return ""; } }),
+  ];
+  let linkUrl: string | null = null;
+  for (const c of candidates) {
+    try {
+      const u = new URL(c);
+      if (u.protocol !== "http:" && u.protocol !== "https:") continue;
+      if (META_HOSTS.test(u.hostname.replace(/^www\./, ""))) continue;
+      for (const k of [...u.searchParams.keys()]) if (TRACKING.test(k)) u.searchParams.delete(k);
+      u.hash = "";
+      linkUrl = u.toString().slice(0, 1500);
+      break;
+    } catch { /* candidato no es URL */ }
+  }
+  const caption = matchAll(html, /"caption"\s*:\s*"([^"]{3,80})"/g).map(unescapeUrl).find((c) => /\./.test(c) && !/\s/.test(c)) ?? null;
+  const cta = matchAll(html, /"cta_text"\s*:\s*"([^"]{2,40})"/g)[0] ?? null;
+  return { linkUrl, caption: caption?.toLowerCase() ?? null, cta };
 }
 
 function json(body: unknown, status = 200) {

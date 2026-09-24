@@ -27,9 +27,10 @@ export function useAccessStatus(): Status {
       if (cancelled) return;
       if (role) { setStatus("allowed"); return; }
 
-      // Check approved_emails via RPC (security definer; works without admin)
-      const email = (user.email || "").toLowerCase().trim();
-      const { data: approved } = await supabase.rpc("is_email_approved", { p_email: email });
+      // ¿Acceso vigente? has_access() mira el correo de la SESIÓN (no uno que mande el cliente) y
+      // respeta las suspensiones. Antes se usaba is_email_approved(correo), que dejaba a cualquiera
+      // preguntar si un correo ajeno es cliente.
+      const { data: approved } = await supabase.rpc("has_access");
       if (cancelled) return;
       if (approved === true) {
         setStatus("allowed");

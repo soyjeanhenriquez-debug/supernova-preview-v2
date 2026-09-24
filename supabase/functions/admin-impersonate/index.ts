@@ -3,22 +3,18 @@
 // usuario elegido, para ver exactamente lo que ve un cliente (p. ej. qué
 // avatares le salen en Media Studio). Nunca envía correo.
 //
-// Quién puede pedirlo: un admin con sesión, o el secreto de cron (para pruebas
-// automáticas desde SQL con private.cron_headers()). Nunca se entrega el
-// enlace de otro admin: suplantar a un admin sería escalar privilegios.
+// Quién puede pedirlo: SOLO un admin con sesión viva. El secreto de cron ya no
+// sirve aquí: si se filtrara, daría la cuenta de cualquier cliente. Nunca se
+// entrega el enlace de otro admin (sería escalar privilegios) y cada uso queda
+// en audit_log.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-// null = no autorizado; "cron" = secreto de cron; si no, el id del admin.
+// null = no autorizado; si no, el id del admin.
 async function authorizeInternal(req: Request, guard: ReturnType<typeof createClient>): Promise<string | null> {
-  const secret = req.headers.get("x-cron-secret");
-  if (secret) {
-    const { data } = await guard.rpc("verify_cron_secret", { p_secret: secret });
-    if (data === true) return "cron";
-  }
   const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
   if (!token) return null;
   const { data } = await guard.auth.getUser(token);
@@ -61,6 +57,11 @@ Deno.serve(async (req) => {
     console.error("admin-impersonate:", error?.message);
     return json(500, { error: "No se pudo generar el enlace." });
   }
+  const { error: auditErr } = await guard.from("audit_log").insert({
+    user_id: caller, action: "ADMIN_IMPERSONATE", resource_type: "user", resource_id: userId,
+    new_data: { origin: origin ?? null },
+  });
+  if (auditErr) console.error("admin-impersonate audit_log:", auditErr.message);
   console.log("admin-impersonate:", caller, "→", userId);
   return json(200, { email: target.user.email, link });
 });

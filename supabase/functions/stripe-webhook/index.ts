@@ -31,6 +31,15 @@ function mapStripeStatus(s: string): SubStatus | null {
 }
 
 Deno.serve(async (req) => {
+  // APAGADO: el cobro de SUPERNOVA es Whop. Stripe no se usa y tiene fallos conocidos que hay que
+  // arreglar ANTES de encenderlo (acceso atado al correo del cliente de Stripe, que se puede cambiar
+  // en el portal; packs acreditados con pagos asíncronos aún sin pagar; prueba de 7 días repetible).
+  // La app cae sola a Whop cuando esta función no responde. Para encender: secreto STRIPE_ENABLED=true.
+  if (Deno.env.get("STRIPE_ENABLED") !== "true") {
+    return new Response(JSON.stringify({ error: "Los pagos se hacen por Whop.", code: "stripe_disabled" }), {
+      status: 503, headers: { "Content-Type": "application/json" },
+    });
+  }
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
 
   const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");

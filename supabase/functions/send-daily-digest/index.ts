@@ -82,13 +82,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "no daily winner" }), { status: 200, headers: { "Content-Type": "application/json" } });
   }
 
-  // 2) Destinatarios opt-in que aún no recibieron hoy
-  const { data: recipients } = await admin
-    .from("notification_prefs")
-    .select("user_id, email, unsub_token, daily_winner_email, last_digest_sent")
-    .eq("daily_winner_email", true)
-    .or(`last_digest_sent.is.null,last_digest_sent.neq.${today}`)
-    .limit(500);
+  // 2) Destinatarios opt-in que aún no recibieron hoy. Solo cuentas con el correo CONFIRMADO y
+  //    acceso vigente (RPC digest_recipients): antes bastaba registrarse con un correo ajeno, sin
+  //    confirmarlo, para que le llegara este correo cada día desde nuestro dominio.
+  const { data: recipients } = await admin.rpc("digest_recipients", { p_today: today, p_limit: 500 });
 
   const list = recipients ?? [];
   const dryRun = !RESEND_API_KEY;

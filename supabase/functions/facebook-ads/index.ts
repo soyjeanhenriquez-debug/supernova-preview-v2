@@ -3,30 +3,55 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
 
-// ── Compuerta de usuario ────────────────────────────────────────────────
+// ── Compuerta de usuario + cobro en el servidor ─────────────────────────
 // verify_jwt del gateway NO basta: la llave pública (anon) que viaja en el
-// bundle de la web también es un JWT válido, y con ella cualquiera llamaba a
-// esta función sin cuenta y sin gastar créditos. Aquí se exige un USUARIO real
-// con acceso vigente y se aplica un tope de uso por usuario (RPC edge_guard).
-async function requireUser(req: Request, fn: string, maxHour: number, maxDay: number): Promise<{ userId: string } | Response> {
-  const deny = (status: number, error: string) =>
-    new Response(JSON.stringify({ error }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
-  if (!token) return deny(401, "Inicia sesión para usar esta función.");
-  const guard = createGuardClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
+// bundle de la web también es un JWT válido. Aquí se exige un USUARIO real con
+// acceso vigente, se aplica el tope de uso y la búsqueda en vivo se COBRA aquí
+// (search_ads, precio en credit_prices). Antes la cobraba el navegador después
+// de la respuesta, así que llamando a la función directo salía gratis.
+interface Gate { userId: string; txId: string | null; charged: number; balance: number | null; receipt: string | null }
+
+function guardClient() {
+  return createGuardClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+}
+
+async function requireUser(req: Request, fn: string, maxHour: number, maxDay: number, action: string | null, label: string | null): Promise<Gate | Response> {
+  const deny = (status: number, error: string, extra: Record<string, unknown> = {}) =>
+    new Response(JSON.stringify({ error, ...extra }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (!token) return deny(401, "Inicia sesión para usar esta función.");
+  const guard = guardClient();
   const { data } = await guard.auth.getUser(token);
   const userId = data?.user?.id;
   if (!userId) return deny(401, "Sesión inválida o expirada. Vuelve a iniciar sesión.");
-  const { data: g, error } = await guard.rpc("edge_guard", { p_user_id: userId, p_fn: fn, p_max_hour: maxHour, p_max_day: maxDay });
+  const { data: g, error } = await guard.rpc("edge_guard_charge", {
+    p_user_id: userId, p_fn: fn, p_max_hour: maxHour, p_max_day: maxDay,
+    p_action: action, p_label: label, p_kind: null, p_receipt: null,
+  });
   if (error) return deny(503, "No se pudo verificar el acceso. Intenta de nuevo.");
   if (g?.ok !== true) {
-    return g?.reason === "rate_limited"
-      ? deny(429, "Alcanzaste el límite de uso de esta función. Intenta más tarde.")
-      : deny(403, "Tu cuenta no tiene acceso activo.");
+    switch (g?.reason) {
+      case "rate_limited": return deny(429, "Alcanzaste el límite de uso de esta función. Intenta más tarde.");
+      case "insufficient_credits":
+        return deny(402, "No te alcanzan los créditos para buscar en vivo. Mirar el radar es gratis.", { code: "insufficient_credits", balance: g.balance, cost: g.cost });
+      case "disabled": return deny(503, "Esta función no está disponible por ahora.");
+      case "unknown_action": return deny(500, "Acción sin precio configurado.");
+      default: return deny(403, "Tu cuenta no tiene acceso activo.");
+    }
   }
-  return { userId };
+  return {
+    userId, txId: g.tx_id ?? null, charged: Number(g.charged) || 0,
+    balance: typeof g.balance === "number" ? g.balance : null, receipt: g.receipt ?? null,
+  };
+}
+
+// Meta falló después de cobrar: se devuelve el crédito (idempotente en la base).
+async function refundCharge(gate: Gate, reason: string): Promise<void> {
+  if (!gate.txId) return;
+  try { await guardClient().rpc("refund_charge", { p_tx_id: gate.txId, p_reason: reason.slice(0, 200) }); }
+  catch (e) { console.error("refund_charge falló:", e); }
 }
 
 // El token vigente vive en Vault: lo renueva fb-token-keeper antes de que venza.
@@ -53,31 +78,50 @@ function unavailable(code: string): Response {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  // Tope bajo: cada búsqueda gasta la cuota de Meta que comparte toda la app (y el radar). El cobro
-  // de 5 créditos lo hace hoy el cliente; pasarlo al servidor está pendiente.
-  const gate = await requireUser(req, "facebook-ads", 30, 150);
+  const raw = req.method === "POST" ? await req.text().catch(() => "") : "";
+  if (raw.length > 4000) {
+    return new Response(JSON.stringify({ error: "La solicitud es demasiado grande." }), {
+      status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  // deno-lint-ignore no-explicit-any
+  let body: any = {};
+  try { body = raw ? JSON.parse(raw) : {}; } catch { body = {}; }
+  if (!body || typeof body !== "object" || Array.isArray(body)) body = {};
+
+  // Dos usos, con topes bajos porque cada llamada gasta la cuota de Meta que comparte toda la app:
+  //  · Búsqueda en vivo del Radar: se cobra search_ads aquí (5 créditos) y se devuelve si Meta falla.
+  //  · Anuncios del Oráculo (purpose "oraculo"): van incluidos en el Oráculo, que se cobra en
+  //    analyze-landing. Sin cobro pero con un tope propio y bajo (cada análisis hace hasta 12).
+  const oraculo = body.purpose === "oraculo";
+  const term = String(body.search_terms ?? "").slice(0, 60);
+  const gate = oraculo
+    ? await requireUser(req, "facebook-ads-oraculo", 36, 120, null, null)
+    : await requireUser(req, "facebook-ads", 30, 150, "search_ads", `Búsqueda en vivo · ${term || "anuncios"}`);
   if (gate instanceof Response) return gate;
 
   try {
     const token = await currentFbToken();
     if (!token) {
       console.error("facebook-ads: falta el token de Meta en los secretos");
+      await refundCharge(gate, "Meta sin token");
       return unavailable("fb_not_configured");
     }
 
-    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const url = new URL(req.url);
     // Todo esto viaja a la API de Meta con NUESTRO token: valores acotados.
     const q = (body.search_terms ?? url.searchParams.get("search_terms") ?? "").toString().trim().slice(0, 200);
     const countryRaw = (body.country ?? url.searchParams.get("country") ?? "US").toString().toUpperCase();
     const country = /^[A-Z]{2}$/.test(countryRaw) ? countryRaw : "US";
-    const limit = Number(body.limit ?? url.searchParams.get("limit") ?? 25) || 25;
+    // En modo Oráculo (gratis) se piden pocos anuncios: así no sirve de búsqueda del Radar sin pagar.
+    const limit = Math.min(oraculo ? 15 : 100, Number(body.limit ?? url.searchParams.get("limit") ?? 25) || 25);
     const adTypeRaw = (body.ad_type ?? url.searchParams.get("ad_type") ?? "ALL").toString().toUpperCase();
     const adType = ["ALL", "POLITICAL_AND_ISSUE_ADS", "EMPLOYMENT_ADS", "HOUSING_ADS", "FINANCIAL_PRODUCTS_AND_SERVICES_ADS"].includes(adTypeRaw) ? adTypeRaw : "ALL";
     const statusRaw = (body.ad_active_status ?? url.searchParams.get("ad_active_status") ?? "ACTIVE").toString().toUpperCase();
     const adActiveStatus = ["ACTIVE", "INACTIVE", "ALL"].includes(statusRaw) ? statusRaw : "ACTIVE";
 
     if (!q) {
+      await refundCharge(gate, "sin término de búsqueda");
       return new Response(JSON.stringify({ error: "search_terms is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -119,6 +163,7 @@ Deno.serve(async (req) => {
       // que entiende y un código para que el panel admin sepa qué arreglar.
       const fb = data?.error ?? {};
       console.error("FB error:", JSON.stringify({ code: fb.code, subcode: fb.error_subcode, type: fb.type, message: fb.message }));
+      await refundCharge(gate, `Meta ${fb.code ?? r.status}`);
       if (fb.code === 190 || fb.type === "OAuthException") return unavailable("fb_token_expired");
       if ([4, 17, 32, 613].includes(Number(fb.code))) {
         return new Response(JSON.stringify({ error: "Meta está limitando las búsquedas en este momento. Intenta de nuevo en unos minutos.", code: "fb_rate_limited" }), {
@@ -140,11 +185,16 @@ Deno.serve(async (req) => {
     // La paginación de Meta también trae el token dentro de las URLs "next/previous".
     if (data?.paging) { delete data.paging.next; delete data.paging.previous; }
 
-    return new Response(JSON.stringify(data), {
+    // El cobro va en el cuerpo: la app actualiza el saldo con applyServerCharge.
+    return new Response(JSON.stringify({
+      ...data,
+      billing: { charged: gate.charged, balance: gate.balance, receipt: gate.receipt },
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("facebook-ads:", e instanceof Error ? e.message : e);
+    await refundCharge(gate, "excepción");
     return unavailable("fb_error");
   }
 });

@@ -119,7 +119,8 @@ export function useLandingAnalyzer() {
       const calls = seeds.flatMap((seed) =>
         AD_COUNTRIES.map((country) =>
           supabase.functions.invoke<{ data?: LandingAd[] }>("facebook-ads", {
-            body: { search_terms: seed, country, limit: 15, ad_active_status: "ACTIVE" },
+            // Incluidas en el Oráculo (se cobra en analyze-landing): el servidor no las cobra aparte.
+            body: { search_terms: seed, country, limit: 15, ad_active_status: "ACTIVE", purpose: "oraculo" },
           }).then((r) => r.data?.data ?? []).catch(() => [] as LandingAd[])
         )
       );

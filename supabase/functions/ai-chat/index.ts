@@ -203,6 +203,14 @@ serve(async (req) => {
       : await requireUser(req, "ai-chat-help", 40, 150);
     if (g instanceof Response) return g;
     gate = g;
+    // El asistente de ayuda es gratis: conversación acotada a los últimos ~20 000 caracteres (se
+    // descartan los turnos más viejos), para que no sirva de generador gratis con textos enormes.
+    // Su prompt (~9 300 caracteres) cabe en el tope de 12 000.
+    if (!generatorId) {
+      while (messages.length > 1 && messages.reduce((n, m) => n + m.content.length, 0) > 20_000) messages.shift();
+      const last = messages[messages.length - 1];
+      if (last) last.content = last.content.slice(0, 4_000);
+    }
     const clientSystem = typeof rawSystem === "string" ? rawSystem.trim().slice(0, 12_000) : "";
     const systemPrompt = (clientSystem || DEFAULT_SYSTEM) + (generatorId ? GENERATOR_GUARD : HELP_GUARD);
     const LOVABLE_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));

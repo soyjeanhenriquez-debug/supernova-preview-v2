@@ -87,18 +87,9 @@ export function AuthPage() {
 
     setLoading(true);
     try {
-      const { data: approved, error: rpcErr } = await supabase
-        .rpc("is_email_approved", { p_email: normalized });
-
-      if (rpcErr) throw rpcErr;
-
-      if (!approved) {
-        setEmail(normalized);
-        setStep("denied");
-        setLoading(false);
-        return;
-      }
-
+      // Sin pregunta previa de "¿este correo es cliente?": respondía a cualquiera y servía para
+      // averiguar quién paga SUPERNOVA. El código se manda igual; si la cuenta no tiene acceso, al
+      // entrar ve la pantalla para activar su membresía.
       const { error } = await supabase.auth.signInWithOtp({
         email: normalized,
         options: {

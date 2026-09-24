@@ -34,6 +34,9 @@ const MAX_BUILDS = 30;
 const TOTAL_BUDGET_MS = 125_000;
 const MIN_AI_MS = 5_000;
 const LOCK_SECONDS = 150;
+// Reembolsos por rechazo o respuesta corta de la IA (el proveedor ya cobró): máximo al día. Los
+// cuenta la RPC content_refunds_today por los motivos "rechazo de la IA" y "respuesta incompleta".
+const CONTENT_REFUNDS_PER_DAY = 3;
 // Piloto: mientras sea true, SOLO los admins pueden usar el constructor (también lo oculta la app).
 const PILOT_ADMIN_ONLY = false;
 
@@ -784,11 +787,31 @@ ${prevTail ? `\nFINAL DE LA PARTE ANTERIOR (para dar continuidad, no lo repitas)
   }
   await logUsage(admin, userId, model, res, "piece");
 
+  // Rechazos y respuestas cortas: el proveedor YA cobró. Se devuelven hasta CONTENT_REFUNDS_PER_DAY
+  // al día; pasado eso el cobro se queda (si no, unas indicaciones tipo "responde solo 'ok'"
+  // hacían que la IA gastara y el reembolso saliera siempre, sin límite). Los fallos del
+  // proveedor (caída, tiempo agotado) se devuelven siempre, más arriba.
+  const contentRefundAllowed = async (): Promise<boolean> => {
+    const { data: n, error } = await admin.rpc("content_refunds_today", { p_user_id: userId });
+    if (error) { console.error(`${FN} contar reembolsos:`, error.message); return true; }
+    return (Number(n) || 0) < CONTENT_REFUNDS_PER_DAY;
+  };
+  const keepCharge = async (status: number, code: string, error: string) => {
+    await unlock();
+    return fail(status, code, error, { refunded: false, charged: gate.charged, balance: gate.balance });
+  };
+
   if (res.stop === "refusal") {
+    if (!(await contentRefundAllowed())) {
+      return await keepCharge(422, "ai_refusal", "La IA no quiso escribir esta parte. Ya usaste los reintentos gratis de hoy, así que esta vez sí se cobró. Cambia el título, el tono o las indicaciones.");
+    }
     return await refundFail(422, "ai_refusal", "La IA no quiso escribir esta parte. No se te cobró. Cambia el título o el tono.", "rechazo de la IA");
   }
   const text = res.text.trim().replace(/^```(?:markdown|md)?\s*|\s*```$/g, "").slice(0, MAX_CONTENT);
   if (text.length < 400 || (res.stop === "max_tokens" && text.length < 2000)) {
+    if (!(await contentRefundAllowed())) {
+      return await keepCharge(502, "ai_failed", "La IA devolvió muy poco texto. Ya usaste los reintentos gratis de hoy, así que esta vez sí se cobró. Revisa las indicaciones que le diste.");
+    }
     return await refundFail(502, "ai_failed", "La IA no respondió. No se te cobró: intenta de nuevo.", "respuesta incompleta");
   }
   const truncated = res.stop === "max_tokens";

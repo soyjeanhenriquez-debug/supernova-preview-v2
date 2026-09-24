@@ -109,6 +109,7 @@ interface FacebookAdLibraryItem {
 
 interface FacebookAdsResponse {
   data?: FacebookAdLibraryItem[];
+  billing?: { charged: number; balance: number | null; receipt: string | null };
 }
 
 // Extrae el dominio limpio (sin "www.") de una URL.
@@ -180,7 +181,7 @@ function groupByAdvertiser(
 
 export function WinningAdsPage() {
   const elapsed = useElapsedMinutes();
-  const { consume, canAfford } = useCredits();
+  const { applyServerCharge, canAfford } = useCredits();
   const { user } = useAuth();
   // Rol real (tabla user_roles). Antes: un correo fijo en el bundle público y,
   // más abajo, user_metadata.role, que el propio usuario puede editar. Es solo
@@ -657,8 +658,8 @@ export function WinningAdsPage() {
       });
       if (error) throw new Error(await invokeErrorMessage(error, "La búsqueda en vivo de Meta no está disponible en este momento."));
       const items = data?.data ?? [];
-      // Se cobra cuando Meta YA respondió: una búsqueda fallida no cuesta nada.
-      consume("search_ads", keyword || market);
+      // La cobró el servidor (y la devuelve si Meta falla): aquí solo se refleja el saldo.
+      if (data?.billing) applyServerCharge("search_ads", data.billing, keyword || market);
       // Agrupar por page_id para contar duplicados reales por anunciante
       const dupByPage = new Map<string, number>();
       items.forEach((it) => {

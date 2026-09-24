@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Calculator, Check, Copy, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useBusinessProfile, type PriceScenario, type Pricing } from "@/lib/businessProfile";
-import { calcScenario as calc } from "@/lib/pricing";
+import { calcScenario as calc, PLATFORM_FEES } from "@/lib/pricing";
 
 /**
  * Etapa 3 del recorrido "Mi negocio": ¿a cuánto lo vendo y cuánto me queda?
@@ -14,13 +14,8 @@ import { calcScenario as calc } from "@/lib/pricing";
 
 const CURRENCIES = ["US$", "RD$", "MX$", "COL$", "S/", "ARS$", "CLP$", "€", "R$"];
 
-// Comisiones aproximadas de cada plataforma (se pueden editar). Revisar si cambian.
-const PLATFORMS: { label: string; feePct: number; feeFixed: number; hint: string }[] = [
-  { label: "Whop", feePct: 5.2, feeFixed: 0.4, hint: "≈ 2,7% + 0,30 más ~2,5% por tarjeta internacional y cambio de moneda" },
-  { label: "Hotmart", feePct: 9.9, feeFixed: 1, hint: "≈ 9,9% + un cargo fijo por venta (varía por país)" },
-  { label: "Stripe", feePct: 4.4, feeFixed: 0.3, hint: "≈ 2,9% + 0,30, más ~1,5% si la tarjeta es de otro país" },
-  { label: "Pago directo", feePct: 0, feeFixed: 0, hint: "Transferencia, contra entrega o efectivo: sin comisión de plataforma" },
-];
+// Comisiones por plataforma: compartidas con el Mapa del negocio (src/lib/pricing.ts).
+const PLATFORMS = PLATFORM_FEES;
 
 const newScenario = (base?: Partial<PriceScenario>): PriceScenario => ({
   id: Math.random().toString(36).slice(2, 9),

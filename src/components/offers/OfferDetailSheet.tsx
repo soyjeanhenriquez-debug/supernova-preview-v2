@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   X, Flame, CalendarDays, Trophy, Copy, Check, ExternalLink, ShoppingCart, Radar, Heart, Zap, Loader2,
   Target, Tag as TagIcon, Globe2, Users, CreditCard, Route, Layers, Languages, Flag, ThumbsUp, AlertTriangle,
-  MapPin, Lightbulb, BadgeDollarSign, Sparkles, RefreshCw, Briefcase,
+  MapPin, Lightbulb, BadgeDollarSign, Sparkles, RefreshCw, Briefcase, Calculator,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ModalPortal } from "@/components/ModalPortal";
@@ -16,6 +16,7 @@ import {
   type OfferIntel, type OfferVerdict, FUNNEL_LABEL, loadOfferIntel, safeExternalUrl, reportOffer, verdictToText,
 } from "@/lib/offerIntel";
 import { useSellThis, offerBrief } from "@/lib/sellThis";
+import { BusinessMap } from "@/components/offers/BusinessMap";
 
 /**
  * Ficha de una oferta. Pensada primero para el teléfono: hoja que sube desde
@@ -24,10 +25,11 @@ import { useSellThis, offerBrief } from "@/lib/sellThis";
  * escritorio la misma pieza se centra como un modal.
  *
  *  · Oferta    → los hechos: métricas, ficha, a dónde lleva y dónde cobra.
+ *  · Números   → el Mapa del negocio: su checkout real y cuánto vale un cliente (LTV / CPA máximo).
  *  · Veredicto → qué hacer con ella: copiarla o no, qué copiar, qué cambiar,
  *                cómo adaptarla a LATAM, países y precio para probar.
  */
-type TabKey = "oferta" | "veredicto";
+type TabKey = "oferta" | "numeros" | "veredicto";
 type Phase = "loading" | "generating" | "ready" | "error";
 
 interface Props {
@@ -94,8 +96,11 @@ export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate
 
           {/* Pestañas segmentadas: dos opciones, dedo gordo, sin scroll */}
           <div className="px-4 sm:px-6 pb-3 shrink-0">
-            <div role="tablist" className="grid grid-cols-2 p-1 rounded-xl bg-secondary/60 border border-border">
+            <div role="tablist" className="grid grid-cols-3 p-1 rounded-xl bg-secondary/60 border border-border">
               <TabButton active={tab === "oferta"} onClick={() => setTab("oferta")}>Oferta</TabButton>
+              <TabButton active={tab === "numeros"} onClick={() => setTab("numeros")}>
+                <Calculator className="w-3.5 h-3.5" /> Números
+              </TabButton>
               <TabButton active={tab === "veredicto"} onClick={() => setTab("veredicto")}>
                 <Sparkles className="w-3.5 h-3.5" /> Veredicto
                 {verdict && <span className="ml-1 text-[10px] font-bold rounded-full px-1.5 py-0.5 bg-primary/20 text-primary tabular-nums">{verdict.score}/10</span>}
@@ -106,6 +111,8 @@ export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate
           <div ref={bodyRef} className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 pb-5">
             {tab === "oferta"
               ? <OfferFacts o={o} name={name} intel={intel} phase={phase} onSeeAds={onSeeAds} onVerdict={() => setTab("veredicto")} />
+              : tab === "numeros"
+              ? <BusinessMap o={o} intel={intel} working={phase === "loading" || phase === "generating"} />
               : <VerdictView name={name} verdict={verdict} phase={phase} error={error} onRetry={() => setAttempt((n) => n + 1)} onCreate={onCreate} />}
           </div>
 

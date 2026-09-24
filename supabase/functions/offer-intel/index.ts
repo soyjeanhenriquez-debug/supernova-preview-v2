@@ -441,6 +441,138 @@ function analyzeLanding(html: string, base: URL): Landing {
   return { finalUrl: cleanUrl(base.toString()) ?? base.toString(), title, description, text: decodeEntities(text).slice(0, 5200), checkoutUrl, checkoutPlatform: platform, funnelType, prices, nextUrl };
 }
 
+// ── 2b) Checkout: lo que se ve SIN pagar (Mapa del negocio) ────────────
+// Hotmart pinta su checkout con Nuxt y deja el estado en la página, serializado con "devalue"
+// (un arreglo plano donde cada objeto apunta a otras posiciones). Ahí vienen el producto, el precio
+// real, los días de garantía, si el embudo tiene upsell configurado y los order bumps con su
+// precio. Solo se guardan esos datos: el checkout también trae el correo del vendedor y NO se guarda.
+interface CheckoutBump { name: string; price: number | null; currency: string | null }
+interface CheckoutData {
+  platform: string; product_name: string | null; price: number | null; currency: string | null;
+  guarantee_days: number | null; has_upsell: boolean; bumps: CheckoutBump[]; source_url: string;
+}
+
+const DEVALUE_WRAP = /^(Shallow)?(Reactive|Ref)$|^Empty(Shallow)?Ref$/;
+function decodeDevalue(arr: unknown[]): unknown {
+  const cache = new Map<number, unknown>();
+  const r = (i: number, depth: number): unknown => {
+    if (!Number.isInteger(i) || i < 0 || i >= arr.length || depth > 60) return null;
+    if (cache.has(i)) return cache.get(i);
+    const v = arr[i];
+    if (Array.isArray(v)) {
+      if (typeof v[0] === "string" && DEVALUE_WRAP.test(v[0])) {
+        const out = v.length > 1 && typeof v[1] === "number" ? r(v[1], depth + 1) : null;
+        cache.set(i, out);
+        return out;
+      }
+      if (typeof v[0] === "string") { cache.set(i, null); return null; } // Set, Map, Date…: no hacen falta
+      const out: unknown[] = [];
+      cache.set(i, out);
+      for (const x of v) out.push(typeof x === "number" ? r(x, depth + 1) : null);
+      return out;
+    }
+    if (v && typeof v === "object") {
+      const out: Row = {};
+      cache.set(i, out);
+      for (const [k, x] of Object.entries(v as Row)) out[k] = typeof x === "number" ? r(x, depth + 1) : null;
+      return out;
+    }
+    cache.set(i, v);
+    return v;
+  };
+  return r(0, 0);
+}
+
+function findCheckoutProducts(o: unknown, depth = 0): Row[] | null {
+  if (!o || typeof o !== "object" || depth > 8) return null;
+  const vals = Array.isArray(o) ? o.slice(0, 60) : Object.values(o as Row);
+  if (!Array.isArray(o)) {
+    const p = (o as Row).products;
+    if (Array.isArray(p) && p.some((x) => x && typeof x === "object" && "loadedAs" in (x as Row))) return p as Row[];
+  }
+  for (const v of vals) {
+    const f = findCheckoutProducts(v, depth + 1);
+    if (f) return f;
+  }
+  return null;
+}
+
+function productAmount(p: Row): { price: number | null; currency: string | null } {
+  const methods = ((p.offer as Row | null)?.paymentMethods as Row[] | null) ?? [];
+  const card = methods.find((m) => m?.type === "CREDIT_CARD") ?? methods[0];
+  const amount = (card?.amount as Row | null) ?? null;
+  const price = typeof amount?.value === "number" && Number.isFinite(amount.value) ? Math.round(amount.value * 100) / 100 : null;
+  const currency = typeof amount?.currency === "string" && /^[A-Z]{3}$/.test(amount.currency) ? amount.currency : null;
+  return { price, currency };
+}
+
+async function readHotmartCheckout(rawUrl: string): Promise<CheckoutData | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15_000);
+  try {
+    let target = await assertPublicUrl(rawUrl);
+    let res: Response | null = null;
+    for (let hop = 0; hop < 5; hop++) {
+      res = await fetch(target.toString(), {
+        redirect: "manual", signal: ctrl.signal,
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml",
+          "Accept-Language": "es-ES,es;q=0.9,pt-BR;q=0.8,en;q=0.7",
+        },
+      });
+      const loc = res.headers.get("location");
+      if (res.status >= 300 && res.status < 400 && loc) {
+        await res.body?.cancel();
+        target = await assertPublicUrl(new URL(loc, target).toString());
+        res = null;
+        continue;
+      }
+      break;
+    }
+    if (!res || res.status >= 400) { await res?.body?.cancel(); return null; }
+    if (checkoutPlatform(target.toString()) !== "Hotmart") { await res.body?.cancel(); return null; }
+    const html = await readCapped(res, 2_000_000);
+    const payload = matchAll(html, /<script[^>]*>(\[[\s\S]*?\])<\/script>/g).sort((a, b) => b.length - a.length)[0];
+    if (!payload) return null;
+    const products = findCheckoutProducts(decodeDevalue(JSON.parse(payload) as unknown[]));
+    if (!products?.length) return null;
+    const main = products.find((p) => p.loadedAs !== "ORDER_BUMP_ITEM") ?? products[0];
+    const { price, currency } = productAmount(main);
+    const bumps = products
+      .filter((p) => p.loadedAs === "ORDER_BUMP_ITEM")
+      .slice(0, 10)
+      .map((p) => ({ name: String(p.name ?? "").trim().slice(0, 160), ...productAmount(p) }))
+      .filter((b) => b.name);
+    const warranty = Number(main.warrantyDays);
+    return {
+      platform: "Hotmart",
+      product_name: typeof main.name === "string" ? main.name.trim().slice(0, 200) : null,
+      price, currency,
+      guarantee_days: Number.isFinite(warranty) && warranty >= 0 && warranty <= 365 ? warranty : null,
+      has_upsell: !!main.upsell,
+      bumps,
+      source_url: cleanUrl(target.toString()) ?? target.toString(),
+    };
+  } catch (e) {
+    console.error("offer-intel: checkout:", e instanceof Error ? e.message : e);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function checkoutPriceText(c: CheckoutData | null): string | null {
+  if (!c || c.price === null) return null;
+  return `${c.currency ?? ""} ${c.price.toLocaleString("es-ES", { maximumFractionDigits: 2 })}`.trim();
+}
+
+async function readCheckout(url: string | null, platform: string | null): Promise<CheckoutData | null> {
+  if (!url) return null;
+  if (platform === "Hotmart") return await readHotmartCheckout(url);
+  return null; // Kiwify, Eduzz, ThriveCart…: pendientes
+}
+
 // ── 3) Veredicto con IA ─────────────────────────────────────────────────
 const FUNNELS = ["pagina_ventas", "vsl", "advertorial", "quiz", "webinar", "aplicacion", "captura", "tienda", "app", "whatsapp", "checkout_directo"];
 const COUNTRIES = ["MX", "CO", "AR", "CL", "PE", "EC", "DO", "GT", "CR", "PA", "UY", "PY", "BO", "VE", "SV", "HN", "NI", "PR", "ES", "US", "BR", "PT"];
@@ -575,7 +707,7 @@ async function buildVerdict(offer: Row, landing: Landing | null, snap: Snapshot 
 }
 
 // ── Orquestación ────────────────────────────────────────────────────────
-const INTEL_COLS = "offer_id, landing_url, landing_domain, landing_title, checkout_url, checkout_platform, funnel_type, price_text, verdict, status, verdict_at, updated_at";
+const INTEL_COLS = "offer_id, landing_url, landing_domain, landing_title, checkout_url, checkout_platform, funnel_type, price_text, checkout_data, verdict, status, verdict_at, updated_at";
 
 async function processOffer(admin: Admin, offerId: string, force = false): Promise<{ http: number; body: Row; trace?: Row }> {
   const { data: offer } = await admin.from("offers").select("*").eq("id", offerId).maybeSingle();
@@ -616,14 +748,22 @@ async function processOffer(admin: Admin, offerId: string, force = false): Promi
     if (landing) landingUrl = landing.finalUrl;
   }
 
-  // La primera página no cobra (advertorial, puente, VSL): se sigue su botón
-  // principal UN paso para encontrar dónde y a cuánto se vende.
+  // La primera página no cobra (advertorial, puente, VSL): se sigue su botón principal para
+  // encontrar dónde y a cuánto se vende. Hasta 3 páginas en total (anuncio → puente → venta → pago).
   let nextStep: Landing | null = null;
+  let thirdStep: Landing | null = null;
   if (landing && !landing.checkoutUrl && landing.nextUrl) {
     nextStep = await fetchLanding(landing.nextUrl);
+    if (nextStep && !nextStep.checkoutUrl && nextStep.nextUrl && nextStep.nextUrl !== landing.finalUrl) {
+      thirdStep = await fetchLanding(nextStep.nextUrl);
+    }
   }
+  const checkoutUrl = landing?.checkoutUrl ?? nextStep?.checkoutUrl ?? thirdStep?.checkoutUrl ?? null;
+  const checkoutPlat = landing?.checkoutPlatform ?? nextStep?.checkoutPlatform ?? thirdStep?.checkoutPlatform ?? null;
+  // Mapa del negocio: lo que el checkout deja ver sin pagar (precio real, garantía, upsell, bumps).
+  const checkout = await readCheckout(checkoutUrl, checkoutPlat);
 
-  const ai = await buildVerdict(offer, landing, snap, nextStep);
+  const ai = await buildVerdict(offer, landing, snap, nextStep ?? thirdStep);
   const now = new Date().toISOString();
   const row = {
     offer_id: offerId,
@@ -631,11 +771,13 @@ async function processOffer(admin: Admin, offerId: string, force = false): Promi
     landing_url: landingUrl,
     landing_domain: hostOf(landingUrl) ?? snap?.caption ?? null,
     landing_title: landing?.title?.slice(0, 300) || null,
-    checkout_url: landing?.checkoutUrl ?? nextStep?.checkoutUrl ?? null,
-    checkout_platform: landing?.checkoutPlatform ?? nextStep?.checkoutPlatform ?? null,
+    checkout_url: checkoutUrl,
+    checkout_platform: checkoutPlat,
     // La IA leyó la página: su clasificación manda; la heurística es el respaldo.
     funnel_type: isChat ? "whatsapp" : ((landing ? (ai?.verdict.funnel_type as string | null) : null) ?? landing?.funnelType ?? null),
-    price_text: (ai?.verdict.ticket_detected as string | null) || (offer.price_hint as string | null) || null,
+    // El precio real del checkout manda sobre lo que la IA creyó ver en la página.
+    price_text: checkoutPriceText(checkout) || (ai?.verdict.ticket_detected as string | null) || (offer.price_hint as string | null) || null,
+    ...(checkout ? { checkout_data: checkout, checkout_read_at: now } : {}),
     verdict: ai?.verdict ?? existing?.verdict ?? null,
     verdict_model: ai?.model ?? existing?.verdict_model ?? null,
     status: ai ? "ready" : (landingUrl ? "partial" : "failed"),
@@ -660,12 +802,37 @@ Deno.serve(async (req) => {
   });
 
   try {
-    const body = (await req.json().catch(() => ({}))) as { offer_id?: unknown; offer_ids?: unknown; batch?: unknown; force?: unknown };
+    const body = (await req.json().catch(() => ({}))) as { offer_id?: unknown; offer_ids?: unknown; batch?: unknown; force?: unknown; action?: unknown };
 
     // ── Cron: precalienta las ganadoras que aún no tienen ficha ───────────
     if (await isCron(req, admin)) {
       const { data: lim } = await admin.from("edge_limits").select("enabled").eq("fn", "offer-intel").maybeSingle();
       if (lim && lim.enabled === false) return json(200, { ok: true, skipped: "apagada en edge_limits" });
+      // Mapa del negocio: relee SOLO el checkout (sin IA, sin Firecrawl) de las fichas que ya lo
+      // tienen enlazado y aún no tienen checkout_data o lo tienen de hace más de FRESH_DAYS.
+      if (body.action === "checkouts") {
+        const lim = Math.max(1, Math.min(20, Number(body.batch) || 10));
+        const stale = new Date(Date.now() - FRESH_DAYS * 86_400_000).toISOString();
+        const { data: rows } = await admin.from("offer_intel").select("offer_id, checkout_url, checkout_platform")
+          .eq("checkout_platform", "Hotmart").not("checkout_url", "is", null)
+          .or(`checkout_read_at.is.null,checkout_read_at.lt.${stale}`)
+          .order("checkout_read_at", { ascending: true, nullsFirst: true }).limit(lim);
+        const out: Row[] = [];
+        const started = Date.now();
+        for (const r of (rows ?? []) as Row[]) {
+          if (Date.now() - started > 100_000) break;
+          const c = await readCheckout(String(r.checkout_url), String(r.checkout_platform));
+          const now = new Date().toISOString();
+          // Sin datos también se marca la fecha: así no se reintenta en cada vuelta.
+          await admin.from("offer_intel").update({
+            checkout_read_at: now,
+            ...(c ? { checkout_data: c, price_text: checkoutPriceText(c) } : {}),
+          }).eq("offer_id", r.offer_id);
+          out.push({ offer_id: r.offer_id, ok: !!c, price: c?.price ?? null, bumps: c?.bumps.length ?? 0, upsell: c?.has_upsell ?? null });
+        }
+        return json(200, { ok: true, checkouts: out });
+      }
+
       const n = Math.max(1, Math.min(MAX_BATCH, Number(body.batch) || 2));
       const picked = (Array.isArray(body.offer_ids) ? body.offer_ids : []).map(String).filter((id) => UUID_RE.test(id)).slice(0, MAX_BATCH);
       if (picked.length) {

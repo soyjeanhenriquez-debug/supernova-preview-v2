@@ -28,6 +28,18 @@ export interface OfferVerdict {
   conclusion: string;
 }
 
+export interface CheckoutData {
+  platform: string;
+  product_name: string | null;
+  price: number | null;
+  currency: string | null;
+  guarantee_days: number | null;
+  /** El embudo tiene un upsell configurado después del pago (su precio no se ve sin comprar). */
+  has_upsell: boolean;
+  bumps: { name: string; price: number | null; currency: string | null }[];
+  source_url: string;
+}
+
 export interface OfferIntel {
   offer_id: string;
   landing_url: string | null;
@@ -37,6 +49,8 @@ export interface OfferIntel {
   checkout_platform: string | null;
   funnel_type: string | null;
   price_text: string | null;
+  /** Mapa del negocio: lo que su checkout deja ver sin pagar (hoy solo Hotmart). */
+  checkout_data: CheckoutData | null;
   verdict: OfferVerdict | null;
   status: "pending" | "ready" | "partial" | "failed";
   verdict_at: string | null;
@@ -57,7 +71,7 @@ export const FUNNEL_LABEL: Record<string, string> = {
   checkout_directo: "Directo a la página de pago",
 };
 
-const COLS = "offer_id, landing_url, landing_domain, landing_title, checkout_url, checkout_platform, funnel_type, price_text, verdict, status, verdict_at, updated_at";
+const COLS = "offer_id, landing_url, landing_domain, landing_title, checkout_url, checkout_platform, funnel_type, price_text, checkout_data, verdict, status, verdict_at, updated_at";
 const FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/offer-intel`;
 
 async function readIntel(offerId: string): Promise<OfferIntel | null> {

@@ -1,5 +1,14 @@
 import type { BusinessProfile, PriceScenario } from "@/lib/businessProfile";
 
+/** Comisiones aproximadas de cada plataforma (se pueden editar). Revisar si cambian. Las usan la
+ * calculadora de precio y el Mapa del negocio. */
+export const PLATFORM_FEES: { label: string; feePct: number; feeFixed: number; hint: string }[] = [
+  { label: "Whop", feePct: 5.2, feeFixed: 0.4, hint: "≈ 2,7% + 0,30 más ~2,5% por tarjeta internacional y cambio de moneda" },
+  { label: "Hotmart", feePct: 9.9, feeFixed: 1, hint: "≈ 9,9% + un cargo fijo por venta (varía por país)" },
+  { label: "Stripe", feePct: 4.4, feeFixed: 0.3, hint: "≈ 2,9% + 0,30, más ~1,5% si la tarjeta es de otro país" },
+  { label: "Pago directo", feePct: 0, feeFixed: 0, hint: "Transferencia, contra entrega o efectivo: sin comisión de plataforma" },
+];
+
 /**
  * Cuentas de la calculadora de precio (src/pages/PricingPage.tsx). Las comparte la Mándala para
  * juzgar cada anuncio con lo que de verdad le queda al usuario por venta, no solo con el precio.

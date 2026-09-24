@@ -317,6 +317,7 @@ async function logFailedUsage(admin: Admin, userId: string, row: ModelRow, e: un
 const GUARD = `REGLAS SIEMPRE:
 - Español neutro latinoamericano.
 - Nunca prometas resultados de salud, peso, dinero o ingresos, ni con plazos; presenta la promesa como lo que el producto enseña ("aprende a…").
+- Nunca prometas ausencia de dolor o lesiones, alivio, curas ni resultados físicos "desde la primera sesión"; en ejercicio habla de técnica y progresión, y sugiere consultar a un profesional si hay dolor o una condición previa.
 - No inventes testimonios, estudios, cifras ni credenciales.
 - Nada sexual explícito, odio, ni insultos a personas o grupos.
 - Si el nicho es sensible (salud, finanzas), añade al final una línea "Contenido informativo; no reemplaza a un profesional".

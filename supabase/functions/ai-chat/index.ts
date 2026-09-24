@@ -27,16 +27,20 @@ function normalizeModel(model?: string): string {
 
 // Dos modos, y lo decide el SERVIDOR:
 //  · Generador (de pago): llega generator_id → se cobra según su nivel. Mismas
-//    listas que generatorCost() en src/hooks/useCredits.ts; un id desconocido
-//    paga como "ligero", igual que en el cliente.
+//    listas que generatorCost() en src/hooks/useCredits.ts. Un id que no está en
+//    ninguna lista se RECHAZA (antes pagaba como "ligero": mandando un id inventado
+//    con el prompt de un VSL se obtenía un entregable pesado a precio de ligero).
+//    Generador nuevo en el cliente → añadir su id aquí en el nivel que le toca.
 //  · Asistente de ayuda (gratis): sin generator_id. Respuesta corta y con una
 //    instrucción del servidor al final, para que no sirva de generador gratis.
 const GEN_MEDIUM_IDS = new Set(["landing-copy", "email-launch", "email-sequence", "yt-script", "funnel-strategy", "audience-research", "product-desc", "offer-stack", "yapping-script", "ecosystem", "ascension-offer", "meta-campaign", "creative-brief", "mandala-sequence", "mandala-iterate"]);
 const GEN_HEAVY_IDS = new Set(["vsl-downsell", "vsl-upsell-1", "vsl-upsell-2", "vsl-main"]);
-function generatorAction(id: string): string {
+const GEN_LIGHT_IDS = new Set(["order-bump", "ugc-script", "hooks-meta", "hooks-tiktok", "captions-ig", "reels-script", "yt-titles", "dm-script", "whatsapp-sequence", "etsy-ideas", "market-idea", "mandala-ad"]);
+function generatorAction(id: string): string | null {
   if (GEN_HEAVY_IDS.has(id)) return "gen_heavy";
   if (GEN_MEDIUM_IDS.has(id)) return "gen_medium";
-  return "gen_light";
+  if (GEN_LIGHT_IDS.has(id)) return "gen_light";
+  return null;
 }
 const DEFAULT_SYSTEM = `Eres el asistente IA de SUPERNOVA, una plataforma de gestión de campañas publicitarias. 
 Tu rol es ayudar al usuario a:
@@ -185,9 +189,15 @@ serve(async (req) => {
       });
     }
     const generatorId = typeof generator_id === "string" && /^[a-z0-9-]{2,40}$/.test(generator_id) ? generator_id : null;
-    const g = generatorId
+    const genAction = generatorId ? generatorAction(generatorId) : null;
+    if (generatorId && !genAction) {
+      return new Response(JSON.stringify({ error: "Generador desconocido. Recarga la página e inténtalo de nuevo." }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const g = generatorId && genAction
       ? await requireUser(req, "ai-chat", 60, 300, {
-          action: generatorAction(generatorId),
+          action: genAction,
           label: `Generador: ${String(generator_title ?? generatorId).slice(0, 70)}`,
         })
       : await requireUser(req, "ai-chat-help", 40, 150);
@@ -245,7 +255,7 @@ serve(async (req) => {
   } catch (e) {
     await refundCharge(gate, "excepción");
     console.error("chat error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
+    return new Response(JSON.stringify({ error: "No se pudo completar la respuesta. No se te cobró: intenta de nuevo." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

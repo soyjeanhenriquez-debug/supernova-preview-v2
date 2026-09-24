@@ -8,6 +8,7 @@ import { IdeasWhatsApp } from "@/components/IdeasWhatsApp";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useBusinessProfile } from "@/lib/businessProfile";
+import { safeExternalUrl } from "@/lib/offerIntel";
 
 /**
  * Mercado: productos reales de redes de afiliados y tiendas (ClickBank, Digistore24, Etsy).
@@ -401,6 +402,8 @@ function Card({ r, onVender, onIdea }: { r: Row; onVender: () => void; onIdea: (
   const src = SOURCES.find(s => s.id === r.source);
   const gana = payout(r);
   const precio = money(r.price, r.currency);
+  // Los enlaces vienen de feeds de afiliados y CSV: solo http(s), nunca "javascript:".
+  const productHref = safeExternalUrl(r.affiliate_url) ?? safeExternalUrl(r.product_url);
   return (
     <article className="card-surface rounded-2xl overflow-hidden flex flex-col ad-card-hover group">
       <div className="relative aspect-[4/3] bg-secondary/40 overflow-hidden">
@@ -457,8 +460,8 @@ function Card({ r, onVender, onIdea }: { r: Row; onVender: () => void; onIdea: (
             aria-label="Cómo hacer tu propia versión de este producto">
             <Lightbulb className="w-4 h-4" />
           </button>
-          {(r.affiliate_url || r.product_url) && (
-            <a href={r.affiliate_url || r.product_url || "#"} target="_blank" rel="noopener noreferrer nofollow"
+          {productHref && (
+            <a href={productHref} target="_blank" rel="noopener noreferrer nofollow"
               className="inline-flex items-center justify-center rounded-lg border border-border px-3 py-2.5 text-muted-foreground hover:text-foreground hover:border-primary/60"
               aria-label="Ver el producto en su sitio" title="Ver el producto en su sitio">
               <ExternalLink className="w-4 h-4" />

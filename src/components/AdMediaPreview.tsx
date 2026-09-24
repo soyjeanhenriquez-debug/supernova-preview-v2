@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ExternalLink, Loader2, ImageOff } from "lucide-react";
 import { fnHeaders } from "@/lib/fnAuth";
+import { safeExternalUrl } from "@/lib/offerIntel";
 
 interface AdMediaPreviewProps {
   snapshotUrl?: string;
@@ -184,7 +185,7 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title, fi
 
       {/* Botón HD */}
       <a
-        href={adId ? `https://www.facebook.com/ads/library/?id=${adId}` : (snapshotUrl || adUrl || "#")}
+        href={adId ? `https://www.facebook.com/ads/library/?id=${adId}` : (safeExternalUrl(snapshotUrl) ?? safeExternalUrl(adUrl) ?? "#")}
         target="_blank"
         rel="noopener noreferrer"
         className={`absolute ${fill ? "bottom-2 right-2" : "top-2 right-2"} z-10 px-2.5 py-1 rounded-full bg-background/90 backdrop-blur text-foreground text-[10px] font-bold inline-flex items-center gap-1 shadow-lg border border-border/60 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary hover:text-primary-foreground`}

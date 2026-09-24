@@ -40,12 +40,16 @@ async function assertPublicUrl(raw: string): Promise<URL> {
     return u;
   }
   if (!host.includes(".") || /(^|\.)(localhost|local|internal|lan|home|corp|intranet)$/.test(host)) throw new Error(BLOCKED);
-  // Un dominio público puede apuntar a una IP privada: se resuelve y se revisa.
+  // Un dominio público puede apuntar a una IP privada: se resuelve y se revisa. Si no se pudo
+  // resolver NINGUNA dirección, se bloquea (antes un DNS que fallaba adrede dejaba pasar la URL).
+  let resolved = 0;
   for (const type of ["A", "AAAA"] as const) {
     let ips: string[] = [];
     try { ips = await Deno.resolveDns(host, type); } catch { /* sin registro de ese tipo, o DNS no disponible */ }
     if (ips.some(isPrivateIp)) throw new Error(BLOCKED);
+    resolved += ips.length;
   }
+  if (resolved === 0) throw new Error(BLOCKED);
   return u;
 }
 

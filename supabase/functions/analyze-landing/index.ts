@@ -90,11 +90,13 @@ Deno.serve(async (req) => {
   let gate: Gate | null = null;
   try {
     const body = await readJson(req, 200000);
-    const landingUrl: string = body.landingUrl ?? "";
+    // Todo lo que entra al prompt va recortado: sin tope, un cuerpo de 200 KB inflaba el costo real
+    // de gemini-3-pro por encima del precio cobrado.
+    const landingUrl: string = String(body.landingUrl ?? "").slice(0, 500);
     const landingContent: string = (body.landingContent ?? "").toString().slice(0, 6000);
     const activeAds: AdInput[] = Array.isArray(body.activeAds) ? body.activeAds.slice(0, 8) : [];
-    const domain: string = body.domain ?? "";
-    const brandName: string = body.brandName ?? domain;
+    const domain: string = String(body.domain ?? "").slice(0, 120);
+    const brandName: string = String(body.brandName ?? domain).slice(0, 120);
 
     if (!landingUrl || !landingContent) {
       return new Response(JSON.stringify({ error: "landingUrl y landingContent requeridos" }), {
@@ -124,7 +126,7 @@ ${activeAds.map((ad, i) => {
   const days = start ? Math.max(1, Math.floor((Date.now() - start.getTime()) / 86400000)) : "?";
   return `
 Anuncio ${i+1}:
-- Anunciante: ${ad.page_name ?? "—"}
+- Anunciante: ${String(ad.page_name ?? "—").slice(0, 120)}
 - Días activo: ${days}
 - Plataformas: ${(ad.publisher_platforms ?? []).join(", ") || "—"}
 - Titular: ${(ad.ad_creative_link_titles?.[0] ?? "").slice(0, 200)}

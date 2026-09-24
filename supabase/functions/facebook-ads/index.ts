@@ -53,7 +53,9 @@ function unavailable(code: string): Response {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  const gate = await requireUser(req, "facebook-ads", 120, 800);
+  // Tope bajo: cada búsqueda gasta la cuota de Meta que comparte toda la app (y el radar). El cobro
+  // de 5 créditos lo hace hoy el cliente; pasarlo al servidor está pendiente.
+  const gate = await requireUser(req, "facebook-ads", 30, 150);
   if (gate instanceof Response) return gate;
 
   try {

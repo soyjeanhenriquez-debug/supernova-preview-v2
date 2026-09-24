@@ -63,7 +63,9 @@ const ADS: Omit<DemoAd, "score" | "tier">[] = [];
 export function isValidAdsLibraryUrl(url: string): boolean {
   try {
     const u = new URL(url);
-    if (!u.hostname.endsWith("facebook.com")) return false;
+    // Solo https y el dominio exacto: "javascript://facebook.com/..." o "evilfacebook.com" no pasan.
+    if (u.protocol !== "https:") return false;
+    if (u.hostname !== "facebook.com" && !u.hostname.endsWith(".facebook.com")) return false;
     if (!u.pathname.startsWith("/ads/library")) return false;
     return u.searchParams.has("view_all_page_id") || u.searchParams.has("q") || u.searchParams.has("id");
   } catch {

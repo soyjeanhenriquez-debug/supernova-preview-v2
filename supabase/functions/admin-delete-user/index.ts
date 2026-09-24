@@ -53,6 +53,22 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // getClaims solo valida la firma: se confirma que la sesión sigue viva antes de borrar.
+    const { data: live } = await adminClient.auth.getUser(token);
+    if (live?.user?.id !== adminId) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    // Nunca se borra a otro admin desde aquí.
+    const { data: targetAdmin } = await adminClient
+      .from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle();
+    if (targetAdmin) {
+      return new Response(JSON.stringify({ error: "No se puede borrar a otro admin." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { error } = await adminClient.auth.admin.deleteUser(userId);
     if (error) {
       return new Response(JSON.stringify({ success: false, error: error.message }), {

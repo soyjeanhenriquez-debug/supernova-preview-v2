@@ -17,8 +17,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
  *   headers: webhook-id, webhook-timestamp, webhook-signature
  *   signed_content = "{id}.{timestamp}.{body}"
  *   signature = base64(HMAC_SHA256(secret, signed_content)), en header como "v1,<sig>"
- * Se mantiene un fallback legacy (x-whop-signature, hex sobre el body) por si
- * llega un webhook del esquema antiguo.
+ * Se exige además que webhook-timestamp esté a menos de 5 min del reloj (anti-reenvío).
+ * El esquema legacy (x-whop-signature) sigue aceptado de forma temporal: ver verifySignature.
  */
 
 const enc = new TextEncoder();
@@ -77,36 +77,59 @@ function timingSafeEqual(a: string, b: string): boolean {
   return out === 0;
 }
 
-/** Verifica Standard Webhooks; si no hay headers nuevos, cae al esquema legacy.
+// Ventana de tiempo de Standard Webhooks: un evento firmado más viejo (o del futuro) se rechaza,
+// así una entrega capturada no se puede reenviar después. Whop firma cada reintento con su hora.
+const MAX_SKEW_S = 300;
+
+/** Verifica Standard Webhooks (firma + hora). El esquema legacy (x-whop-signature) no trae hora,
+ *  así que un evento firmado se podría reenviar para siempre: se sigue aceptando SOLO mientras se
+ *  confirma que Whop ya no lo usa, y deja un aviso "LEGACY" en el log. Si en los logs no aparece
+ *  ese aviso tras varias ventas, borrar el bloque legacy.
  *  Prueba cada candidato de clave para tolerar el formato del secret de Whop. */
 async function verifySignature(req: Request, secret: string, body: string): Promise<boolean> {
   const keys = candidateKeys(secret);
 
   const swSig = req.headers.get("webhook-signature");
-  if (swSig) {
-    const id = req.headers.get("webhook-id") ?? "";
-    const ts = req.headers.get("webhook-timestamp") ?? "";
-    const signedContent = `${id}.${ts}.${body}`;
-    // El header es una lista separada por espacios de "v1,<base64>"
-    const received = swSig.split(" ").map((p) => (p.includes(",") ? p.split(",")[1] : p)).filter(Boolean);
+  if (!swSig) {
+    const legacy = req.headers.get("x-whop-signature");
+    if (!legacy) return false;
+    const received = legacy.replace(/^sha256=/, "").trim().toLowerCase();
     for (const key of keys) {
-      const expected = await hmacBase64(key, signedContent);
-      for (const sig of received) if (timingSafeEqual(sig, expected)) return true;
+      if (received && timingSafeEqual(received, await hmacHex(key, body))) {
+        console.warn("LEGACY: evento de Whop firmado con x-whop-signature (sin hora). Revisar antes de quitar el esquema legacy.");
+        return true;
+      }
     }
     return false;
   }
-
-  // Fallback legacy: x-whop-signature = hex(hmac(secret, body)), a veces con "sha256="
-  const legacy = req.headers.get("x-whop-signature");
-  if (legacy) {
-    const received = legacy.replace(/^sha256=/, "").trim().toLowerCase();
-    for (const key of keys) {
-      if (received && timingSafeEqual(received, await hmacHex(key, body))) return true;
-    }
+  const id = req.headers.get("webhook-id") ?? "";
+  const ts = req.headers.get("webhook-timestamp") ?? "";
+  // El spec usa segundos; se toleran milisegundos por si acaso.
+  const tsSec = /^\d{12,14}$/.test(ts) ? Number(ts) / 1000 : Number(ts);
+  if (!id || !/^\d{9,14}$/.test(ts) || Math.abs(Date.now() / 1000 - tsSec) > MAX_SKEW_S) {
+    console.error(`Firma rechazada por hora fuera de ventana (webhook-timestamp=${ts.slice(0, 16)})`);
     return false;
+  }
+  const signedContent = `${id}.${ts}.${body}`;
+  // El header es una lista separada por espacios de "v1,<base64>"
+  const received = swSig.split(" ").map((p) => (p.includes(",") ? p.split(",")[1] : p)).filter(Boolean);
+  for (const key of keys) {
+    const expected = await hmacBase64(key, signedContent);
+    for (const sig of received) if (timingSafeEqual(sig, expected)) return true;
   }
   return false;
 }
+
+// Correo para los logs sin exponerlo entero: "ab***@dominio.com".
+const maskEmail = (e: string) => e.replace(/^(.{0,2})[^@]*(@.*)$/, "$1***$2");
+
+// Planes de Whop que dan acceso a SUPERNOVA. Un evento de OTRO plan (un producto nuevo que no se
+// anotó en whop_other_plans, un lead magnet gratis…) ya no activa approved_emails: se registra y
+// se ignora. Si se crea o se rehace un plan de SUPERNOVA en Whop (cambia su id), añadirlo aquí.
+const SUPERNOVA_PLANS = new Set([
+  "plan_ukBjctlEKufto", // PRO (antes STARTER), US$29,99 con 3 días de prueba
+  "plan_VsWbrtokeQOLu", // PRO MAX
+]);
 
 type SubStatus = "active" | "trialing" | "past_due" | "canceled" | "inactive";
 
@@ -227,8 +250,10 @@ serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, skipped: `pack:${eventType}` }), { headers: { "Content-Type": "application/json" } });
     }
     const packEmail = extractEmail(data);
-    // Una acreditación por membresía y día: cubre los reintentos de Whop sin bloquear una recompra posterior.
-    const paymentId = data.id ? `${String(data.id)}:${new Date().toISOString().slice(0, 10)}` : "";
+    // Una acreditación por membresía: cubre los reintentos y reenvíos de Whop a cualquier hora (antes
+    // la clave llevaba la fecha y un reintento pasada la medianoche UTC acreditaba dos veces). Una
+    // recompra crea una membresía nueva, con otro id.
+    const paymentId = data.id ? String(data.id) : "";
     if (!packEmail || !paymentId) {
       console.error(`Pack ${pack.id}: pago sin email o sin id`);
       return new Response(JSON.stringify({ error: "Pack payment without email/id" }), { status: 422, headers: { "Content-Type": "application/json" } });
@@ -260,7 +285,7 @@ serve(async (req) => {
 
   // ── Aportes "Apoya SUPERNOVA" (pago único) ──────────────────────────────
   // Los planes viven en la tabla support_plans (Jean pega ahí el plan_id de Whop, sin redesplegar).
-  // Mismo criterio que los packs: se acredita al activarse, una vez por membresía y día.
+  // Mismo criterio que los packs: se acredita al activarse, una vez por membresía.
   // grant_support registra al impulsor y le da sus créditos de regalo como recarga, lo que
   // desbloquea "Crear producto".
   const evPlanId = String((data.plan as Record<string, unknown>)?.id ?? data.plan_id ?? "");
@@ -274,7 +299,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({ ok: true, skipped: `support:${eventType}` }), { headers: { "Content-Type": "application/json" } });
       }
       const email = extractEmail(data);
-      const paymentId = data.id ? `${String(data.id)}:${new Date().toISOString().slice(0, 10)}` : "";
+      const paymentId = data.id ? String(data.id) : "";
       if (!email || !paymentId) {
         console.error(`Aporte ${sp.plan_id}: sin email o sin id`);
         return new Response(JSON.stringify({ error: "Support payment without email/id" }), { status: 422, headers: { "Content-Type": "application/json" } });
@@ -326,9 +351,18 @@ serve(async (req) => {
     });
   }
 
+  // Solo los planes de SUPERNOVA tocan el acceso. Un evento sin plan (algunos de pago) sigue el
+  // camino de siempre y actualiza la suscripción que ya exista con ese correo.
+  if (evPlanId && !SUPERNOVA_PLANS.has(evPlanId)) {
+    console.error(`Plan ${evPlanId} no es de SUPERNOVA ni está en whop_other_plans: ${eventType} ignorado. Si es un plan nuevo de SUPERNOVA, añádelo a SUPERNOVA_PLANS.`);
+    return new Response(JSON.stringify({ ok: true, skipped: `plan:${evPlanId}` }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const email = extractEmail(data);
   if (!email) {
-    console.error(`Evento ${eventType} sin email`, JSON.stringify(data).slice(0, 500));
+    console.error(`Evento ${eventType} sin email (claves del payload: ${Object.keys(data).slice(0, 30).join(",")})`);
     return new Response(JSON.stringify({ error: "No email in payload" }), {
       status: 422,
       headers: { "Content-Type": "application/json" },
@@ -376,7 +410,7 @@ serve(async (req) => {
     { onConflict: "email" },
   );
 
-  console.log(`OK ${eventType} → ${email} → ${newStatus}`);
+  console.log(`OK ${eventType} → ${maskEmail(email)} → ${newStatus}`);
   return new Response(JSON.stringify({ ok: true, email, status: newStatus }), {
     headers: { "Content-Type": "application/json" },
   });

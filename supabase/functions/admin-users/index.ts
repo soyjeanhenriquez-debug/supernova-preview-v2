@@ -47,6 +47,28 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = body.action as string;
 
+    // Acciones que cambian a OTRA cuenta: nunca contra un admin (una sesión de admin robada no
+    // puede quitarle el rol, suspender ni borrar a otro admin) y siempre quedan en audit_log.
+    const MUTATING = new Set(["set_role", "adjust_credits", "suspend", "unsuspend", "delete"]);
+    if (MUTATING.has(action)) {
+      const target = typeof body.userId === "string" ? body.userId : "";
+      if (!/^[0-9a-f-]{36}$/i.test(target)) return json({ error: "userId inválido" }, 400);
+      if (action === "set_role" && !["admin", "moderator", "user"].includes(body.role)) {
+        return json({ error: "Rol inválido" }, 400);
+      }
+      if (["set_role", "suspend", "delete"].includes(action) && target !== callerId) {
+        const { data: targetAdmin } = await admin.from("user_roles").select("role")
+          .eq("user_id", target).eq("role", "admin").maybeSingle();
+        if (targetAdmin) return json({ error: "No se puede cambiar, suspender ni borrar a otro admin desde el panel." }, 403);
+      }
+      const { error: auditErr } = await admin.from("audit_log").insert({
+        user_id: callerId, user_email: userData.user.email ?? null,
+        action: `ADMIN_${action.toUpperCase()}`, resource_type: "user", resource_id: target,
+        new_data: { role: body.role ?? null, amount: body.amount ?? null, hours: body.hours ?? null, note: body.note ?? null },
+      });
+      if (auditErr) console.error("audit_log:", auditErr.message);
+    }
+
     if (action === "list") {
       const page = body.page ?? 1;
       const perPage = body.perPage ?? 100;
@@ -177,6 +199,6 @@ serve(async (req) => {
     return json({ error: "Unknown action" }, 400);
   } catch (e: unknown) {
     console.error("admin-users error", e);
-    return json({ error: e.message || String(e) }, 500);
+    return json({ error: "Error interno. Revisa los logs de admin-users." }, 500);
   }
 });

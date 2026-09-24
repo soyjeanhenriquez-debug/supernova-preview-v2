@@ -94,3 +94,7 @@ AS $$
 $$;
 REVOKE ALL ON FUNCTION public.content_refunds_today(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.content_refunds_today(uuid) TO service_role;
+
+-- 5. La app ya usa has_access() (correo de la sesión). is_email_approved dejaba a cualquiera
+--    preguntar si un correo ajeno es cliente de pago: queda solo para el servidor.
+REVOKE EXECUTE ON FUNCTION public.is_email_approved(text) FROM PUBLIC, anon, authenticated;

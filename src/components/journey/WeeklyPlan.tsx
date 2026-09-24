@@ -17,6 +17,14 @@ type Plan = { week_start: string; focus: string | null; tasks: Task[]; regenerat
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const plansTable = () => (supabase as any).from("weekly_plans");
 
+// Lunes de la semana en hora de República Dominicana (UTC−4), igual que weekStart() en la
+// edge function weekly-plan.
+function currentWeekStart(): string {
+  const now = new Date(Date.now() - 4 * 3600_000);
+  now.setUTCDate(now.getUTCDate() - ((now.getUTCDay() + 6) % 7));
+  return now.toISOString().slice(0, 10);
+}
+
 export function WeeklyPlan({ onNavigate, stages }: {
   onNavigate: (page: string) => void;
   /** Estado de las 6 etapas del recorrido: el socio decide con él qué toca esta semana. */
@@ -76,11 +84,19 @@ export function WeeklyPlan({ onNavigate, stages }: {
     setLoading(false);
   }, [stages, activeId, user]);
 
-  // Se arma sola una vez por semana, cuando ya se conoce el estado del recorrido.
+  // Se arma sola una vez por semana, cuando ya se conoce el estado del recorrido. Si el plan de
+  // esta semana ya existe se lee directo de la tabla (un viaje corto); la función del servidor
+  // (arranque en frío + validación + IA) solo se llama cuando todavía no hay plan.
   useEffect(() => {
     if (!user || !activeId || !stages || asked.current) return;
     asked.current = true;
-    fetchPlan(false);
+    const productId = activeId;
+    plansTable().select("*").eq("user_id", user.id).eq("product_id", productId).eq("week_start", currentWeekStart()).maybeSingle()
+      .then(({ data }: { data: Plan | null }) => {
+        if (currentProduct.current !== productId) return;
+        if (data) setPlan(data);
+        else fetchPlan(false);
+      }, () => fetchPlan(false));
   }, [user, activeId, stages, fetchPlan]);
 
   // Racha: semanas seguidas (antes de esta) en las que hizo al menos la mitad de sus tareas.

@@ -31,7 +31,8 @@ const offerIdFromHash = () => {
 // "ganadoras" = lista curada (is_winner, top 300 por winner_index): es lo único
 // que se carga al entrar. "todas" = Explorar todo, solo bajo demanda.
 type Tab = "ganadoras" | "todas" | "apps" | "info" | "siguiendo";
-const PAGE_SIZE = 24;
+// 12 ofertas de entrada (antes 24) y 12 más por cada "Ver más": la primera vista carga antes.
+const PAGE_SIZE = 12;
 
 const SORTS = [
   { v: "rank", l: "Las mejores primero" },

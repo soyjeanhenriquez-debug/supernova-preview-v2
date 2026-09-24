@@ -34,4 +34,13 @@ window.addEventListener("unhandledrejection", (event) => {
   if (isChunkLoadError(event.reason)) reloadOnceForNewVersion();
 });
 
+// Quien vuelve con sesión guardada va directo al Inicio: se empiezan a descargar la app y el
+// Inicio YA, en paralelo con la comprobación de sesión y de acceso (antes iban uno tras otro).
+try {
+  if (Object.keys(localStorage).some((k) => k.startsWith("sb-") && k.endsWith("-auth-token"))) {
+    void import("./pages/Index");
+    void import("./pages/DashboardPage");
+  }
+} catch { /* sin almacenamiento: se descargan cuando toque */ }
+
 createRoot(document.getElementById("root")!).render(<App />);

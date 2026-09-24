@@ -89,7 +89,7 @@ export default function AdminSessions() {
             ) : rows.length === 0 ? (
               <tr><td colSpan={4} className="text-center py-12 text-muted-foreground">Sin sesiones activas</td></tr>
             ) : rows.map(s => {
-              const online = Date.now() - new Date(s.last_seen).getTime() < 5 * 60 * 1000;
+              const online = Date.now() - new Date(s.last_seen).getTime() < 6 * 60 * 1000; // latido cada 5 min
               return (
                 <tr key={s.id} className="border-t border-border hover:bg-secondary/20">
                   <td className="px-4 py-3">

@@ -8,6 +8,9 @@ import { PLANS, checkoutUrl, formatUsd, type PlanKey } from "@/lib/plans";
 import { Turnstile } from "@/components/Turnstile";
 import { PlanFeatures, TrialTerms } from "@/components/PlanFeatures";
 import { authErrorMessage } from "./AuthPage";
+import { loadEditorialFonts } from "@/lib/loadFonts";
+
+loadEditorialFonts();
 
 const CAPTCHA_ENABLED = Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY);
 

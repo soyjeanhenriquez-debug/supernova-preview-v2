@@ -5,6 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFeatureAccess } from "@/lib/features";
 
+const HOOKS_STEP = 24;
+
 /**
  * Bóveda de Hooks: ganchos extraídos de anuncios ganadores REALES del radar.
  * La prueba no son views (viralidad de una vez): es que el anunciante siguió
@@ -129,6 +131,11 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hooks, favorites, search, category, view]);
 
+  // Se dibujan 24 ganchos al principio y 24 más por cada "Ver más" (la búsqueda sigue mirando
+  // todos). Pintar cientos de tarjetas de golpe hacía lenta la pantalla en teléfonos.
+  const [shown, setShown] = useState(HOOKS_STEP);
+  useEffect(() => { setShown(HOOKS_STEP); }, [search, category, view]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -214,7 +221,7 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
         </div>
       ) : (
         <div className="grid md:grid-cols-2 gap-4">
-          {filtered.map((h) => (
+          {filtered.slice(0, shown).map((h) => (
             <HookCard
               key={h.id}
               hook={h}
@@ -225,6 +232,14 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
               onCopies={() => copiesFromHook(h)}
             />
           ))}
+          {filtered.length > shown && (
+            <button
+              onClick={() => setShown((n) => n + HOOKS_STEP)}
+              className="md:col-span-2 rounded-xl border border-border py-3 text-sm text-muted-foreground hover:text-foreground hover:border-primary/60 inline-flex items-center justify-center gap-2"
+            >
+              <ChevronDown className="w-4 h-4" /> Ver más ganchos (quedan {filtered.length - shown})
+            </button>
+          )}
         </div>
       )}
     </div>

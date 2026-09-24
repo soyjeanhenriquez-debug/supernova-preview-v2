@@ -7,10 +7,13 @@ import { lazy, Suspense, useEffect } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { ProductProvider } from "@/contexts/ProductContext";
-import LandingPage from "./pages/LandingPage";
-import SignupPage from "./pages/SignupPage";
 import NotFound from "./pages/NotFound";
-import { AuthPage } from "./pages/AuthPage";
+
+// Landing de React, registro y login también bajo demanda: quien ya tiene sesión no los necesita
+// (antes arrastraban framer-motion, ~128 KB, a la primera descarga de todos).
+const LandingPage = lazy(() => import("./pages/LandingPage"));
+const SignupPage = lazy(() => import("./pages/SignupPage"));
+const AuthPage = lazy(() => import("./pages/AuthPage").then(m => ({ default: m.AuthPage })));
 
 // La app autenticada y el panel admin viajan en chunks aparte: el visitante
 // anónimo solo descarga landing + auth.
@@ -31,7 +34,10 @@ const UnsubscribePage = lazy(() => import("@/pages/UnsubscribePage"));
 import { RequireAccess } from "@/components/RequireAccess";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
-const queryClient = new QueryClient();
+// Datos recién pedidos se reutilizan 1 min y no se vuelven a pedir al cambiar de pestaña.
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 60_000, refetchOnWindowFocus: false } },
+});
 
 /**
  * La portada del dominio es la landing de fundadores (HTML estático, ver vite.config.ts).
@@ -92,11 +98,13 @@ function AppRoutes() {
     const authLinkError = /error_code=|error=access_denied/.test(window.location.hash + window.location.search);
     return (
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={authLinkError ? <AuthPage /> : <StaticHome />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route path="*" element={<AuthPage />} />
-        </Routes>
+        <Suspense fallback={<div className="min-h-screen bg-background" />}>
+          <Routes>
+            <Route path="/" element={authLinkError ? <AuthPage /> : <StaticHome />} />
+            <Route path="/signup" element={<SignupPage />} />
+            <Route path="*" element={<AuthPage />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     );
   }

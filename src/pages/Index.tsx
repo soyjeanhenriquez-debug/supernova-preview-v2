@@ -3,7 +3,6 @@ import { Loader2 } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
 import { LowCreditBanner } from "@/components/LowCreditBanner";
-import { HelpAssistant } from "@/components/HelpAssistant";
 import { OnboardingTour } from "@/components/OnboardingTour";
 import { FloatingWinnerButton } from "@/components/FloatingWinnerButton";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -13,6 +12,8 @@ import { useProducts } from "@/contexts/ProductContext";
 
 // Carga diferida: cada pantalla es su propio chunk → la primera carga solo
 // baja el Dashboard, el resto llega bajo demanda al navegar.
+// El asistente de ayuda trae react-markdown (~100 KB): se descarga aparte, sin frenar el Inicio.
+const HelpAssistant = lazy(() => import("@/components/HelpAssistant").then(m => ({ default: m.HelpAssistant })));
 const DashboardPage = lazy(() => import("@/pages/DashboardPage").then(m => ({ default: m.DashboardPage })));
 const WinningAdsPage = lazy(() => import("@/pages/WinningAdsPage").then(m => ({ default: m.WinningAdsPage })));
 const OfertasPage = lazy(() => import("@/pages/OfertasPage").then(m => ({ default: m.OfertasPage })));
@@ -187,7 +188,7 @@ const Index = () => {
       </div>
       {/* Atajo al radar: solo donde se buscan ofertas (Inicio y Ofertas), no encima de las herramientas. */}
       {(activePage === "Dashboard" || activePage === "Ofertas") && <FloatingWinnerButton onClick={() => setActivePage("Buscar Ofertas Winner")} />}
-      <HelpAssistant />
+      <Suspense fallback={null}><HelpAssistant /></Suspense>
       <OnboardingTour />
     </div>
   );

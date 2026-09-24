@@ -138,6 +138,8 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title, fi
           <img
             src={`https://graph.facebook.com/${pageId}/picture?type=large`}
             alt={pageName}
+            loading="lazy"
+            decoding="async"
             className="w-14 h-14 rounded-full border-2 border-border shadow-lg"
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
           />
@@ -178,6 +180,7 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title, fi
           src={imageUrl}
           alt={`Preview – ${pageName}`}
           loading="lazy"
+          decoding="async"
           referrerPolicy="no-referrer"
           className={`absolute inset-0 w-full h-full ${fitCls} bg-black`}
         />

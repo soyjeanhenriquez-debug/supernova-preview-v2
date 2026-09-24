@@ -40,13 +40,15 @@ export function RequireAccess({ children }: Props) {
       last_seen: new Date().toISOString(),
     }, { onConflict: "user_id" }).then(() => {});
 
+    // Latido de sesión cada 5 min y solo con la pestaña visible (antes cada minuto, siempre).
     const iv = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
       supabase.from("active_sessions").upsert({
         user_id: user.id,
         user_email: user.email,
         last_seen: new Date().toISOString(),
       }, { onConflict: "user_id" }).then(() => {});
-    }, 60_000);
+    }, 5 * 60_000);
 
     return () => { cancelled = true; window.clearInterval(iv); };
   }, [user]);

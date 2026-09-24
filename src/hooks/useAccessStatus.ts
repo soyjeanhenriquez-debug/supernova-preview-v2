@@ -17,19 +17,9 @@ export function useAccessStatus(): Status {
     if (!user) { setStatus("loading"); return; }
 
     (async () => {
-      // Check admin first
-      const { data: role } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-      if (cancelled) return;
-      if (role) { setStatus("allowed"); return; }
-
-      // ¿Acceso vigente? has_access() mira el correo de la SESIÓN (no uno que mande el cliente) y
-      // respeta las suspensiones. Antes se usaba is_email_approved(correo), que dejaba a cualquiera
-      // preguntar si un correo ajeno es cliente.
+      // ¿Acceso vigente? Una sola llamada: has_access() ya deja pasar a los admin, mira el correo
+      // de la SESIÓN (no uno que mande el cliente) y respeta las suspensiones. Antes se consultaba
+      // primero el rol y después el acceso, uno tras otro, antes de pintar nada.
       const { data: approved } = await supabase.rpc("has_access");
       if (cancelled) return;
       if (approved === true) {

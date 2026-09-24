@@ -107,6 +107,8 @@ interface FacebookAdLibraryItem {
   total_count?: number | string;
 }
 
+const ADS_PAGE_SIZES = [12, 24, 48];
+
 interface FacebookAdsResponse {
   data?: FacebookAdLibraryItem[];
   billing?: { charged: number; balance: number | null; receipt: string | null };
@@ -264,12 +266,14 @@ export function WinningAdsPage() {
   useEffect(() => { localStorage.setItem(PRESETS_KEY, JSON.stringify(presets)); }, [presets]);
 
   // Paginación: el usuario elige 25/50/100/200 ads por página
+  // 24 por página de entrada (antes 50, con opción de 200): la primera vista carga rápido y cada
+  // quien pide más si quiere. Clave nueva para que nadie arrastre un 100/200 guardado.
   const [pageSize, setPageSize] = useState<number>(() => {
-    const saved = parseInt(localStorage.getItem("supernova:ads-page-size") ?? "50", 10);
-    return [25, 50, 100, 200].includes(saved) ? saved : 50;
+    const saved = parseInt(localStorage.getItem("supernova:ads-page-size-v2") ?? "24", 10);
+    return ADS_PAGE_SIZES.includes(saved) ? saved : 24;
   });
   const [page, setPage] = useState(1);
-  useEffect(() => { localStorage.setItem("supernova:ads-page-size", String(pageSize)); }, [pageSize]);
+  useEffect(() => { try { localStorage.setItem("supernova:ads-page-size-v2", String(pageSize)); } catch { /* sin almacenamiento */ } }, [pageSize]);
 
   // Total real filtrado en servidor (para "Mostrando X–Y de N")
   const [filteredTotal, setFilteredTotal] = useState(0);
@@ -570,13 +574,17 @@ export function WinningAdsPage() {
     }
   };
 
-  // Dispara al montar (si no hay ads) + cada 5 min
+  // Descubrimiento automático SOLO para admin. Cada llamada es una búsqueda en vivo que el
+  // servidor cobra (search_ads) y gasta la cuota de Meta y el tope de búsquedas del usuario: a un
+  // cliente le cobraba créditos sin pedirlo y le hacía esperar 4 llamadas al abrir el Radar.
+  // El catálogo de los clientes lo llena el cron (bulk-seed-ads / master-rotate).
   useEffect(() => {
+    if (!isAdmin) return;
     if (realAds.length === 0) runAutoDiscovery();
     const t = setInterval(runAutoDiscovery, 5 * 60_000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isAdmin]);
 
   const applyPreset = (p: FilterPreset) => {
     setSearchCountry(p.country); setSearchStatus(p.status); setSearchLimit(p.limit);
@@ -1233,7 +1241,7 @@ function VirtualizedAdGrid({
     count: rows.length,
     getScrollElement: () => scrollEl,
     estimateSize: () => estimateRowHeight,
-    overscan: 4,
+    overscan: 1, // 1 fila fuera de pantalla basta: cada tarjeta pide su creativo e imágenes
     gap: compact ? 12 : 16,
   });
 
@@ -1307,7 +1315,7 @@ function PaginationBar({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {[25, 50, 100, 200].map((n) => (
+            {ADS_PAGE_SIZES.map((n) => (
               <SelectItem key={n} value={String(n)} className="text-xs">{n}</SelectItem>
             ))}
           </SelectContent>

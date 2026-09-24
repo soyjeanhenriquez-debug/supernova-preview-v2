@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -106,70 +106,113 @@ function checkMilestones(prevBalance: number, nextBalance: number, limit: number
   localStorage.setItem(MILESTONES_KEY, JSON.stringify(Array.from(seen)));
 }
 
-export function useCredits() {
-  const [balance, setBalance] = useState<number>(DEFAULT_BALANCE);
-  const [renewalDate, setRenewalDate] = useState<Date>(() => new Date(Date.now() + 30 * 86400000));
-  const [history, setHistory] = useState<CreditHistoryEntry[]>(readHistory);
-  const userIdRef = useRef<string | null>(null);
+// ── Carga compartida ────────────────────────────────────────────────────
+// Varias pantallas usan el hook a la vez (barra superior, aviso de saldo, Inicio…). Antes cada
+// una pedía por su cuenta sesión + recarga mensual + saldo + 200 movimientos, dos veces al montar
+// y otra vez cada minuto. Ahora hay UNA carga para todas: se reutiliza 30 s, se refresca cada
+// 5 min solo con la pestaña visible, y la recarga mensual se revisa una vez por sesión.
+interface CreditsSnapshot { balance: number; renewalDate: Date; history: CreditHistoryEntry[] }
+let snapshot: CreditsSnapshot | null = null;
+let snapshotAt = 0;
+let inflight: Promise<void> | null = null;
+let monthlyCheckedFor: string | null = null;
+const listeners = new Set<(s: CreditsSnapshot) => void>();
+let poll: number | null = null;
+let authSub: { unsubscribe: () => void } | null = null;
 
-  const refreshFromDB = useCallback(async () => {
-    const { data: auth } = await supabase.auth.getUser();
-    const uid = auth.user?.id;
-    if (!uid) return;
-    userIdRef.current = uid;
+async function loadCredits(): Promise<void> {
+  const { data: sess } = await supabase.auth.getSession();
+  const uid = sess.session?.user?.id;
+  if (!uid) return;
 
-    // Otorgar mensual si toca (idempotente)
-    await supabase.rpc("grant_monthly_if_due").then(({ data }) => {
-      if ((data as { granted?: boolean } | null)?.granted) {
-        toast("✨ Créditos mensuales renovados", { description: `+${DEFAULT_BALANCE} créditos disponibles` });
+  // Otorgar mensual si toca (idempotente): una vez por sesión basta.
+  if (monthlyCheckedFor !== uid) {
+    monthlyCheckedFor = uid;
+    const { data } = await supabase.rpc("grant_monthly_if_due");
+    if ((data as { granted?: boolean } | null)?.granted) {
+      toast("✨ Créditos mensuales renovados", { description: `+${DEFAULT_BALANCE} créditos disponibles` });
+    }
+  }
+
+  // Saldo e historial en paralelo.
+  const [{ data: row }, { data: txs }] = await Promise.all([
+    supabase.from("user_credits").select("balance, last_grant_at").eq("user_id", uid).maybeSingle(),
+    supabase.from("credit_transactions").select("created_at, action, label, cost, meta")
+      .eq("user_id", uid).order("created_at", { ascending: false }).limit(200),
+  ]);
+
+  const next: CreditsSnapshot = snapshot
+    ? { ...snapshot }
+    : { balance: DEFAULT_BALANCE, renewalDate: new Date(Date.now() + 30 * 86400000), history: readHistory() };
+  if (row) {
+    next.balance = row.balance;
+    next.renewalDate = new Date(new Date(row.last_grant_at).getTime() + 30 * 86400000);
+  }
+  if (txs) {
+    next.history = txs.map(t => ({
+      date: t.created_at,
+      action: t.action as CreditAction,
+      label: t.label || ACTION_LABEL[t.action as CreditAction] || t.action,
+      cost: t.cost,
+      granted: (t.meta as { granted?: number } | null)?.granted,
+      meta: (t.meta as { note?: string } | null)?.note,
+    }));
+    try { localStorage.setItem(HIST_KEY, JSON.stringify(next.history)); } catch { /* sin almacenamiento */ }
+  }
+  snapshot = next;
+  snapshotAt = Date.now();
+  listeners.forEach((l) => l(next));
+}
+
+function refreshShared(force = false): Promise<void> {
+  if (inflight) return inflight;
+  if (!force && snapshot && Date.now() - snapshotAt < 30_000) return Promise.resolve();
+  inflight = loadCredits().finally(() => { inflight = null; });
+  return inflight;
+}
+
+function subscribe(l: (s: CreditsSnapshot) => void): () => void {
+  listeners.add(l);
+  if (listeners.size === 1) {
+    poll = window.setInterval(() => { if (document.visibilityState === "visible") void refreshShared(true); }, 5 * 60_000);
+    authSub = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+        if (event === "SIGNED_OUT") { snapshot = null; monthlyCheckedFor = null; }
+        void refreshShared(true);
       }
-    });
-
-    const { data: row } = await supabase
-      .from("user_credits")
-      .select("balance, last_grant_at")
-      .eq("user_id", uid)
-      .maybeSingle();
-
-    if (row) {
-      setBalance(row.balance);
-      const last = new Date(row.last_grant_at);
-      setRenewalDate(new Date(last.getTime() + 30 * 86400000));
+    }).data.subscription;
+  }
+  return () => {
+    listeners.delete(l);
+    if (listeners.size === 0) {
+      if (poll !== null) window.clearInterval(poll);
+      poll = null;
+      authSub?.unsubscribe();
+      authSub = null;
     }
+  };
+}
 
-    // Hidratar history desde credit_transactions (últimas 200)
-    const { data: txs } = await supabase
-      .from("credit_transactions")
-      .select("created_at, action, label, cost, meta")
-      .eq("user_id", uid)
-      .order("created_at", { ascending: false })
-      .limit(200);
+export function useCredits() {
+  const [balance, setBalance] = useState<number>(() => snapshot?.balance ?? DEFAULT_BALANCE);
+  const [renewalDate, setRenewalDate] = useState<Date>(() => snapshot?.renewalDate ?? new Date(Date.now() + 30 * 86400000));
+  const [history, setHistory] = useState<CreditHistoryEntry[]>(() => snapshot?.history ?? readHistory());
 
-    if (txs) {
-      const mapped: CreditHistoryEntry[] = txs.map(t => ({
-        date: t.created_at,
-        action: t.action as CreditAction,
-        label: t.label || ACTION_LABEL[t.action as CreditAction] || t.action,
-        cost: t.cost,
-        granted: (t.meta as { granted?: number } | null)?.granted,
-        meta: (t.meta as { note?: string } | null)?.note,
-      }));
-      setHistory(mapped);
-      localStorage.setItem(HIST_KEY, JSON.stringify(mapped));
-    }
-  }, []);
+  const refreshFromDB = useCallback(() => refreshShared(true), []);
 
   useEffect(() => {
-    refreshFromDB();
-    const { data: sub } = supabase.auth.onAuthStateChange(() => refreshFromDB());
-    const iv = window.setInterval(refreshFromDB, 60_000);
+    const unsub = subscribe((s) => { setBalance(s.balance); setRenewalDate(s.renewalDate); setHistory(s.history); });
+    void refreshShared();
     const onSync = (e: Event) => {
       const b = (e as CustomEvent<{ balance?: number }>).detail?.balance;
-      if (typeof b === "number") setBalance(b);
+      if (typeof b === "number") {
+        setBalance(b);
+        if (snapshot) snapshot = { ...snapshot, balance: b };
+      }
     };
     window.addEventListener(SYNC_EVENT, onSync);
-    return () => { sub.subscription.unsubscribe(); window.clearInterval(iv); window.removeEventListener(SYNC_EVENT, onSync); };
-  }, [refreshFromDB]);
+    return () => { unsub(); window.removeEventListener(SYNC_EVENT, onSync); };
+  }, []);
 
   /**
    * El servidor ya cobró (edge function): refleja el cargo en la interfaz.

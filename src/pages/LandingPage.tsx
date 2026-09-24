@@ -5,6 +5,9 @@ import { Insight } from "@/components/landing/Insight";
 import { MinerEngine, BuilderEngine } from "@/components/landing/Engines";
 import { VslSection } from "@/components/landing/VslSection";
 import { FinalCta } from "@/components/landing/FinalCta";
+import { loadEditorialFonts } from "@/lib/loadFonts";
+
+loadEditorialFonts();
 
 /**
  * Landing pública de SUPERNOVA — estética Dark Luxury.

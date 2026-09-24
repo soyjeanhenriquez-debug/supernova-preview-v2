@@ -13,13 +13,13 @@ import { useProductBuilds } from "@/hooks/useProductBuilds";
 import { supabase } from "@/integrations/supabase/client";
 import { SupportCard } from "@/components/SupportCard";
 import {
-  builderCall, exportMarkdown, isPieceDone, printBuild, COVER_COLORS, FORMAT_LABEL, KIND_LABEL, MAX_NOTES, MAX_PIECES, MAX_PIECE_CHARS,
-  TONE_LABEL, UPCOMING_MODELS,
+  builderCall, exportMarkdown, isGrouped, isPieceDone, kindLabel, printBuild, COVER_COLORS, FORMAT_LABEL, MAX_NOTES, MAX_PIECES,
+  MAX_PIECE_CHARS, TONE_LABEL, UPCOMING_MODELS,
   type Build, type BuildCover, type BuilderError, type BuildFormat, type BuildSize, type BuildTone, type BuilderModel, type CoverColor, type Piece,
 } from "@/lib/productBuilder";
 
 /**
- * Etapa 4 · "Crear producto": el ebook o mini curso del usuario, sin salir de SUPERNOVA.
+ * Etapa 4 · "Crear producto": el ebook, mini curso o reto de días del usuario, sin salir de SUPERNOVA.
  * 0 Empezar (formato, largo, tono) → 1 Revisa tu índice (gratis, editable) → 2 Escribe (cada pieza
  * se cobra aparte en el servidor; si la IA falla, se reembolsa sola) → 3 Descarga (portada, PDF,
  * copiar, .md: gratis). Todo queda ligado al producto activo (useProducts().activeId).
@@ -43,13 +43,13 @@ const hasText = (p: Piece) => !!(p.content ?? "").trim();
 /** Cuenta como hecha (≥200 caracteres, igual que el servidor). */
 const isDone = (p: Piece) => isPieceDone(p);
 
-/** "Capítulo 3", "Lección 2", "Bono 1": se numera por tipo, en el orden del índice. */
-function pieceLabels(list: Piece[]) {
+/** "Capítulo 3", "Lección 2", "Día 5", "Bono 1": se numera por tipo, en el orden del índice (igual que el servidor). */
+function pieceLabels(list: Piece[], format: BuildFormat) {
   const count: Record<string, number> = {};
   const out: Record<string, string> = {};
   for (const p of sortPieces(list)) {
     count[p.kind] = (count[p.kind] ?? 0) + 1;
-    out[p.id] = `${KIND_LABEL[p.kind]} ${count[p.kind]}`;
+    out[p.id] = `${kindLabel(format, p.kind)} ${count[p.kind]}`;
   }
   return out;
 }
@@ -178,7 +178,7 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
   const model: BuilderModel | null = visibleModels.find(m => m.slug === modelSlug) ?? visibleModels[0] ?? null;
 
   const sorted = useMemo(() => sortPieces(pieces), [pieces]);
-  const labels = useMemo(() => pieceLabels(pieces), [pieces]);
+  const labels = useMemo(() => pieceLabels(pieces, build?.format ?? "ebook"), [pieces, build?.format]);
   const doneCount = sorted.filter(isDone).length;
   const allDone = sorted.length > 0 && doneCount === sorted.length;
 
@@ -202,11 +202,11 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
   if (!loaded || !pb.loaded) return <div className="text-sm text-muted-foreground p-6">Cargando…</div>;
 
   const header = (
-    <PageHeader stage="Mi negocio · Etapa 4" title="Crea tu producto" line="Tu ebook o curso, escrito a partir de tu ficha."
+    <PageHeader stage="Mi negocio · Etapa 4" title="Crea tu producto" line="Tu ebook, curso o reto, escrito a partir de tu ficha."
       icon={<BookOpen className="w-5 h-5 text-primary shrink-0" />}
       details={[
         "El índice es gratis. Lo revisas y lo cambias como quieras.",
-        "Escribir se desbloquea con tu primera recarga de créditos. Cada capítulo o lección se cobra aparte; si la IA falla, no se te cobra.",
+        "Escribir se desbloquea con tu primera recarga de créditos. Cada capítulo, lección o día se cobra aparte; si la IA falla, no se te cobra.",
         "Editar, reordenar, la portada y guardar en PDF son gratis.",
       ]}
       right={active ? (
@@ -278,9 +278,10 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
   const addPart = async () => {
     if (!build || sorted.length >= MAX_PIECES) return;
     const main = sorted.filter(p => p.kind !== "bono");
-    const lastModule = build.format === "curso" ? (main[main.length - 1]?.module ?? "Módulo nuevo") : null;
+    const grouped = isGrouped(build.format);
+    const lastModule = grouped ? (main[main.length - 1]?.module ?? (build.format === "reto" ? "Semana nueva" : "Módulo nuevo")) : null;
     const row = await pb.addPiece(build.id, {
-      kind: build.format === "curso" ? "leccion" : "capitulo", module: lastModule,
+      kind: grouped ? "leccion" : "capitulo", module: lastModule,
       title: "Nueva parte", brief: "", idx: (sorted[sorted.length - 1]?.idx ?? -1) + 1,
     });
     if (!row) { toast.error("No se pudo agregar. Intenta de nuevo."); return; }
@@ -307,7 +308,7 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
     });
     setWritingId(w => (w === p.id ? null : w)); // si ya se abrió otro libro, no toca su estado
     if (r.ok) {
-      applyServerCharge(model.piece_action as CreditAction, r.billing, `${labels[p.id] ?? KIND_LABEL[p.kind]} · ${p.title}`);
+      applyServerCharge(model.piece_action as CreditAction, r.billing, `${labels[p.id] ?? kindLabel(build.format, p.kind)} · ${p.title}`);
       const bal = r.billing.balance ?? r.data.balance;
       if (typeof bal === "number") balanceRef.current = bal;
       setPieces(prev => prev.map(x => (x.id === p.id ? { ...x, ...r.data.piece } : x)));
@@ -366,7 +367,7 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
         {showList ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-foreground">Tus ebooks y cursos</p>
+              <p className="text-sm font-semibold text-foreground">Tus ebooks, cursos y retos</p>
               <button onClick={() => setCreatingNew(true)} className={ghostBtn}><Plus className="w-3.5 h-3.5" /> Nuevo</button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -399,10 +400,15 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
                 <button onClick={() => setCreatingNew(false)} className="text-xs text-muted-foreground hover:text-foreground">Cancelar</button>
               )}
             </div>
-            <Seg<BuildFormat> label="Formato" value={format} onChange={setFormat}
-              options={[{ id: "ebook", label: "Ebook o guía" }, { id: "curso", label: "Mini curso" }]} />
+            <div className="space-y-1.5">
+              <Seg<BuildFormat> label="Formato" value={format} onChange={setFormat}
+                options={[{ id: "ebook", label: "Ebook o guía" }, { id: "curso", label: "Mini curso" }, { id: "reto", label: "Reto de días" }]} />
+              {format === "reto" && <p className="text-xs text-muted-foreground">Reto · 14 o 28 días, 15 min al día.</p>}
+            </div>
             <Seg<BuildSize> label="Largo" value={size} onChange={setSize}
-              options={[{ id: "corto", label: "Corto" }, { id: "normal", label: "Normal" }]} />
+              options={format === "reto"
+                ? [{ id: "corto", label: "14 días" }, { id: "normal", label: "28 días" }]
+                : [{ id: "corto", label: "Corto" }, { id: "normal", label: "Normal" }]} />
             <div className="space-y-1.5">
               <Seg<BuildTone> label="Tono" value={tone} onChange={setTone}
                 options={[
@@ -434,7 +440,7 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
   const top = (
     <div className="flex items-center justify-between gap-3">
       <button onClick={backToList} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="w-3.5 h-3.5" /> Tus ebooks y cursos
+        <ArrowLeft className="w-3.5 h-3.5" /> Tus ebooks, cursos y retos
       </button>
       <span className="text-xs text-muted-foreground tabular-nums">{FORMAT_LABEL[build.format]} · {doneCount} de {sorted.length} listos</span>
     </div>
@@ -444,7 +450,7 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
   if (step === "outline") {
     const groups: { module: string | null; items: Piece[] }[] = [];
     for (const p of sorted) {
-      const key = build.format === "curso" && p.kind !== "bono" ? p.module : null;
+      const key = isGrouped(build.format) && p.kind !== "bono" ? p.module : null;
       const last = groups[groups.length - 1];
       if (last && last.module === key) last.items.push(p);
       else groups.push({ module: key, items: [p] });
@@ -466,7 +472,7 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
             {groups.map((g, gi) => (
               <div key={`${g.module ?? "sin"}-${gi}`} className="space-y-2">
                 {g.module !== null && (
-                  <input value={g.module} aria-label="Nombre del módulo"
+                  <input value={g.module} aria-label={build.format === "reto" ? "Nombre de la semana" : "Nombre del módulo"}
                     onChange={e => g.items.forEach(p => editPiece(p.id, { module: e.target.value }))}
                     className="w-full bg-transparent text-xs uppercase tracking-wider text-primary font-semibold focus:outline-none border-b border-transparent focus:border-primary/40 py-1" />
                 )}
@@ -591,7 +597,7 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
             <p className="text-sm font-semibold text-foreground flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /> Tu índice está listo. Desbloquea la escritura.</p>
             <p className="text-xs text-muted-foreground">
               Se activa para siempre con tu primera recarga (desde US$10) o con un aporte de abajo: cualquiera de los dos sirve.
-              Esos créditos te sirven para escribirlo: un ebook completo con la IA Estándar usa unos {totalCost || 135} créditos.
+              Esos créditos te sirven para escribirlo: {build.format === "reto" ? "tu reto" : build.format === "curso" ? "tu curso" : "tu ebook"} completo con la IA Estándar usa unos {totalCost || 135} créditos.
             </p>
             <button onClick={() => onNavigate?.("Créditos")} className={primaryBtn}>Ver recargas <ArrowRight className="w-4 h-4" /></button>
           </div>
@@ -643,7 +649,7 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
           onChange={patch => { setBuild({ ...build, ...patch }); void pb.updateBuild(build.id, patch); }}
           beforeExport={pb.flushAll}
           onNext={() => {
-            try { localStorage.setItem("supernova_generator_prefill", JSON.stringify({ generator: "landing-copy", text: `Página de venta de mi ${build.format === "curso" ? "curso" : "ebook"} «${build.title}»` })); } catch { /* sin almacenamiento */ }
+            try { localStorage.setItem("supernova_generator_prefill", JSON.stringify({ generator: "landing-copy", text: `Página de venta de mi ${build.format === "curso" ? "curso" : build.format === "reto" ? "reto" : "ebook"} «${build.title}»` })); } catch { /* sin almacenamiento */ }
             void pb.flushAll().then(() => onNavigate?.("Generadores"));
           }} />
       )}
@@ -651,7 +657,7 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
   );
 }
 
-// ---------- Pieza (capítulo, lección o bono) ----------
+// ---------- Pieza (capítulo, lección, día o bono) ----------
 function PieceCard({ piece, label, cost, writing, failed, disabled, locked, onUnlock, saving, savedAt, onWrite, onEdit }: {
   piece: Piece; label: string; cost: number; writing: boolean; failed: boolean; disabled: boolean;
   /** Escritura sin activar (falta la primera recarga): el botón lleva a Créditos. */

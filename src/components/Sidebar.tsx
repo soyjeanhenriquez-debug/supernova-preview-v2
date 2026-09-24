@@ -47,7 +47,7 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
       { icon: Calculator, key: "Precio", label: "Precio y ganancia", hint: "Cuánto te queda de cada venta y cuánto puedes pagar en anuncios sin perder." },
     ] },
     { title: "4 · Construir", items: [
-      { icon: BookOpen, key: "Crear producto", label: "Crear producto", hint: "Ebook o curso" },
+      { icon: BookOpen, key: "Crear producto", label: "Crear producto", hint: "Ebook, curso o reto" },
       { icon: ListTodo, key: "Plan", label: "Plan de lanzamiento", hint: "Tus tareas con fecha para construir y lanzar tu producto en unos 14 días." },
       { icon: FolderKanban, key: "Proyectos", label: t("nav.projects"), hint: t("nav.hint.projects") },
     ].filter(item => canSee(item.key)) }, // "Crear producto" está en piloto (solo admin)

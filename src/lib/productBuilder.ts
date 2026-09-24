@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { fnErrorMessage, fnHeaders, readBilling, type ServerBilling } from "@/lib/fnAuth";
 
 /**
- * Fase 1 · "Crear producto" (etapa 4 · Construir): el ebook o mini curso del usuario, escrito a
+ * Fase 1 · "Crear producto" (etapa 4 · Construir): el ebook, mini curso o reto de días del usuario, escrito a
  * partir de la ficha del producto activo. El índice es gratis; cada capítulo o lección se cobra
  * aparte EN EL SERVIDOR (edge function product-builder) y se reembolsa sola si la IA falla.
  * Tablas: product_builds (un libro/curso) y product_build_pieces (una fila por pieza).
@@ -13,7 +13,7 @@ import { fnErrorMessage, fnHeaders, readBilling, type ServerBilling } from "@/li
  * El cliente NUNCA manda precio ni model_id: manda el slug y el servidor decide.
  */
 
-export type BuildFormat = "ebook" | "curso";
+export type BuildFormat = "ebook" | "curso" | "reto";
 export type BuildSize = "corto" | "normal";
 export type BuildTone = "limpio" | "cercano" | "groserias";
 export type PieceKind = "capitulo" | "leccion" | "bono";
@@ -81,15 +81,21 @@ export const UPCOMING_MODELS: { slug: string; label: string; tier: ModelTier }[]
   { slug: "fable", label: "Máximo · Fable 5.1", tier: "maximo" },
 ];
 
-export const MAX_PIECES = 20;
+/** Tope de partes por libro (reto de 28 días = 29). Igual que el servidor y el trigger pb_piece_guard. */
+export const MAX_PIECES = 30;
 export const MAX_NOTES = 500;
 export const MAX_PIECE_CHARS = 40000;
 /** Una parte cuenta como "hecha" con ≥200 caracteres (mismo criterio que el trigger pb_refresh_counts). */
 export const DONE_MIN_CHARS = 200;
 export const isPieceDone = (p: Pick<Piece, "content">) => (p.content ?? "").trim().length >= DONE_MIN_CHARS;
 
-export const FORMAT_LABEL: Record<BuildFormat, string> = { ebook: "Ebook", curso: "Mini curso" };
+export const FORMAT_LABEL: Record<BuildFormat, string> = { ebook: "Ebook", curso: "Mini curso", reto: "Reto" };
 export const KIND_LABEL: Record<PieceKind, string> = { capitulo: "Capítulo", leccion: "Lección", bono: "Bono" };
+/** "Día" en un reto, "Lección"/"Capítulo"/"Bono" en lo demás (igual que el servidor). */
+export const kindLabel = (format: BuildFormat, kind: PieceKind) =>
+  format === "reto" && kind === "leccion" ? "Día" : KIND_LABEL[kind];
+/** Formatos agrupados por módulo (curso) o por semana (reto). */
+export const isGrouped = (format: BuildFormat) => format === "curso" || format === "reto";
 export const TONE_LABEL: Record<BuildTone, string> = { limpio: "Limpio", cercano: "Cercano", groserias: "Con groserías" };
 
 export type BuilderErrorCode =
@@ -108,7 +114,7 @@ export const BUILDER_ERRORS: Record<BuilderErrorCode, string> = {
   not_found: "No encontramos esta parte. Recarga la página.",
   no_product: "No encontramos tu producto. Abre uno en Mis productos.",
   busy: "Esta parte ya se está escribiendo.",
-  too_many_builds: "Tienes 30 ebooks o cursos. Borra alguno para crear otro.",
+  too_many_builds: "Tienes 30 ebooks, cursos o retos. Borra alguno para crear otro.",
   tone_not_allowed: "Esta IA no escribe con groserías. Cambia el tono o elige otra.",
   ai_refusal: "La IA no quiso escribir esta parte. No se te cobró. Cambia el título o el tono.",
   rate_limited: "Vas muy rápido. Espera un poco e intenta de nuevo.",
@@ -167,10 +173,19 @@ export async function builderCall(body: OutlineBody | PieceBody): Promise<Builde
 
 // ---------- Exportar (gratis, todo en el navegador) ----------
 
+/** "Día N" de cada lección de un reto (numeradas en el orden del índice, como en la pantalla). */
+function dayLabels(build: Pick<Build, "format">, sorted: Piece[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (build.format !== "reto") return out;
+  let n = 0;
+  for (const p of sorted) if (p.kind === "leccion") out[p.id] = `Día ${++n}`;
+  return out;
+}
+
 /** Contenido de una pieza con su título arriba (las lecciones pueden venir sin "## …"). */
-function pieceMarkdown(p: Piece) {
+function pieceMarkdown(p: Piece, dayLabel?: string) {
   const body = (p.content ?? "").trim();
-  const head = `## ${p.kind === "bono" ? "Bono · " : ""}${p.title}`;
+  const head = `## ${p.kind === "bono" ? "Bono · " : dayLabel ? `${dayLabel}: ` : ""}${p.title}`;
   if (!body) return `${head}\n\n_${p.brief ?? "Pendiente"}_`;
   return /^#{1,3}\s/.test(body) ? body : `${head}\n\n${body}`;
 }
@@ -180,13 +195,15 @@ export function exportMarkdown(build: Pick<Build, "title" | "subtitle" | "format
   if (build.subtitle) out.push(`_${build.subtitle}_`);
   if (author?.trim()) out.push(`Por ${author.trim()}`);
   let lastModule: string | null = null;
-  // Solo lo ya escrito (igual que el PDF).
-  for (const p of [...pieces].sort((a, b) => a.idx - b.idx).filter(x => (x.content ?? "").trim())) {
-    if (build.format === "curso" && p.module && p.module !== lastModule) {
+  const all = [...pieces].sort((a, b) => a.idx - b.idx);
+  const days = dayLabels(build, all);
+  // Solo lo ya escrito (igual que el PDF). Curso: "# Módulo"; reto: "# Semana N: …".
+  for (const p of all.filter(x => (x.content ?? "").trim())) {
+    if (isGrouped(build.format) && p.kind !== "bono" && p.module && p.module !== lastModule) {
       out.push(`# ${p.module}`);
       lastModule = p.module;
     }
-    out.push(pieceMarkdown(p));
+    out.push(pieceMarkdown(p, days[p.id]));
   }
   return out.join("\n\n") + "\n";
 }
@@ -235,7 +252,9 @@ export function printBuild(build: Pick<Build, "title" | "subtitle" | "format">, 
   document.body.appendChild(host);
 
   const h = createElement;
-  const sorted = [...pieces].sort((a, b) => a.idx - b.idx).filter(p => (p.content ?? "").trim());
+  const all = [...pieces].sort((a, b) => a.idx - b.idx);
+  const days = dayLabels(build, all);
+  const sorted = all.filter(p => (p.content ?? "").trim());
   const nodes: ReturnType<typeof h>[] = [
     h("section", { key: "cover", className: "pb-cover", style: { background: colors.bg, color: colors.fg } },
       h("div", { className: "pb-bar", style: { background: colors.accent } }),
@@ -246,11 +265,11 @@ export function printBuild(build: Pick<Build, "title" | "subtitle" | "format">, 
   ];
   let lastModule: string | null = null;
   for (const p of sorted) {
-    if (build.format === "curso" && p.module && p.module !== lastModule) {
+    if (isGrouped(build.format) && p.kind !== "bono" && p.module && p.module !== lastModule) {
       nodes.push(h("h1", { key: `m-${p.id}`, className: "pb-module" }, p.module));
       lastModule = p.module;
     }
-    nodes.push(h("article", { key: p.id, className: "pb-piece" }, h(ReactMarkdown, null, pieceMarkdown(p))));
+    nodes.push(h("article", { key: p.id, className: "pb-piece" }, h(ReactMarkdown, null, pieceMarkdown(p, days[p.id]))));
   }
 
   const root = createRoot(host);

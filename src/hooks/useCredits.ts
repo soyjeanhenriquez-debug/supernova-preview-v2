@@ -13,7 +13,7 @@ export type CreditAction =
   | "search_ads" | "analyze_url" | "landing_intelligence" | "sofisticar"
   | "blueprint" | "adaptar" | "pain_discovery" | "chat_message" | "ai_intel"
   | "gen_landing" | "gen_ad_copies" | "gen_avatar" | "gen_funnel"
-  | "gen_master_prompt" | "pillar_assist" | "gen_light" | "gen_medium" | "gen_heavy"
+  | "gen_master_prompt" | "pillar_assist" | "gen_light" | "gen_medium" | "gen_heavy" | "gen_media"
   | "gen_ad_image" | "follow_offer" | "unlock_kit"
   | "build_piece_std" | "build_piece_sonnet" | "build_piece_opus" | "build_piece_fable" | "build_piece_gpt" | "build_piece_astra"
   | "business_map";
@@ -29,7 +29,7 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   search_ads: 5, analyze_url: 5, chat_message: 2, adaptar: 5, ai_intel: 5,
   pillar_assist: 10, sofisticar: 15, gen_ad_copies: 15, gen_avatar: 15,
   pain_discovery: 15, blueprint: 25, gen_landing: 40, landing_intelligence: 50,
-  gen_funnel: 50, gen_master_prompt: 50, gen_light: 15, gen_medium: 30, gen_heavy: 75,
+  gen_funnel: 50, gen_master_prompt: 50, gen_light: 15, gen_medium: 30, gen_heavy: 75, gen_media: 0, // gen_media: el precio sale del catálogo (media_models)
   gen_ad_image: 25,
   follow_offer: 5, // se cobra server-side en la RPC follow_offer (Cazador de ROI)
   unlock_kit: 150, // se cobra server-side en la RPC unlock_kit (Mini Apps Rentables)
@@ -47,7 +47,7 @@ export const ACTION_LABEL: Record<CreditAction, string> = {
   ai_intel: "Análisis de un anuncio con IA", gen_landing: "Escribir una página de venta",
   gen_ad_copies: "10 textos para tu anuncio", gen_avatar: "Retrato de tu cliente ideal",
   gen_funnel: "Camino de venta completo (video de venta + correos)", gen_master_prompt: "Instrucciones para crear tu propia versión",
-  pillar_assist: "Ayuda de la IA en un pilar", gen_light: "Texto corto con IA (ganchos, publicaciones, mensajes)",
+  pillar_assist: "Ayuda de la IA en un pilar", gen_light: "Texto corto con IA (ganchos, publicaciones, mensajes)", gen_media: "Video o imagen con IA",
   gen_medium: "Texto medio con IA (correos, guiones, páginas)", gen_heavy: "Texto largo con IA (guion de video de venta)",
   gen_ad_image: "Imagen para tu anuncio con IA",
   follow_offer: "Seguir una oferta",
@@ -75,7 +75,7 @@ export const ACTION_HOURS: Record<CreditAction, number> = {
   search_ads: 0.5, analyze_url: 0.5, ai_intel: 1, chat_message: 0.25, adaptar: 1,
   pillar_assist: 1, sofisticar: 2, gen_ad_copies: 2, gen_avatar: 2, pain_discovery: 2,
   blueprint: 4, gen_landing: 4, landing_intelligence: 4, gen_funnel: 8,
-  gen_master_prompt: 6, gen_light: 1, gen_medium: 3, gen_heavy: 6, gen_ad_image: 1,
+  gen_master_prompt: 6, gen_light: 1, gen_medium: 3, gen_heavy: 6, gen_ad_image: 1, gen_media: 2,
   follow_offer: 0.5, unlock_kit: 12,
   build_piece_std: 3, build_piece_sonnet: 3, build_piece_opus: 3, build_piece_fable: 3, build_piece_gpt: 3, build_piece_astra: 3,
   business_map: 3,

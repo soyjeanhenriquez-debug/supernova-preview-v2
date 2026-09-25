@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ArrowRight, Check, Copy, Film, ImageIcon, Loader2, Lock, RefreshCw, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowRight, Check, Copy, Crown, Download, Film, ImageIcon, Loader2, Lock, RefreshCw, ShieldCheck, Sparkles, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,6 +8,10 @@ import { useCredits, generatorCost, CREDIT_COSTS } from "@/hooks/useCredits";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import { track } from "@/lib/analytics";
 import { AFFILIATE_NOTE, HIGGSFIELD_URL } from "@/lib/partners";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { ModelPicker } from "@/components/media/ModelPicker";
+import { accessOf, hasComunidad, loadMediaModels, type MediaModel } from "@/lib/media";
+import { PLANS, checkoutUrl, formatUsd } from "@/lib/plans";
 import { COUNTRIES, type CountryCode } from "@/lib/gemelo";
 import {
   cleanGuion, cleanPersonaje, parseArray, promptFoto, promptGuiones, promptIdeas,
@@ -24,6 +28,8 @@ const PRESALE_URL = import.meta.env.VITE_VIDEO_PRESALE_URL as string | undefined
 const PRESALE_DEADLINE = import.meta.env.VITE_VIDEO_PRESALE_DEADLINE as string | undefined; // "30 de noviembre de 2026"
 
 type Step = 1 | 2 | 3;
+type Job = { id: string; status: "queued" | "running" | "done" | "failed"; prompt: string; result_url: string | null; model: string; created_at: string };
+const DEFAULT_VIDEO_PROMPT = "La persona de la foto mira a cámara y habla con naturalidad, con gestos suaves de las manos. Luz natural, cámara estable, estilo video vertical para redes sociales.";
 
 async function streamGenerator(generatorId: string, title: string, system: string, user: string): Promise<{ text: string; resp: Response }> {
   const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
@@ -71,6 +77,50 @@ export function PersonajePage({ onNavigate }: { onNavigate: (page: string) => vo
   const [country, setCountry] = useState<CountryCode>(profile.journey?.gemelo?.country ?? "RD");
   const [busy, setBusy] = useState<"" | "ideas" | "foto" | "guiones">("");
   const [fotoUrl, setFotoUrl] = useState<string | null>(null);
+  // Catálogo de modelos (fal.ai): qué se ve y a qué precio. El servidor decide lo que se puede usar.
+  const { isAdmin } = useIsAdmin();
+  const [models, setModels] = useState<MediaModel[]>([]);
+  const [comunidad, setComunidad] = useState(false);
+  const [imgModel, setImgModel] = useState<string | null>(null);
+  const [vidModel, setVidModel] = useState<string | null>(null);
+  const [upsell, setUpsell] = useState<MediaModel | null>(null);
+  const [vPrompt, setVPrompt] = useState(DEFAULT_VIDEO_PROMPT);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [videoBusy, setVideoBusy] = useState(false);
+
+  useEffect(() => { loadMediaModels().then(setModels); }, []);
+  useEffect(() => { if (user) hasComunidad(user.id, user.email).then(setComunidad); }, [user]);
+  const opts = useMemo(() => ({ isAdmin: !!isAdmin, comunidad }), [isAdmin, comunidad]);
+  const usable = useCallback((kind: MediaModel["kind"]) => models.filter(m => m.kind === kind && accessOf(m, opts) === "ok"), [models, opts]);
+  // Modelo por defecto: el recomendado que se pueda usar, o el primero.
+  useEffect(() => {
+    const im = usable("image"); if (!imgModel && im.length) setImgModel((im.find(m => m.recommended) ?? im[0]).id);
+    const vm = usable("video"); if (!vidModel && vm.length) setVidModel((vm.find(m => m.recommended) ?? vm[0]).id);
+  }, [usable, imgModel, vidModel]);
+  const imgM = models.find(m => m.id === imgModel && accessOf(m, opts) === "ok") ?? null;
+  const vidM = models.find(m => m.id === vidModel && accessOf(m, opts) === "ok") ?? null;
+  const videosOpen = usable("video").length > 0;
+
+  const loadJobs = useCallback(async () => {
+    if (!user) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (supabase as any).from("video_jobs").select("id,status,prompt,result_url,model,created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(6);
+    setJobs((data ?? []) as Job[]);
+  }, [user]);
+  useEffect(() => { if (step === 3 && videosOpen) void loadJobs(); }, [step, videosOpen, loadJobs]);
+  // Mientras haya videos en proceso, se pregunta cada 7 s (el servidor consulta a fal y reembolsa si falla).
+  useEffect(() => {
+    const pending = jobs.filter(j => j.status === "running" || j.status === "queued");
+    if (!pending.length) return;
+    const t = setTimeout(async () => {
+      for (const j of pending) {
+        const { data } = await supabase.functions.invoke("video-generate", { body: { action: "status", job_id: j.id } });
+        if (data?.error && data?.job?.status === "failed") toast.error(data.error);
+      }
+      void loadJobs();
+    }, 7000);
+    return () => clearTimeout(t);
+  }, [jobs, loadJobs]);
 
   const save = (patch: Partial<PersonajeState>) =>
     savePatch({ journey: { ...(profile.journey ?? {}), personaje: { ...state, ...patch, actualizado: new Date().toISOString() } } });
@@ -120,6 +170,7 @@ export function PersonajePage({ onNavigate }: { onNavigate: (page: string) => vo
   const crearFoto = async () => {
     const pj = state.elegido;
     if (!pj || !user || !productId) return;
+    if (imgM) { await crearFotoFal(pj); return; }
     if (!canAfford("gen_ad_image")) { toast.error(`Te faltan créditos: la foto cuesta ${CREDIT_COSTS.gen_ad_image}.`); return; }
     setBusy("foto");
     try {
@@ -135,6 +186,43 @@ export function PersonajePage({ onNavigate }: { onNavigate: (page: string) => vo
       track("personaje_foto");
     } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo crear la foto."); }
     finally { setBusy(""); }
+  };
+
+  const crearFotoFal = async (pj: Personaje) => {
+    if (!imgM || !productId) return;
+    setBusy("foto");
+    try {
+      const { data, error } = await supabase.functions.invoke("image-generate", { body: { model_id: imgM.id, prompt: promptFoto(pj), product_id: productId } });
+      if (error || !data?.path) {
+        const body = await (error as { context?: Response } | null)?.context?.json?.().catch(() => null);
+        if (body?.code === "comunidad_required") { setUpsell(imgM); return; }
+        throw new Error(body?.error || data?.error || "No se pudo crear la foto. No se te cobró.");
+      }
+      if (data.billing) applyServerCharge("gen_media", data.billing, `Foto de ${pj.nombre} · ${imgM.label}`);
+      if (state.foto) void supabase.storage.from("personajes").remove([state.foto]);
+      await save({ foto: data.path });
+      track("personaje_foto", { modelo: imgM.id });
+    } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo crear la foto."); }
+    finally { setBusy(""); }
+  };
+
+  const crearVideo = async () => {
+    if (!vidM || !state.foto) return;
+    if (!vPrompt.trim()) { toast.error("Escribe qué pasa en el video."); return; }
+    setVideoBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("video-generate", { body: { model_id: vidM.id, prompt: vPrompt.trim(), image_path: state.foto, product_id: productId } });
+      if (error || !data?.job) {
+        const body = await (error as { context?: Response } | null)?.context?.json?.().catch(() => null);
+        if (body?.code === "comunidad_required") { setUpsell(vidM); return; }
+        throw new Error(body?.error || data?.error || "No se pudo crear el video. No se te cobró.");
+      }
+      if (data.billing) applyServerCharge("gen_media", data.billing, `Video · ${vidM.label}`);
+      track("video_generado", { modelo: vidM.id });
+      toast.success("Tu video se está creando. Tarda de 1 a 5 minutos: puedes seguir usando la app.");
+      await loadJobs();
+    } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo crear el video."); }
+    finally { setVideoBusy(false); }
   };
 
   const crearGuiones = async () => {
@@ -195,8 +283,13 @@ export function PersonajePage({ onNavigate }: { onNavigate: (page: string) => vo
                 </div>
                 <button onClick={crearFoto} disabled={busy !== ""} className="w-full h-11 border-t border-border text-[13px] font-semibold text-foreground hover:bg-secondary/40 inline-flex items-center justify-center gap-2 disabled:opacity-50">
                   {busy === "foto" ? <Loader2 className="w-4 h-4 animate-spin" /> : state.foto ? <RefreshCw className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
-                  {state.foto ? "Otra foto" : "Crear su foto"} <span className="opacity-60 font-medium">· {CREDIT_COSTS.gen_ad_image} ⚡</span>
+                  {state.foto ? "Otra foto" : "Crear su foto"} <span className="opacity-60 font-medium">· {imgM?.cost ?? CREDIT_COSTS.gen_ad_image} ⚡</span>
                 </button>
+                {usable("image").length > 0 && (
+                  <div className="border-t border-border p-2">
+                    <ModelPicker models={models} kinds={["image"]} value={imgModel} onChange={setImgModel} isAdmin={!!isAdmin} comunidad={comunidad} onUpsell={setUpsell} />
+                  </div>
+                )}
               </div>
               <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
                 <div className="flex items-start justify-between gap-3">
@@ -299,7 +392,72 @@ export function PersonajePage({ onNavigate }: { onNavigate: (page: string) => vo
         </section>
       )}
 
-      {step === 3 && (
+      {step === 3 && videosOpen && pj && (
+        <section key="s3v" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          {!state.foto ? (
+            <div className="rounded-2xl border border-border bg-card p-6 text-center space-y-3">
+              <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground" />
+              <p className="text-foreground font-semibold">Primero crea la foto de {pj.nombre}</p>
+              <p className="text-sm text-muted-foreground">El video sale de esa foto: así tu personaje se ve igual en todos tus videos.</p>
+              <button onClick={() => setStep(1)} className="h-11 px-5 rounded-full btn-primary-nova text-[14px] inline-flex items-center gap-2">Crear su foto <ArrowRight className="w-4 h-4" /></button>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-[180px_minmax(0,1fr)] gap-4">
+              <div className="rounded-2xl border border-border bg-card overflow-hidden aspect-[9/16]">
+                {fotoUrl ? <img src={fotoUrl} alt={`Foto de ${pj.nombre}`} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-secondary/40" />}
+              </div>
+              <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+                <p className="font-display text-lg font-semibold text-foreground">Crea un video de {pj.nombre}</p>
+                <label className="block">
+                  <span className="text-[12px] text-muted-foreground">Qué pasa en el video (movimiento, gestos, lugar)</span>
+                  <textarea value={vPrompt} onChange={e => setVPrompt(e.target.value)} rows={3} maxLength={1800}
+                    className="mt-1 w-full rounded-xl bg-background border border-border px-3.5 py-2.5 text-[14px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+                </label>
+                {!!state.guiones?.length && (
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-[12px] text-muted-foreground self-center">Usar escena de un guion:</span>
+                    {state.guiones.slice(0, 5).map((g, i) => (
+                      <button key={i} onClick={() => setVPrompt(`${DEFAULT_VIDEO_PROMPT} Tema del video: ${g.pantalla || g.titulo}.`)}
+                        className="text-[12px] rounded-full border border-border px-2.5 py-1 text-foreground/80 hover:border-primary hover:text-primary">{i + 1}. {g.titulo.slice(0, 28)}</button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <ModelPicker models={models} kinds={["video", "avatar"]} value={vidModel} onChange={setVidModel} isAdmin={!!isAdmin} comunidad={comunidad} onUpsell={setUpsell} />
+                  <button onClick={crearVideo} disabled={videoBusy || !vidM} className="h-11 px-5 rounded-full btn-primary-nova text-[14px] inline-flex items-center gap-2">
+                    {videoBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Film className="w-4 h-4" />} Generar video {vidM?.cost != null && <span className="opacity-70 font-medium">· {vidM.cost} ⚡</span>}
+                  </button>
+                </div>
+                <p className="text-[12px] text-muted-foreground flex gap-2"><ShieldCheck className="w-4 h-4 shrink-0 text-success" /> Si el video falla, te devolvemos los créditos solos. Recuerda marcarlo como contenido hecho con IA al publicarlo.</p>
+              </div>
+            </div>
+          )}
+          {!!jobs.length && (
+            <div className="space-y-2">
+              <p className="text-[12px] tracking-widest font-semibold text-muted-foreground">TUS VIDEOS</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {jobs.map(j => (
+                  <div key={j.id} className="rounded-2xl border border-border bg-card overflow-hidden">
+                    <div className="aspect-[9/16] bg-secondary/40 grid place-items-center">
+                      {j.status === "done" && j.result_url
+                        ? <video src={j.result_url} controls playsInline className="w-full h-full object-cover" />
+                        : j.status === "failed"
+                          ? <p className="text-[12px] text-muted-foreground px-3 text-center">No se pudo crear. Te devolvimos los créditos.</p>
+                          : <div className="text-center space-y-2"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /><p className="text-[12px] text-muted-foreground">Creando… 1 a 5 min</p></div>}
+                    </div>
+                    {j.status === "done" && j.result_url && (
+                      <a href={j.result_url} target="_blank" rel="noopener noreferrer" download className="h-10 border-t border-border text-[13px] font-semibold text-foreground inline-flex w-full items-center justify-center gap-2 hover:bg-secondary/40"><Download className="w-4 h-4" /> Descargar</a>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground">Descarga tus videos: el enlace del proveedor puede vencer con el tiempo.</p>
+            </div>
+          )}
+        </section>
+      )}
+
+      {step === 3 && !videosOpen && (
         <section key="s3" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
           <div className="rounded-2xl border border-primary/30 bg-primary/[0.06] p-6 space-y-4">
             <div className="flex items-center gap-3">
@@ -330,6 +488,29 @@ export function PersonajePage({ onNavigate }: { onNavigate: (page: string) => vo
             <p className="text-[11px] text-muted-foreground">{AFFILIATE_NOTE}</p>
           </div>
         </section>
+      )}
+      {upsell && (
+        <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setUpsell(null)}>
+          <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="upsell-title"
+            className="w-full max-w-md rounded-2xl border border-primary/30 bg-card p-6 space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between">
+              <span className="w-11 h-11 rounded-xl bg-primary/15 text-primary grid place-items-center"><Crown className="w-5 h-5" /></span>
+              <button onClick={() => setUpsell(null)} aria-label="Cerrar" className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+            </div>
+            <div>
+              <h2 id="upsell-title" className="font-display text-xl font-semibold text-foreground">{upsell.label} es de la Comunidad</h2>
+              <p className="text-sm text-muted-foreground mt-1">Los modelos más avanzados de video e imagen vienen con la {PLANS.comunidad.name}: todo lo de PRO, la comunidad privada y llamadas en vivo.</p>
+            </div>
+            <ul className="space-y-1.5 text-[14px] text-foreground/90">
+              {["Kling 3.0, Veo de Google, Wan 2.6 y más", "Comunidad en Skool con apoyo diario", "Llamadas en vivo para revisar tu avance"].map(t => (
+                <li key={t} className="flex gap-2"><Check className="w-4 h-4 text-success shrink-0 mt-0.5" />{t}</li>
+              ))}
+            </ul>
+            <a href={checkoutUrl("comunidad", user?.email ?? undefined)} target="_blank" rel="noopener noreferrer" onClick={() => track("comunidad_upsell_click", { modelo: upsell.id })}
+              className="w-full h-12 rounded-full btn-primary-nova text-[15px] inline-flex items-center justify-center gap-2">Unirme a la Comunidad · {formatUsd(PLANS.comunidad.price)}/mes <ArrowRight className="w-4 h-4" /></a>
+            <p className="text-[11px] text-muted-foreground text-center">Usa el mismo correo de tu cuenta: tu acceso se activa solo. Los créditos se siguen usando igual.</p>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { track } from "@/lib/analytics";
 import { supabase } from "@/integrations/supabase/client";
 import type { BusinessProfile, BusinessType } from "@/lib/businessProfile";
 import { copyLabel, NICHE_LABEL, OFFER_TYPE_LABEL, type Offer } from "@/lib/offers";
@@ -85,6 +86,7 @@ export function GemeloFlow({ profile, savePatch, onNavigate, onKeep }: Props) {
   const next = () => {
     if (!sel) { setErr("Toca la oferta que te guste."); return; }
     setErr("");
+    track("gemelo_clonar", { offer_id: sel.id, nicho: sel.niche, dias: sel.days_active });
     setStep("clone");
   };
 
@@ -110,6 +112,7 @@ export function GemeloFlow({ profile, savePatch, onNavigate, onKeep }: Props) {
     });
     setSaving(false);
     if (!ok) { onKeep(false); toast.error("No se pudo guardar tu gemelo. Intenta de nuevo."); return; }
+    track("gemelo_guardado", { offer_id: sel.id, pais: country, con_precio: price?.usd != null, idioma: imp.lang, pagos_locales: imp.pay, whatsapp: imp.wa });
     setStep("done");
   };
 
@@ -165,7 +168,7 @@ export function GemeloFlow({ profile, savePatch, onNavigate, onKeep }: Props) {
           <div className="grid sm:grid-cols-2 gap-3">
             {loading && offers.length === 0
               ? Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-[124px] rounded-2xl bg-card border border-border animate-pulse" />)
-              : offers.map(o => <OfferPick key={o.id} o={o} selected={sel?.id === o.id} onPick={() => { setSel(o); setErr(""); }} />)}
+              : offers.map(o => <OfferPick key={o.id} o={o} selected={sel?.id === o.id} onPick={() => { setSel(o); setErr(""); track("gemelo_oferta_elegida", { offer_id: o.id, nicho: o.niche, dias: o.days_active }); }} />)}
           </div>
           {!loading && offers.length === 0 && <p className="text-sm text-muted-foreground">Todavía no hay ofertas ganadoras en este nicho. Prueba con otro.</p>}
 

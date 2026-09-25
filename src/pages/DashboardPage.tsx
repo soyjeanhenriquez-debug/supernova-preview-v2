@@ -31,7 +31,7 @@ export function DashboardPage({ onNavigate }: Props) {
   return (
     <div className="max-w-[1280px] mx-auto space-y-8 py-4">
       <div>
-        <h1 className="font-display font-bold text-2xl text-foreground">{hello}{firstName ? `, ${firstName}` : ""}</h1>
+        <h1 className="font-display font-bold text-2xl text-foreground" data-ph-mask>{hello}{firstName ? `, ${firstName}` : ""}</h1>
         <p className="text-sm text-muted-foreground">Este es tu negocio, paso a paso. Sigue la etapa que toca y tacha tus tareas de la semana.</p>
       </div>
 

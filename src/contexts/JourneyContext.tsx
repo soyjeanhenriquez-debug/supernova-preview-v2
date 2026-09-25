@@ -2,7 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProducts } from "@/contexts/ProductContext";
-import { journeyStages, buildIsDone, type BuildRow, type JourneyProduct } from "@/lib/journey";
+import { journeyStages, buildIsDone, STAGE_NAMES, type BuildRow, type JourneyProduct } from "@/lib/journey";
+import { track } from "@/lib/analytics";
 
 /**
  * En qué etapa va el producto activo, calculado UNA vez y compartido por la barra de etapa, el menú
@@ -30,6 +31,7 @@ export function JourneyProvider({ page, children }: { page: string; children: Re
   const { activeId } = useProducts();
   const [state, setState] = useState<Omit<JourneyState, "refresh">>({ loaded: false, done: EMPTY, doneCount: 0, next: 1 });
   const seq = useRef(0);
+  const prevDone = useRef<{ id: string; done: boolean[] } | null>(null);
 
   const load = useCallback(async () => {
     if (!user || !activeId) return;
@@ -50,6 +52,12 @@ export function JourneyProvider({ page, children }: { page: string; children: Re
       ((builds.data ?? []) as BuildRow[]).some(buildIsDone),
     );
     setState({ loaded: true, done: r.done, doneCount: r.doneCount, next: r.next });
+    // Medición: etapa que pasa de pendiente a hecha en esta visita (no al cargar ni al cambiar de producto).
+    const before = prevDone.current;
+    if (before && before.id === activeId) {
+      r.done.forEach((d, i) => { if (d && !before.done[i]) track("etapa_completada", { etapa: i + 1, nombre: STAGE_NAMES[i] }); });
+    }
+    prevDone.current = { id: activeId, done: r.done };
   }, [user, activeId]);
 
   // Cambio de producto: se empieza de cero para no mostrar la etapa del producto anterior.

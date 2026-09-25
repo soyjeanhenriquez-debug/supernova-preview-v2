@@ -104,7 +104,7 @@ export default function PendingAccessPage() {
         </div>
 
         <div className="px-3 py-2 rounded-lg bg-secondary/60 border border-border text-xs text-muted-foreground text-center">
-          Entraste como <span className="text-foreground font-medium">{user?.email}</span>. Tu plan queda unido a este correo.
+          Entraste como <span className="text-foreground font-medium" data-ph-mask>{user?.email}</span>. Tu plan queda unido a este correo.
         </div>
 
         <div className="flex items-center justify-center gap-4 pt-1 text-xs">

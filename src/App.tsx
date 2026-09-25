@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { ProductProvider } from "@/contexts/ProductContext";
@@ -30,9 +30,12 @@ const AdminAudit = lazy(() => import("@/pages/admin/AdminAudit"));
 const AdminSessions = lazy(() => import("@/pages/admin/AdminSessions"));
 const AdminMercado = lazy(() => import("@/pages/admin/AdminMercado"));
 const AdminHealth = lazy(() => import("@/pages/admin/AdminHealth"));
+const AdminAnalytics = lazy(() => import("@/pages/admin/AdminAnalytics"));
 const UnsubscribePage = lazy(() => import("@/pages/UnsubscribePage"));
 import { RequireAccess } from "@/components/RequireAccess";
 import { SetPasswordDialog } from "@/components/SetPasswordDialog";
+import { identifyUser, resetAnalytics, startAnalytics } from "@/lib/analytics";
+import { fetchIsAdmin } from "@/hooks/useIsAdmin";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Datos recién pedidos se reutilizan 1 min y no se vuelven a pedir al cambiar de pestaña.
@@ -69,8 +72,30 @@ function useClaimLandingVisit(userId: string | undefined) {
   }, [userId]);
 }
 
+/**
+ * Medición (src/lib/analytics.ts): arranca cuando ya se sabe quién entra, para no grabar ni un
+ * segundo de un admin. Sin sesión (login, registro) se mide como visitante anónimo.
+ */
+function useAnalyticsIdentity(userId: string | undefined, email: string | undefined, loading: boolean) {
+  const wasUser = useRef(false);
+  useEffect(() => {
+    if (loading) return;
+    if (!userId) {
+      if (wasUser.current) resetAnalytics();
+      wasUser.current = false;
+      startAnalytics();
+      return;
+    }
+    wasUser.current = true;
+    let alive = true;
+    fetchIsAdmin(userId).then(admin => { if (alive) identifyUser({ id: userId, email }, admin); });
+    return () => { alive = false; };
+  }, [userId, email, loading]);
+}
+
 function AppRoutes() {
   const { user, loading } = useAuth();
+  useAnalyticsIdentity(user?.id, user?.email ?? undefined, loading);
   useClaimLandingVisit(user?.id);
 
   // La baja del correo funciona con o sin sesión y sin pasar por el muro de
@@ -136,7 +161,7 @@ function AppRoutes() {
             <Route path="config" element={<AdminConfig />} />
             <Route path="mensajes" element={<AdminStub title="Mensajes & Comunicación" description="Notificaciones, banners y emails a usuarios." />} />
             <Route path="creditos" element={<AdminStub title="Créditos & Planes" description="Configuración de planes, costos y transacciones globales." />} />
-            <Route path="analytics" element={<AdminStub title="Analytics" description="Retención, conversión, funnel y comportamiento del producto." />} />
+            <Route path="analytics" element={<AdminAnalytics />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -21,6 +21,39 @@
       This page requires JavaScript to display.
     </div>
   </noscript>
+  <script>
+    /* PostHog (medición de la landing): solo en el dominio oficial, después de que la página se
+       desempaca (reemplaza su documento) y con todo lo que se escribe oculto en las grabaciones.
+       Llave PÚBLICA del proyecto; misma configuración que src/lib/analytics.ts. */
+    (function () {
+      if (location.hostname !== "supernova-six-eta.vercel.app") return;
+      var KEY = "phc_xn9sCcuLxhVP3hQ3oxNFiPVq2vzxiicKuCrPAG2q79iR";
+      function scrub(u) { return String(u).replace(/#.*(access_token|refresh_token|error_code|token)=.*$/i, "#[oculto]").replace(/([?&])(t|token|code)=[^&#]*/gi, "$1$2=[oculto]"); }
+      function start() {
+        var s = document.createElement("script");
+        s.async = true; s.src = "https://us-assets.i.posthog.com/static/array.js";
+        s.onload = function () {
+          if (!window.posthog || !window.posthog.init) return;
+          window.posthog.init(KEY, {
+            api_host: "https://us.i.posthog.com", ui_host: "https://us.posthog.com", defaults: "2026-08-30",
+            person_profiles: "identified_only", respect_dnt: true, autocapture: true, enable_heatmaps: true, capture_exceptions: true,
+            capture_pageview: true, capture_pageleave: true, mask_personal_data_properties: true,
+            session_recording: { maskAllInputs: true, maskTextSelector: "[data-ph-mask]" },
+            before_send: function (ev) {
+              if (ev && ev.properties) ["$current_url", "$referrer", "$initial_current_url", "$initial_referrer"].forEach(function (k) { if (typeof ev.properties[k] === "string") ev.properties[k] = scrub(ev.properties[k]); });
+              return ev;
+            }
+          });
+        };
+        (document.head || document.documentElement).appendChild(s);
+      }
+      var tries = 0;
+      (function wait() {
+        if (!document.getElementById("__bundler_thumbnail") || ++tries > 40) return setTimeout(start, 300);
+        setTimeout(wait, 250);
+      })();
+    })();
+  </script>
 </head>
 <body>
   <div id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" sc-camel-view-box="0 0 100 100"><rect width="100" height="100" fill="#0A0A0A"></rect><circle cx="50" cy="50" r="17" fill="#F5A524"></circle><circle cx="50" cy="50" r="27" fill="none" stroke="#F5A524" stroke-opacity="0.45" stroke-width="1.5"></circle><circle cx="50" cy="50" r="34" fill="none" stroke="#F5A524" stroke-opacity="0.22" stroke-width="1"></circle><path d="M50 8 L50 92 M8 50 L92 50" stroke="#FFE9C2" stroke-opacity="0.35" stroke-width="1"></path></svg></div>

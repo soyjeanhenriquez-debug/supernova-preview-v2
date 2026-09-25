@@ -219,7 +219,7 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
             <div className="w-7 h-7 rounded-full bg-secondary border border-border flex items-center justify-center text-[12px] font-semibold flex-shrink-0 text-foreground">
               {initials}
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0" data-ph-mask>
               <div className="text-[12px] font-medium text-foreground truncate leading-tight">{displayName}</div>
               <div className="text-[10px] text-muted-foreground truncate leading-tight">{user?.email}</div>
             </div>

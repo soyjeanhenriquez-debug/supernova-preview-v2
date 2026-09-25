@@ -5,7 +5,7 @@
 // devuelve la ruta. Si algo falla después de cobrar, devuelve el crédito. Filtros de contenido de
 // fal encendidos (nada NSFW).
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { FAL_KEY, admin, billingHeaders, caller, charge, fal, json, pickModel, refund } from "../_shared/media.ts";
+import { FAL_KEY, admin, billingHeaders, caller, charge, fal, json, logCost, pickModel, refund } from "../_shared/media.ts";
 
 const FN = "image-generate";
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -39,6 +39,7 @@ Deno.serve(async (req) => {
       return json({ error: r.status === 422 ? "El generador rechazó la descripción. Te devolvimos los créditos." : "El generador de imágenes no está disponible ahora. Te devolvimos los créditos." }, 503);
     }
     const out = await r.json();
+    await logCost(who.id, FN, m); // fal cobra la imagen aunque después la bloquee el filtro
     const url = out?.images?.[0]?.url as string | undefined;
     // Algunos modelos marcan la imagen bloqueada por el filtro de contenido en vez de fallar.
     const flagged = Array.isArray(out?.has_nsfw_concepts) && out.has_nsfw_concepts[0] === true;

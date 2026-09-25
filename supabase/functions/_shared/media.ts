@@ -43,7 +43,15 @@ export async function caller(req: Request): Promise<Caller | null> {
 export interface MediaModel {
   id: string; kind: "video" | "image" | "avatar"; grp: string; label: string; endpoint: string;
   image_field: string | null; tier: "pro" | "comunidad"; action: string; seconds: number | null;
-  status: "admin" | "live" | "soon" | "off"; input: Record<string, unknown>;
+  status: "admin" | "live" | "soon" | "off"; input: Record<string, unknown>; cost_usd: number | null;
+}
+
+/** Lo que nos cobra fal por esta generación, en ai_usage (sale en Admin → Salud → costos y márgenes). */
+export async function logCost(userId: string, fn: string, m: MediaModel) {
+  const { error } = await admin().from("ai_usage").insert({
+    user_id: userId, fn, model: `fal:${m.id}`, images: m.kind === "image" ? 1 : 0, cost_usd: Number(m.cost_usd) || 0,
+  });
+  if (error) console.error("ai_usage:", error.message);
 }
 
 /** Busca el modelo y decide si esta persona lo puede usar. Devuelve el modelo o la respuesta de error. */

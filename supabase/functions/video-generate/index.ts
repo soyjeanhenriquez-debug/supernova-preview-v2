@@ -11,7 +11,7 @@
 //   ?ping=1 → prueba la llave de fal sin gastar (solo mientras ningún modelo de video esté 'live').
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import {
-  FAL_KEY, admin, appOf, billingHeaders, caller, charge, fal, json, pickModel, refund, signedPhoto,
+  FAL_KEY, admin, appOf, billingHeaders, caller, charge, fal, json, logCost, pickModel, refund, signedPhoto,
 } from "../_shared/media.ts";
 
 const FN = "video-generate";
@@ -87,6 +87,7 @@ Deno.serve(async (req) => {
       return json({ error: q.status === 422 ? "El generador rechazó la foto o la descripción. Te devolvimos los créditos." : "El generador de video no está disponible ahora. Te devolvimos los créditos." }, 503);
     }
     const queued = await q.json();
+    await logCost(who.id, FN, m);
     const { data: job, error } = await db.from("video_jobs").insert({
       user_id: who.id, product_id: typeof body.product_id === "string" ? body.product_id : null,
       provider: "fal", model: m.endpoint, prompt, seconds: m.seconds ?? 5, status: "running",

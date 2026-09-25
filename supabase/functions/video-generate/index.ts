@@ -3,7 +3,7 @@
 // ESTADO: base lista, APAGADA. Responde { pronto: true } (503) mientras falte cualquiera de:
 //   · el secreto FAL_KEY en Supabase → Edge Functions → Secrets,
 //   · edge_limits.video-generate con enabled = true,
-//   · el precio "gen_video" en credit_prices (lo aprueba Jean: costo real × 5).
+//   · los precios "gen_video_5s" y "gen_video_10s" en credit_prices (los aprueba Jean: costo × 5).
 // Así no se cobra ni se gasta nada antes de tiempo.
 //
 // Flujo (mismas reglas que las demás funciones de IA):
@@ -18,6 +18,9 @@ const FAL_KEY = Deno.env.get("FAL_KEY");
 // Modelo configurable sin redesplegar código (p. ej. Kling 3.0, Seedance). Imagen → video.
 const MODEL = Deno.env.get("FAL_VIDEO_MODEL") ?? "fal-ai/kling-video/v2.1/standard/image-to-video";
 const FN = "video-generate";
+// La cola de fal consulta el estado por la APP (dos primeros tramos: "fal-ai/kling-video"), no por la
+// ruta completa del modelo: queue.fal.run/{app}/requests/{id}/status.
+const appOf = (model: string) => model.split("/").slice(0, 2).join("/");
 
 const json = (body: unknown, status = 200, extra: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, ...extra, "Content-Type": "application/json" } });
@@ -37,21 +40,23 @@ async function userFrom(req: Request): Promise<string | null> {
   return data?.user?.id ?? null;
 }
 
-/** ¿Está encendida? (proveedor + interruptor + precio). Si no, nadie paga nada. */
-async function ready(): Promise<boolean> {
+const priceAction = (seconds: number) => (seconds === 10 ? "gen_video_10s" : "gen_video_5s");
+
+/** ¿Está encendida? (proveedor + interruptor + precio de esa duración). Si no, nadie paga nada. */
+async function ready(seconds: number): Promise<boolean> {
   if (!FAL_KEY) return false;
   const db = admin();
   const [{ data: lim }, { data: price }] = await Promise.all([
     db.from("edge_limits").select("enabled").eq("fn", FN).maybeSingle(),
-    db.from("credit_prices").select("cost").eq("action", "gen_video").maybeSingle(),
+    db.from("credit_prices").select("cost").eq("action", priceAction(seconds)).maybeSingle(),
   ]);
   return lim?.enabled === true && Number(price?.cost) > 0;
 }
 
-async function charge(userId: string, label: string): Promise<Gate | Response> {
+async function charge(userId: string, seconds: number, label: string): Promise<Gate | Response> {
   const { data: g, error } = await admin().rpc("edge_guard_charge", {
     p_user_id: userId, p_fn: FN, p_max_hour: 10, p_max_day: 30,
-    p_action: "gen_video", p_label: label.slice(0, 120), p_kind: null, p_receipt: null,
+    p_action: priceAction(seconds), p_label: label.slice(0, 120), p_kind: null, p_receipt: null,
   });
   if (error) return json({ error: "No se pudo verificar el acceso. Intenta de nuevo." }, 503);
   if (g?.ok !== true) {
@@ -79,6 +84,18 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   let txId: string | null = null;
   try {
+    // Prueba de la llave de fal.ai SIN gastar saldo (pregunta por un video que no existe: 404 = llave
+    // válida, 401/403 = inválida). Solo sí/no, nunca la llave. Solo funciona con los videos APAGADOS:
+    // al encenderlos (edge_limits.enabled = true) deja de responder.
+    if (new URL(req.url).searchParams.get("ping") === "1") {
+      const { data: lim } = await admin().from("edge_limits").select("enabled").eq("fn", FN).maybeSingle();
+      if (lim?.enabled === true) return json({ error: "No disponible." }, 404);
+      if (!FAL_KEY) return json({ fal_key: false });
+      const r = await fal(`https://queue.fal.run/${appOf(MODEL)}/requests/00000000-0000-0000-0000-000000000000/status`);
+      await r.body?.cancel();
+      return json({ fal_key: true, fal_auth_ok: r.status !== 401 && r.status !== 403, fal_status: r.status, model: MODEL });
+    }
+
     const userId = await userFrom(req);
     if (!userId) return json({ error: "Inicia sesión para usar esta función." }, 401);
 
@@ -94,7 +111,7 @@ Deno.serve(async (req) => {
       const { data: job } = await db.from("video_jobs").select("*").eq("id", jobId).eq("user_id", userId).maybeSingle();
       if (!job) return json({ error: "Video no encontrado." }, 404);
       if (job.status === "done" || job.status === "failed" || !FAL_KEY || !job.provider_request_id) return json({ job });
-      const base = `https://queue.fal.run/${job.model}/requests/${job.provider_request_id}`;
+      const base = `https://queue.fal.run/${appOf(job.model)}/requests/${job.provider_request_id}`;
       const st = await fal(`${base}/status`);
       const s = st.ok ? await st.json() : null;
       if (s?.status === "COMPLETED") {
@@ -123,9 +140,9 @@ Deno.serve(async (req) => {
     if (!prompt) return json({ error: "Escribe qué pasa en el video." }, 400);
     if (!imagePath.startsWith(`${userId}/`) || imagePath.includes("..")) return json({ error: "Foto del personaje inválida." }, 400);
 
-    if (!(await ready())) return json({ error: "Los videos con tu personaje llegan pronto.", pronto: true }, 503);
+    if (!(await ready(seconds))) return json({ error: "Los videos con tu personaje llegan pronto.", pronto: true }, 503);
 
-    const g = await charge(userId, `Video · ${prompt.slice(0, 60)}`);
+    const g = await charge(userId, seconds, `Video ${seconds} s · ${prompt.slice(0, 60)}`);
     if (g instanceof Response) return g;
     txId = g.txId;
 

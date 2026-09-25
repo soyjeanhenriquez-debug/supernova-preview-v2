@@ -99,7 +99,8 @@ REGLAS:
 - Exactamente UN paso "principal", máximo 2 "bump", 1 "upsell", 1 "downsell", 1 "suscripcion". En este orden.
 - "origen":"real" SOLO si el dato viene del CHECKOUT REAL que te paso (precio del principal o de un bump que aparece ahí). Todo lo demás es "propuesto".
 - Principal: si hay precio real, úsalo tal cual. Si no, el precio visto en la página; si tampoco, propón uno coherente con el nicho.
-- Bumps: si el checkout real tiene bumps, copia su idea y su precio (puedes agrupar los parecidos). Si no tiene, propón UNO barato (15–40 % del principal) que complete el producto.
+- Moneda: si hay checkout real, TODOS los precios y advertencias van en su moneda. Nunca mezcles monedas.
+- Bumps: si el checkout real tiene bumps, copia su idea y su precio EXACTO (si cambias el precio, ya es "propuesto") (puedes agrupar los parecidos). Si no tiene, propón UNO barato (15–40 % del principal) que complete el producto.
 - Upsell: más profundo o más rápido que el principal, entre 1,5× y 3× su precio. Downsell: versión reducida del upsell, 40–60 % de su precio, para quien dijo que no.
 - APP de tienda (App Store / Google Play): si la app es gratis, el "principal" es su compra o suscripción principal dentro de la app, con el precio real que te paso ("real" solo si aparece en la lista). Las descargas y reseñas son prueba de demanda, no de ventas.
 - Suscripción mensual: solo si encaja (comunidad, actualizaciones, plantillas nuevas cada mes, soporte); entre 10 % y 40 % del principal. Si no encaja, no la incluyas.
@@ -173,6 +174,13 @@ function sanitize(raw: any, co: Row | null): Row | null {
     });
   }
   if (!out.some((s) => s.tipo === "principal")) return null;
+  // Un bump solo es "real" si su precio es uno de los del checkout; si la IA lo cambió, es propuesto.
+  const realBumpPrices = Array.isArray(co?.bumps)
+    ? (co!.bumps as Row[]).map((b) => Number(b.price)).filter((n) => Number.isFinite(n) && n > 0) : [];
+  for (const st of out) {
+    if (st.tipo === "bump" && st.origen === "real" && !realBumpPrices.some((p) => Math.abs(p - Number(st.precio)) < 0.01)) st.origen = "propuesto";
+    if (st.tipo !== "principal" && st.tipo !== "bump" && st.origen === "real") st.origen = "propuesto"; // upsell y demás no se ven sin comprar
+  }
   // El precio real del checkout manda sobre el que escriba la IA.
   if (co && typeof co.price === "number" && co.price > 0) {
     const main = out.find((s) => s.tipo === "principal")!;
@@ -180,7 +188,9 @@ function sanitize(raw: any, co: Row | null): Row | null {
     main.origen = "real";
   }
   out.sort((a, b) => STEP_TYPES.indexOf(a.tipo) - STEP_TYPES.indexOf(b.tipo));
-  const moneda = /^[A-Z]{3}$/.test(String(raw?.moneda ?? "")) ? raw.moneda : (co?.currency ?? "USD");
+  // Con checkout real, su moneda manda (los precios reales están en ella).
+  const moneda = typeof co?.currency === "string" && /^[A-Z]{3}$/.test(co.currency) ? co.currency
+    : /^[A-Z]{3}$/.test(String(raw?.moneda ?? "")) ? raw.moneda : "USD";
   return {
     resumen: clip(raw?.resumen, 300),
     moneda,

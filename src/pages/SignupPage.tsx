@@ -322,7 +322,7 @@ export default function SignupPage() {
                   const featured = key === "pro";
                   return (
                     // PRO va al checkout de Whop con el correo y el código de fundador ya puestos;
-                    // Comunidad, a Skool. (Antes PRO llevaba a "/" y no cobraba nada.)
+                    // Comunidad también a Whop (plan_oRht08inLOu39), que entrega el acceso a Skool.
                     <Fragment key={key}>
                     <a
                       href={checkoutUrl(key, email.trim().toLowerCase())}
@@ -349,7 +349,7 @@ export default function SignupPage() {
                       <p className="mt-1 font-[Inter,sans-serif] text-xs text-[#86868B]">{p.tagline}</p>
                       <PlanFeatures plan={key} accent="text-[#C5A880]" />
                       <span className="mt-4 inline-flex items-center gap-1.5 font-[Inter,sans-serif] text-xs font-semibold text-[#C5A880]">
-                        {featured ? "Empezar mis 3 días gratis" : "Ver la comunidad en Skool"} <ArrowRight className="h-3.5 w-3.5" />
+                        {featured ? "Empezar mis 3 días gratis" : "Unirme a la Comunidad"} <ArrowRight className="h-3.5 w-3.5" />
                       </span>
                     </a>
                     {/* Lo que pasa con la tarjeta, el día 4 y cómo cancelar: justo debajo del botón, antes de pagar */}

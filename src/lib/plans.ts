@@ -25,11 +25,12 @@ export const PLANS = {
     name: "COMUNIDAD CREATIVOS 10X",
     price: 99,
     period: "/mes",
-    checkout: "https://www.skool.com/creativos-10x-6085",
+    checkout: "https://whop.com/checkout/plan_oRht08inLOu39", // Whop cobra; el acceso a Skool se entrega desde Whop
+    community: "https://whop.com/skool-6e31/jean-henriquez-community",
     tagline: "El programa + una comunidad + llamadas en vivo para no avanzar solo",
     features: [
       "Todo lo de PRO",
-      "Comunidad privada en Skool con otras personas que están aprendiendo a vender en internet",
+      "Comunidad privada en Skool con otras personas que están aprendiendo a vender en internet (el acceso llega al pagar)",
       "Llamadas en vivo para resolver tus dudas",
     ],
   },

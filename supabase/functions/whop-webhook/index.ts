@@ -129,6 +129,7 @@ const maskEmail = (e: string) => e.replace(/^(.{0,2})[^@]*(@.*)$/, "$1***$2");
 const SUPERNOVA_PLANS = new Set([
   "plan_ukBjctlEKufto", // PRO (antes STARTER), US$29,99 con 3 días de prueba
   "plan_VsWbrtokeQOLu", // PRO MAX
+  "plan_oRht08inLOu39", // COMUNIDAD CREATIVOS 10X, US$99/mes (cobrada en Whop, acceso a Skool)
 ]);
 
 type SubStatus = "active" | "trialing" | "past_due" | "canceled" | "inactive";

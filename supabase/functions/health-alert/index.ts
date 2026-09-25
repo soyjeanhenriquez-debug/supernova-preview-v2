@@ -13,7 +13,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const APP_URL = "https://supernova-six-eta.vercel.app";
-const FROM = "SUPERNOVA <noreply@supernova.app>"; // ajustar al dominio verificado en Resend
+const FROM = "SUPERNOVA <hola@supernova.jeanhenriquez.com>"; // dominio verificado en Resend (25-sep-2026)
 const DEFAULT_TO = "soyjeanhenriquez@gmail.com";
 
 const json = (status: number, body: unknown) =>
@@ -91,12 +91,16 @@ Deno.serve(async (req) => {
   }
   const report = data as Report;
   const alerts = reportAlerts(report);
-  if (alerts.length === 0) return json(200, { ok: true, alerts: 0, sent: false });
+  // "Enviarme un correo de prueba" (Admin → Salud): se manda aunque no haya alertas.
+  const test = new URL(req.url).searchParams.get("test") === "1" && !req.headers.get("x-cron-secret");
+  if (alerts.length === 0 && !test) return json(200, { ok: true, alerts: 0, sent: false });
 
   const bad = alerts.filter((a) => a.level === "bad").length;
-  const subject = `SUPERNOVA · ${alerts.length} alerta${alerts.length === 1 ? "" : "s"}${bad ? ` (${bad} urgente${bad === 1 ? "" : "s"})` : ""}`;
+  const subject = test && alerts.length === 0
+    ? "SUPERNOVA · Correo de prueba: todo bien"
+    : `SUPERNOVA · ${alerts.length} alerta${alerts.length === 1 ? "" : "s"}${bad ? ` (${bad} urgente${bad === 1 ? "" : "s"})` : ""}${test ? " (prueba)" : ""}`;
   const html = `<div style="font-family:system-ui,sans-serif;max-width:560px;margin:auto;color:#111">
-    <h2 style="margin:0 0 4px">Alertas de las últimas 24 horas</h2>
+    <h2 style="margin:0 0 4px">${alerts.length ? "Alertas de las últimas 24 horas" : "Todo bien en las últimas 24 horas"}</h2>
     <p style="color:#666;margin:0 0 16px">Registros nuevos: ${report.signups_24h} · Anuncios nuevos en el radar: ${report.radar.new_24h}</p>
     ${alerts.map((a) => `<div style="border-left:4px solid ${a.level === "bad" ? "#dc2626" : "#f59e0b"};padding:8px 12px;margin:0 0 10px;background:#fafafa">
       <b>${esc(a.title)}</b>${a.detail ? `<div style="color:#555;font-size:13px;margin-top:4px">${esc(a.detail)}</div>` : ""}</div>`).join("")}

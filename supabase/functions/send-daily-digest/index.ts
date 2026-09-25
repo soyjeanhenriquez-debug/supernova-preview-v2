@@ -11,7 +11,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // eslint-disable @typescript-eslint/no-explicit-any
 
 const APP_URL = "https://supernova-six-eta.vercel.app";
-const FROM = "SUPERNOVA <noreply@supernova.app>"; // ajustar al dominio verificado en Resend
+const FROM = "SUPERNOVA <hola@supernova.jeanhenriquez.com>"; // dominio verificado en Resend (25-sep-2026)
 
 // ── Compuerta interna ───────────────────────────────────────────────────
 // Esta función corre sin JWT porque la invoca pg_cron. Solo pasa quien trae el

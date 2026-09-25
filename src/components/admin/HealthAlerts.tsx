@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Mail, RefreshCw, XCircle } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { fnHeaders } from "@/lib/fnAuth";
 
 /**
  * "Alertas de las últimas 24 h" (RPC admin_health_report): lo que antes solo se sabía si un
@@ -72,14 +74,34 @@ export function HealthAlerts() {
 
   const alerts = report ? reportAlerts(report) : [];
 
+  // Manda este mismo informe al correo del admin (health-alert ?test=1), aunque no haya alertas.
+  const [sending, setSending] = useState(false);
+  const sendTest = async () => {
+    setSending(true);
+    try {
+      const r = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/health-alert?test=1`, { method: "POST", headers: await fnHeaders() });
+      const d = await r.json().catch(() => ({}));
+      if (d?.sent) toast.success("Correo de prueba enviado. Revisa tu bandeja (y la carpeta de spam).");
+      else if (d?.dry_run) toast.error("Falta RESEND_API_KEY en Supabase: no se envió nada.");
+      else toast.error(d?.error || "No se pudo enviar el correo de prueba.");
+    } catch { toast.error("No se pudo enviar el correo de prueba."); }
+    finally { setSending(false); }
+  };
+
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="font-display text-lg">Alertas de las últimas 24 horas</h2>
+        <div className="flex items-center gap-2">
+        <button onClick={sendTest} disabled={sending}
+          className="text-[12px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border disabled:opacity-60">
+          {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />} Enviarme un correo de prueba
+        </button>
         <button onClick={load} disabled={loading}
           className="text-[12px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border disabled:opacity-60">
           {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Actualizar
         </button>
+        </div>
       </div>
 
       {error && <p className="text-sm text-destructive">No se pudo cargar el informe: {error}</p>}

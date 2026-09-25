@@ -13,7 +13,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // eslint-disable @typescript-eslint/no-explicit-any
 
 const APP_URL = "https://supernova-six-eta.vercel.app";
-const FROM = "SUPERNOVA <noreply@supernova.app>"; // ajustar al dominio verificado en Resend
+const FROM = "SUPERNOVA <hola@supernova.jeanhenriquez.com>"; // dominio verificado en Resend (25-sep-2026)
 const BATCH = 40;
 
 // deno-lint-ignore no-explicit-any
@@ -105,6 +105,7 @@ Deno.serve(async (req) => {
 
   let sent = 0, failed = 0;
   for (const lead of list) {
+    let mark = true;
     if (dryRun) { sent++; continue; }
     try {
       const resp = await fetch("https://api.resend.com/emails", {
@@ -116,12 +117,18 @@ Deno.serve(async (req) => {
           html: welcomeHtml(deck, lead.unsub_token),
         }),
       });
-      if (resp.ok) sent++; else { failed++; console.error("resend:", resp.status, (await resp.text()).slice(0, 200)); }
+      if (resp.ok) sent++;
+      else {
+        failed++; console.error("resend:", resp.status, (await resp.text()).slice(0, 200));
+        // 4xx del correo (inválido) = no reintentar; 401/403/429/5xx = problema nuestro o pasajero: se reintenta.
+        mark = resp.status >= 400 && resp.status < 500 && ![401, 403, 429].includes(resp.status);
+      }
     } catch (e) {
-      failed++; console.error("landing-lead-welcome:", e instanceof Error ? e.message : e);
+      failed++; mark = false; console.error("landing-lead-welcome:", e instanceof Error ? e.message : e);
     }
-    // Se marca aunque falle el envío puntual: evita reintentos infinitos sobre un correo roto.
-    await admin.from("landing_leads").update({ sent_welcome_at: new Date().toISOString() }).eq("email", lead.email);
+    // Se marca si salió o si el correo es inválido (no reintentar uno roto). Si falló por nuestra
+    // llave, el dominio, el límite de Resend o la red, se reintenta en la siguiente vuelta.
+    if (mark) await admin.from("landing_leads").update({ sent_welcome_at: new Date().toISOString() }).eq("email", lead.email);
   }
 
   return new Response(JSON.stringify({

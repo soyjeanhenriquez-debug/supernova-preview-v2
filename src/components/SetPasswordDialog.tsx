@@ -1,41 +1,23 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Eye, EyeOff, KeyRound, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { clearNewPasswordOffer } from "@/lib/setPassword";
 
 /**
  * "Crea tu contraseña nueva": se abre sola después de entrar con un código por correo (el camino
  * de "¿la olvidaste?") y desde el menú (llave junto a "Salir"). La cambia el propio usuario con su
  * sesión (supabase.auth.updateUser); nadie más ve la contraseña.
  */
-const FLAG = "supernova:set-password";
-const EVENT = "supernova:open-set-password";
-
-/** Lo llama el login con código: al entrar se ofrece crear una contraseña nueva. */
-export function offerNewPasswordAfterLogin() {
-  try { sessionStorage.setItem(FLAG, "1"); } catch { /* sin almacenamiento: no se ofrece */ }
-}
-/** Abre la ventana desde cualquier parte de la app. */
-export function openSetPassword() { window.dispatchEvent(new Event(EVENT)); }
-
-export function SetPasswordDialog() {
-  const [open, setOpen] = useState(() => { try { return sessionStorage.getItem(FLAG) === "1"; } catch { return false; } });
+/** Se monta ya abierta (la carga SetPasswordGate en App.tsx solo cuando hace falta). */
+export default function SetPasswordDialog({ onClose }: { onClose: () => void }) {
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [show, setShow] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
-  useEffect(() => {
-    const onOpen = () => setOpen(true);
-    window.addEventListener(EVENT, onOpen);
-    return () => window.removeEventListener(EVENT, onOpen);
-  }, []);
-
-  const close = () => {
-    try { sessionStorage.removeItem(FLAG); } catch { /* nada */ }
-    setOpen(false); setPw(""); setPw2(""); setErr("");
-  };
+  const close = () => { clearNewPasswordOffer(); onClose(); };
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +34,6 @@ export function SetPasswordDialog() {
     close();
   };
 
-  if (!open) return null;
   return (
     <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={close}>
       <form onSubmit={save} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="setpw-title"

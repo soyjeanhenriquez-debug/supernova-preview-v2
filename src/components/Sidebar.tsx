@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { openSetPassword } from "@/components/SetPasswordDialog";
+import { openSetPassword } from "@/lib/setPassword";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useNavigate } from "react-router-dom";
 import { useFeatureAccess } from "@/lib/features";

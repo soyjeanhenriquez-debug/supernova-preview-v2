@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { offerNewPasswordAfterLogin } from "@/components/SetPasswordDialog";
+import { clearNewPasswordOffer, offerNewPasswordAfterLogin } from "@/lib/setPassword";
 import { Sparkles, Mail, KeyRound, Loader2, ArrowLeft, Lock, Send, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -126,7 +126,7 @@ export function AuthPage() {
       if (error) throw error;
       toast.success("¡Acceso concedido! 🚀");
     } catch (err: unknown) {
-      try { sessionStorage.removeItem("supernova:set-password"); } catch { /* nada */ }
+      clearNewPasswordOffer();
       toast.error(authErrorMessage(err), { duration: 8000 });
     } finally {
       setLoading(false);

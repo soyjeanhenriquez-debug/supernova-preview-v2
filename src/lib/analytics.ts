@@ -61,6 +61,7 @@ function load(): Promise<PostHog | null> {
       capture_pageleave: true,
       autocapture: true,
       enable_heatmaps: true,
+      disable_surveys: true, // no usamos encuestas: 33 KB menos por visita
       capture_exceptions: true,
       mask_personal_data_properties: true,
       session_recording: {

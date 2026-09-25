@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { lazy, Suspense, useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { ProductProvider } from "@/contexts/ProductContext";
@@ -31,9 +31,21 @@ const AdminSessions = lazy(() => import("@/pages/admin/AdminSessions"));
 const AdminMercado = lazy(() => import("@/pages/admin/AdminMercado"));
 const AdminHealth = lazy(() => import("@/pages/admin/AdminHealth"));
 const AdminAnalytics = lazy(() => import("@/pages/admin/AdminAnalytics"));
+const SetPasswordDialog = lazy(() => import("@/components/SetPasswordDialog"));
+
+/** "Crea tu contraseña nueva": la ventana se descarga solo si se abre (tras login con código o desde el menú). */
+function SetPasswordGate() {
+  const [open, setOpen] = useState(newPasswordOffered);
+  useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener(SET_PASSWORD_EVENT, onOpen);
+    return () => window.removeEventListener(SET_PASSWORD_EVENT, onOpen);
+  }, []);
+  return open ? <Suspense fallback={null}><SetPasswordDialog onClose={() => setOpen(false)} /></Suspense> : null;
+}
 const UnsubscribePage = lazy(() => import("@/pages/UnsubscribePage"));
 import { RequireAccess } from "@/components/RequireAccess";
-import { SetPasswordDialog } from "@/components/SetPasswordDialog";
+import { SET_PASSWORD_EVENT, newPasswordOffered } from "@/lib/setPassword";
 import { identifyUser, resetAnalytics, startAnalytics } from "@/lib/analytics";
 import { fetchIsAdmin } from "@/hooks/useIsAdmin";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -137,7 +149,7 @@ function AppRoutes() {
 
   return (
     <>
-    <SetPasswordDialog />
+    <SetPasswordGate />
     <RequireAccess>
       <BrowserRouter>
         <Suspense fallback={<div className="min-h-screen bg-background" />}>

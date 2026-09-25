@@ -26,7 +26,8 @@ type Props = {
 type Step = "pick" | "clone" | "done";
 
 const PAGE = 6;
-const COLS = "id,page_id,market,page_name,ads_count,active_ads,days_active,duplicate_count,winner_score,tier,sample_ad_id,sample_title,sample_body,sample_ad_url,first_seen,last_seen,product_name,niche,offer_type,business_model,language,price_hint,mechanism,why_wins,target_audience,copy_score,enriched_at";
+// Solo lo que se pinta: pedir sample_body y enlaces largos subía la consulta de ~1 ms a ~230 ms (25-sep).
+const COLS = "id,page_name,sample_title,product_name,niche,offer_type,language,price_hint,mechanism,why_wins,target_audience,copy_score,days_active,winner_score";
 const TYPE_TO_BUSINESS: Record<string, BusinessType> = { infoproducto: "infoproducto", ecommerce: "ecommerce", servicio: "servicios" };
 const nameOf = (o: Offer) => o.product_name || o.sample_title || o.page_name || "Oferta sin nombre";
 

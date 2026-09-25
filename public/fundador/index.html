@@ -36,7 +36,7 @@
           if (!window.posthog || !window.posthog.init) return;
           window.posthog.init(KEY, {
             api_host: "https://us.i.posthog.com", ui_host: "https://us.posthog.com", defaults: "2026-08-30",
-            person_profiles: "identified_only", respect_dnt: true, autocapture: true, enable_heatmaps: true, capture_exceptions: true,
+            person_profiles: "identified_only", respect_dnt: true, disable_surveys: true, autocapture: true, enable_heatmaps: true, capture_exceptions: true,
             capture_pageview: true, capture_pageleave: true, mask_personal_data_properties: true,
             session_recording: { maskAllInputs: true, maskTextSelector: "[data-ph-mask]" },
             before_send: function (ev) {

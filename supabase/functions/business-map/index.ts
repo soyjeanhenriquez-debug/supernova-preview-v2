@@ -101,6 +101,7 @@ REGLAS:
 - Principal: si hay precio real, úsalo tal cual. Si no, el precio visto en la página; si tampoco, propón uno coherente con el nicho.
 - Bumps: si el checkout real tiene bumps, copia su idea y su precio (puedes agrupar los parecidos). Si no tiene, propón UNO barato (15–40 % del principal) que complete el producto.
 - Upsell: más profundo o más rápido que el principal, entre 1,5× y 3× su precio. Downsell: versión reducida del upsell, 40–60 % de su precio, para quien dijo que no.
+- APP de tienda (App Store / Google Play): si la app es gratis, el "principal" es su compra o suscripción principal dentro de la app, con el precio real que te paso ("real" solo si aparece en la lista). Las descargas y reseñas son prueba de demanda, no de ventas.
 - Suscripción mensual: solo si encaja (comunidad, actualizaciones, plantillas nuevas cada mes, soporte); entre 10 % y 40 % del principal. Si no encaja, no la incluyas.
 - tasa_tipica_pct: % típico de compradores que toma ese paso (principal = 100; bump 20–40; upsell 10–20; downsell 10–20 de los que rechazan el upsell; suscripción 5–15). Nunca números mayores.
 - Nombres y contenidos ESCRITOS POR TI, nunca copiados literales ni con marcas ajenas. Nada de testimonios, cifras de resultados, garantías inventadas ni promesas de ingresos o de salud.
@@ -125,9 +126,19 @@ function buildUser(offer: Row, intel: Row | null): string {
     lines.push(
       "CHECKOUT REAL (datos públicos, leídos sin comprar):",
       `Producto: ${clip(co.product_name, 200)} · precio: ${co.price ?? "?"} ${clip(co.currency, 3)} · garantía: ${co.guarantee_days ?? "?"} días`,
-      `Tiene upsell configurado después de pagar: ${co.has_upsell ? "sí (su precio no se ve)" : "no"}`,
+      `Tiene upsell configurado después de pagar: ${co.upsell_visible === false ? "no se puede ver desde este checkout" : co.has_upsell ? "sí (su precio no se ve)" : "no"}`,
       `Order bumps: ${Array.isArray(co.bumps) && co.bumps.length ? co.bumps.slice(0, 10).map((b: Row) => `${clip(b.name, 120)} (${b.price ?? "?"} ${clip(b.currency, 3)})`).join(" · ") : "ninguno"}`,
     );
+    if (co.subscription) lines.push(`El principal es una suscripción: ${co.subscription.price ?? "?"} ${clip(co.currency, 3)} · cada ${clip(co.subscription.interval, 20) || "periodo no indicado"}`);
+    const app = co.app;
+    if (app) {
+      const items = Array.isArray(app.in_app) ? app.in_app.slice(0, 15).map((x: Row) => `${clip(x.name, 80)} (${x.price ?? "?"})`).join(" · ") : "";
+      lines.push(
+        `APP en ${clip(app.store, 20)}: precio de descarga ${co.price ?? "?"} ${clip(co.currency, 3)}`,
+        `Compras dentro de la app: ${items || (app.in_app_min != null ? `de ${app.in_app_min} a ${app.in_app_max} por artículo (la tienda no muestra la lista)` : "no se ven")}`,
+        `Valoración: ${app.rating ?? "?"} con ${app.ratings_count ?? "?"} reseñas${app.installs_label ? ` · descargas: ${clip(app.installs_label, 20)}` : ""}`,
+      );
+    }
   } else {
     lines.push("CHECKOUT REAL: no disponible (todo lo que no sea el precio visto es propuesto).");
   }

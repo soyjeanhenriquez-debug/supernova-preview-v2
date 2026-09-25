@@ -22,7 +22,10 @@ export function BusinessMap({ o, intel, working }: { o: Offer; intel: OfferIntel
   const money = (n: number) => `${cur} ${n.toLocaleString("es-ES", { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
 
   const defaults = useMemo<LtvInputs>(() => {
-    const price = co?.price ?? parsePriceText(intel?.price_text) ?? parsePriceText(o.price_hint) ?? 27;
+    // App gratis: lo que se cobra es la compra más barata dentro de la app.
+    const appPrices = (co?.app?.in_app ?? []).map((x) => x.price).filter((p): p is number => typeof p === "number" && p > 0);
+    const appEntry = co?.app && !co.price ? (appPrices.length ? Math.min(...appPrices) : co.app.in_app_min) : null;
+    const price = appEntry || co?.price || parsePriceText(intel?.price_text) || parsePriceText(o.price_hint) || 27;
     const bumpPrices = (co?.bumps ?? []).map((b) => b.price).filter((p): p is number => typeof p === "number" && p > 0);
     const bumpPrice = bumpPrices.length ? Math.round(bumpPrices.reduce((a, b) => a + b, 0) / bumpPrices.length * 100) / 100 : 0;
     // Upsell: si el checkout dice que existe pero su precio no se ve, se propone el doble del
@@ -112,16 +115,43 @@ export function BusinessMap({ o, intel, working }: { o: Offer; intel: OfferIntel
       {/* 1) Lo que se ve en su checkout */}
       <section className="rounded-2xl border border-border bg-secondary/20 p-3 sm:p-4 space-y-3">
         <h5 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground flex items-center gap-1.5">
-          <ShoppingCart className="w-3.5 h-3.5" /> Lo que vimos en su checkout
+          <ShoppingCart className="w-3.5 h-3.5" /> {co?.app ? "Lo que vimos en su tienda de apps" : "Lo que vimos en su checkout"}
         </h5>
         {working && !co ? (
           <div className="flex items-center gap-2.5 text-[13px] text-muted-foreground py-1"><Loader2 className="w-4 h-4 animate-spin text-primary" /> Buscando su checkout…</div>
+        ) : co?.app ? (
+          <div className="space-y-2.5">
+            <Row label="App" value={co.product_name ?? "—"} />
+            <Row label="Descarga" value={co.price ? money(co.price) : "Gratis"} strong />
+            <div>
+              <div className="text-[12px] text-muted-foreground mb-1.5">Compras dentro de la app {co.app.in_app.length ? `(${co.app.in_app.length})` : ""}</div>
+              {co.app.in_app.length ? (
+                <ul className="space-y-1">
+                  {co.app.in_app.map((x, i) => (
+                    <li key={i} className="flex items-start justify-between gap-3 text-[12.5px]">
+                      <span className="text-foreground/90 min-w-0 line-clamp-2">{x.name}</span>
+                      <span className="tabular-nums text-foreground shrink-0">{x.price !== null ? money(x.price) : "—"}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : co.app.in_app_min !== null && co.app.in_app_max !== null ? (
+                <p className="text-[12.5px] text-foreground/90">De {money(co.app.in_app_min)} a {money(co.app.in_app_max)} por compra <span className="text-muted-foreground">(la tienda no muestra la lista)</span></p>
+              ) : <p className="text-[12.5px] text-foreground/80">No se ven.</p>}
+            </div>
+            {co.app.rating !== null && (
+              <Row label="Valoración" value={`${co.app.rating.toLocaleString("es-ES", { maximumFractionDigits: 1 })} ★ · ${(co.app.ratings_count ?? 0).toLocaleString("es-ES")} reseñas`} />
+            )}
+            {co.app.installs !== null && <Row label="Descargas" value={`más de ${co.app.installs.toLocaleString("es-ES")}`} />}
+            <p className="text-[11px] text-muted-foreground">
+              Datos públicos de {co.app.store}. Descargas y reseñas muestran demanda, no ventas. Los precios cambian según el país.
+            </p>
+          </div>
         ) : co ? (
           <div className="space-y-2.5">
             <Row label="Producto principal" value={co.product_name ?? "—"} />
-            <Row label="Precio" value={co.price !== null ? money(co.price) : "no visible"} strong />
+            <Row label="Precio" value={co.price !== null ? `${money(co.price)}${co.subscription ? ` · suscripción${co.subscription.interval ? ` (${INTERVAL_LABEL[co.subscription.interval] ?? co.subscription.interval})` : ""}` : ""}` : "no visible"} strong />
             <Row label="Garantía" value={co.guarantee_days !== null ? `${co.guarantee_days} días` : "no indica"} icon={<ShieldCheck className="w-3.5 h-3.5" />} />
-            <Row label="Upsell después de pagar" value={co.has_upsell ? "Sí, tiene uno (su precio solo se ve comprando)" : "No tiene"} icon={<ArrowUpRight className="w-3.5 h-3.5" />} />
+            <Row label="Upsell después de pagar" value={co.upsell_visible === false ? "No se ve desde este checkout" : co.has_upsell ? "Sí, tiene uno (su precio solo se ve comprando)" : "No tiene"} icon={<ArrowUpRight className="w-3.5 h-3.5" />} />
             <div>
               <div className="text-[12px] text-muted-foreground mb-1.5">Order bumps en el mismo pago {co.bumps.length ? `(${co.bumps.length})` : ""}</div>
               {co.bumps.length ? (
@@ -141,7 +171,7 @@ export function BusinessMap({ o, intel, working }: { o: Offer; intel: OfferIntel
           </div>
         ) : (
           <p className="text-[12.5px] text-foreground/80">
-            {intel?.checkout_platform && intel.checkout_platform !== "Hotmart"
+            {intel?.checkout_platform && !READABLE_CHECKOUTS.includes(intel.checkout_platform)
               ? `Cobra con ${intel.checkout_platform}: todavía no leemos ese checkout. `
               : intel?.funnel_type
                 ? `No vimos su checkout: esta oferta lo esconde detrás de ${(FUNNEL_LABEL[intel.funnel_type] ?? "otro paso").toLowerCase()}. `
@@ -277,6 +307,13 @@ export function BusinessMap({ o, intel, working }: { o: Offer; intel: OfferIntel
     </div>
   );
 }
+
+// Checkouts y tiendas que offer-intel sabe leer (supabase/functions/offer-intel).
+const READABLE_CHECKOUTS = ["Hotmart", "Kiwify", "ThriveCart", "SamCart", "App Store", "Google Play"];
+const INTERVAL_LABEL: Record<string, string> = {
+  monthly: "mensual", month: "mensual", annually: "anual", yearly: "anual", year: "anual",
+  weekly: "semanal", week: "semanal", quarterly: "trimestral", biannually: "semestral",
+};
 
 type StepType = "principal" | "bump" | "upsell" | "downsell" | "suscripcion";
 interface Ladder {

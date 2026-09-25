@@ -36,7 +36,22 @@ export interface CheckoutData {
   guarantee_days: number | null;
   /** El embudo tiene un upsell configurado después del pago (su precio no se ve sin comprar). */
   has_upsell: boolean;
+  /** false = desde el checkout no se puede saber si hay upsell (Kiwify, SamCart, tiendas de apps). */
+  upsell_visible?: boolean;
   bumps: { name: string; price: number | null; currency: string | null }[];
+  /** El producto principal se cobra de forma recurrente. */
+  subscription?: { price: number | null; interval: string | null } | null;
+  /** Ficha pública de App Store o Google Play. */
+  app?: {
+    store: "App Store" | "Google Play";
+    in_app: { name: string; price: number | null }[];
+    in_app_min: number | null;
+    in_app_max: number | null;
+    rating: number | null;
+    ratings_count: number | null;
+    installs: number | null;
+    installs_label: string | null;
+  } | null;
   source_url: string;
 }
 

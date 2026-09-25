@@ -14,6 +14,7 @@
 // Compuerta propia: usuario real con acceso + tope de uso, o secreto de cron.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { CHECKOUT_PARSERS, type CheckoutData } from "./checkout_parse.ts";
 
 const FRESH_DAYS = 30;          // una ficha lista vale este tiempo
 const RETRY_AFTER_H = 12;       // una ficha fallida no se reintenta antes
@@ -264,8 +265,8 @@ const CHECKOUTS: [RegExp, string, RegExp?][] = [
   [/^([a-z0-9-]+\.)?pay\.clickbank\.net$|^[a-z0-9-]+\.hop\.clickbank\.net$/i, "ClickBank"],
   [/^(www\.)?digistore24\.com$/i, "Digistore24", /\/(product|redir|buy)\//i],
   [/^(www\.)?buygoods\.com$/i, "BuyGoods"],
-  [/^[a-z0-9-]+\.thrivecart\.com$/i, "ThriveCart"],
-  [/^[a-z0-9-]+\.samcart\.com$/i, "SamCart"],
+  [/^(?!spark\.)[a-z0-9-]+\.thrivecart\.com$/i, "ThriveCart"], // spark.* = imágenes
+  [/^[a-z0-9-]+\.(my)?samcart\.com$/i, "SamCart"],
   [/^([a-z0-9-]+\.)?gumroad\.com$/i, "Gumroad", /^\/l\//i],
   [/^payhip\.com$/i, "Payhip", /^\/(b|buy)\//i],
   [/^[a-z0-9-]+\.lemonsqueezy\.com$/i, "Lemon Squeezy", /\/(checkout|buy)\//i],
@@ -274,8 +275,8 @@ const CHECKOUTS: [RegExp, string, RegExp?][] = [
   [/^mpago\.la$|^([a-z]+\.)?mercadopago\.com(\.[a-z]{2})?$/i, "Mercado Pago", /checkout|mpago|^\/[A-Za-z0-9]{5,}$/i],
   [/^paypal\.me$|^paypal\.com$/i, "PayPal", /checkoutnow|cgi-bin|\/ncp\/|paypalme|^\/[A-Za-z0-9._-]{3,}$/i],
   [/^[a-z0-9-]+\.systeme\.io$/i, "Systeme.io"],
-  [/^apps\.apple\.com$/i, "App Store"],
-  [/^play\.google\.com$/i, "Google Play", /^\/store\/apps/i],
+  [/^apps\.apple\.com$/i, "App Store", /\/app\/.*\bid\d+/i],
+  [/^play\.google\.com$/i, "Google Play", /^\/store\/apps\/details/i],
 ];
 const STATIC_FILE = /\.(js|css|png|jpe?g|webp|gif|svg|ico|woff2?|ttf|otf|mp4|webm|json|xml|map)$/i;
 function checkoutPlatform(rawUrl: string | null): string | null {
@@ -446,11 +447,6 @@ function analyzeLanding(html: string, base: URL): Landing {
 // (un arreglo plano donde cada objeto apunta a otras posiciones). Ahí vienen el producto, el precio
 // real, los días de garantía, si el embudo tiene upsell configurado y los order bumps con su
 // precio. Solo se guardan esos datos: el checkout también trae el correo del vendedor y NO se guarda.
-interface CheckoutBump { name: string; price: number | null; currency: string | null }
-interface CheckoutData {
-  platform: string; product_name: string | null; price: number | null; currency: string | null;
-  guarantee_days: number | null; has_upsell: boolean; bumps: CheckoutBump[]; source_url: string;
-}
 
 const DEVALUE_WRAP = /^(Shallow)?(Reactive|Ref)$|^Empty(Shallow)?Ref$/;
 function decodeDevalue(arr: unknown[]): unknown {
@@ -506,7 +502,9 @@ function productAmount(p: Row): { price: number | null; currency: string | null 
   return { price, currency };
 }
 
-async function readHotmartCheckout(rawUrl: string): Promise<CheckoutData | null> {
+// Baja la página pública del checkout o de la tienda siguiendo redirecciones (con filtro
+// anti-SSRF en cada salto) y solo si al final sigue siendo de la misma plataforma.
+async function fetchCheckoutPage(rawUrl: string, platform: string): Promise<{ html: string; url: string } | null> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 15_000);
   try {
@@ -531,8 +529,21 @@ async function readHotmartCheckout(rawUrl: string): Promise<CheckoutData | null>
       break;
     }
     if (!res || res.status >= 400) { await res?.body?.cancel(); return null; }
-    if (checkoutPlatform(target.toString()) !== "Hotmart") { await res.body?.cancel(); return null; }
-    const html = await readCapped(res, 2_000_000);
+    if (checkoutPlatform(target.toString()) !== platform) { await res.body?.cancel(); return null; }
+    return { html: await readCapped(res, 2_000_000), url: cleanUrl(target.toString()) ?? target.toString() };
+  } catch (e) {
+    console.error("offer-intel: checkout:", platform, e instanceof Error ? e.message : e);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function readHotmartCheckout(rawUrl: string): Promise<CheckoutData | null> {
+  const page = await fetchCheckoutPage(rawUrl, "Hotmart");
+  if (!page) return null;
+  const html = page.html;
+  try {
     const payload = matchAll(html, /<script[^>]*>(\[[\s\S]*?\])<\/script>/g).sort((a, b) => b.length - a.length)[0];
     if (!payload) return null;
     const products = findCheckoutProducts(decodeDevalue(JSON.parse(payload) as unknown[]));
@@ -552,25 +563,42 @@ async function readHotmartCheckout(rawUrl: string): Promise<CheckoutData | null>
       guarantee_days: Number.isFinite(warranty) && warranty >= 0 && warranty <= 365 ? warranty : null,
       has_upsell: !!main.upsell,
       bumps,
-      source_url: cleanUrl(target.toString()) ?? target.toString(),
+      source_url: page.url,
     };
   } catch (e) {
     console.error("offer-intel: checkout:", e instanceof Error ? e.message : e);
     return null;
-  } finally {
-    clearTimeout(timer);
   }
 }
 
 function checkoutPriceText(c: CheckoutData | null): string | null {
   if (!c || c.price === null) return null;
-  return `${c.currency ?? ""} ${c.price.toLocaleString("es-ES", { maximumFractionDigits: 2 })}`.trim();
+  const fmt = (n: number) => `${c.currency ?? ""} ${n.toLocaleString("es-ES", { maximumFractionDigits: 2 })}`.trim();
+  // App gratis: lo que se cobra son las compras dentro de la app.
+  if (c.app && c.price === 0) {
+    const prices = c.app.in_app.map((x) => x.price).filter((p): p is number => typeof p === "number" && p > 0);
+    const min = prices.length ? Math.min(...prices) : c.app.in_app_min;
+    return min ? `Gratis · compras en la app desde ${fmt(min)}` : "Gratis";
+  }
+  return fmt(c.price);
 }
 
+// Plataformas cuyo checkout (o ficha de tienda) sabemos leer. El resto: pendientes.
+const READABLE_CHECKOUTS = ["Hotmart", ...Object.keys(CHECKOUT_PARSERS)];
+
 async function readCheckout(url: string | null, platform: string | null): Promise<CheckoutData | null> {
-  if (!url) return null;
+  if (!url || !platform) return null;
   if (platform === "Hotmart") return await readHotmartCheckout(url);
-  return null; // Kiwify, Eduzz, ThriveCart…: pendientes
+  const parse = CHECKOUT_PARSERS[platform];
+  if (!parse) return null;
+  const page = await fetchCheckoutPage(url, platform);
+  if (!page) return null;
+  try {
+    return parse(page.html, page.url);
+  } catch (e) {
+    console.error("offer-intel: checkout:", platform, e instanceof Error ? e.message : e);
+    return null;
+  }
 }
 
 // ── 3) Veredicto con IA ─────────────────────────────────────────────────
@@ -855,8 +883,8 @@ async function watchFollowed(admin: Admin): Promise<Row> {
 
     const it = intelBy.get(id);
     let c: CheckoutData | null = null;
-    if (it?.checkout_url && it.checkout_platform === "Hotmart") {
-      c = await readCheckout(String(it.checkout_url), "Hotmart");
+    if (it?.checkout_url && READABLE_CHECKOUTS.includes(String(it.checkout_platform))) {
+      c = await readCheckout(String(it.checkout_url), String(it.checkout_platform));
       if (c) {
         checkoutsRead++;
         await admin.from("offer_intel").update({
@@ -903,7 +931,7 @@ Deno.serve(async (req) => {
         const lim = Math.max(1, Math.min(20, Number(body.batch) || 10));
         const stale = new Date(Date.now() - FRESH_DAYS * 86_400_000).toISOString();
         const { data: rows } = await admin.from("offer_intel").select("offer_id, checkout_url, checkout_platform")
-          .eq("checkout_platform", "Hotmart").not("checkout_url", "is", null)
+          .in("checkout_platform", READABLE_CHECKOUTS).not("checkout_url", "is", null)
           .or(`checkout_read_at.is.null,checkout_read_at.lt.${stale}`)
           .order("checkout_read_at", { ascending: true, nullsFirst: true }).limit(lim);
         const out: Row[] = [];

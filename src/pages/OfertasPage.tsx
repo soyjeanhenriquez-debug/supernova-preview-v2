@@ -10,6 +10,7 @@ import { useOfferFollows } from "@/hooks/useOfferFollows";
 import { OFFERS_TAB_KEY, type FollowedRow } from "@/components/dashboard/RoiHunterWidget";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { type Offer, NICHE_LABEL, MODEL_LABEL, MARKET_GROUP, offerToDemoAd, openOfferAdsInRadar } from "@/lib/offers";
+import { type OfferWatch, parseWatch } from "@/lib/offerWatch";
 
 // La ficha abierta vive en la dirección (#/ofertas/<id>): se puede compartir y,
 // sobre todo, el botón "atrás" del teléfono CIERRA la ficha en vez de sacarte de
@@ -54,6 +55,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   });
   const follows = useOfferFollows();
   const [followed, setFollowed] = useState<FollowedRow[] | null>(null);
+  const [watch, setWatch] = useState<Map<string, OfferWatch>>(() => new Map());
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [niche, setNiche] = useState("all");
@@ -103,11 +105,13 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
     supabase.rpc("get_offers_stats").then(({ data }) => { if (data) setStats(data as unknown as Stats); });
   }, []);
 
-  // Cazador de ROI: ofertas seguidas + insights (deltas de 7 días)
+  // Cazador de ROI: ofertas seguidas + vigilancia diaria (conteo en vivo de Meta y alertas).
+  // Si get_offer_watch falla, la tarjeta cae al resumen viejo de 7 días: nunca queda vacía.
   useEffect(() => {
     if (tab !== "siguiendo") return;
     setFollowed(null);
     supabase.rpc("get_followed_offers").then(({ data }) => setFollowed((data ?? []) as unknown as FollowedRow[]));
+    supabase.rpc("get_offer_watch").then(({ data, error }) => setWatch(error ? new Map() : parseWatch(data)));
   }, [tab, follows.followingIds]);
 
   useEffect(() => {
@@ -222,7 +226,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
       </div>
 
       {tab === "siguiendo" ? (
-        <FollowingList rows={followed} follows={follows} onCreate={setCreating} onOpen={openDetail} />
+        <FollowingList rows={followed} watch={watch} follows={follows} onCreate={setCreating} onOpen={openDetail} />
       ) : (<>
       {/* Filtros */}
       <div className="card-surface rounded-xl p-3 grid grid-cols-1 md:grid-cols-5 gap-2">
@@ -310,8 +314,8 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   );
 }
 
-function FollowingList({ rows, follows, onCreate, onOpen }: {
-  rows: FollowedRow[] | null; follows: ReturnType<typeof useOfferFollows>;
+function FollowingList({ rows, watch, follows, onCreate, onOpen }: {
+  rows: FollowedRow[] | null; watch: Map<string, OfferWatch>; follows: ReturnType<typeof useOfferFollows>;
   onCreate: (o: Offer) => void; onOpen: (o: Offer) => void;
 }) {
   if (rows === null) {
@@ -323,8 +327,8 @@ function FollowingList({ rows, follows, onCreate, onOpen }: {
         <div className="empty-icon mb-5"><Crosshair className="w-7 h-7" strokeWidth={1.4} /></div>
         <div className="font-display font-semibold text-base mb-1">Todavía no sigues ninguna oferta</div>
         <div className="text-sm text-muted-foreground max-w-md mx-auto">
-          Pulsa el corazón en una oferta para seguirla ({CREDIT_COSTS.follow_offer} créditos). Cada día anotamos cuántos anuncios tiene activos
-          y aquí verás cuáles ponen más anuncios (les está funcionando) y cuáles los apagan.
+          Pulsa el corazón en una oferta para seguirla ({CREDIT_COSTS.follow_offer} créditos). Cada día la revisamos en la Biblioteca de Anuncios
+          de Meta y te avisamos aquí si escala (pone más anuncios: le está funcionando), si los apaga, o si cambia su precio o su upsell.
         </div>
       </div>
     );
@@ -334,7 +338,7 @@ function FollowingList({ rows, follows, onCreate, onOpen }: {
       {rows.map((r) => (
         <OfferCard key={r.offer.id} o={r.offer} onOpen={() => onOpen(r.offer)} onCreate={() => onCreate(r.offer)}
           following={follows.isFollowing(r.offer.id)} onToggleFollow={() => follows.toggle(r.offer)}
-          insight={r} />
+          insight={r} watch={watch.get(r.offer.id)} />
       ))}
     </div>
   );

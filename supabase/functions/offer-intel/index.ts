@@ -793,6 +793,94 @@ async function processOffer(admin: Admin, offerId: string, force = false): Promi
   return { http: 200, body: saved, trace };
 }
 
+// ── Vigilancia de ofertas seguidas (cron diario, acción "watch") ─────────
+// Por cada oferta que alguien sigue: cuántos anuncios tiene activos HOY su página en ese
+// mercado (Biblioteca de Anuncios de Meta) y, si tiene checkout de Hotmart, lo relee.
+// Guarda una fila en offer_watch y al final detect_offer_events() compara con la anterior.
+// No toca winning_ads ni offers. Sin IA: Meta y Hotmart no cuestan créditos.
+const WATCH_MAX_OFFERS = 80;
+const WATCH_PAGE_SIZE = 100;
+const WATCH_MAX_PAGES = 3; // tope de lectura: 300 anuncios ("al menos 300")
+
+async function countLiveAds(token: string, pageId: string, market: string): Promise<{ n: number; capped: boolean } | null> {
+  const url = new URL("https://graph.facebook.com/v21.0/ads_archive");
+  url.searchParams.set("access_token", token);
+  url.searchParams.set("search_page_ids", JSON.stringify([pageId]));
+  url.searchParams.set("ad_reached_countries", JSON.stringify([market]));
+  url.searchParams.set("ad_type", "ALL");
+  url.searchParams.set("ad_active_status", "ACTIVE");
+  url.searchParams.set("fields", "id");
+  url.searchParams.set("limit", String(WATCH_PAGE_SIZE));
+  let next: string | null = url.toString();
+  let n = 0;
+  for (let page = 0; next && page < WATCH_MAX_PAGES; page++) {
+    try {
+      const r: Response = await fetch(next, { signal: AbortSignal.timeout(15_000) });
+      const data: { data?: unknown[]; paging?: { next?: unknown } } | null = await r.json().catch(() => null);
+      // El mensaje de error de Meta puede traer la URL con el token: nunca se registra.
+      if (!r.ok || !data) return null;
+      n += Array.isArray(data.data) ? data.data.length : 0;
+      // La URL de la página siguiente lleva nuestro token: solo se sigue si es de Graph API.
+      const nx = typeof data?.paging?.next === "string" ? data.paging.next : null;
+      next = nx && /^https:\/\/graph\.facebook\.com\//.test(nx) ? nx : null;
+    } catch {
+      return null;
+    }
+  }
+  return { n, capped: !!next };
+}
+
+async function watchFollowed(admin: Admin): Promise<Row> {
+  const { data: fl } = await admin.from("offer_follows").select("offer_id").limit(5000);
+  const ids = [...new Set(((fl ?? []) as Row[]).map((r) => String(r.offer_id)))].slice(0, WATCH_MAX_OFFERS);
+  if (!ids.length) return { ok: true, watched: 0 };
+
+  const { data: vaultToken } = await admin.rpc("get_fb_token");
+  const token = (typeof vaultToken === "string" && vaultToken.length > 20 ? vaultToken : null) ?? Deno.env.get("FACEBOOK_ACCESS_TOKEN") ?? null;
+
+  const [{ data: offers }, { data: intel }] = await Promise.all([
+    admin.from("offers").select("id, page_id, market").in("id", ids),
+    admin.from("offer_intel").select("offer_id, checkout_url, checkout_platform, checkout_data").in("offer_id", ids),
+  ]);
+  const intelBy = new Map(((intel ?? []) as Row[]).map((r) => [String(r.offer_id), r]));
+  const today = new Date().toISOString().slice(0, 10);
+  const started = Date.now();
+  let done = 0, metaFail = 0, checkoutsRead = 0;
+
+  for (const o of (offers ?? []) as Row[]) {
+    if (Date.now() - started > 110_000) break; // margen antes del timeout del cron
+    const id = String(o.id);
+    const live = token && o.page_id && o.market ? await countLiveAds(token, String(o.page_id), String(o.market)) : null;
+    if (!live) metaFail++;
+
+    const it = intelBy.get(id);
+    let c: CheckoutData | null = null;
+    if (it?.checkout_url && it.checkout_platform === "Hotmart") {
+      c = await readCheckout(String(it.checkout_url), "Hotmart");
+      if (c) {
+        checkoutsRead++;
+        await admin.from("offer_intel").update({
+          checkout_data: c, checkout_read_at: new Date().toISOString(), price_text: checkoutPriceText(c),
+        }).eq("offer_id", id);
+      }
+    }
+    // Si hoy no se pudo leer el checkout, se deja el campo vacío: NULL nunca dispara alertas.
+    const { error } = await admin.from("offer_watch").upsert({
+      offer_id: id, checked_on: today,
+      live_active_ads: live?.n ?? null, live_capped: live?.capped ?? false,
+      price: c?.price ?? null, currency: c?.currency ?? null, has_upsell: c ? c.has_upsell : null,
+      bumps: c ? c.bumps.length : null, guarantee_days: c?.guarantee_days ?? null,
+      checked_at: new Date().toISOString(),
+    }, { onConflict: "offer_id,checked_on" });
+    if (error) console.error("offer-intel watch upsert:", error.message);
+    else done++;
+  }
+
+  const { data: events, error: evErr } = await admin.rpc("detect_offer_events", { p_day: today });
+  if (evErr) console.error("offer-intel detect_offer_events:", evErr.message);
+  return { ok: true, followed: ids.length, watched: done, meta_fail: metaFail, checkouts: checkoutsRead, events: events ?? 0, token: !!token };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
@@ -810,6 +898,7 @@ Deno.serve(async (req) => {
       if (lim && lim.enabled === false) return json(200, { ok: true, skipped: "apagada en edge_limits" });
       // Mapa del negocio: relee SOLO el checkout (sin IA, sin Firecrawl) de las fichas que ya lo
       // tienen enlazado y aún no tienen checkout_data o lo tienen de hace más de FRESH_DAYS.
+      if (body.action === "watch") return json(200, await watchFollowed(admin));
       if (body.action === "checkouts") {
         const lim = Math.max(1, Math.min(20, Number(body.batch) || 10));
         const stale = new Date(Date.now() - FRESH_DAYS * 86_400_000).toISOString();

@@ -1761,6 +1761,13 @@ export type Database = {
           days_tracked: number; first_active_ads: number
         }[]
       }
+      get_offer_watch: {
+        Args: never
+        Returns: {
+          offer_id: string; checked_on: string | null; live_active_ads: number | null
+          live_capped: boolean; history: Json; events: Json
+        }[]
+      }
       get_daily_picks: {
         Args: never
         Returns: { slot: number; market_group: string; offer: Json }[]

@@ -3,6 +3,7 @@ import { AdMediaPreview } from "@/components/AdMediaPreview";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { Delta, type FollowedRow } from "@/components/dashboard/RoiHunterWidget";
 import { type Offer, NICHE_LABEL, MARKET_NAME, flagFor, copyLabel, scaleLabel, winnerPct } from "@/lib/offers";
+import { type OfferWatch, type WatchPoint, describeEvent, daysAgo } from "@/lib/offerWatch";
 
 /**
  * Tarjeta de oferta. Orden de lectura de arriba abajo, el mismo en el que un
@@ -17,9 +18,11 @@ interface Props {
   onOpen: () => void;
   onCreate: () => void;
   insight?: FollowedRow;
+  /** Vigilancia diaria (solo en "Siguiendo"): conteo en vivo de Meta, historia y alertas. */
+  watch?: OfferWatch;
 }
 
-export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, insight }: Props) {
+export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, insight, watch }: Props) {
   const copy = copyLabel(o.copy_score);
   const name = o.product_name || o.sample_title || o.page_name || "Oferta";
   const score = winnerPct(o);
@@ -63,12 +66,13 @@ export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, insi
           <Metric icon={<CalendarDays className="w-4 h-4 text-muted-foreground" />} value={o.days_active.toLocaleString("es")} label="días pagando anuncios" />
         </div>
 
-        {insight && (
+        {insight && !watch && (
           <div className="mt-2 rounded-lg bg-secondary/40 px-3 py-2 flex items-center justify-between text-[11px]">
             <span className="text-muted-foreground">{insight.days_tracked > 0 ? `Últimos ${insight.days_tracked} días` : "Seguimiento desde hoy"}</span>
             <span className="flex items-center gap-3"><Delta value={insight.ads_delta} suffix="ads" /><Delta value={insight.score_delta} suffix="score" /></span>
           </div>
         )}
+        {watch && <WatchPanel w={watch} />}
 
         <dl className="mt-3 space-y-1.5 text-[12px]">
           {/* market = país pedido en ad_reached_countries a la Biblioteca de Anuncios de Meta
@@ -92,6 +96,67 @@ export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, insi
         </div>
       </div>
     </article>
+  );
+}
+
+/**
+ * Vigilancia: anuncios activos HOY según la Biblioteca de Meta (revisión diaria), su curva
+ * y las últimas alertas. Antes de la primera revisión dice cuándo llega, sin inventar nada.
+ */
+function WatchPanel({ w }: { w: OfferWatch }) {
+  const live = w.live_active_ads;
+  const last = w.events.slice(0, 3);
+  return (
+    <div className="mt-2 rounded-lg bg-secondary/40 border border-border/60 px-3 py-2.5 text-[11.5px]">
+      {w.checked_on == null ? (
+        <p className="text-muted-foreground">Vigilancia activa: la primera revisión en Meta llega en las próximas 24 horas.</p>
+      ) : (
+        <>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-foreground font-semibold tabular-nums">
+                {live == null ? "No se pudo leer hoy" : `${w.live_capped ? "Más de " : ""}${live.toLocaleString("es")} anuncios activos hoy`}
+              </div>
+              <div className="text-[10.5px] text-muted-foreground">Revisado en Meta {daysAgo(w.checked_on)}</div>
+            </div>
+            {w.history.length >= 2 && <Sparkline points={w.history} />}
+          </div>
+          {last.length > 0 ? (
+            <ul className="mt-2 space-y-1">
+              {last.map((e, i) => {
+                const { text, tone } = describeEvent(e);
+                const dot = tone === "good" ? "bg-success" : tone === "bad" ? "bg-destructive" : "bg-muted-foreground";
+                return (
+                  <li key={`${e.kind}-${e.on}-${i}`} className="flex items-start gap-2">
+                    <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} aria-hidden />
+                    <span className="text-foreground/90">{text} <span className="text-muted-foreground">· {daysAgo(e.on)}</span></span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="mt-1.5 text-muted-foreground">Sin cambios desde que la sigues.</p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function Sparkline({ points }: { points: WatchPoint[] }) {
+  const W = 84, H = 26, P = 2;
+  const ns = points.map((p) => p.n);
+  const max = Math.max(...ns), min = Math.min(...ns);
+  const span = Math.max(1, max - min);
+  const step = (W - P * 2) / Math.max(1, points.length - 1);
+  const d = points.map((p, i) => `${i ? "L" : "M"}${(P + i * step).toFixed(1)},${(H - P - ((p.n - min) / span) * (H - P * 2)).toFixed(1)}`).join(" ");
+  const first = ns[0], lastN = ns[ns.length - 1];
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="shrink-0"
+      role="img" aria-label={`Anuncios activos: de ${first} a ${lastN} en ${points.length} revisiones`}>
+      <path d={d} fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round"
+        className={lastN > first ? "text-success" : lastN < first ? "text-destructive" : "text-muted-foreground"} />
+    </svg>
   );
 }
 

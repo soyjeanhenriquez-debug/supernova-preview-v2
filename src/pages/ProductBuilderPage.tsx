@@ -522,7 +522,7 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
   const busy = !!writingId || !!run;
   // "Pronto": los de la tabla aún apagados (el admin también los ve así) + los anunciados sin fila.
   const upcoming = [
-    ...pb.models.filter(m => !m.enabled).map(m => ({ slug: m.slug, label: m.label })),
+    ...pb.models.filter(m => !m.enabled).map(m => ({ slug: m.slug, label: m.label, tier: m.tier })),
     ...UPCOMING_MODELS.filter(u => !pb.models.some(m => m.slug === u.slug)),
   ];
 
@@ -584,6 +584,7 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
                     <span className="text-sm font-semibold text-foreground">{u.label}</span>
                     <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Pronto</span>
                   </span>
+                  {u.tier !== "estandar" && <span className="block text-xs text-muted-foreground mt-0.5">Llega para el plan mensual</span>}
                 </div>
               ))}
               {!visibleModels.length && (
@@ -601,6 +602,10 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
               con una recarga (desde US$10) o un aporte de abajo.
               Con la IA Estándar, {build.format === "reto" ? "tu reto" : build.format === "curso" ? "tu curso" : "tu ebook"} completo usa unos {totalCost || 135} créditos de los 2.000 de tu plan.
             </p>
+            <ul className="text-xs text-foreground/80 space-y-0.5">
+              <li className="flex items-start gap-1.5"><Check className="w-3.5 h-3.5 mt-px shrink-0 text-primary" />Al pagar lo escribes completo aquí mismo: cada capítulo, la portada y tu PDF listo para vender.</li>
+              <li className="flex items-start gap-1.5"><Check className="w-3.5 h-3.5 mt-px shrink-0 text-primary" />Sin pagar ChatGPT aparte: las IAs de ChatGPT llegan pronto para el plan mensual.</li>
+            </ul>
             <button onClick={() => onNavigate?.("Créditos")} className={primaryBtn}>Activar ya con una recarga <ArrowRight className="w-4 h-4" /></button>
           </div>
         )}

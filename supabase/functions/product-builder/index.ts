@@ -10,8 +10,9 @@
 //
 // Piloto: con PILOT_ADMIN_ONLY = true solo responde a admins (403 not_available al resto, sin cobrar).
 // Modelos apagados (enabled=false): solo un admin puede escribir con ellos, para probarlos antes de vender.
-// Desbloqueo: escribir piezas exige al menos UNA recarga pagada (builder_unlocked): primero entra
-// dinero, después se gasta en la IA. El índice es la muestra gratis. Sin recarga → 402 needs_recharge.
+// Desbloqueo (builder_unlocked): plan ya cobrado (subscriptions.status = 'active'; NO en los 3 días de
+// prueba) o una recarga/aporte pagado. Primero entra dinero, después se gasta en la IA. El índice es la
+// muestra gratis. Sin eso → 402 needs_recharge.
 // Cada llamada tiene 125 s en total (TOTAL_BUDGET_MS); la IA recibe lo que quede de ese presupuesto.
 //
 // Ruta interna de prueba: con x-cron-secret válido + test_user_id de un ADMIN, actúa como ese
@@ -654,11 +655,11 @@ async function piece(req: Request, body: any, t0: number): Promise<Response> {
   const userId = who;
   const pilot = await pilotBlocked(admin, userId);
   if (pilot) return pilot;
-  // Se desbloquea con la primera recarga (antes de cobrar nada).
+  // Se desbloquea al cobrarse el plan o con una recarga (antes de cobrar nada).
   const { data: unlocked, error: uErr } = await admin.rpc("builder_unlocked", { p_user: userId });
   if (uErr) return fail(503, "guard_error", "No se pudo verificar el acceso. Intenta de nuevo.");
   if (unlocked !== true) {
-    return fail(402, "needs_recharge", "Escribir tu producto se desbloquea con tu primera recarga de créditos. No se te cobró.");
+    return fail(402, "needs_recharge", "Escribir tu producto se activa cuando se cobra tu primer mes (al terminar la prueba) o con una recarga. No se te cobró.");
   }
 
   // 3. Pieza + libro, siempre del mismo usuario.

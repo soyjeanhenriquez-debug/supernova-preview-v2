@@ -15,7 +15,7 @@ export type CreditAction =
   | "gen_landing" | "gen_ad_copies" | "gen_avatar" | "gen_funnel"
   | "gen_master_prompt" | "pillar_assist" | "gen_light" | "gen_medium" | "gen_heavy"
   | "gen_ad_image" | "follow_offer" | "unlock_kit"
-  | "build_piece_std" | "build_piece_sonnet" | "build_piece_opus" | "build_piece_fable" | "build_piece_gpt"
+  | "build_piece_std" | "build_piece_sonnet" | "build_piece_opus" | "build_piece_fable" | "build_piece_gpt" | "build_piece_astra"
   | "business_map";
 
 // Precios calibrados para uso DIARIO: 2000/mes alcanza para ~1 mes de uso
@@ -34,7 +34,7 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   follow_offer: 5, // se cobra server-side en la RPC follow_offer (Cazador de ROI)
   unlock_kit: 150, // se cobra server-side en la RPC unlock_kit (Mini Apps Rentables)
   // Crear producto: por capítulo, lección o bono, según la IA (edge function product-builder).
-  build_piece_std: 15, build_piece_sonnet: 35, build_piece_opus: 75, build_piece_fable: 180, build_piece_gpt: 35,
+  build_piece_std: 15, build_piece_sonnet: 35, build_piece_opus: 75, build_piece_fable: 180, build_piece_gpt: 35, build_piece_astra: 125,
   // Mapa del negocio: escalera propuesta con IA (edge function business-map).
   business_map: 15,
 };
@@ -57,6 +57,7 @@ export const ACTION_LABEL: Record<CreditAction, string> = {
   build_piece_opus: "Capítulo o lección · Pro",
   build_piece_fable: "Capítulo o lección · Máximo",
   build_piece_gpt: "Capítulo o lección · ChatGPT",
+  build_piece_astra: "Capítulo o lección · ChatGPT Astra",
   business_map: "Escalera de tu negocio",
 };
 
@@ -76,7 +77,7 @@ export const ACTION_HOURS: Record<CreditAction, number> = {
   blueprint: 4, gen_landing: 4, landing_intelligence: 4, gen_funnel: 8,
   gen_master_prompt: 6, gen_light: 1, gen_medium: 3, gen_heavy: 6, gen_ad_image: 1,
   follow_offer: 0.5, unlock_kit: 12,
-  build_piece_std: 3, build_piece_sonnet: 3, build_piece_opus: 3, build_piece_fable: 3, build_piece_gpt: 3,
+  build_piece_std: 3, build_piece_sonnet: 3, build_piece_opus: 3, build_piece_fable: 3, build_piece_gpt: 3, build_piece_astra: 3,
   business_map: 3,
 };
 

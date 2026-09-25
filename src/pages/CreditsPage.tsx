@@ -55,7 +55,7 @@ const ACTION_PAGE: Partial<Record<keyof typeof ACTION_LABEL, string>> = {
   analyze_url: "Oráculo", landing_intelligence: "Oráculo", gen_avatar: "Oráculo", gen_landing: "Oráculo",
   gen_funnel: "Oráculo", gen_ad_copies: "Oráculo", pain_discovery: "Crear",
   build_piece_std: "Crear producto", build_piece_sonnet: "Crear producto", build_piece_opus: "Crear producto",
-  build_piece_fable: "Crear producto", build_piece_gpt: "Crear producto",
+  build_piece_fable: "Crear producto", build_piece_gpt: "Crear producto", build_piece_astra: "Crear producto",
 };
 
 export function CreditsPage() {
@@ -163,7 +163,7 @@ export function CreditsPage() {
           <h3 className="font-display font-bold text-lg">RECARGA TUS CRÉDITOS</h3>
         </div>
         <p className="text-sm text-muted-foreground mb-5 max-w-xl">
-          Tu plan trae 2.000 créditos cada mes. Si se te acaban antes de que se recarguen, puedes comprar un paquete extra.{canSee("Crear producto") ? " Tu primera recarga también activa la escritura de tu ebook o curso." : " Es opcional."}
+          Tu plan trae 2.000 créditos cada mes. Si se te acaban antes de que se recarguen, puedes comprar un paquete extra.{canSee("Crear producto") ? " Una recarga también activa ya la escritura de tu ebook o curso, sin esperar a que termine tu prueba." : " Es opcional."}
         </p>
 
         <div className="grid md:grid-cols-3 gap-4">

@@ -77,6 +77,7 @@ export const UPCOMING_MODELS: { slug: string; label: string; tier: ModelTier }[]
   { slug: "estandar", label: "Estándar", tier: "estandar" },
   { slug: "sonnet", label: "Premium · Sonnet 5", tier: "premium" },
   { slug: "chatgpt", label: "Premium · ChatGPT", tier: "premium" },
+  { slug: "astra", label: "Máximo · ChatGPT Astra", tier: "maximo" },
   { slug: "opus", label: "Pro · Opus 5.5", tier: "premium" },
   { slug: "fable", label: "Máximo · Fable 5.1", tier: "maximo" },
 ];
@@ -126,7 +127,7 @@ export const BUILDER_ERRORS: Record<BuilderErrorCode, string> = {
   guard_error: "No pudimos verificar tu cuenta. Intenta de nuevo.",
   ai_timeout: "Tardó demasiado. No se te cobró: intenta de nuevo o usa otra IA.",
   not_available: "Muy pronto disponible.",
-  needs_recharge: "Escribir tu producto se desbloquea con tu primera recarga de créditos. No se te cobró.",
+  needs_recharge: "Escribir tu producto se activa cuando se cobra tu primer mes (al terminar la prueba) o con una recarga. No se te cobró.",
 };
 
 export type BuilderError = { error: string; code?: BuilderErrorCode; refunded?: boolean; balance?: number; cost?: number };

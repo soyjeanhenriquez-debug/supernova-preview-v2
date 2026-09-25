@@ -83,7 +83,8 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
   const { profile, loaded } = useBusinessProfile();
   const pb = useProductBuilds();
   const { balance, applyServerCharge } = useCredits();
-  // Escribir se desbloquea con la primera recarga pagada (el índice es la muestra gratis).
+  // Escribir se desbloquea al cobrarse el plan (no en los 3 días de prueba) o con una recarga/aporte.
+  // El índice es la muestra gratis. La regla vive en el servidor (builder_unlocked).
   const [unlocked, setUnlocked] = useState<boolean | null>(null);
   useEffect(() => {
     const check = () => {
@@ -206,7 +207,7 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
       icon={<BookOpen className="w-5 h-5 text-primary shrink-0" />}
       details={[
         "El índice es gratis. Lo revisas y lo cambias como quieras.",
-        "Escribir se desbloquea con tu primera recarga de créditos. Cada capítulo, lección o día se cobra aparte; si la IA falla, no se te cobra.",
+        "Escribir se activa cuando se cobra tu primer mes (al terminar los 3 días de prueba). Cada capítulo, lección o día usa créditos de tu plan; si la IA falla, no se te cobra.",
         "Editar, reordenar, la portada y guardar en PDF son gratis.",
       ]}
       right={active ? (
@@ -427,7 +428,7 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
             </button>
             {unlocked === false && (
               <p className="text-xs text-muted-foreground">
-                El índice es gratis. Para escribirlo, activa la escritura con tu primera recarga (desde US$10); después usas tus créditos normales.
+                El índice es gratis. La escritura se activa sola cuando se cobra tu primer mes, al terminar tus 3 días de prueba; después usas los créditos de tu plan.
               </p>
             )}
           </Card>
@@ -596,10 +597,11 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
           <div className="rounded-xl border border-primary/40 bg-primary/5 p-4 space-y-2">
             <p className="text-sm font-semibold text-foreground flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /> Tu índice está listo. Desbloquea la escritura.</p>
             <p className="text-xs text-muted-foreground">
-              Se activa para siempre con tu primera recarga (desde US$10) o con un aporte de abajo: cualquiera de los dos sirve.
-              Esos créditos te sirven para escribirlo: {build.format === "reto" ? "tu reto" : build.format === "curso" ? "tu curso" : "tu ebook"} completo con la IA Estándar usa unos {totalCost || 135} créditos.
+              Se activa sola cuando se cobra tu primer mes, al terminar tus 3 días de prueba. Si no quieres esperar, se activa ya
+              con una recarga (desde US$10) o un aporte de abajo.
+              Con la IA Estándar, {build.format === "reto" ? "tu reto" : build.format === "curso" ? "tu curso" : "tu ebook"} completo usa unos {totalCost || 135} créditos de los 2.000 de tu plan.
             </p>
-            <button onClick={() => onNavigate?.("Créditos")} className={primaryBtn}>Ver recargas <ArrowRight className="w-4 h-4" /></button>
+            <button onClick={() => onNavigate?.("Créditos")} className={primaryBtn}>Activar ya con una recarga <ArrowRight className="w-4 h-4" /></button>
           </div>
         )}
         {unlocked === false && <SupportCard compact />}
@@ -660,7 +662,7 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
 // ---------- Pieza (capítulo, lección, día o bono) ----------
 function PieceCard({ piece, label, cost, writing, failed, disabled, locked, onUnlock, saving, savedAt, onWrite, onEdit }: {
   piece: Piece; label: string; cost: number; writing: boolean; failed: boolean; disabled: boolean;
-  /** Escritura sin activar (falta la primera recarga): el botón lleva a Créditos. */
+  /** Escritura sin activar (plan aún en prueba y sin recarga): el botón lleva a Créditos. */
   locked: boolean; onUnlock: () => void;
   saving: boolean; savedAt: number | null;
   onWrite: (instructions?: string) => void; onEdit: (content: string) => void;

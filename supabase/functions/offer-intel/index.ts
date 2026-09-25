@@ -580,6 +580,7 @@ function checkoutPriceText(c: CheckoutData | null): string | null {
     const min = prices.length ? Math.min(...prices) : c.app.in_app_min;
     return min ? `Gratis · compras en la app desde ${fmt(min)}` : "Gratis";
   }
+  if (c.price === 0 && !c.subscription) return "Gratis";
   return fmt(c.price);
 }
 

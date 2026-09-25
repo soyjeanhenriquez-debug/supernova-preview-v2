@@ -7,6 +7,7 @@ import { useBusinessProfile, profileReady } from "@/lib/businessProfile";
 import { useCredits, generatorCost, CREDIT_COSTS } from "@/hooks/useCredits";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import { track } from "@/lib/analytics";
+import { AFFILIATE_NOTE, HIGGSFIELD_URL } from "@/lib/partners";
 import { COUNTRIES, type CountryCode } from "@/lib/gemelo";
 import {
   cleanGuion, cleanPersonaje, parseArray, promptFoto, promptGuiones, promptIdeas,
@@ -321,7 +322,13 @@ export function PersonajePage({ onNavigate }: { onNavigate: (page: string) => vo
                 className="inline-flex items-center gap-2 h-11 px-5 rounded-full border border-border bg-card text-[14px] font-semibold text-foreground"><Lock className="w-4 h-4" /> Avísame cuando abra</button>
             )}
           </div>
-          <p className="text-[12px] text-muted-foreground">Mientras tanto, tus guiones ya sirven: grábalos con la foto de tu personaje y la voz de tu editor de video favorito.</p>
+          <div className="rounded-2xl border border-border bg-card p-5 space-y-2">
+            <p className="font-semibold text-foreground">¿No quieres esperar?</p>
+            <p className="text-[14px] text-foreground/85">Tus guiones ya sirven: grábalos con la foto de tu personaje en CapCut o Edits (gratis). Si quieres videos con IA desde hoy, Higgsfield es la herramienta que usamos y recomendamos: sube la foto de tu personaje, pega un guion y te da el video vertical.</p>
+            <a href={HIGGSFIELD_URL} target="_blank" rel="noopener noreferrer sponsored" onClick={() => track("higgsfield_click")}
+              className="inline-flex items-center gap-2 h-10 px-4 rounded-full border border-border text-[13px] font-semibold text-foreground hover:border-foreground/30">Abrir Higgsfield <ArrowRight className="w-4 h-4" /></a>
+            <p className="text-[11px] text-muted-foreground">{AFFILIATE_NOTE}</p>
+          </div>
         </section>
       )}
     </div>

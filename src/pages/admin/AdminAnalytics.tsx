@@ -24,6 +24,7 @@ const EVENTS = [
   ["bio_copiada", "Copió la bio del personaje (va a abrir la cuenta)"],
   ["video_avisame", "Pidió aviso para los videos automáticos"],
   ["video_reserva_click", "Tocó \"Reservar mis créditos de video\""],
+  ["higgsfield_click", "Abrió tu enlace de afiliado de Higgsfield"],
   ["$pageview", "Cambió de pantalla (la dirección dice cuál: #/ofertas, #/validar…)"],
   ["$exception", "Error en el navegador"],
 ];

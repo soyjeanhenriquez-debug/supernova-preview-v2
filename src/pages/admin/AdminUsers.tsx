@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Shield, Coins, Ban, Trash2, RefreshCw, X, Mail, Activity, Plus, Minus, UserCog, Circle, LogIn } from "lucide-react";
+import { Search, Shield, Coins, Ban, Trash2, RefreshCw, X, Mail, Activity, Plus, Minus, UserCog, Circle, LogIn, KeyRound, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 type Role = "admin" | "moderator" | "user";
@@ -31,9 +31,77 @@ async function call(action: string, payload: Record<string, unknown> = {}) {
   const { data, error } = await supabase.functions.invoke("admin-users", {
     body: { action, ...payload },
   });
-  if (error) throw error;
+  if (error) {
+    // Un 4xx llega como error genérico: se lee el mensaje en español que manda la función.
+    const body = await (error as { context?: Response }).context?.json?.().catch(() => null);
+    throw new Error(body?.error || error.message);
+  }
   if (data?.error) throw new Error(data.error);
   return data;
+}
+
+/** Contraseña fácil de dictar por WhatsApp: sin letras que se confunden (l/1, O/0). */
+function makePassword() {
+  const abc = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const n = new Uint32Array(12);
+  crypto.getRandomValues(n);
+  return Array.from(n, x => abc[x % abc.length]).join("");
+}
+
+/** Admin → cambiar la contraseña de un usuario. Se muestra UNA vez para copiarla y mandársela. */
+function PasswordControl({ userId, email, isAdminTarget }: { userId: string; email: string; isAdminTarget: boolean }) {
+  const [pw, setPw] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
+  const [err, setErr] = useState("");
+
+  const save = async () => {
+    if (pw.length < 8) { setErr("Mínimo 8 caracteres."); return; }
+    if (!confirm(`¿Cambiar la contraseña de ${email}? Su contraseña anterior dejará de funcionar.`)) return;
+    setBusy(true); setErr("");
+    try {
+      await call("set_password", { userId, password: pw });
+      setDone(pw); setPw("");
+      toast.success("Contraseña cambiada");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "No se pudo cambiar la contraseña.");
+    } finally { setBusy(false); }
+  };
+
+  if (isAdminTarget) return null;
+  return (
+    <div className="rounded-xl border border-border p-4 space-y-3">
+      <div className="flex items-center gap-2 text-[12px] font-medium">
+        <KeyRound className="w-3.5 h-3.5" /> Contraseña
+      </div>
+      {done ? (
+        <div className="space-y-2">
+          <p className="text-[12px] text-muted-foreground">Nueva contraseña de {email}. Cópiala y mándasela: no se vuelve a mostrar.</p>
+          <div className="flex gap-2">
+            <code className="flex-1 px-3 py-1.5 rounded-lg bg-secondary/60 border border-border text-[13px] font-mono select-all">{done}</code>
+            <button onClick={() => { navigator.clipboard?.writeText(done).then(() => toast.success("Copiada")); }}
+              className="text-[12px] px-3 py-1.5 rounded-lg border border-border hover:bg-secondary/40 flex items-center gap-1"><Copy className="w-3 h-3" /> Copiar</button>
+            <button onClick={() => setDone(null)} className="text-[12px] px-3 py-1.5 rounded-lg border border-border hover:bg-secondary/40">Listo</button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">Dile que al entrar la cambie por una suya con la llave del menú (junto a "Salir").</p>
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-2 items-center">
+            <input type="text" value={pw} onChange={e => { setPw(e.target.value); setErr(""); }} placeholder="Contraseña nueva (mínimo 8)"
+              autoComplete="off" spellCheck={false} maxLength={72}
+              className="flex-1 min-w-[180px] px-3 py-1.5 rounded-lg bg-secondary/40 border border-border text-[13px] font-mono focus:outline-none focus:border-primary/50" />
+            <button type="button" disabled={busy} onClick={() => { setPw(makePassword()); setErr(""); }}
+              className="text-[12px] px-3 py-1.5 rounded-lg border border-border hover:bg-secondary/40 flex items-center gap-1 disabled:opacity-50"><RefreshCw className="w-3 h-3" /> Generar</button>
+            <button type="button" disabled={busy || !pw} onClick={save}
+              className="text-[12px] px-3 py-1.5 rounded-lg bg-primary/15 border border-primary/40 text-foreground hover:bg-primary/25 disabled:opacity-50">Cambiar contraseña</button>
+          </div>
+          {err && <p className="text-[12px] text-destructive" role="alert">{err}</p>}
+          <p className="text-[11px] text-muted-foreground">Para quien no recibe el código o no puede entrar. Queda registrado en Auditoría (sin la contraseña).</p>
+        </>
+      )}
+    </div>
+  );
 }
 
 // Enlace de un solo uso para ver la app como ese usuario. Se COPIA en vez de
@@ -384,6 +452,8 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: string; onClo
               </div>
 
               <ProductLimitControl userId={userId} />
+
+              <PasswordControl userId={userId} email={String((d.user as { email?: string }).email ?? "")} isAdminTarget={role === "admin"} />
 
               <div className="rounded-xl border border-border p-4 space-y-3">
                 <div className="flex items-center gap-2 text-[12px] font-medium">

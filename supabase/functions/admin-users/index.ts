@@ -49,17 +49,21 @@ serve(async (req) => {
 
     // Acciones que cambian a OTRA cuenta: nunca contra un admin (una sesión de admin robada no
     // puede quitarle el rol, suspender ni borrar a otro admin) y siempre quedan en audit_log.
-    const MUTATING = new Set(["set_role", "adjust_credits", "suspend", "unsuspend", "delete"]);
+    const MUTATING = new Set(["set_role", "adjust_credits", "suspend", "unsuspend", "delete", "set_password"]);
     if (MUTATING.has(action)) {
       const target = typeof body.userId === "string" ? body.userId : "";
       if (!/^[0-9a-f-]{36}$/i.test(target)) return json({ error: "userId inválido" }, 400);
       if (action === "set_role" && !["admin", "moderator", "user"].includes(body.role)) {
         return json({ error: "Rol inválido" }, 400);
       }
-      if (["set_role", "suspend", "delete"].includes(action) && target !== callerId) {
+      // La contraseña nueva: 8 a 72 caracteres (72 es el máximo que acepta Supabase).
+      if (action === "set_password" && (typeof body.password !== "string" || body.password.length < 8 || body.password.length > 72)) {
+        return json({ error: "La contraseña debe tener entre 8 y 72 caracteres." }, 400);
+      }
+      if (["set_role", "suspend", "delete", "set_password"].includes(action) && target !== callerId) {
         const { data: targetAdmin } = await admin.from("user_roles").select("role")
           .eq("user_id", target).eq("role", "admin").maybeSingle();
-        if (targetAdmin) return json({ error: "No se puede cambiar, suspender ni borrar a otro admin desde el panel." }, 403);
+        if (targetAdmin) return json({ error: "No se puede cambiar la contraseña, el rol, suspender ni borrar a otro admin desde el panel." }, 403);
       }
       const { error: auditErr } = await admin.from("audit_log").insert({
         user_id: callerId, user_email: userData.user.email ?? null,
@@ -185,6 +189,15 @@ serve(async (req) => {
         ban_duration: "none",
       } as unknown);
       if (error) throw error;
+      return json({ ok: true });
+    }
+
+    // Cambiar la contraseña de un usuario (p. ej. no le llega el código). La contraseña NUNCA va al
+    // audit_log ni a los logs: solo queda que un admin la cambió.
+    if (action === "set_password") {
+      const userId = body.userId as string;
+      const { error } = await admin.auth.admin.updateUserById(userId, { password: body.password as string });
+      if (error) return json({ error: /weak|pwned|short/i.test(error.message) ? "Esa contraseña es muy fácil de adivinar. Usa otra más larga." : "No se pudo cambiar la contraseña." }, 400);
       return json({ ok: true });
     }
 

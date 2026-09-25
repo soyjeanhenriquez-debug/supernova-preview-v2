@@ -1,8 +1,9 @@
-import { Check, ChevronRight, LayoutDashboard, Trophy, Telescope, FileText, FolderKanban, Coins, Shield, LogOut, PanelLeftClose, PanelLeftOpen, X, Video, Quote, Gem, Boxes, Orbit, Store, Briefcase, ClipboardCheck, Calculator, ListTodo, CalendarDays, BarChart3, MessageCircle, Lightbulb, LayoutGrid, BookOpen } from "lucide-react";
+import { Check, ChevronRight, LayoutDashboard, Trophy, Telescope, FileText, FolderKanban, Coins, Shield, LogOut, PanelLeftClose, PanelLeftOpen, X, KeyRound, Video, Quote, Gem, Boxes, Orbit, Store, Briefcase, ClipboardCheck, Calculator, ListTodo, CalendarDays, BarChart3, MessageCircle, Lightbulb, LayoutGrid, BookOpen } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { openSetPassword } from "@/components/SetPasswordDialog";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useNavigate } from "react-router-dom";
 import { useFeatureAccess } from "@/lib/features";
@@ -206,6 +207,9 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
             <div title={user?.email ?? displayName} className="w-8 h-8 rounded-full bg-secondary border border-border flex items-center justify-center text-[12px] font-semibold text-foreground">
               {initials}
             </div>
+            <button onClick={openSetPassword} title="Cambiar contraseña" aria-label="Cambiar contraseña" className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-secondary/60">
+              <KeyRound className="w-[14px] h-[14px]" strokeWidth={1.6} />
+            </button>
             <button onClick={handleSignOut} title={t("common.logout")} className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-secondary/60">
               <LogOut className="w-[14px] h-[14px]" strokeWidth={1.6} />
             </button>
@@ -219,6 +223,9 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
               <div className="text-[12px] font-medium text-foreground truncate leading-tight">{displayName}</div>
               <div className="text-[10px] text-muted-foreground truncate leading-tight">{user?.email}</div>
             </div>
+            <button onClick={openSetPassword} className="text-muted-foreground hover:text-foreground transition-colors p-1" title="Cambiar contraseña" aria-label="Cambiar contraseña">
+              <KeyRound className="w-[14px] h-[14px]" strokeWidth={1.6} />
+            </button>
             <button onClick={handleSignOut} className="text-muted-foreground hover:text-foreground transition-colors p-1" title={t("common.logout")}>
               <LogOut className="w-[14px] h-[14px]" strokeWidth={1.6} />
             </button>

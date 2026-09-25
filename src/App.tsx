@@ -32,6 +32,7 @@ const AdminMercado = lazy(() => import("@/pages/admin/AdminMercado"));
 const AdminHealth = lazy(() => import("@/pages/admin/AdminHealth"));
 const UnsubscribePage = lazy(() => import("@/pages/UnsubscribePage"));
 import { RequireAccess } from "@/components/RequireAccess";
+import { SetPasswordDialog } from "@/components/SetPasswordDialog";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Datos recién pedidos se reutilizan 1 min y no se vuelven a pedir al cambiar de pestaña.
@@ -110,6 +111,8 @@ function AppRoutes() {
   }
 
   return (
+    <>
+    <SetPasswordDialog />
     <RequireAccess>
       <BrowserRouter>
         <Suspense fallback={<div className="min-h-screen bg-background" />}>
@@ -140,6 +143,7 @@ function AppRoutes() {
         </Suspense>
       </BrowserRouter>
     </RequireAccess>
+    </>
   );
 }
 

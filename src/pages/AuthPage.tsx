@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { offerNewPasswordAfterLogin } from "@/components/SetPasswordDialog";
 import { Sparkles, Mail, KeyRound, Loader2, ArrowLeft, Lock, Send, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -113,6 +114,9 @@ export function AuthPage() {
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    // Quien entra con código casi siempre olvidó su contraseña: al entrar se le ofrece crear una.
+    // Se marca antes de verificar porque la app se monta en cuanto la sesión existe.
+    offerNewPasswordAfterLogin();
     try {
       const { error } = await supabase.auth.verifyOtp({
         email,
@@ -122,6 +126,7 @@ export function AuthPage() {
       if (error) throw error;
       toast.success("¡Acceso concedido! 🚀");
     } catch (err: unknown) {
+      try { sessionStorage.removeItem("supernova:set-password"); } catch { /* nada */ }
       toast.error(authErrorMessage(err), { duration: 8000 });
     } finally {
       setLoading(false);

@@ -332,6 +332,33 @@ export type Database = {
         }
         Relationships: []
       }
+      business_maps: {
+        Row: {
+          created_at: string
+          ladder: Json
+          model: string | null
+          offer_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          ladder: Json
+          model?: string | null
+          offer_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          ladder?: Json
+          model?: string | null
+          offer_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       campaigns: {
         Row: {
           budget: number

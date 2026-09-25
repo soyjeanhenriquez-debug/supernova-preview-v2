@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calculator, ShieldCheck, ShoppingCart, ArrowUpRight, Info, Loader2, PlusCircle } from "lucide-react";
+import { Calculator, ShieldCheck, ShoppingCart, ArrowUpRight, Info, Loader2, PlusCircle, Layers, AlertTriangle, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
+import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import type { Offer } from "@/lib/offers";
 import { type OfferIntel, FUNNEL_LABEL } from "@/lib/offerIntel";
 import { calcLtv, parsePriceText, TYPICAL_RATES, type LtvInputs } from "@/lib/ltv";
@@ -40,6 +44,60 @@ export function BusinessMap({ o, intel, working }: { o: Offer; intel: OfferIntel
   const r = calcLtv(inp);
   const set = (k: keyof LtvInputs) => (v: number) => setInp((s) => ({ ...s, [k]: v }));
   const funnelGain = Math.max(0, r.net - r.netFrontOnly);
+
+  // Escalera propuesta con IA (business-map): se lee la guardada; armarla o pedir otra cobra.
+  const { applyServerCharge, canAfford } = useCredits();
+  const [ladder, setLadder] = useState<Ladder | null>(null);
+  const [ladderBusy, setLadderBusy] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    setLadder(null);
+    // Filtra por el propio usuario: el admin puede leer las de todos.
+    void (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { data } = await supabase.from("business_maps").select("ladder")
+        .eq("offer_id", o.id).eq("user_id", session.user.id).maybeSingle();
+      if (alive && data?.ladder) setLadder(data.ladder as unknown as Ladder);
+    })();
+    return () => { alive = false; };
+  }, [o.id]);
+
+  const buildLadder = async (regenerate: boolean) => {
+    if (!canAfford("business_map")) {
+      toast.error(`Te faltan créditos: la escalera cuesta ${CREDIT_COSTS.business_map}`, { description: "Recarga créditos o espera a que se renueven." });
+      return;
+    }
+    setLadderBusy(true);
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/business-map`, {
+        method: "POST", headers: await fnHeaders(), body: JSON.stringify({ offer_id: o.id, regenerate }),
+      });
+      if (!resp.ok) throw new Error(await fnErrorMessage(resp, "No se pudo armar tu escalera"));
+      const data = await resp.json();
+      applyServerCharge("business_map", readBilling(resp), `Escalera · ${(co?.product_name ?? o.product_name ?? "oferta").slice(0, 40)}`);
+      setLadder(data.ladder as Ladder);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo armar tu escalera");
+    } finally {
+      setLadderBusy(false);
+    }
+  };
+
+  const applyLadder = (l: Ladder) => {
+    const of = (t: StepType) => l.pasos.filter((p) => p.tipo === t);
+    const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length * 100) / 100 : 0);
+    const bumps = of("bump"), up = of("upsell")[0], down = of("downsell")[0], sub = of("suscripcion")[0], main = of("principal")[0];
+    setInp((s) => ({
+      ...s,
+      price: main?.precio ?? s.price,
+      bumpPrice: avg(bumps.map((b) => b.precio)), bumpTakePct: avg(bumps.map((b) => b.tasa_tipica_pct)),
+      upsellPrice: up?.precio ?? 0, upsellTakePct: up?.tasa_tipica_pct ?? 0,
+      downsellPrice: down?.precio ?? 0, downsellTakePct: down?.tasa_tipica_pct ?? 0,
+      subPrice: sub?.precio ?? 0, subTakePct: sub?.tasa_tipica_pct ?? 0,
+    }));
+    toast.success("Listo: la calculadora usa tu escalera.");
+  };
 
   return (
     <div className="space-y-4">
@@ -90,6 +148,67 @@ export function BusinessMap({ o, intel, working }: { o: Offer; intel: OfferIntel
                 : "No vimos su checkout. "}
             Pon abajo el precio que veas y calculamos igual.
           </p>
+        )}
+      </section>
+
+      {/* 1b) Escalera propuesta con IA */}
+      <section className="rounded-2xl border border-border p-3 sm:p-4 space-y-3">
+        <h5 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground flex items-center gap-1.5">
+          <Layers className="w-3.5 h-3.5" /> Tu escalera para esta oferta
+        </h5>
+        {!ladder ? (
+          <div className="space-y-2.5">
+            <p className="text-[12.5px] text-foreground/85">
+              La IA arma la escalera completa de tu versión: producto principal, order bump, upsell, downsell y, si encaja,
+              una suscripción mensual. Copia lo que se ve en su checkout y propone lo que no, con precio y qué % suele tomarlo.
+            </p>
+            <button onClick={() => void buildLadder(false)} disabled={ladderBusy}
+              className="w-full h-11 btn-primary-nova rounded-xl text-[13.5px] font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
+              {ladderBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Layers className="w-4 h-4" />}
+              {ladderBusy ? "Armando tu escalera…" : <>Armar mi escalera <span className="opacity-70 font-medium">· {CREDIT_COSTS.business_map} ⚡</span></>}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {ladder.resumen && <p className="text-[12.5px] text-foreground/85">{ladder.resumen}</p>}
+            <ol className="space-y-2">
+              {ladder.pasos.map((p, i) => (
+                <li key={i} className="rounded-xl border border-border bg-secondary/20 p-2.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                        {STEP_LABEL[p.tipo]}
+                        <span className={`rounded px-1 text-[9.5px] ${p.origen === "real" ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground"}`}>{p.origen}</span>
+                      </div>
+                      <div className="text-[13.5px] font-semibold text-foreground mt-0.5">{p.nombre}</div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-[14px] font-semibold tabular-nums text-foreground">{`${ladder.moneda} ${p.precio.toLocaleString("es-ES", { maximumFractionDigits: 2 })}`}{p.tipo === "suscripcion" ? "/mes" : ""}</div>
+                      <div className="text-[10.5px] text-muted-foreground">{p.tipo === "principal" ? "todos" : `~${p.tasa_tipica_pct}% lo toma`}</div>
+                    </div>
+                  </div>
+                  {p.que_incluye && <p className="text-[12px] text-foreground/80 mt-1.5">{p.que_incluye}</p>}
+                  {p.por_que && <p className="text-[11.5px] text-muted-foreground mt-1">Por qué: {p.por_que}</p>}
+                </li>
+              ))}
+            </ol>
+            {ladder.advertencias.length > 0 && (
+              <ul className="space-y-1">
+                {ladder.advertencias.map((a, i) => (
+                  <li key={i} className="text-[11.5px] text-foreground/80 flex items-start gap-1.5"><AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-primary" /> {a}</li>
+                ))}
+              </ul>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => applyLadder(ladder)} className="h-10 rounded-xl btn-primary-nova text-[12.5px] font-semibold flex items-center justify-center gap-1.5">
+                <Calculator className="w-4 h-4" /> Usar en la calculadora
+              </button>
+              <button onClick={() => void buildLadder(true)} disabled={ladderBusy}
+                className="h-10 rounded-xl border border-border text-[12.5px] font-semibold text-foreground hover:border-primary/50 flex items-center justify-center gap-1.5 disabled:opacity-60">
+                {ladderBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Pedir otra · {CREDIT_COSTS.business_map} ⚡
+              </button>
+            </div>
+          </div>
         )}
       </section>
 
@@ -158,6 +277,17 @@ export function BusinessMap({ o, intel, working }: { o: Offer; intel: OfferIntel
     </div>
   );
 }
+
+type StepType = "principal" | "bump" | "upsell" | "downsell" | "suscripcion";
+interface Ladder {
+  resumen: string;
+  moneda: string;
+  pasos: { tipo: StepType; nombre: string; que_incluye: string; precio: number; origen: "real" | "propuesto"; tasa_tipica_pct: number; por_que: string }[];
+  advertencias: string[];
+}
+const STEP_LABEL: Record<StepType, string> = {
+  principal: "Producto principal", bump: "Order bump", upsell: "Upsell", downsell: "Downsell", suscripcion: "Suscripción mensual",
+};
 
 function Row({ label, value, strong, icon }: { label: string; value: string; strong?: boolean; icon?: React.ReactNode }) {
   return (

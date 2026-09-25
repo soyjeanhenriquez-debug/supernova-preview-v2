@@ -33,6 +33,11 @@ export interface CheckoutData {
   /** Cobro recurrente del producto principal, si lo es. */
   subscription?: { price: number | null; interval: string | null } | null;
   app?: CheckoutApp | null;
+  /** Prueba pública de demanda que muestra la propia plataforma (nunca inventada). */
+  public_sales?: number | null;    // Gumroad: ventas, si el vendedor las deja públicas
+  members?: number | null;         // Skool: miembros de la comunidad
+  rating?: number | null;          // Gumroad: valoración promedio
+  ratings_count?: number | null;
   source_url: string;
 }
 
@@ -378,10 +383,126 @@ export function parseGooglePlay(html: string, url: string): CheckoutData | null 
   };
 }
 
+// ── Cakto (Next.js: los datos vienen en los trozos self.__next_f.push([1,"…"])) ──
+export function parseCakto(html: string, url: string): CheckoutData | null {
+  let flight = "";
+  for (const m of html.matchAll(/self\.__next_f\.push\(\[1,("(?:[^"\\]|\\.)*")\]\)/g)) {
+    try { flight += JSON.parse(m[1]) as string; } catch { /* trozo raro */ }
+    if (flight.length > 3_000_000) break;
+  }
+  const at = flight.indexOf('"initialData":');
+  if (at < 0) return null;
+  const j = scanJson(flight, at + '"initialData":'.length);
+  let d: Row | null = null;
+  try { d = j ? obj(JSON.parse(j)) : null; } catch { return null; }
+  const p = obj(d?.product);
+  if (!d || !p) return null;
+  const currency = cur(p.currency) ?? cur(d.currency);
+  const price = num(d.price ?? p.price);
+  if (price === null) return null;
+  const bumps = arr(p.bumps).map((b) => obj(obj(b)?.offer)).filter((b): b is Row => !!b).slice(0, 10)
+    .map((b) => ({ name: clip(b.name, 160), price: num(b.price), currency: cur(b.currency) ?? currency })).filter((b) => b.name);
+  const period = Number(d.recurrence_period);
+  return {
+    platform: "Cakto",
+    product_name: clip(d.name ?? p.name, 200) || null,
+    price, currency, guarantee_days: null,
+    has_upsell: p.upsell === true, bumps,
+    subscription: d.type === "subscription"
+      ? { price, interval: period === 30 ? "monthly" : period === 365 ? "annually" : period === 7 ? "weekly" : Number.isFinite(period) && period > 0 ? `${period} días` : null } : null,
+    source_url: url,
+  };
+}
+
+// ── Gumroad (Inertia: data-page="{…}") ────────────────────────────────────
+export function parseGumroad(html: string, url: string): CheckoutData | null {
+  const m = /data-page="([^"]*)"/.exec(html);
+  if (!m) return null;
+  let page: Row | null = null;
+  try {
+    page = obj(JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")));
+  } catch { return null; }
+  const p = obj(obj(page?.props)?.product);
+  if (!p) return null;
+  const currency = typeof p.currency_code === "string" ? cur(p.currency_code.toUpperCase()) : null;
+  const price = cents(p.price_cents);
+  if (price === null) return null;
+  const ratings = obj(p.ratings);
+  const refund = obj(p.refund_policy);
+  const refundDays = Number(refund?.max_refund_period_in_days ?? refund?.refund_period_in_days);
+  const recurrences = arr(obj(p.recurrences)?.enabled).map(obj).filter((x): x is Row => !!x);
+  const monthly = recurrences.find((x) => x.recurrence === "monthly") ?? recurrences[0];
+  // Niveles u opciones (p. ej. "Básico / Completo"): se muestran como bumps con su precio total.
+  const bumps = arr(p.options).map(obj).filter((x): x is Row => !!x).slice(0, 6)
+    .map((x) => ({ name: clip(x.name, 160), price: cents(Number(p.price_cents) + Number(x.price_difference_cents ?? 0)), currency }))
+    .filter((x) => x.name && x.price !== null && x.price !== price);
+  return {
+    platform: "Gumroad",
+    product_name: clip(p.name, 200) || null,
+    price, currency,
+    guarantee_days: Number.isFinite(refundDays) && refundDays > 0 && refundDays <= 365 ? refundDays : null,
+    has_upsell: false, upsell_visible: false, bumps,
+    subscription: p.is_recurring_billing === true
+      ? { price: cents(monthly?.price_cents) ?? price, interval: clip(monthly?.recurrence, 20) || null } : null,
+    public_sales: count(p.sales_count),
+    rating: num(ratings?.average), ratings_count: count(ratings?.count),
+    source_url: url,
+  };
+}
+
+// ── Skool (Next.js: __NEXT_DATA__ → currentGroup.metadata) ────────────────
+export function parseSkool(html: string, url: string): CheckoutData | null {
+  const m = /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/.exec(html);
+  if (!m) return null;
+  let meta: Row | null = null;
+  try { meta = obj(obj(obj(obj(obj(JSON.parse(m[1]))?.props)?.pageProps)?.currentGroup)?.metadata); } catch { return null; }
+  if (!meta) return null;
+  let dp: Row | null = null;
+  try { dp = typeof meta.displayPrice === "string" ? obj(JSON.parse(meta.displayPrice)) : obj(meta.displayPrice); } catch { dp = null; }
+  const currency = typeof dp?.currency === "string" ? cur(dp.currency.toUpperCase()) : null;
+  const price = cents(dp?.amount);
+  const interval = clip(dp?.recurring_interval, 20) || null;
+  return {
+    platform: "Skool",
+    product_name: clip(meta.displayName, 200) || null,
+    price: price ?? 0, currency, guarantee_days: null,
+    has_upsell: false, upsell_visible: false, bumps: [],
+    subscription: interval ? { price, interval: interval === "month" ? "monthly" : interval === "year" ? "annually" : interval } : null,
+    members: count(meta.totalMembers),
+    source_url: url,
+  };
+}
+
+// ── Digistore24 (formulario nuevo: var order_data = {…}) ──────────────────
+export function parseDigistore24(html: string, url: string): CheckoutData | null {
+  const d = obj(jsonAfter(html, /var order_data\s*=/));
+  const plan = obj(arr(d?.payment_plans)[0]);
+  if (!d || !plan) return null;
+  const item = obj(arr(obj(d.productList)?.items)[0]);
+  const currency = cur(obj(d.order)?.currency_code) ?? cur(obj(obj(d.settings)?.global)?.currency_code);
+  const price = num(plan.single_price ?? plan.first_amount);
+  if (price === null) return null;
+  const refund = Number(obj(d.buyButton)?.refund_days);
+  const title = /<title>([^<]*)<\/title>/.exec(html)?.[1]?.replace(/\s*[-|]\s*Digistore24\s*$/i, "");
+  return {
+    platform: "Digistore24",
+    product_name: clip(item?.headline, 200) || clip(title, 200) || null,
+    price, currency,
+    guarantee_days: Number.isFinite(refund) && refund > 0 && refund <= 365 ? refund : null,
+    has_upsell: false, upsell_visible: false, bumps: [],
+    subscription: plan.rebilling === true ? { price: num(plan.other_amounts ?? plan.single_price), interval: clip(plan.interval_unit, 20) || null } : null,
+    source_url: url,
+  };
+}
+
 export const CHECKOUT_PARSERS: Record<string, (html: string, url: string) => CheckoutData | null> = {
   Kiwify: parseKiwify,
   ThriveCart: parseThriveCart,
   SamCart: parseSamCart,
   "App Store": parseAppStore,
   "Google Play": parseGooglePlay,
+  Cakto: parseCakto,
+  Gumroad: parseGumroad,
+  Skool: parseSkool,
+  Digistore24: parseDigistore24,
 };

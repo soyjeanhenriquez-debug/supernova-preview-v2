@@ -149,8 +149,11 @@ export function BusinessMap({ o, intel, working }: { o: Offer; intel: OfferIntel
         ) : co ? (
           <div className="space-y-2.5">
             <Row label="Producto principal" value={co.product_name ?? "—"} />
-            <Row label="Precio" value={co.price !== null ? `${money(co.price)}${co.subscription ? ` · suscripción${co.subscription.interval ? ` (${INTERVAL_LABEL[co.subscription.interval] ?? co.subscription.interval})` : ""}` : ""}` : "no visible"} strong />
+            <Row label="Precio" value={co.price !== null ? `${co.price === 0 && !co.subscription ? "Gratis" : money(co.price)}${co.subscription ? ` · suscripción${co.subscription.interval ? ` (${INTERVAL_LABEL[co.subscription.interval] ?? co.subscription.interval})` : ""}` : ""}` : "no visible"} strong />
             <Row label="Garantía" value={co.guarantee_days !== null ? `${co.guarantee_days} días` : "no indica"} icon={<ShieldCheck className="w-3.5 h-3.5" />} />
+            {!!co.public_sales && <Row label="Ventas que muestra" value={co.public_sales.toLocaleString("es-ES")} strong />}
+            {!!co.members && <Row label="Miembros de la comunidad" value={co.members.toLocaleString("es-ES")} strong />}
+            {!!co.rating && <Row label="Valoración" value={`${co.rating.toLocaleString("es-ES", { maximumFractionDigits: 1 })} ★ · ${(co.ratings_count ?? 0).toLocaleString("es-ES")} reseñas`} />}
             <Row label="Upsell después de pagar" value={co.upsell_visible === false ? "No se ve desde este checkout" : co.has_upsell ? "Sí, tiene uno (su precio solo se ve comprando)" : "No tiene"} icon={<ArrowUpRight className="w-3.5 h-3.5" />} />
             <div>
               <div className="text-[12px] text-muted-foreground mb-1.5">Order bumps en el mismo pago {co.bumps.length ? `(${co.bumps.length})` : ""}</div>
@@ -172,7 +175,7 @@ export function BusinessMap({ o, intel, working }: { o: Offer; intel: OfferIntel
         ) : (
           <p className="text-[12.5px] text-foreground/80">
             {intel?.checkout_platform && !READABLE_CHECKOUTS.includes(intel.checkout_platform)
-              ? `Cobra con ${intel.checkout_platform}: todavía no leemos ese checkout. `
+              ? `Cobra con ${intel.checkout_platform}: su checkout no deja ver el precio desde afuera. `
               : intel?.funnel_type
                 ? `No vimos su checkout: esta oferta lo esconde detrás de ${(FUNNEL_LABEL[intel.funnel_type] ?? "otro paso").toLowerCase()}. `
                 : "No vimos su checkout. "}
@@ -309,7 +312,7 @@ export function BusinessMap({ o, intel, working }: { o: Offer; intel: OfferIntel
 }
 
 // Checkouts y tiendas que offer-intel sabe leer (supabase/functions/offer-intel).
-const READABLE_CHECKOUTS = ["Hotmart", "Kiwify", "ThriveCart", "SamCart", "App Store", "Google Play"];
+const READABLE_CHECKOUTS = ["Hotmart", "Kiwify", "ThriveCart", "SamCart", "App Store", "Google Play", "Cakto", "Gumroad", "Skool", "Digistore24"];
 const INTERVAL_LABEL: Record<string, string> = {
   monthly: "mensual", month: "mensual", annually: "anual", yearly: "anual", year: "anual",
   weekly: "semanal", week: "semanal", quarterly: "trimestral", biannually: "semestral",

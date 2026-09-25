@@ -131,6 +131,9 @@ function buildUser(offer: Row, intel: Row | null): string {
       `Order bumps: ${Array.isArray(co.bumps) && co.bumps.length ? co.bumps.slice(0, 10).map((b: Row) => `${clip(b.name, 120)} (${b.price ?? "?"} ${clip(b.currency, 3)})`).join(" · ") : "ninguno"}`,
     );
     if (co.subscription) lines.push(`El principal es una suscripción: ${co.subscription.price ?? "?"} ${clip(co.currency, 3)} · cada ${clip(co.subscription.interval, 20) || "periodo no indicado"}`);
+    if (co.public_sales) lines.push(`Ventas públicas que muestra la plataforma: ${co.public_sales}`);
+    if (co.members) lines.push(`Miembros de la comunidad: ${co.members}`);
+    if (co.rating) lines.push(`Valoración de compradores: ${co.rating} con ${co.ratings_count ?? "?"} reseñas`);
     const app = co.app;
     if (app) {
       const items = Array.isArray(app.in_app) ? app.in_app.slice(0, 15).map((x: Row) => `${clip(x.name, 80)} (${x.price ?? "?"})`).join(" · ") : "";

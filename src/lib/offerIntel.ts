@@ -52,6 +52,11 @@ export interface CheckoutData {
     installs: number | null;
     installs_label: string | null;
   } | null;
+  /** Prueba pública de demanda que muestra la propia plataforma. */
+  public_sales?: number | null;
+  members?: number | null;
+  rating?: number | null;
+  ratings_count?: number | null;
   source_url: string;
 }
 

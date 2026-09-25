@@ -257,13 +257,13 @@ const CHECKOUTS: [RegExp, string, RegExp?][] = [
   [/^(checkout|pay|payment)\.ticto\.(app|com\.br)$/i, "Ticto"],
   [/^pay\.cakto\.com\.br$/i, "Cakto"],
   [/^pay\.kirvano\.com$/i, "Kirvano"],
-  [/^(ev|pay|checkout)\.braip\.com$/i, "Braip"],
+  [/^(ev|pay|checkout)\.braip\.com$|^pay\.braip\.co$/i, "Braip"], // se mudó a pay.braip.co
   [/^(pay\.)?lastlink\.com$/i, "Lastlink"],
   [/^(pay|checkout|seguro)\.yampi\.(com\.br|io)$/i, "Yampi"],
   [/^pay\.greenn\.com\.br$/i, "Greenn"],
   [/^(buy|checkout)\.stripe\.com$/i, "Stripe"],
   [/^([a-z0-9-]+\.)?pay\.clickbank\.net$|^[a-z0-9-]+\.hop\.clickbank\.net$/i, "ClickBank"],
-  [/^(www\.)?digistore24\.com$/i, "Digistore24", /\/(product|redir|buy)\//i],
+  [/^(www\.)?digistore24\.com$|^(www\.)?checkout-ds24\.com$/i, "Digistore24", /\/(product|redir|buy)\//i],
   [/^(www\.)?buygoods\.com$/i, "BuyGoods"],
   [/^(?!spark\.)[a-z0-9-]+\.thrivecart\.com$/i, "ThriveCart"], // spark.* = imágenes
   [/^[a-z0-9-]+\.(my)?samcart\.com$/i, "SamCart"],
@@ -583,7 +583,9 @@ function checkoutPriceText(c: CheckoutData | null): string | null {
   return fmt(c.price);
 }
 
-// Plataformas cuyo checkout (o ficha de tienda) sabemos leer. El resto: pendientes.
+// Plataformas cuyo checkout (o ficha de tienda) sabemos leer. No se leen: Eduzz (pide CAPTCHA) y
+// Monetizze (bloquea robots): no se esquivan. Whop, Stripe, Lastlink y Braip cargan el precio solo
+// en el navegador; para esas queda el precio visto en la página de ventas.
 const READABLE_CHECKOUTS = ["Hotmart", ...Object.keys(CHECKOUT_PARSERS)];
 
 async function readCheckout(url: string | null, platform: string | null): Promise<CheckoutData | null> {

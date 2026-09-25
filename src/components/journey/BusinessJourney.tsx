@@ -7,6 +7,7 @@ import { useProducts } from "@/contexts/ProductContext";
 import { useProjects } from "@/hooks/useProjects";
 import { useBusinessProfile, profileReady, type BusinessProfile } from "@/lib/businessProfile";
 import { WeeklyPlan } from "@/components/journey/WeeklyPlan";
+import { GemeloFlow } from "@/components/journey/GemeloFlow";
 import { useFeatureAccess } from "@/lib/features";
 import { journeyStages, buildIsDone, buildTasksProgress, type BuildRow } from "@/lib/journey";
 
@@ -29,6 +30,8 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
   // Etapa 4: un ebook o curso terminado en "Crear producto" (product_builds) también la cumple.
   const [hasBuiltProduct, setHasBuiltProduct] = useState(false);
   const { canSee } = useFeatureAccess();
+  // Negocio Gemelo: se queda abierto tras clonar para mostrar "listo" (la etapa 1 ya se marcó hecha).
+  const [keepGemelo, setKeepGemelo] = useState(false);
   const builderOn = canSee("Crear producto");
 
   useEffect(() => {
@@ -180,8 +183,10 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
         })}
       </ol>
 
-      {/* Ahora: UNA etapa, una línea y el botón que lleva a hacerla. */}
-      {next ? (
+      {/* Etapa 1 sin hacer: se elige y se clona aquí mismo (Negocio Gemelo en 3 toques). */}
+      {next?.n === 1 || keepGemelo ? (
+        <GemeloFlow profile={profile} savePatch={savePatch} onNavigate={onNavigate} onKeep={setKeepGemelo} />
+      ) : /* Ahora: UNA etapa, una línea y el botón que lleva a hacerla. */ next ? (
         <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex-1 min-w-0">
             {lastDone && <p className="text-xs text-emerald-400 mb-1 flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Etapa {lastDone.n} lista: {lastDone.doneNote.toLowerCase()}</p>}

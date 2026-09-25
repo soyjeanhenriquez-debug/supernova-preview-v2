@@ -11,13 +11,15 @@
 //
 // verify_jwt = false (lo invoca pg_cron). Compuerta: secreto de cron o admin.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const APP_URL = "https://supernova-six-eta.vercel.app";
 const FROM = "SUPERNOVA <hola@supernova.jeanhenriquez.com>"; // dominio verificado en Resend (25-sep-2026)
 const DEFAULT_TO = "soyjeanhenriquez@gmail.com";
 
+// Con CORS: el botón "Enviarme un correo de prueba" (Admin → Salud) la llama desde el navegador.
 const json = (status: number, body: unknown) =>
-  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 // deno-lint-ignore no-explicit-any
 async function authorizeInternal(req: Request, admin: any): Promise<boolean> {
@@ -79,6 +81,7 @@ const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });

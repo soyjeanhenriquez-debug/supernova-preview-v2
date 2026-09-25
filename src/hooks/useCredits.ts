@@ -61,8 +61,8 @@ export const ACTION_LABEL: Record<CreditAction, string> = {
   business_map: "Escalera de tu negocio",
 };
 
-const GEN_LIGHT_IDS = new Set(["captions-ig","yt-titles","hooks-meta","hooks-tiktok","reels-script","dm-script","whatsapp-sequence","order-bump","ugc-script","mandala-ad","market-idea","etsy-ideas"]);
-const GEN_MEDIUM_IDS = new Set(["landing-copy","email-launch","email-sequence","yt-script","funnel-strategy","audience-research","product-desc","offer-stack","yapping-script","ecosystem","ascension-offer","meta-campaign","creative-brief","mandala-sequence","mandala-iterate"]);
+const GEN_LIGHT_IDS = new Set(["captions-ig","yt-titles","hooks-meta","hooks-tiktok","reels-script","dm-script","whatsapp-sequence","order-bump","ugc-script","mandala-ad","market-idea","etsy-ideas","personaje-ideas"]);
+const GEN_MEDIUM_IDS = new Set(["landing-copy","email-launch","email-sequence","yt-script","funnel-strategy","audience-research","product-desc","offer-stack","yapping-script","ecosystem","ascension-offer","meta-campaign","creative-brief","mandala-sequence","mandala-iterate","personaje-guiones"]);
 const GEN_HEAVY_IDS = new Set(["vsl-downsell","vsl-upsell-1","vsl-upsell-2","vsl-main"]);
 
 export function generatorCost(id: string): { action: CreditAction; cost: number } {

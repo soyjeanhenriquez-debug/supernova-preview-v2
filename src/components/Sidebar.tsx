@@ -1,4 +1,4 @@
-import { Check, ChevronRight, LayoutDashboard, Trophy, Telescope, FileText, FolderKanban, Coins, Shield, LogOut, PanelLeftClose, PanelLeftOpen, X, KeyRound, Video, Quote, Gem, Boxes, Orbit, Store, Briefcase, ClipboardCheck, Calculator, ListTodo, CalendarDays, BarChart3, MessageCircle, Lightbulb, LayoutGrid, BookOpen } from "lucide-react";
+import { Check, ChevronRight, LayoutDashboard, Trophy, Telescope, FileText, FolderKanban, Coins, Shield, LogOut, PanelLeftClose, PanelLeftOpen, X, KeyRound, UserRound, Video, Quote, Gem, Boxes, Orbit, Store, Briefcase, ClipboardCheck, Calculator, ListTodo, CalendarDays, BarChart3, MessageCircle, Lightbulb, LayoutGrid, BookOpen } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
@@ -56,6 +56,7 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
     ].filter(item => canSee(item.key)) }, // "Crear producto" está en piloto (solo admin)
     { title: "5 · Vender", stage: 5, items: [
       { icon: Orbit, key: "Mándala", label: t("nav.mandala"), hint: t("nav.hint.mandala") },
+      { icon: UserRound, key: "Sin mostrar tu cara", label: "Vende sin mostrar tu cara", hint: "Un personaje creado con IA cuenta tu oferta en Reels y TikTok. Tú publicas; él da la cara." },
       { icon: Quote, key: "Hooks", label: t("nav.hooks"), hint: t("nav.hint.hooks") },
       { icon: CalendarDays, key: "Contenido", label: "Calendario de contenido", hint: "Ideas con demanda real para publicar sin pagar anuncios, con fecha y estado." },
       { icon: FileText, key: "Generadores", label: t("nav.generators"), hint: t("nav.hint.generators") },

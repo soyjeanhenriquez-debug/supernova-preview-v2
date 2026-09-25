@@ -25,6 +25,7 @@ const GeneradoresPage = lazy(() => import("@/pages/GeneradoresPage").then(m => (
 const MediaStudioPage = lazy(() => import("@/pages/MediaStudioPage").then(m => ({ default: m.MediaStudioPage })));
 const MercadoPage = lazy(() => import("@/pages/MercadoPage").then(m => ({ default: m.MercadoPage })));
 const MandalaPage = lazy(() => import("@/pages/MandalaPage").then(m => ({ default: m.MandalaPage })));
+const PersonajePage = lazy(() => import("@/pages/PersonajePage").then(m => ({ default: m.PersonajePage })));
 const HooksPage = lazy(() => import("@/pages/HooksPage").then(m => ({ default: m.HooksPage })));
 const BrainPage = lazy(() => import("@/pages/BrainPage").then(m => ({ default: m.BrainPage })));
 const CreditsPage = lazy(() => import("@/pages/CreditsPage").then(m => ({ default: m.CreditsPage })));
@@ -74,12 +75,13 @@ const PAGE_SLUG: Record<string, string> = {
   "Recuperar": "recuperar",
   "Productos": "productos",
   "Crear producto": "crear-producto",
+  "Sin mostrar tu cara": "personaje",
 };
 const SLUG_PAGE: Record<string, string> = {
   "ofertas": "Ofertas", "mini-apps": "Mini Apps", "radar": "Buscar Ofertas Winner", "hooks": "Hooks", "mandala": "Mándala", "mercado": "Mercado",
   "oraculo": "Oráculo", "generadores": "Generadores", "media-studio": "Media Studio",
   "proyectos": "Proyectos", "creditos": "Créditos", "crear": "Crear", "precio": "Precio", "mi-negocio": "Mi negocio", "validar": "Validar", "plan": "Plan", "contenido": "Contenido", "resultados": "Resultados", "recuperar": "Recuperar", "productos": "Productos",
-  "crear-producto": "Crear producto",
+  "crear-producto": "Crear producto", "personaje": "Sin mostrar tu cara",
 };
 function pageFromHash(): string {
   // Un hash que no es nuestro (p. ej. el #access_token=… de un enlace de acceso) se ignora.
@@ -131,6 +133,7 @@ const Index = () => {
       case "Generadores": return <GeneradoresPage />;
       case "Media Studio": return <MediaStudioPage />;
       case "Mándala": return <MandalaPage key="mandala" onNavigate={setActivePage} />;
+      case "Sin mostrar tu cara": return <PersonajePage onNavigate={setActivePage} />;
       case "Resultados": return <MandalaPage key="resultados" onNavigate={setActivePage} initialTab="mis" />;
       case "Mi negocio": return <MyBusinessPage onNavigate={setActivePage} />;
       case "Validar": return <ValidationPage onNavigate={setActivePage} />;

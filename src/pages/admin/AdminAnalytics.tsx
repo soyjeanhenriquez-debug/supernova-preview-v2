@@ -19,6 +19,11 @@ const EVENTS = [
   ["gemelo_clonar", "Pasó a \"Tu negocio gemelo\""],
   ["gemelo_guardado", "Guardó su gemelo (etapa 1 lista)"],
   ["etapa_completada", "Terminó una etapa (propiedad \"etapa\": 1 a 6)"],
+  ["personaje_creado", "Eligió su personaje (Vende sin mostrar tu cara)"],
+  ["guiones_generados", "Generó los 10 guiones de su personaje"],
+  ["bio_copiada", "Copió la bio del personaje (va a abrir la cuenta)"],
+  ["video_avisame", "Pidió aviso para los videos automáticos"],
+  ["video_reserva_click", "Tocó \"Reservar mis créditos de video\""],
   ["$pageview", "Cambió de pantalla (la dirección dice cuál: #/ofertas, #/validar…)"],
   ["$exception", "Error en el navegador"],
 ];

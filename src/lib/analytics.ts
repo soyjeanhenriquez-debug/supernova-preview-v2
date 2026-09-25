@@ -105,7 +105,9 @@ export function resetAnalytics() { if (ph) ph.reset(); }
  */
 export type AppEvent =
   | "gemelo_oferta_elegida" | "gemelo_clonar" | "gemelo_guardado"
-  | "etapa_completada";
+  | "etapa_completada"
+  | "personaje_ideas" | "personaje_creado" | "personaje_foto" | "guiones_generados" | "bio_copiada"
+  | "video_avisame" | "video_reserva_click";
 export function track(event: AppEvent, props?: Record<string, string | number | boolean | null>) {
   run(p => p.capture(event, props));
 }

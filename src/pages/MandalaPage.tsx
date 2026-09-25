@@ -15,6 +15,7 @@ import {
 } from "@/lib/businessProfile";
 import { useFeatureAccess } from "@/lib/features";
 import { maxAdCostPerSale } from "@/lib/pricing";
+import { notifyJourneyChanged } from "@/contexts/JourneyContext";
 
 /**
  * Mándala Creativa: la rueda para no quedarse nunca sin anuncios.
@@ -421,6 +422,7 @@ export function MandalaPage({ onNavigate, initialTab = "ruta" }: { onNavigate?: 
     const full = await stream("mandala-ad", title, `${adPrompt(s, a, format, platform)}\n${businessHint(brief)}\n${copyLevelHint(brief)}\n\nOFERTA DEL USUARIO:\n${text.slice(0, 2500)}`);
     if (!full) return;
     const { error } = await adsTable().insert({ product_id: activeId, stage: s.id, angle: a.id, format, platform, brief: text.slice(0, 3000), output: full.slice(0, 30000) });
+    if (!error) notifyJourneyChanged();
     if (error) toast.error("El anuncio está listo, pero no se pudo guardar", { description: "Cópialo antes de salir de esta pantalla." });
     else {
       // Con el quinto anuncio termina la etapa 5: se ofrece el siguiente paso (publicar y medir).
@@ -447,11 +449,13 @@ export function MandalaPage({ onNavigate, initialTab = "ruta" }: { onNavigate?: 
   const updateAd = async (id: string, patch: Partial<AdRow>) => {
     setAds(list => list.map(a => (a.id === id ? { ...a, ...patch } : a)));
     const { error } = await adsTable().update(patch).eq("id", id);
+    if (!error) notifyJourneyChanged();
     if (error) { toast.error("No se pudo guardar el cambio. Inténtalo de nuevo."); loadAds(); }
   };
   const deleteAd = async (id: string) => {
     if (!window.confirm("¿Borrar este anuncio? No se puede recuperar.")) return;
     const { error } = await adsTable().delete().eq("id", id);
+    if (!error) notifyJourneyChanged();
     if (error) toast.error("No se pudo borrar. Inténtalo de nuevo."); else setAds(list => list.filter(a => a.id !== id));
   };
 

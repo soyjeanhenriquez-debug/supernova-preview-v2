@@ -2,6 +2,8 @@ import { ArrowRight, Briefcase } from "lucide-react";
 import { useBusinessProfile, profileReady } from "@/lib/businessProfile";
 import { BusinessProfileForm } from "@/components/BusinessProfileForm";
 import { calcScenario } from "@/lib/pricing";
+import { useJourney } from "@/contexts/JourneyContext";
+import { STAGES } from "@/lib/journey";
 
 /**
  * "Mi negocio": la ficha del negocio (una sola vez) y lo que el usuario ya construyó en cada etapa.
@@ -9,6 +11,7 @@ import { calcScenario } from "@/lib/pricing";
  */
 export function MyBusinessPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { profile, setProfile, savePatch, loaded } = useBusinessProfile();
+  const journey = useJourney();
   if (!loaded) return <div className="text-sm text-muted-foreground p-6">Cargando…</div>;
 
   const ready = profileReady(profile);
@@ -19,10 +22,10 @@ export function MyBusinessPage({ onNavigate }: { onNavigate?: (page: string) => 
   const tasks = profile.launch_plan?.tasks ?? [];
   const tasksDone = tasks.filter(t => t.done).length;
   const recovery = profile.recovery?.messages?.length ?? 0;
-  // Con la ficha lista, el botón lleva a la primera etapa que falta (no a leer más).
-  const nextStep = !profile.validation?.completed_at ? { label: "Siguiente: comprueba que se vende", page: "Validar" }
-    : !chosen ? { label: "Siguiente: ponle precio", page: "Precio" }
-    : !tasks.length ? { label: "Siguiente: arma tu plan de lanzamiento", page: "Plan" }
+  // Con la ficha lista, el botón lleva a la primera etapa que falta: la MISMA regla que el Inicio,
+  // la barra de etapa y el menú (src/lib/journey.ts), para que nunca digan cosas distintas.
+  const next = journey.next && journey.next > 1 ? STAGES[journey.next - 1] : null;
+  const nextStep = next ? { label: `Siguiente: ${next.title.toLowerCase()}`, page: next.page }
     : { label: "Volver al inicio", page: "Dashboard" };
 
   const summary: { stage: string; label: string; value: string; page: string }[] = [

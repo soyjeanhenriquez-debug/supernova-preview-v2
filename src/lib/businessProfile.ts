@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProducts } from "@/contexts/ProductContext";
+import { notifyJourneyChanged } from "@/contexts/JourneyContext";
 
 /**
  * "Mi negocio" (tabla business_profile): lo que vende cada usuario, guardado una vez y usado en
@@ -178,6 +179,7 @@ export function useBusinessProfile() {
     if (!opts.typing) setProfile(prev => ({ ...prev, ...(clean as Partial<BusinessProfile>) }));
     const { error } = await table().update(clean).eq("id", activeId);
     if (error) { console.error("products:", error.message); return false; }
+    notifyJourneyChanged(); // la barra de etapa se recalcula (p. ej. al elegir precio)
     // Un producto con nombre genérico toma el nombre de lo que vende.
     const newName = typeof clean.product === "string" ? (clean.product as string) : "";
     if (!opts.typing && newName && active && /^(mi primer producto|nuevo producto|mi producto)$/i.test(active.name)) rename(activeId, newName.slice(0, 120));

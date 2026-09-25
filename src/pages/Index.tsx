@@ -9,6 +9,8 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useVersionCheck, updateIsReady } from "@/hooks/useVersionCheck";
 import { useFeatureAccess } from "@/lib/features";
 import { useProducts } from "@/contexts/ProductContext";
+import { JourneyProvider } from "@/contexts/JourneyContext";
+import { StageBar, NextStepCard } from "@/components/journey/StageBar";
 
 // Carga diferida: cada pantalla es su propio chunk → la primera carga solo
 // baja el Dashboard, el resto llega bajo demanda al navegar.
@@ -151,6 +153,7 @@ const Index = () => {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
+    <JourneyProvider page={activePage}>
     <div className="flex min-h-screen bg-background">
       {/* Desktop sidebar: fija al hacer scroll (la página entera es la que se desplaza;
           sin esto el menú se iba hacia arriba y quedaba una columna vacía). */}
@@ -176,6 +179,9 @@ const Index = () => {
       <div className="flex-1 flex flex-col min-w-0">
         <LowCreditBanner onRecharge={() => setActivePage("Créditos")} />
         <TopBar activePage={activePage} onOpenMobileNav={() => setMobileNavOpen(true)} />
+        {/* En qué etapa vas y tu siguiente paso, en todas las pantallas. El Inicio ya muestra el
+            recorrido completo. Vive fuera del div con key={productKey}: no parpadea al cambiar de producto. */}
+        {activePage !== "Dashboard" && <StageBar page={activePage} onNavigate={setActivePage} />}
         <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
           {/* Si una pantalla falla, el menú sigue vivo y cambiar de pantalla la recupera. */}
           <ErrorBoundary compact resetKey={activePage}>
@@ -184,6 +190,8 @@ const Index = () => {
               <div key={productKey} className="contents">{renderPage()}</div>
             </Suspense>
           </ErrorBoundary>
+          {/* Etapa de esta herramienta ya lista → la siguiente a un clic, sin volver al Inicio. */}
+          {activePage !== "Dashboard" && <NextStepCard page={activePage} onNavigate={setActivePage} />}
         </main>
       </div>
       {/* Atajo al radar: solo donde se buscan ofertas (Inicio y Ofertas), no encima de las herramientas. */}
@@ -191,6 +199,7 @@ const Index = () => {
       <Suspense fallback={null}><HelpAssistant /></Suspense>
       <OnboardingTour />
     </div>
+    </JourneyProvider>
   );
 };
 

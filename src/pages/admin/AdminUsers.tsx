@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Search, Shield, Coins, Ban, Trash2, RefreshCw, X, Mail, Activity, Plus, Minus, UserCog, Circle, LogIn, KeyRound, Copy } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Role = "admin" | "moderator" | "user";
 
@@ -49,7 +50,7 @@ function makePassword() {
 }
 
 /** Admin → cambiar la contraseña de un usuario. Se muestra UNA vez para copiarla y mandársela. */
-function PasswordControl({ userId, email, isAdminTarget }: { userId: string; email: string; isAdminTarget: boolean }) {
+function PasswordControl({ userId, email, isAdminTarget, isSelf }: { userId: string; email: string; isAdminTarget: boolean; isSelf: boolean }) {
   const [pw, setPw] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
@@ -68,7 +69,14 @@ function PasswordControl({ userId, email, isAdminTarget }: { userId: string; ema
     } finally { setBusy(false); }
   };
 
-  if (isAdminTarget) return null;
+  // Otro admin: el servidor lo rechaza (una sesión de admin robada no puede tomar otras cuentas de admin).
+  if (isAdminTarget && !isSelf) {
+    return (
+      <div className="rounded-xl border border-border p-4 flex items-center gap-2 text-[12px] text-muted-foreground">
+        <KeyRound className="w-3.5 h-3.5" /> Por seguridad, la contraseña de otro admin no se cambia desde aquí: cada admin cambia la suya con la llave junto a "Salir".
+      </div>
+    );
+  }
   return (
     <div className="rounded-xl border border-border p-4 space-y-3">
       <div className="flex items-center gap-2 text-[12px] font-medium">
@@ -369,6 +377,7 @@ function ProductLimitControl({ userId }: { userId: string }) {
 }
 
 function UserDetailModal({ userId, onClose, onChanged }: { userId: string; onClose: () => void; onChanged: () => void }) {
+  const { user: me } = useAuth();
   const [d, setD] = useState<UserDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -453,7 +462,7 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: string; onClo
 
               <ProductLimitControl userId={userId} />
 
-              <PasswordControl userId={userId} email={String((d.user as { email?: string }).email ?? "")} isAdminTarget={role === "admin"} />
+              <PasswordControl userId={userId} email={String((d.user as { email?: string }).email ?? "")} isAdminTarget={role === "admin"} isSelf={userId === me?.id} />
 
               <div className="rounded-xl border border-border p-4 space-y-3">
                 <div className="flex items-center gap-2 text-[12px] font-medium">

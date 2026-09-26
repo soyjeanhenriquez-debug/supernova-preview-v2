@@ -11,6 +11,7 @@
 //
 // verify_jwt = false (lo invoca pg_cron). Compuerta: secreto de cron o admin.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { htmlToText } from "../_shared/mailtext.ts";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const APP_URL = "https://supernova-six-eta.vercel.app";
@@ -116,7 +117,7 @@ Deno.serve(async (req) => {
   const resp = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: FROM, to, subject, html }),
+    body: JSON.stringify({ from: FROM, to, subject, html, text: htmlToText(html) }),
   });
   if (!resp.ok) {
     console.error("health-alert: resend", resp.status, (await resp.text()).slice(0, 200));

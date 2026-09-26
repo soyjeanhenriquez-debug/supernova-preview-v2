@@ -8,6 +8,7 @@
 // verify_jwt false (la invoca pg_cron) + compuerta interna: secreto de cron o
 // admin con sesión.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { htmlToText } from "../_shared/mailtext.ts";
 // eslint-disable @typescript-eslint/no-explicit-any
 
 const APP_URL = "https://supernova-six-eta.vercel.app";
@@ -103,6 +104,7 @@ Deno.serve(async (req) => {
           to: r.email,
           subject: `🏆 El ganador de hoy: ${String(winner.ad_title ?? "míralo ahora").replace(/[\r\n]+/g, " ").slice(0, 40)}`,
           html: digestHtml(name, winner, r.unsub_token),
+          text: htmlToText(digestHtml(name, winner, r.unsub_token)),
         }),
       });
       if (resp.ok) {

@@ -9,6 +9,7 @@
 // grupos llevan enlace de baja de un clic (/unsub?t= o ?tl=). {{nombre}} se reemplaza por persona.
 // Resend: lotes de 100 (API batch), tope 500 por envío para no quemar el plan ni la reputación.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { htmlToText } from "../_shared/mailtext.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const APP_URL = "https://supernova-six-eta.vercel.app";
@@ -99,6 +100,7 @@ Deno.serve(async (req) => {
         from: FROM, to: r.email, reply_to: me.email ?? undefined, // el dominio de envío no recibe: las respuestas van al admin
         subject: (test ? "[Prueba] " : "") + withName(subject, r.name),
         html: toHtml(text, r.name, single && !test ? null : r.unsub),
+        text: htmlToText(toHtml(text, r.name, single && !test ? null : r.unsub)),
         ...(r.unsub ? { headers: { "List-Unsubscribe": `<${APP_URL}/unsub?${r.unsub}>` } } : {}),
       }));
       const resp = await fetch("https://api.resend.com/emails/batch", {

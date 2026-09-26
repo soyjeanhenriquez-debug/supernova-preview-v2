@@ -10,6 +10,7 @@
 //
 // verify_jwt = false (lo invoca pg_cron). Compuerta: secreto de cron o admin.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { htmlToText } from "../_shared/mailtext.ts";
 // eslint-disable @typescript-eslint/no-explicit-any
 
 const APP_URL = "https://supernova-six-eta.vercel.app";
@@ -115,6 +116,7 @@ Deno.serve(async (req) => {
           from: FROM, to: lead.email,
           subject: "3 negocios que están vendiendo esta semana",
           html: welcomeHtml(deck, lead.unsub_token),
+          text: htmlToText(welcomeHtml(deck, lead.unsub_token)),
         }),
       });
       if (resp.ok) sent++;

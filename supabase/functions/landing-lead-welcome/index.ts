@@ -50,27 +50,41 @@ const nice = (v: unknown) => String(v ?? "").replace(/_/g, " ").replace(/^./, (c
 
 // deno-lint-ignore no-explicit-any
 function offerCard(o: any): string {
-  return `<div style="border:1px solid #ffffff15;border-radius:14px;padding:18px;margin:0 0 14px;background:#141416">
-    <p style="font-size:11px;color:#86868B;margin:0 0 6px;text-transform:uppercase;letter-spacing:1px">${esc(N[o.niche] ?? nice(o.niche))} · ${esc(o.market)} · ${esc(o.days)} días pagando anuncios</p>
-    <p style="font-size:16px;font-weight:600;margin:0 0 8px;color:#F5F5F7">${esc(o.name)}</p>
-    <p style="font-size:13px;color:#c9c9cf;margin:0">${esc(o.why)}</p>
+  return `<div style="border:1px solid #e7e5e4;border-radius:12px;padding:16px 18px;margin:0 0 12px;background:#fafaf9">
+    <p style="font-size:11px;color:#78716c;margin:0 0 6px;text-transform:uppercase;letter-spacing:1px">${esc(N[o.niche] ?? nice(o.niche))} · ${esc(o.market)} · <b style="color:#b45309">${esc(o.days)} días pagando anuncios</b></p>
+    <p style="font-size:16px;font-weight:600;margin:0 0 6px;color:#1c1917">${esc(o.name)}</p>
+    <p style="font-size:14px;color:#44403c;margin:0">${esc(o.why)}</p>
   </div>`;
 }
 
+// Cupón FUNDADOR vigente hasta el 30-sep-2026 (src/lib/plans.ts). Después, la P.D. cambia sola.
+const FOUNDER_ENDS = Date.parse("2026-10-01T04:00:00Z");
+
+/** Bienvenida al lead del popup de la landing. Voz de Jean: corta, directa, sin promesas de ingresos. */
 // deno-lint-ignore no-explicit-any
 function welcomeHtml(deck: any[], unsubToken: string): string {
   const cards = deck.map(offerCard).join("");
-  return `<!doctype html><html><body style="margin:0;background:#0B0B0C;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#F5F5F7">
-  <div style="max-width:540px;margin:0 auto;padding:32px 24px">
-    <p style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#F5A524;margin:0 0 8px">SUPERNOVA</p>
-    <h1 style="font-size:22px;margin:0 0 10px;font-family:Georgia,serif">3 negocios que están vendiendo ahora mismo</h1>
-    <p style="font-size:14px;color:#c9c9cf;margin:0 0 22px">Llevan semanas pagando anuncios. Si siguen pagando, es porque les entra más de lo que gastan. Aquí están, con el porqué de cada una.</p>
+  const maxDays = Math.max(...deck.map((o) => Number(o.days) || 0));
+  const p = (t: string) => `<p style="margin:0 0 14px">${t}</p>`;
+  const ps = Date.now() < FOUNDER_ENDS
+    ? "Hasta el 30 de septiembre, con el código <b>FUNDADOR</b> tu primer mes cuesta US$19,99 en vez de US$29,99. El 1 de octubre vuelve al precio normal. No es un truco de urgencia: es la fecha real."
+    : "Los primeros 3 días son gratis. Y si en 30 días no terminas tu producto, te devolvemos el 100 %. Así, sin letra chica.";
+  return `<!doctype html><html><body style="margin:0;background:#ffffff">
+  <div style="max-width:560px;margin:0 auto;padding:28px 22px;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#1c1917;font-size:16px;line-height:1.6">
+    ${p("Hola.")}
+    ${p("Me dejaste tu correo y te prometí algo. Aquí está.")}
+    ${p(`Estos 3 negocios llevan${maxDays ? ` hasta <b>${maxDays} días</b>` : " semanas"} pagando anuncios en Facebook e Instagram:`)}
     ${cards}
-    <a href="${APP_URL}/fundador/?utm_source=email_popup" style="display:block;text-align:center;background:#F5A524;color:#0A0A0A;text-decoration:none;font-weight:700;padding:14px;border-radius:10px;font-size:14px;margin-top:8px">Ver el catálogo completo →</a>
-    <p style="font-size:12px;color:#86868B;text-align:center;margin:16px 0 0">Antes de que cierre el precio de fundador te avisamos por aquí.</p>
-    <p style="font-size:11px;color:#86868B;text-align:center;margin:24px 0 0">
-      <a href="${APP_URL}/unsub?tl=${encodeURIComponent(unsubToken)}" style="color:#86868B">Dejar de recibir estos correos</a>
-    </p>
+    ${p("Piénsalo un segundo.")}
+    ${p("Nadie paga anuncios durante meses por algo que no se vende. Nadie. Cada día que ese anuncio sigue arriba es una prueba de que le entra más dinero del que gasta.")}
+    ${p("Esa es toda la idea de SUPERNOVA.")}
+    ${p("En vez de inventarte un producto y rezar, miras lo que ya se vende, eliges uno y haces tu versión. En español. Cobrándolo en tu moneda. Sin mezclar diez ideas: una sola, bien copiada y mejorada.")}
+    ${p("La app te lleva de la mano: eliges la oferta, la clonas en 3 toques, le pones precio y creas tus primeros anuncios. Y si te da pena grabarte, un personaje creado con IA da la cara por ti.")}
+    <p style="margin:22px 0"><a href="${APP_URL}/signup?utm_source=email_popup" style="display:inline-block;background:#1c1917;color:#ffffff;text-decoration:none;font-weight:600;padding:13px 22px;border-radius:10px">Probar 3 días gratis</a></p>
+    ${p("Te espero dentro.")}
+    ${p("Jean")}
+    <p style="margin:18px 0 0;color:#44403c;font-size:15px"><b>P.D.</b> ${ps}</p>
+    <p style="font-size:12px;color:#a8a29e;margin:28px 0 0">Recibes esto porque dejaste tu correo en la web de SUPERNOVA. <a href="${APP_URL}/unsub?tl=${encodeURIComponent(unsubToken)}" style="color:#a8a29e">Dejar de recibir estos correos</a></p>
   </div></body></html>`;
 }
 
@@ -114,7 +128,7 @@ Deno.serve(async (req) => {
         headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           from: FROM, to: lead.email,
-          subject: "3 negocios que están vendiendo esta semana",
+          subject: "Te prometí 3 negocios. Aquí están.",
           html: welcomeHtml(deck, lead.unsub_token),
           text: htmlToText(welcomeHtml(deck, lead.unsub_token)),
         }),

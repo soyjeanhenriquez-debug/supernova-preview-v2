@@ -21,35 +21,37 @@ const SEGMENTS: { id: string; label: string; hint: string }[] = [
   { id: "leads", label: "Leads de la landing", hint: "Dejaron su correo pero no tienen cuenta" },
 ];
 
+// Voz de Jean (estilo carta, frases cortas, una idea, P.D. que remata). Sin promesas de ingresos,
+// sin urgencia falsa: solo lo que la app hace hoy (manual de SUPERNOVA, sección Ética).
 const TEMPLATES: { id: string; label: string; subject: string; body: string }[] = [
-  { id: "blank", label: "En blanco", subject: "", body: "Hola {{nombre}},\n\n\n\nUn abrazo,\nJean" },
+  { id: "blank", label: "En blanco", subject: "", body: "Hola {{nombre}}.\n\n\n\nJean" },
   {
-    id: "bienvenida", label: "Bienvenida", subject: "{{nombre}}, empieza por aquí",
-    body: `Hola {{nombre}},\n\nBienvenido a SUPERNOVA. El primer paso es el más importante: elegir qué vender.\n\nEntra a **Mi negocio**, mira las ofertas que llevan más días pagando anuncios (esa es la prueba de que venden) y clona una en 3 toques. Es gratis.\n\n${APP}\n\nSi te atascas en algo, responde este correo y te ayudo.\n\nJean`,
+    id: "bienvenida", label: "Bienvenida", subject: "{{nombre}}, lo primero que harías si fueras yo",
+    body: `Hola {{nombre}}.\n\nYa estás dentro. Ahora viene la parte donde casi todo el mundo se equivoca.\n\nSe ponen a pensar qué producto inventar.\n\nNo lo hagas.\n\nEntra a **Mi negocio** y mira las ofertas que llevan más días pagando anuncios. Esa es la única prueba que importa: nadie paga anuncios durante meses por algo que no se vende.\n\nElige una. Clónala en 3 toques. Es gratis.\n\n${APP}\n\nEso es todo por hoy. Un paso.\n\nJean\n\nP.D. Si te atascas, responde este correo. Lo leo yo, no un robot.`,
   },
   {
-    id: "vence", label: "Tu prueba vence pronto", subject: "{{nombre}}, tu prueba termina pronto",
-    body: `Hola {{nombre}},\n\nTu prueba de SUPERNOVA termina pronto. Antes de que decidas, te dejo lo que más ayuda en los primeros días:\n\n1. Elige una oferta que ya vende en **Mi negocio**.\n2. Valídala con la matriz (3 minutos).\n3. Ponle precio en tu moneda y mira cuánto puedes pagar por venta en anuncios.\n\n${APP}\n\nSi algo no te quedó claro, responde este correo y lo vemos juntos.\n\nJean`,
+    id: "vence", label: "Tu prueba vence pronto", subject: "{{nombre}}, antes de que decidas",
+    body: `Hola {{nombre}}.\n\nTu prueba termina pronto y no te voy a presionar. Solo quiero que decidas con la información completa.\n\nSi todavía no lo hiciste, haz esto hoy (10 minutos):\n\n1. En **Mi negocio**, elige una oferta que ya vende y clónala.\n2. Mira a qué precio venderla en tu moneda y cuánto puedes pagar por venta en anuncios sin perder.\n3. Pide a la IA tus primeros anuncios en la Mándala (te guía con los primeros 5).\n\n${APP}\n\nSi después de eso sientes que no es para ti, cancelas con un clic y no pasa nada.\n\nJean\n\nP.D. Si decides quedarte y en 30 días no terminas tu producto, te devolvemos el 100 %. Así, sin letra chica.`,
   },
   {
-    id: "atascado", label: "¿Te atascaste?", subject: "¿Te ayudo con tu siguiente paso?",
-    body: `Hola {{nombre}},\n\nVi que empezaste a armar tu negocio en SUPERNOVA. Muchos se detienen en el mismo punto, y casi siempre es por una duda pequeña.\n\nRespóndeme con una línea: ¿en qué paso estás y qué te frenó? Te contesto yo.\n\n${APP}\n\nJean`,
+    id: "atascado", label: "¿Te atascaste?", subject: "¿En qué paso te quedaste?",
+    body: `Hola {{nombre}}.\n\nVi que empezaste a armar tu negocio en SUPERNOVA y te detuviste.\n\nNo pasa nada. Le pasa a casi todos, y casi siempre en el mismo sitio: justo antes de ponerle precio.\n\nPor eso te escribo. Respóndeme con una sola línea: ¿en qué paso estás y qué te frenó?\n\nTe contesto yo.\n\nJean`,
   },
   {
-    id: "novedad", label: "Novedad: vende sin mostrar tu cara", subject: "Nuevo en SUPERNOVA: vende sin mostrar tu cara",
-    body: `Hola {{nombre}},\n\nSi te da pena grabarte, esto es para ti. En **Vende sin mostrar tu cara** la app te propone un personaje creado con IA para tu oferta, crea su foto y te escribe 10 guiones para Reels y TikTok.\n\nLo encuentras en el menú, en la etapa 5 (Vender).\n\n${APP}#/personaje\n\nJean`,
+    id: "novedad", label: "Novedad: vende sin mostrar tu cara", subject: "Para los que les da pena grabarse",
+    body: `Hola {{nombre}}.\n\nTe voy a confesar algo: la razón número uno por la que la gente no vende por internet no es el producto. Es la cámara.\n\n"Me da pena." "No sé qué decir." "No me gusta cómo salgo."\n\nPor eso hicimos **Vende sin mostrar tu cara**.\n\nLa app te propone un personaje creado con IA para tu oferta, crea su foto y te escribe 10 guiones para Reels y TikTok. Tú publicas. Él da la cara.\n\nLo encuentras en el menú, en la etapa 5.\n\n${APP}#/personaje\n\nJean\n\nP.D. Es un personaje, no un experto inventado. La bio ya dice que está creado con IA. Honesto y efectivo no están peleados.`,
   },
   {
-    id: "comunidad", label: "Invitación a la Comunidad", subject: "{{nombre}}, ¿avanzamos juntos?",
-    body: `Hola {{nombre}},\n\nSi quieres acompañamiento para no avanzar solo, te invito a la Comunidad Creativos 10X: todo lo de SUPERNOVA PRO, la comunidad privada y llamadas en vivo para revisar tu avance. Además tiene los modelos de video más avanzados de la app.\n\nCuesta US$99 al mes y puedes cancelar cuando quieras:\nhttps://whop.com/checkout/plan_oRht08inLOu39\n\nSi tienes dudas, responde este correo.\n\nJean`,
+    id: "comunidad", label: "Invitación a la Comunidad", subject: "{{nombre}}, ¿y si no lo haces solo?",
+    body: `Hola {{nombre}}.\n\nHay algo que ninguna app te puede dar: alguien que te diga "esto sí, esto no" cuando dudas.\n\nPara eso existe la Comunidad Creativos 10X.\n\nTienes todo lo de SUPERNOVA PRO, una comunidad privada con gente que está en lo mismo que tú y llamadas en vivo donde revisamos tu avance. Además, los modelos de video más avanzados de la app.\n\nCuesta US$99 al mes. Cancelas cuando quieras.\n\nhttps://whop.com/checkout/plan_oRht08inLOu39\n\nJean\n\nP.D. No es para todo el mundo. Si prefieres ir a tu ritmo con PRO, también está perfecto.`,
   },
   {
-    id: "sinplan", label: "Activa tu prueba", subject: "{{nombre}}, tu cuenta está lista",
-    body: `Hola {{nombre}},\n\nCreaste tu cuenta en SUPERNOVA pero todavía no activaste tu plan. Los primeros 3 días son gratis y con todo abierto: ofertas que ya venden, tu negocio gemelo y tus primeros anuncios.\n\n${APP}\n\nUsa este mismo correo al activar y tu acceso se enciende solo.\n\nJean`,
+    id: "sinplan", label: "Activa tu prueba", subject: "{{nombre}}, te quedaste en la puerta",
+    body: `Hola {{nombre}}.\n\nCreaste tu cuenta en SUPERNOVA pero no entraste.\n\nTe cuento lo que hay del otro lado: ofertas que llevan meses vendiendo, la forma de clonar una en 3 toques y la IA que te escribe tus primeros anuncios. Todo en español.\n\nLos primeros 3 días son gratis y con todo abierto.\n\n${APP}\n\nUsa este mismo correo y tu acceso se activa solo.\n\nJean\n\nP.D. Si no es para ti, cancelas antes del día 4 y no pagas nada.`,
   },
   {
-    id: "extrañamos", label: "Te extrañamos", subject: "{{nombre}}, ¿qué te faltó?",
-    body: `Hola {{nombre}},\n\nVi que dejaste SUPERNOVA. No te escribo para convencerte: quiero saber qué te faltó o qué no funcionó, para mejorarlo.\n\nResponde este correo con una línea. Lo leo yo.\n\nGracias por haberlo probado,\nJean`,
+    id: "extrañamos", label: "Te extrañamos", subject: "¿Qué te faltó?",
+    body: `Hola {{nombre}}.\n\nVi que dejaste SUPERNOVA.\n\nNo te escribo para convencerte de volver. Te escribo porque quiero saber la verdad: ¿qué te faltó o qué no funcionó?\n\nResponde con una línea. Aunque sea "no tuve tiempo". Lo leo yo, y lo uso para mejorar.\n\nGracias por haberlo probado.\n\nJean`,
   },
 ];
 

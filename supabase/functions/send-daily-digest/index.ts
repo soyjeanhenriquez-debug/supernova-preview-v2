@@ -43,23 +43,37 @@ async function authorizeInternal(req: Request, admin: any): Promise<boolean> {
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 
+const N: Record<string, string> = {
+  salud_fitness: "salud y bienestar", dinero_negocios: "dinero y negocios", marketing_ventas: "marketing y ventas",
+  desarrollo_personal: "desarrollo personal", relaciones: "relaciones", educacion_idiomas: "educación e idiomas",
+  tecnologia_ia: "tecnología e IA", belleza_moda: "belleza", hogar_mascotas: "hogar y mascotas", espiritualidad: "espiritualidad",
+  infantil_familia: "familia", gastronomia_recetas: "recetas", finanzas_trading: "finanzas",
+};
+
+/**
+ * "El negocio de hoy": UNA oferta ganadora (digital, curada, la primera del día de landing_teasers) y
+ * un solo paso: clonarla en Mi negocio. Voz de Jean, sin rachas (se quitaron el 23-sep) ni promesas.
+ */
 // deno-lint-ignore no-explicit-any
-function digestHtml(name: string, ad: any, unsubToken: string): string {
-  const body = String(ad.ad_body ?? ad.ad_title ?? "").slice(0, 240);
-  return `<!doctype html><html><body style="margin:0;background:#0B0B0C;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#F5F5F7">
-  <div style="max-width:520px;margin:0 auto;padding:32px 24px">
-    <p style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#C5A880;margin:0 0 8px">🏆 Ganador del Día</p>
-    <h1 style="font-size:22px;margin:0 0 6px;font-family:Georgia,serif">Hola ${esc(name)}, esto está vendiendo hoy</h1>
-    <div style="border:1px solid #ffffff15;border-radius:14px;padding:20px;margin:20px 0;background:#141416">
-      <p style="font-size:12px;color:#86868B;margin:0 0 4px">${esc(ad.market ?? "")} · ${esc(ad.days_active ?? "?")} días activo · ${esc(ad.duplicate_count ?? 1)} anuncios corriendo</p>
-      <p style="font-size:17px;font-weight:600;margin:0 0 8px">${esc(ad.ad_title ?? "Anuncio ganador")}</p>
-      <p style="font-size:14px;color:#c9c9cf;font-style:italic;margin:0">"${esc(body)}${body.length >= 240 ? "…" : ""}"</p>
+function digestHtml(name: string, o: any, unsubToken: string): string {
+  const p = (t: string) => `<p style="margin:0 0 14px">${t}</p>`;
+  const nicho = N[o.niche] ?? "su nicho";
+  return `<!doctype html><html><body style="margin:0;background:#ffffff">
+  <div style="max-width:560px;margin:0 auto;padding:28px 22px;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#1c1917;font-size:16px;line-height:1.6">
+    ${p(`Hola${name ? ` ${esc(name)}` : ""}.`)}
+    ${p(`Hoy te traigo uno de ${esc(nicho)} que lleva <b>${esc(o.days)} días pagando anuncios</b>${o.ads > 1 ? ` y tiene <b>${esc(o.ads)} anuncios corriendo a la vez</b>` : ""}.`)}
+    <div style="border:1px solid #e7e5e4;border-radius:12px;padding:16px 18px;margin:0 0 16px;background:#fafaf9">
+      <p style="font-size:16px;font-weight:600;margin:0 0 6px;color:#1c1917">${esc(o.name)}</p>
+      <p style="font-size:14px;color:#44403c;margin:0">${esc(o.why)}</p>
     </div>
-    <a href="${APP_URL}/?utm_source=digest&utm_medium=email" style="display:block;text-align:center;background:#C5A880;color:#000;text-decoration:none;font-weight:600;padding:14px;border-radius:10px;font-size:14px">🧬 Crear mi versión de esto →</a>
-    <p style="font-size:12px;color:#86868B;text-align:center;margin:16px 0 0">Tu racha te espera. No la rompas 🔥</p>
-    <p style="font-size:11px;color:#86868B;text-align:center;margin:24px 0 0">
-      <a href="${APP_URL}/unsub?t=${encodeURIComponent(unsubToken)}" style="color:#86868B">Dejar de recibir estos correos</a>
-    </p>
+    ${o.ads > 1 ? p("Fíjate en ese número. Quien pone varios anuncios del mismo producto no está probando. Está escalando. Y nadie escala algo que le hace perder dinero.") : p("Un anuncio que aguanta tantos días arriba no es suerte. Es un producto que se vende.")}
+    ${p("La pregunta no es si funciona. Eso ya lo sabemos.")}
+    ${p("La pregunta es si tú lo harías tuyo.")}
+    ${p("En <b>Mi negocio</b> lo clonas en 3 toques: mismo producto, misma estructura, tu idioma y el precio en tu moneda. Gratis.")}
+    <p style="margin:22px 0"><a href="${APP_URL}/app?utm_source=digest&utm_medium=email" style="display:inline-block;background:#1c1917;color:#ffffff;text-decoration:none;font-weight:600;padding:13px 22px;border-radius:10px">Ver el negocio de hoy</a></p>
+    ${p("Jean")}
+    <p style="margin:18px 0 0;color:#44403c;font-size:15px"><b>P.D.</b> ¿Te da pena grabarte? En <b>Vende sin mostrar tu cara</b> un personaje creado con IA da la cara por ti. Tú solo publicas.</p>
+    <p style="font-size:12px;color:#a8a29e;margin:28px 0 0">Te llega un negocio así cada mañana. <a href="${APP_URL}/unsub?t=${encodeURIComponent(unsubToken)}" style="color:#a8a29e">Dejar de recibir estos correos</a></p>
   </div></body></html>`;
 }
 
@@ -76,11 +90,12 @@ Deno.serve(async (req) => {
   const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
   const today = new Date().toISOString().slice(0, 10);
 
-  // 1) Ganador del día (mismo para todos)
-  const { data: winnerRows } = await admin.rpc("get_daily_winner");
-  const winner = Array.isArray(winnerRows) ? winnerRows[0] : winnerRows;
+  // 1) El negocio de hoy (mismo para todos): la primera oferta ganadora del día, ya calculada en
+  //    landing_teasers (caché, 1 ms). Antes salía de winning_ads (cualquier idioma y consulta pesada).
+  const { data: teasers } = await admin.rpc("landing_teasers");
+  const winner = Array.isArray(teasers?.deck) ? teasers.deck[0] : null;
   if (!winner) {
-    return new Response(JSON.stringify({ error: "no daily winner" }), { status: 200, headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: "sin negocio del día" }), { status: 200, headers: { "Content-Type": "application/json" } });
   }
 
   // 2) Destinatarios opt-in que aún no recibieron hoy. Solo cuentas con el correo CONFIRMADO y
@@ -90,10 +105,14 @@ Deno.serve(async (req) => {
 
   const list = recipients ?? [];
   const dryRun = !RESEND_API_KEY;
+  // Nombre de cada persona (perfil), no lo que va antes de la @ del correo.
+  const ids = list.map((r: { user_id: string }) => r.user_id).filter(Boolean);
+  const { data: profs } = ids.length ? await admin.from("profiles").select("user_id, display_name").in("user_id", ids) : { data: [] };
+  const names = new Map((profs ?? []).map((x: { user_id: string; display_name: string | null }) => [x.user_id, (x.display_name ?? "").trim().split(/\s+/)[0]]));
   let sent = 0, failed = 0;
 
   for (const r of list) {
-    const name = r.email.split("@")[0];
+    const name = names.get(r.user_id) || "";
     if (dryRun) { sent++; continue; }
     try {
       const resp = await fetch("https://api.resend.com/emails", {
@@ -102,7 +121,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           from: FROM,
           to: r.email,
-          subject: `🏆 El ganador de hoy: ${String(winner.ad_title ?? "míralo ahora").replace(/[\r\n]+/g, " ").slice(0, 40)}`,
+          subject: `${winner.days} días vendiendo. ¿Lo harías tuyo?`,
           html: digestHtml(name, winner, r.unsub_token),
           text: htmlToText(digestHtml(name, winner, r.unsub_token)),
         }),
@@ -115,7 +134,7 @@ Deno.serve(async (req) => {
   }
 
   return new Response(JSON.stringify({
-    ok: true, dry_run: dryRun, winner: winner.ad_title,
+    ok: true, dry_run: dryRun, winner: winner.name,
     recipients: list.length, sent, failed,
     note: dryRun ? "Sin RESEND_API_KEY: no se envió nada, solo simulación." : undefined,
   }), { headers: { "Content-Type": "application/json" } });

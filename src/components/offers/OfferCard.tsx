@@ -79,6 +79,7 @@ export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, insi
               (bulk-seed-ads): dónde se MUESTRAN los anuncios, no de dónde es el anunciante. */}
           <Row label="Se anuncia en" value={`${flagFor(o.market)} ${MARKET_NAME[o.market] ?? o.market}`} />
           {o.niche && <Row label="Nicho" value={NICHE_LABEL[o.niche] ?? o.niche} />}
+          {o.offer_platform?.platform && <Row label="Cobra con" value={o.offer_platform.platform} />}
           <div className="flex items-center justify-between gap-2">
             <dt className="text-muted-foreground">Replicarla</dt>
             <dd><span className={`text-[10.5px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5 ${copy.cls}`}>{copy.short}</span></dd>

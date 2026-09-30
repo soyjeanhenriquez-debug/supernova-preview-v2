@@ -985,6 +985,41 @@ export type Database = {
           },
         ]
       }
+      offer_platform: {
+        Row: {
+          checkout_url: string | null
+          landing_url: string | null
+          offer_id: string
+          platform: string | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          checkout_url?: string | null
+          landing_url?: string | null
+          offer_id: string
+          platform?: string | null
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          checkout_url?: string | null
+          landing_url?: string | null
+          offer_id?: string
+          platform?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offer_platform_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: true
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       offers: {
         Row: {
           active_ads: number
@@ -1773,6 +1808,10 @@ export type Database = {
         Returns: { slot: number; market_group: string; offer: Json }[]
       }
       get_offers_stats: { Args: never; Returns: Json }
+      offer_platform_counts: {
+        Args: never
+        Returns: { platform: string; total: number; winners: number }[]
+      }
       get_market_trends: {
         Args: never
         Returns: {

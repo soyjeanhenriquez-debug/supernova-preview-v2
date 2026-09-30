@@ -39,6 +39,8 @@ export interface Offer {
   is_winner?: boolean;
   /** Otros países donde el mismo anunciante corre la oferta. */
   markets?: string[] | null;
+  /** Plataforma de cobro detectada (tabla offer_platform; ficha completa o detección liviana). */
+  offer_platform?: { platform: string | null } | null;
 }
 
 /** El número que se enseña como "índice ganador": el curado si existe, si no el score de anuncios. */

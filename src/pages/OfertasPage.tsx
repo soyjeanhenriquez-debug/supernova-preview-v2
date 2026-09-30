@@ -61,6 +61,9 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const [niche, setNiche] = useState("all");
   const [group, setGroup] = useState("all");
   const [model, setModel] = useState("all");
+  // Plataforma de cobro (Hotmart, Kiwify, Gumroad…): solo se conoce en las ofertas ya revisadas.
+  const [platform, setPlatform] = useState("all");
+  const [platformCounts, setPlatformCounts] = useState<{ platform: string; total: number; winners: number }[]>([]);
   const [onlyCopiable, setOnlyCopiable] = useState(true);
   const [sort, setSort] = useState("rank");
   const [page, setPage] = useState(0);
@@ -99,10 +102,11 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   }, []);
 
   useEffect(() => { const t = setTimeout(() => setDebounced(search.trim()), 300); return () => clearTimeout(t); }, [search]);
-  useEffect(() => { setPage(0); }, [tab, debounced, niche, group, model, onlyCopiable, sort]);
+  useEffect(() => { setPage(0); }, [tab, debounced, niche, group, model, platform, onlyCopiable, sort]);
 
   useEffect(() => {
     supabase.rpc("get_offers_stats").then(({ data }) => { if (data) setStats(data as unknown as Stats); });
+    supabase.rpc("offer_platform_counts").then(({ data }) => setPlatformCounts((data ?? []).map((r) => ({ ...r, total: Number(r.total), winners: Number(r.winners) }))));
   }, []);
 
   // Cazador de ROI: ofertas seguidas + vigilancia diaria (conteo en vivo de Meta y alertas).
@@ -121,7 +125,10 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
     (async () => {
       // excluded_reason (flag_excluded_offers): contenido adulto y apps de
       // dramas/novelas no se muestran NUNCA en el catálogo, con ningún filtro.
-      let q = supabase.from("offers").select("*", { count: "exact" }).eq("enrich_failed", false).is("excluded_reason", null);
+      // La plataforma viene de offer_platform (1 a 1). Con filtro, el join es obligatorio (!inner).
+      const cols = platform !== "all" ? "*, offer_platform!inner(platform)" : "*, offer_platform(platform)";
+      let q = supabase.from("offers").select(cols, { count: "exact" }).eq("enrich_failed", false).is("excluded_reason", null);
+      if (platform !== "all") q = q.eq("offer_platform.platform", platform);
       // Ganadoras: la lista curada (curate_offers → top 300 por winner_index).
       // El resto de pestañas son "explorar": una tarjeta por ANUNCIANTE
       // (is_primary), no una por país. Ambas columnas las mantiene curate_offers.
@@ -155,12 +162,20 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
       const from = page * PAGE_SIZE;
       const { data, count } = await q.range(from, from + PAGE_SIZE - 1);
       if (!alive) return;
-      setRows((prev) => (page === 0 ? (data ?? []) as Offer[] : [...prev, ...((data ?? []) as Offer[])]));
+      const got = (data ?? []) as unknown as Offer[];
+      setRows((prev) => (page === 0 ? got : [...prev, ...got]));
       setTotal(count ?? 0);
       setLoading(false);
     })();
     return () => { alive = false; };
-  }, [tab, debounced, niche, group, model, onlyCopiable, sort, page]);
+  }, [tab, debounced, niche, group, model, platform, onlyCopiable, sort, page]);
+
+  // Opciones del filtro: solo plataformas con ofertas en esta pestaña, con su conteo real.
+  const platformOptions = useMemo(
+    () => platformCounts.map((p) => ({ ...p, n: tab === "ganadoras" ? p.winners : p.total })).filter((p) => p.n > 0),
+    [platformCounts, tab],
+  );
+  const platformKnown = platformOptions.reduce((a, p) => a + p.n, 0);
 
   const nicheOptions = useMemo(() => Object.entries(NICHE_LABEL), []);
 
@@ -242,13 +257,22 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
             {Object.entries(MARKET_GROUP).map(([k, g]) => <SelectItem key={k} value={k}>{g.flag} {g.label}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={niche} onValueChange={setNiche}>
-          <SelectTrigger className="bg-secondary/50"><SelectValue placeholder="Tema" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los temas</SelectItem>
-            {nicheOptions.map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="grid grid-cols-2 gap-2">
+          <Select value={niche} onValueChange={setNiche}>
+            <SelectTrigger className="bg-secondary/50"><SelectValue placeholder="Tema" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los temas</SelectItem>
+              {nicheOptions.map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={platform} onValueChange={setPlatform}>
+            <SelectTrigger className="bg-secondary/50" aria-label="Plataforma de cobro"><SelectValue placeholder="Dónde cobran" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Cualquier plataforma</SelectItem>
+              {platformOptions.map((p) => <SelectItem key={p.platform} value={p.platform}>{p.platform} · {p.n.toLocaleString("es-ES")}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <Select value={model} onValueChange={setModel}>
             <SelectTrigger className="bg-secondary/50"><SelectValue placeholder="Cómo cobran" /></SelectTrigger>
@@ -264,7 +288,14 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
         </div>
       </div>
 
-      <div className="text-[12px] text-muted-foreground">{loading && page === 0 ? "Buscando…" : `${total.toLocaleString("es-ES")} ofertas encontradas`}</div>
+      <div className="text-[12px] text-muted-foreground">
+        {loading && page === 0 ? "Buscando…" : `${total.toLocaleString("es-ES")} ofertas encontradas`}
+        {platform !== "all" && !loading && (
+          <span className="block mt-0.5">
+            Solo cuentan las ofertas donde ya vimos dónde cobran ({platformKnown.toLocaleString("es-ES")} hasta hoy). Revisamos más cada día.
+          </span>
+        )}
+      </div>
 
       {/* Grid */}
       {loading && page === 0 ? (

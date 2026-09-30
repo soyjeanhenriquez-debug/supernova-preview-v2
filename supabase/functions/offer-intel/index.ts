@@ -824,6 +824,56 @@ async function processOffer(admin: Admin, offerId: string, force = false): Promi
   return { http: 200, body: saved, trace };
 }
 
+// ── Detección liviana de plataforma (cron cada 30 min, acción "platforms") ──
+// Para las ofertas SIN ficha que ya tienen dominio de destino (offers.landing_domain, Fase 0):
+// enlace del anuncio si ya está en caché; si no, la portada de ese dominio → hasta 2 pasos más →
+// ¿dónde cobra? Todo gratis: sin IA, sin Firecrawl y sin llamar a Meta (render_ad ya no entrega el
+// enlace). Guarda en offer_platform (NULL = no se vio checkout) para el filtro "Plataforma de cobro".
+// No toca offers, winning_ads ni offer_intel.
+async function scanPlatforms(admin: Admin, batch: number): Promise<Row> {
+  const { data: rows, error } = await admin.rpc("offers_pending_platform_scan", { p_limit: batch });
+  if (error) return { ok: false, error: error.message };
+  const started = Date.now();
+  let found = 0, none = 0, noLink = 0;
+  const out: Row[] = [];
+  for (const o of (rows ?? []) as Row[]) {
+    if (Date.now() - started > 100_000) break;
+    const adId = String(o.sample_ad_url ?? "").match(/[?&]id=(\d{6,})/)?.[1] ?? null;
+    const { data: cached } = adId
+      ? await admin.from("ad_media_cache").select("link_url").eq("ad_id", adId).maybeSingle() : { data: null };
+    const domain = String(o.landing_domain ?? "").toLowerCase();
+    const via = cached?.link_url ? "cache" : "dominio";
+    let landingUrl: string | null = cached?.link_url ?? (/^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain) ? `https://${domain}/` : null);
+    const host = hostOf(landingUrl);
+    const isChat = !!host && /(^|\.)(wa\.me|whatsapp\.com|t\.me|telegram\.me)$/i.test(host);
+    let checkoutUrl: string | null = null, platform: string | null = null;
+    if (landingUrl && !isChat) {
+      // ¿El anuncio lleva directo al checkout o a la tienda de apps?
+      platform = checkoutPlatform(landingUrl);
+      if (platform) checkoutUrl = cleanUrl(landingUrl);
+      else {
+        const landing = await fetchLanding(landingUrl);
+        if (landing) landingUrl = landing.finalUrl;
+        let step = landing;
+        for (let i = 0; i < 2 && step && !step.checkoutUrl && step.nextUrl && step.nextUrl !== landingUrl; i++) step = await fetchLanding(step.nextUrl);
+        const hit = [landing, step].find((l) => l?.checkoutUrl);
+        checkoutUrl = hit?.checkoutUrl ?? null;
+        platform = hit?.checkoutPlatform ?? null;
+      }
+    }
+    // Sin enlace (el anuncio no se pudo leer) también se marca como revisada: si no, trabaría la
+    // cola, que siempre empieza por las mismas ganadoras. La ficha completa puede corregirlo luego.
+    if (!landingUrl) noLink++;
+    const { error: e2 } = await admin.from("offer_platform").upsert({
+      offer_id: o.id, platform, source: "scan", checkout_url: checkoutUrl, landing_url: landingUrl, updated_at: new Date().toISOString(),
+    });
+    if (e2) { console.error("offer-intel: platforms:", e2.message); continue; }
+    if (platform) found++; else if (landingUrl) none++;
+    out.push({ offer_id: o.id, platform, via });
+  }
+  return { ok: true, scanned: out.length, found, none, no_link: noLink, results: out };
+}
+
 // ── Vigilancia de ofertas seguidas (cron diario, acción "watch") ─────────
 // Por cada oferta que alguien sigue: cuántos anuncios tiene activos HOY su página en ese
 // mercado (Biblioteca de Anuncios de Meta) y, si tiene checkout de Hotmart, lo relee.
@@ -930,6 +980,7 @@ Deno.serve(async (req) => {
       // Mapa del negocio: relee SOLO el checkout (sin IA, sin Firecrawl) de las fichas que ya lo
       // tienen enlazado y aún no tienen checkout_data o lo tienen de hace más de FRESH_DAYS.
       if (body.action === "watch") return json(200, await watchFollowed(admin));
+      if (body.action === "platforms") return json(200, await scanPlatforms(admin, Math.max(1, Math.min(30, Number(body.batch) || 15))));
       if (body.action === "checkouts") {
         const lim = Math.max(1, Math.min(20, Number(body.batch) || 10));
         const stale = new Date(Date.now() - FRESH_DAYS * 86_400_000).toISOString();

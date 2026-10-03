@@ -12,70 +12,30 @@ type Step = {
   placement?: "right" | "left" | "bottom" | "center";
 };
 
-// Mismo orden que el menú y los precios REALES (tabla credit_prices): un tour
-// que promete otra cosa de la que el usuario encuentra le quita confianza el
-// primer minuto.
+// Tour corto (navegación por intención, 03-oct-2026): solo se abre si el usuario lo pide con
+// "Ver cómo funciona" en el Inicio (evento OPEN_TOUR_EVENT). Nunca sale solo.
+export const OPEN_TOUR_EVENT = "supernova:open-tour";
 const STEPS: Step[] = [
   {
-    title: "Bienvenido a SUPERNOVA",
-    page: "Tour de 1 minuto",
-    body: "Aquí no empiezas de cero: cada día te mostramos <strong>negocios digitales que ya están vendiendo</strong>, para que sepas qué vender. Tu plan trae <strong>2.000 créditos al mes</strong> para usar la IA. Mirar ofertas, el radar y los ganchos es gratis.",
-    placement: "center",
+    target: "home-Buscar Ofertas Winner",
+    title: "Toca lo que quieres hacer",
+    page: "1 de 3",
+    body: "Cada botón te lleva directo a una herramienta. Si no sabes por dónde empezar, <strong>espía los anuncios ganadores</strong>: los que llevan más días pagándose son la mejor prueba de que venden. Mirar es gratis.",
+    placement: "bottom",
   },
   {
-    target: "nav-Dashboard",
-    title: "Tu recorrido",
-    page: "Mi negocio en 6 etapas",
-    body: "El menú es un camino: <strong>Elegir → Validar → Precio → Construir → Vender → Medir</strong>. En el Inicio siempre verás <strong>tu siguiente paso</strong> y, cada lunes, <strong>Tu semana</strong>: 3 a 5 tareas armadas para tu negocio (gratis).",
+    target: "search",
+    title: "Busca lo que sea",
+    page: "2 de 3",
+    body: "Escribe lo que necesitas (\"anuncio\", \"precio\", \"WhatsApp\" o el nombre de una oferta) y te llevamos. También con <strong>⌘K</strong> o <strong>Ctrl+K</strong>. Buscar es gratis.",
+    placement: "bottom",
+  },
+  {
+    target: "nav-Proyectos",
+    title: "Todo lo que creas queda guardado",
+    page: "3 de 3",
+    body: "Tus anuncios, tu producto y lo que guardes quedan en <strong>Lo que creaste</strong> y en el Inicio, para retomarlos. ¿Dudas? El botón 💬 de abajo a la derecha te responde gratis.",
     placement: "right",
-  },
-  {
-    target: "nav-Mi negocio",
-    title: "Mi ficha",
-    page: "Se llena una vez",
-    body: "Cuenta qué vendes, para quién y qué logra (o toca <strong>Rellenar con IA</strong>, gratis). Todas las herramientas la usan: no tendrás que repetirlo en cada pantalla.",
-    placement: "right",
-  },
-  {
-    target: "nav-Ofertas",
-    title: "Ofertas",
-    page: "Las 300 ganadoras",
-    body: "De más de 7.500 ofertas digitales analizadas, estas 300 llevan meses pagando anuncios (una buena señal de que venden) y son fáciles de replicar. Mirarlas es gratis. Si quieres vigilar una para ver si crece, pulsa <strong>seguir</strong> (5 créditos).",
-    placement: "right",
-  },
-  {
-    target: "nav-Mini Apps",
-    title: "Mini Apps",
-    page: "2 kits nuevos cada semana",
-    body: "Negocios completos para copiar: la idea, las instrucciones para construir la app, los mensajes de WhatsApp, el guion del video de venta, anuncios, página de venta y precios por país. Cada uno se desbloquea con 150 créditos y queda tuyo para siempre.",
-    placement: "right",
-  },
-  {
-    target: "nav-Buscar Ofertas Winner",
-    title: "Radar de anuncios",
-    page: "Más de 114.000 anuncios reales",
-    body: "Mira qué anuncios está pagando cada negocio y cuánto tiempo llevan activos. Explorar es gratis; la <strong>búsqueda en vivo</strong> en Meta (Facebook e Instagram) cuesta 5 créditos.",
-    placement: "right",
-  },
-  {
-    target: "nav-Generadores",
-    title: "Generadores",
-    page: "26 generadores de textos con IA",
-    body: "Te escriben ganchos (la primera frase que hace que alguien se detenga), anuncios, páginas de venta, correos y guiones. Cada uno gasta 15, 30 o 75 créditos. Solo pagas si la IA te entrega el resultado.",
-    placement: "right",
-  },
-  {
-    target: "nav-Créditos",
-    title: "Créditos",
-    page: "Cómo funcionan",
-    body: "Tu plan trae <strong>2.000 créditos al mes</strong>. Se recargan cada mes el mismo día en que empezaste, y los que sobran no pasan al mes siguiente. Si la IA falla, el crédito vuelve solo. Si se te acaban, hay paquetes extra desde US$10 que no caducan.",
-    placement: "right",
-  },
-  {
-    title: "¿Dudas?",
-    page: "Asistente siempre activo",
-    body: "Usa el <strong>botón flotante abajo a la derecha</strong> 💬. Pregúntale cualquier cosa sobre la app: es gratis.",
-    placement: "center",
   },
 ];
 
@@ -89,9 +49,9 @@ export function OnboardingTour() {
   const tooltipRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!localStorage.getItem(KEY)) {
-      setTimeout(() => setOpen(true), 700);
-    }
+    const start = () => { setStep(0); setOpen(true); };
+    window.addEventListener(OPEN_TOUR_EVENT, start);
+    return () => window.removeEventListener(OPEN_TOUR_EVENT, start);
   }, []);
 
   const s = STEPS[step];
@@ -129,7 +89,7 @@ export function OnboardingTour() {
 
   if (!open) return null;
 
-  const close = () => { localStorage.setItem(KEY, "1"); setOpen(false); };
+  const close = () => { try { localStorage.setItem(KEY, "1"); } catch { /* sin almacenamiento */ } setOpen(false); };
   const next = () => step < STEPS.length - 1 ? setStep(step + 1) : close();
   const prev = () => step > 0 && setStep(step - 1);
 

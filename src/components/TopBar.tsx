@@ -1,4 +1,4 @@
-import { Coins, Menu } from "lucide-react";
+import { Coins, Menu, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useCredits } from "@/hooks/useCredits";
@@ -13,6 +13,7 @@ const RADAR_FRESH_MS = 48 * 3_600_000;
 interface TopBarProps {
   activePage: string;
   onOpenMobileNav?: () => void;
+  onSearch?: () => void;
 }
 
 // Páginas del recorrido que no tienen texto traducido en el menú.
@@ -22,7 +23,7 @@ const EXTRA_TITLES: Record<string, string> = {
   "Recuperar": "Recuperar ventas", "Productos": "Mis productos", "Crear producto": "Crea tu producto",
 };
 
-export function TopBar({ activePage, onOpenMobileNav }: TopBarProps) {
+export function TopBar({ activePage, onOpenMobileNav, onSearch }: TopBarProps) {
   const { balance, limit } = useCredits();
   const { t, i18n } = useTranslation();
   // Inglés y portugués en pausa para clientes (src/lib/features.ts): la app va en español.
@@ -82,7 +83,24 @@ export function TopBar({ activePage, onOpenMobileNav }: TopBarProps) {
         </div>
       </div>
 
+      {onSearch && (
+        <button
+          onClick={onSearch}
+          data-tour="search"
+          className="hidden md:flex flex-1 max-w-[420px] items-center gap-2 h-9 px-3.5 rounded-full border border-border/80 bg-card/40 text-[13px] text-muted-foreground hover:border-foreground/30 hover:text-foreground transition-colors"
+        >
+          <Search className="w-[14px] h-[14px]" strokeWidth={1.8} />
+          <span className="flex-1 text-left truncate">Buscar herramientas, ofertas o lo tuyo</span>
+          <kbd className="text-[10px] font-sans border border-border rounded px-1.5 py-0.5">⌘K</kbd>
+        </button>
+      )}
+
       <div className="flex items-center gap-2">
+        {onSearch && (
+          <button onClick={onSearch} aria-label="Buscar" data-tour="search" className="md:hidden w-8 h-8 rounded-full border border-border/70 text-muted-foreground hover:text-foreground flex items-center justify-center">
+            <Search className="w-[14px] h-[14px]" strokeWidth={1.8} />
+          </button>
+        )}
         <div
           className={`flex items-center gap-2 h-8 px-3 rounded-full border text-[11px] font-medium transition-colors ${
             low

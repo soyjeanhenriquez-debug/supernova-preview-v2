@@ -24,14 +24,15 @@ export function useSellThis(onNavigate?: (page: string) => void) {
   const { profile, loaded, savePatch } = useBusinessProfile();
   const [selling, setSelling] = useState(false);
 
-  const sell = async (b: SellBrief) => {
-    if (selling) return;
+  /** `stay`: no lleva a Mi ficha (lo usan los botones de un clic, que van a otra herramienta). Devuelve si quedó guardada. */
+  const sell = async (b: SellBrief, opts: { stay?: boolean } = {}): Promise<boolean> => {
+    if (selling) return false;
     const product = (b.product ?? "").trim();
-    if (!product) { toast.error("Esta oferta no tiene nombre todavía. Elige otra."); return; }
-    if (!loaded) { toast.info("Un segundo: estamos cargando tu ficha."); return; }
+    if (!product) { toast.error("Esta oferta no tiene nombre todavía. Elige otra."); return false; }
+    if (!loaded) { toast.info("Un segundo: estamos cargando tu ficha."); return false; }
     const current = profile.product.trim();
     if (current && current !== product
-      && !window.confirm(`Tu ficha ya tiene un producto: «${current.slice(0, 80)}». ¿Reemplazarlo por esta oferta?`)) return;
+      && !window.confirm(`Tu ficha ya tiene un producto: «${current.slice(0, 80)}». ¿Reemplazarlo por esta oferta?`)) return false;
     setSelling(true);
     // Lo que la oferta no trae se vacía: no se mezcla con lo del producto anterior.
     // savePatch recorta a lo que acepta la base (texto 300, precio 40).
@@ -39,9 +40,11 @@ export function useSellThis(onNavigate?: (page: string) => void) {
       product, who: (b.who ?? "").trim(), promise: (b.promise ?? "").trim(), price: (b.price ?? "").trim(), proof: "",
     });
     setSelling(false);
-    if (!ok) { toast.error("No se pudo llenar tu ficha. Intenta de nuevo."); return; }
+    if (!ok) { toast.error("No se pudo llenar tu ficha. Intenta de nuevo."); return false; }
+    if (opts.stay) return true;
     toast.success("Listo: tu ficha quedó llena con esta oferta. Revísala y cámbiala a tu gusto.");
     if (onNavigate) onNavigate("Mi negocio"); else { window.location.hash = "#/mi-negocio"; window.scrollTo({ top: 0 }); }
+    return true;
   };
 
   return { sell, selling };

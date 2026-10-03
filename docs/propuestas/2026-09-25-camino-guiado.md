@@ -1,6 +1,6 @@
 # Propuesta: un solo camino guiado ("siempre sé en qué etapa voy")
 
-**Fecha:** 25-sep-2026 · **Estado:** esperando OK de Jean · **No se ha tocado código.**
+**Fecha:** 25-sep-2026 · **Estado:** Reemplazada el 03-oct-2026 por la navegación por intención (ver `CLAUDE.md`, sección 1) · **No se ha tocado código.**
 
 ## El problema real
 

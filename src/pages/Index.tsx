@@ -11,6 +11,12 @@ import { useFeatureAccess } from "@/lib/features";
 import { useProducts } from "@/contexts/ProductContext";
 import { JourneyProvider } from "@/contexts/JourneyContext";
 import { StageBar, NextStepCard } from "@/components/journey/StageBar";
+import { GlobalSearch } from "@/components/GlobalSearch";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { useVitrina } from "@/contexts/VitrinaContext";
+import { LockedToolPage } from "@/components/LockedToolPage";
+import { TutorialButton } from "@/components/TutorialButton";
+import { tutorialFor } from "@/lib/tutorials";
 
 // Carga diferida: cada pantalla es su propio chunk → la primera carga solo
 // baja el Dashboard, el resto llega bajo demanda al navegar.
@@ -38,6 +44,7 @@ const RecoveryPage = lazy(() => import("@/pages/RecoveryPage").then(m => ({ defa
 const ContentPage = lazy(() => import("@/pages/ContentPage").then(m => ({ default: m.ContentPage })));
 const ProductsPage = lazy(() => import("@/pages/ProductsPage").then(m => ({ default: m.ProductsPage })));
 const ProductBuilderPage = lazy(() => import("@/pages/ProductBuilderPage"));
+const AprendePage = lazy(() => import("@/pages/AprendePage").then(m => ({ default: m.AprendePage })));
 
 function PageLoader() {
   return (
@@ -76,12 +83,13 @@ const PAGE_SLUG: Record<string, string> = {
   "Productos": "productos",
   "Crear producto": "crear-producto",
   "Sin mostrar tu cara": "personaje",
+  "Aprende": "aprende",
 };
 const SLUG_PAGE: Record<string, string> = {
   "ofertas": "Ofertas", "mini-apps": "Mini Apps", "radar": "Buscar Ofertas Winner", "hooks": "Hooks", "mandala": "Mándala", "mercado": "Mercado",
   "oraculo": "Oráculo", "generadores": "Generadores", "media-studio": "Media Studio",
   "proyectos": "Proyectos", "creditos": "Créditos", "crear": "Crear", "precio": "Precio", "mi-negocio": "Mi negocio", "validar": "Validar", "plan": "Plan", "contenido": "Contenido", "resultados": "Resultados", "recuperar": "Recuperar", "productos": "Productos",
-  "crear-producto": "Crear producto", "personaje": "Sin mostrar tu cara",
+  "crear-producto": "Crear producto", "personaje": "Sin mostrar tu cara", "aprende": "Aprende",
 };
 function pageFromHash(): string {
   // Un hash que no es nuestro (p. ej. el #access_token=… de un enlace de acceso) se ignora.
@@ -120,10 +128,14 @@ const Index = () => {
 
   const { canSee, loading: accessLoading } = useFeatureAccess();
   const { productKey } = useProducts();
+  const { locked } = useVitrina();
   const renderPage = () => {
     // Secciones en pausa (src/lib/features.ts): un cliente que llega por un enlace viejo va al inicio.
     if (!canSee(activePage)) return accessLoading ? null : <DashboardPage onNavigate={setActivePage} />;
+    // Vitrina (sin plan): el Inicio y Aprende se ven; cada herramienta enseña qué hace, con candado.
+    if (locked && activePage !== "Dashboard" && activePage !== "Aprende") return <LockedToolPage page={activePage} />;
     switch (activePage) {
+      case "Aprende": return <AprendePage onNavigate={setActivePage} />;
       case "Dashboard": return <DashboardPage onNavigate={setActivePage} />;
       case "Ofertas": return <OfertasPage onNavigate={setActivePage} />;
       case "Mini Apps": return <KitsPage onNavigate={setActivePage} />;
@@ -154,6 +166,16 @@ const Index = () => {
   };
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  // Abrir una oferta desde el buscador: la dirección #/ofertas/<id> y volver a montar Ofertas
+  // (lee la oferta de la dirección al montarse, también si ya estaba abierta).
+  const [openNonce, setOpenNonce] = useState(0);
+  const openOffer = useCallback((id: string) => {
+    window.history.pushState(null, "", `${window.location.pathname}${window.location.search}#/ofertas/${id}`);
+    setActivePageState("Ofertas");
+    setOpenNonce(n => n + 1);
+    window.scrollTo({ top: 0 });
+  }, []);
 
   return (
     <JourneyProvider page={activePage}>
@@ -180,26 +202,30 @@ const Index = () => {
       )}
 
       <div className="flex-1 flex flex-col min-w-0">
-        <LowCreditBanner onRecharge={() => setActivePage("Créditos")} />
-        <TopBar activePage={activePage} onOpenMobileNav={() => setMobileNavOpen(true)} />
+        {!locked && <LowCreditBanner onRecharge={() => setActivePage("Créditos")} />}
+        <TopBar activePage={activePage} onOpenMobileNav={() => setMobileNavOpen(true)} onSearch={() => setSearchOpen(true)} />
         {/* En qué etapa vas y tu siguiente paso, en todas las pantallas. El Inicio ya muestra el
             recorrido completo. Vive fuera del div con key={productKey}: no parpadea al cambiar de producto. */}
-        {activePage !== "Dashboard" && <StageBar page={activePage} onNavigate={setActivePage} />}
-        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
+        {!locked && activePage !== "Dashboard" && <StageBar page={activePage} onNavigate={setActivePage} />}
+        <main className="flex-1 p-4 md:p-6 lg:p-8 pb-[calc(84px+env(safe-area-inset-bottom))] lg:pb-8 overflow-auto">
           {/* Si una pantalla falla, el menú sigue vivo y cambiar de pantalla la recupera. */}
+          {/* Video corto de la herramienta, si ya existe (src/lib/tutorials.ts). */}
+          {!locked && tutorialFor(activePage) && <div className="max-w-[1280px] mx-auto flex justify-end mb-3"><TutorialButton page={activePage} /></div>}
           <ErrorBoundary compact resetKey={activePage}>
             <Suspense fallback={<PageLoader />}>
               {/* Cambiar de producto vuelve a montar la pantalla con los datos del nuevo. */}
-              <div key={productKey} className="contents">{renderPage()}</div>
+              <div key={`${productKey}-${openNonce}`} className="contents">{renderPage()}</div>
             </Suspense>
           </ErrorBoundary>
           {/* Etapa de esta herramienta ya lista → la siguiente a un clic, sin volver al Inicio. */}
-          {activePage !== "Dashboard" && <NextStepCard page={activePage} onNavigate={setActivePage} />}
+          {!locked && activePage !== "Dashboard" && <NextStepCard page={activePage} onNavigate={setActivePage} />}
         </main>
       </div>
       {/* Atajo al radar: solo donde se buscan ofertas (Inicio y Ofertas), no encima de las herramientas. */}
       {(activePage === "Dashboard" || activePage === "Ofertas") && <FloatingWinnerButton onClick={() => setActivePage("Buscar Ofertas Winner")} />}
-      <Suspense fallback={null}><HelpAssistant /></Suspense>
+      <MobileBottomNav activePage={activePage} onNavigate={setActivePage} onSearch={() => setSearchOpen(true)} />
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} onNavigate={setActivePage} onOpenOffer={openOffer} />
+      {!locked && <Suspense fallback={null}><HelpAssistant /></Suspense>}
       <OnboardingTour />
     </div>
     </JourneyProvider>

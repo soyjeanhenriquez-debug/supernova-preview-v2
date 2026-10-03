@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { STAGES, PAGE_STAGE, stageHint } from "./journey";
+import { TOOLS, ADMIN_EXTRA_TOOLS } from "./tools";
 
 const D = (...ok: number[]) => [1, 2, 3, 4, 5, 6].map(n => ok.includes(n));
 
@@ -9,15 +10,11 @@ describe("barra de etapa", () => {
     for (const s of STAGES) expect(PAGE_STAGE[s.page]).toBe(s.n);
   });
 
-  it("toda herramienta que el menú pone en una etapa tiene la misma etapa en PAGE_STAGE", () => {
-    // El menú es la fuente de la organización: si alguien mueve una herramienta de etapa, esta
-    // prueba avisa que la barra quedaría diciendo otra cosa.
-    const src = readFileSync("src/components/Sidebar.tsx", "utf8");
-    const groups = [...src.matchAll(/stage: (\d), items: \[([\s\S]*?)\]/g)];
-    expect(groups.length).toBe(6);
-    for (const [, stage, body] of groups) {
-      for (const [, key] of body.matchAll(/key: "([^"]+)"/g)) expect(PAGE_STAGE[key], key).toBe(Number(stage));
-    }
+  it("toda herramienta del Inicio, el menú y el buscador abre una pantalla real", () => {
+    // Navegación por intención (03-oct-2026): src/lib/tools.ts manda en el menú. Si una clave no
+    // tiene su case en Index.tsx, la tarjeta llevaría al Inicio sin avisar.
+    const src = readFileSync("src/pages/Index.tsx", "utf8");
+    for (const t of [...TOOLS, ...ADMIN_EXTRA_TOOLS]) expect(src.includes(`case "${t.key}":`), t.key).toBe(true);
   });
 
   it("en su etapa actual", () => {

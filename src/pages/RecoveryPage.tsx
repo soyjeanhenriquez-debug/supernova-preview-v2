@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { takeAutorun } from "@/lib/autorun";
+import { QuickBrief } from "@/components/QuickBrief";
 import { ArrowRight, Check, Copy, HeartHandshake, Loader2, Mail, MessageCircle, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { CopyLevelPicker } from "@/components/CopyLevelPicker";
@@ -49,6 +51,20 @@ export function RecoveryPage({ onNavigate }: { onNavigate?: (page: string) => vo
     if (pending.current) savePatchRef.current({ recovery: pending.current });
   }, []);
 
+  // Botón de un clic "Mis mensajes de WhatsApp" (ficha de una oferta): al llegar se escribe la
+  // secuencia (15 créditos, los cobra el servidor como al tocar el botón aquí).
+  const genFn = useRef<(() => Promise<void>) | null>(null);
+  const [autoGen, setAutoGen] = useState(false);
+  useEffect(() => {
+    if (!loaded || messages === null || !profileReady(profile)) return;
+    if (takeAutorun("recovery-sequence")) setAutoGen(true);
+  }, [loaded, messages, profile]);
+  useEffect(() => {
+    if (!autoGen || !genFn.current) return;
+    setAutoGen(false);
+    void genFn.current();
+  }, [autoGen]);
+
   if (!loaded || messages === null) return <div className="text-sm text-muted-foreground p-6">Cargando…</div>;
 
   const ready = profileReady(profile);
@@ -84,6 +100,7 @@ export function RecoveryPage({ onNavigate }: { onNavigate?: (page: string) => vo
       setLoading(false);
     }
   };
+  genFn.current = generate;
 
   // Edición con guardado automático (1 s después del último cambio).
   const editText = (i: number, text: string) => {
@@ -162,15 +179,7 @@ export function RecoveryPage({ onNavigate }: { onNavigate?: (page: string) => vo
               )}
             </div>
           ) : (
-            <div className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-5 text-sm space-y-3">
-              <p className="text-foreground font-medium">Primero cuéntanos qué vendes</p>
-              <p className="text-muted-foreground">Los mensajes se escriben con tu producto, para quién es y qué promete. Llénalo en Mi negocio y vuelve aquí.</p>
-              {onNavigate && (
-                <button onClick={() => onNavigate("Mi negocio")} className="inline-flex items-center gap-2 rounded-lg gradient-brand px-4 py-2 text-sm font-semibold text-primary-foreground">
-                  Llenar Mi negocio <ArrowRight className="w-4 h-4" />
-                </button>
-              )}
-            </div>
+            <QuickBrief profile={profile} savePatch={savePatch} purpose="escribir tus mensajes de WhatsApp" />
           )}
 
           {/* Opciones */}
@@ -188,7 +197,10 @@ export function RecoveryPage({ onNavigate }: { onNavigate?: (page: string) => vo
                 placeholder='Ej.: "Está caro", "No tengo tiempo", "¿Y si no me funciona?"'
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary/60" />
             </label>
-            <CopyLevelPicker profile={profile} onChange={p => { savePatch({ copy_level: p.copy_level }); }} />
+            <details className="group">
+              <summary className="cursor-pointer list-none text-xs text-muted-foreground hover:text-foreground select-none">▸ Personalizar el tono (opcional)</summary>
+              <div className="mt-2"><CopyLevelPicker profile={profile} onChange={p => { savePatch({ copy_level: p.copy_level }); }} /></div>
+            </details>
             <div className="flex flex-wrap items-center gap-2">
               <button onClick={generate} disabled={loading || !ready}
                 className="inline-flex items-center gap-2 rounded-lg gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">

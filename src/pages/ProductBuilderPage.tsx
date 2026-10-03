@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { takeAutorun } from "@/lib/autorun";
+import { QuickBrief } from "@/components/QuickBrief";
 import ReactMarkdown from "react-markdown";
 import {
   ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, Check, Copy, Download, FileText, Loader2, Pencil, Plus,
@@ -80,7 +82,7 @@ function Card({ children, className = "" }: { children: ReactNode; className?: s
 
 export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { active, activeId } = useProducts();
-  const { profile, loaded } = useBusinessProfile();
+  const { profile, loaded, savePatch } = useBusinessProfile();
   const pb = useProductBuilds();
   const { balance, applyServerCharge } = useCredits();
   // Escribir se desbloquea al cobrarse el plan (no en los 3 días de prueba) o con una recarga/aporte.
@@ -200,6 +202,20 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allDone, sorted.length, build?.id, build?.status]);
 
+  // Botón de un clic "El índice de mi producto" (ficha de una oferta): al llegar se arma el índice,
+  // que es gratis. createOutline se define más abajo; se llama por referencia cuando ya existe.
+  const outlineFn = useRef<(() => Promise<void>) | null>(null);
+  const [autoOutline, setAutoOutline] = useState(false);
+  useEffect(() => {
+    if (!loaded || !pb.loaded || !profileReady(profile)) return;
+    if (takeAutorun("builder-outline")) setAutoOutline(true);
+  }, [loaded, pb.loaded, profile]);
+  useEffect(() => {
+    if (!autoOutline || !outlineFn.current) return;
+    setAutoOutline(false);
+    void outlineFn.current();
+  }, [autoOutline]);
+
   if (!loaded || !pb.loaded) return <div className="text-sm text-muted-foreground p-6">Cargando…</div>;
 
   const header = (
@@ -222,11 +238,7 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
     return (
       <div className="space-y-5 max-w-3xl">
         {header}
-        <Card>
-          <p className="font-display font-semibold text-lg text-foreground">Primero completa tu ficha</p>
-          <p className="text-sm text-muted-foreground">Tu producto se escribe con lo que vendes, para quién y qué promete.</p>
-          <button onClick={() => onNavigate?.("Mi negocio")} className={primaryBtn}>Ir a Mi negocio <ArrowRight className="w-4 h-4" /></button>
-        </Card>
+        <QuickBrief profile={profile} savePatch={savePatch} purpose="escribir tu ebook, curso o reto" />
       </div>
     );
   }
@@ -250,6 +262,8 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
     rememberOpen(r.data.build.id);
     void pb.reload();
   };
+
+  outlineFn.current = createOutline;
 
   const editPiece = (id: string, patch: Partial<Pick<Piece, "title" | "brief" | "module" | "content">>) => {
     const clean = { ...patch };

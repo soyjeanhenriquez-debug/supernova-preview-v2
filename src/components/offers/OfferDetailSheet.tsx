@@ -16,6 +16,8 @@ import {
   type OfferIntel, type OfferVerdict, FUNNEL_LABEL, loadOfferIntel, safeExternalUrl, reportOffer, verdictToText,
 } from "@/lib/offerIntel";
 import { useSellThis, offerBrief } from "@/lib/sellThis";
+import { setAutorun, type AutorunAction } from "@/lib/autorun";
+import { useFeatureAccess } from "@/lib/features";
 import { BusinessMap } from "@/components/offers/BusinessMap";
 
 /**
@@ -49,6 +51,31 @@ export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate
   const [attempt, setAttempt] = useState(0);
   const bodyRef = useRef<HTMLDivElement>(null);
   const { sell, selling } = useSellThis();
+  const { canSee } = useFeatureAccess();
+
+  // Botones de un clic: esta oferta pasa a ser tu producto y la herramienta hace el trabajo al abrirse.
+  // Lo que gasta créditos lo dice el botón y lo cobra el servidor como siempre; lo demás es gratis.
+  const doForMe = async (hash: string, action?: AutorunAction) => {
+    const b = { ...offerBrief(o), price: intel?.price_text || o.price_hint };
+    const product = (b.product ?? "").trim();
+    const ok = await sell({
+      ...b,
+      who: (b.who ?? "").trim() || `Personas interesadas en ${product}`,
+      promise: (b.promise ?? "").trim() || `Lograr lo que ofrece ${product}`,
+    }, { stay: true });
+    if (!ok) return;
+    if (action) setAutorun(action);
+    onClose();
+    window.location.hash = hash;
+    window.scrollTo({ top: 0 });
+  };
+  const ACTIONS: { label: string; cost: string; hash: string; action?: AutorunAction; show?: boolean }[] = [
+    { label: "Hazme un anuncio", cost: `${CREDIT_COSTS.gen_light} ⚡`, hash: "#/mandala", action: "mandala-first-ad" },
+    { label: "Mis mensajes de WhatsApp", cost: `${CREDIT_COSTS.gen_light} ⚡`, hash: "#/recuperar", action: "recovery-sequence" },
+    { label: "El índice de mi producto", cost: "gratis", hash: "#/crear-producto", action: "builder-outline", show: canSee("Crear producto") },
+    { label: "¿Se vende? Validar", cost: "gratis", hash: "#/validar" },
+    { label: "Ponerle precio", cost: "gratis", hash: "#/precio" },
+  ];
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -118,6 +145,18 @@ export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate
 
           {/* Acción principal fija abajo: siempre a un toque, sin importar cuánto se haya leído */}
           <footer className="shrink-0 border-t border-border bg-card/95 backdrop-blur px-4 sm:px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-2">
+            {/* Hazlo por mí: un toque y la herramienta lo hace con esta oferta como tu producto. */}
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground font-semibold mb-1.5">Hazlo por mí con esta oferta</p>
+              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none]">
+                {ACTIONS.filter(a => a.show !== false).map(a => (
+                  <button key={a.hash} onClick={() => void doForMe(a.hash, a.action)} disabled={selling}
+                    className="shrink-0 h-9 px-3 rounded-full border border-border text-[12.5px] text-foreground hover:border-primary/50 disabled:opacity-60 inline-flex items-center gap-1.5 whitespace-nowrap">
+                    {a.label} <span className="text-muted-foreground">· {a.cost}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
             {/* Gratis: la oferta pasa a tu ficha de "Mi negocio" (con el precio que vimos, si lo hay). */}
             <button onClick={() => void sell({ ...offerBrief(o), price: intel?.price_text || o.price_hint })} disabled={selling}
               className="w-full h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-primary/50 hover:text-primary flex items-center justify-center gap-2 disabled:opacity-60 transition-colors">

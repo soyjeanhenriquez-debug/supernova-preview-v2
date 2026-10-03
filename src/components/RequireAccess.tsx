@@ -3,11 +3,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccessStatus } from "@/hooks/useAccessStatus";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import PendingAccessPage from "@/pages/PendingAccessPage";
+import { VitrinaProvider } from "@/contexts/VitrinaContext";
 import { ShieldAlert, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Props { children: ReactNode }
+
+function adminPreviewsVitrina() {
+  try {
+    const q = new URLSearchParams(window.location.search).get("vitrina");
+    if (q === "1") sessionStorage.setItem("supernova:preview-vitrina", "1");
+    if (q === "0") sessionStorage.removeItem("supernova:preview-vitrina");
+    return sessionStorage.getItem("supernova:preview-vitrina") === "1";
+  } catch { return false; }
+}
 
 export function RequireAccess({ children }: Props) {
   const { user } = useAuth();
@@ -90,7 +99,8 @@ export function RequireAccess({ children }: Props) {
     );
   }
 
-  if (access === "pending" && !isAdmin) return <PendingAccessPage />;
-
-  return <>{children}</>;
+  // Sin plan ya no hay muro de pago: entra a la vitrina (todo con candado, muestras reales, cero IA).
+  // El acceso de verdad lo siguen dando solo los webhooks de pago de Whop (has_access en la base).
+  // Un admin puede ver la vitrina tal cual la ve un cliente con ?vitrina=1 (y salir con ?vitrina=0).
+  return <VitrinaProvider locked={(access === "pending" && !isAdmin) || (isAdmin && adminPreviewsVitrina())}>{children}</VitrinaProvider>;
 }

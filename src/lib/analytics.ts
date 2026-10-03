@@ -109,7 +109,8 @@ export type AppEvent =
   | "etapa_completada"
   | "personaje_ideas" | "personaje_creado" | "personaje_foto" | "guiones_generados" | "bio_copiada"
   | "video_avisame" | "video_reserva_click" | "higgsfield_click"
-  | "video_generado" | "comunidad_upsell_click";
+  | "video_generado" | "comunidad_upsell_click"
+  | "home_card_click" | "search_used";
 export function track(event: AppEvent, props?: Record<string, string | number | boolean | null>) {
   run(p => p.capture(event, props));
 }

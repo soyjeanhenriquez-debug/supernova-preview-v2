@@ -1,4 +1,4 @@
-import { Check, ChevronRight, LayoutDashboard, Trophy, Telescope, FileText, FolderKanban, Coins, Shield, LogOut, PanelLeftClose, PanelLeftOpen, X, KeyRound, UserRound, Video, Quote, Gem, Boxes, Orbit, Store, Briefcase, ClipboardCheck, Calculator, ListTodo, CalendarDays, BarChart3, MessageCircle, Lightbulb, LayoutGrid, BookOpen } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Coins, Shield, LogOut, PanelLeftClose, PanelLeftOpen, X, KeyRound, Briefcase, LayoutGrid, GraduationCap, Lock, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,8 +8,9 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useNavigate } from "react-router-dom";
 import { useFeatureAccess } from "@/lib/features";
 import { ProductSwitcher } from "@/components/ProductSwitcher";
-import { useJourney } from "@/contexts/JourneyContext";
-import { PAGE_STAGE } from "@/lib/journey";
+import { TOOLS, TOOL_GROUPS, ADMIN_EXTRA_TOOLS, type Tool } from "@/lib/tools";
+import { TUTORIALS } from "@/lib/tutorials";
+import { useVitrina } from "@/contexts/VitrinaContext";
 
 interface SidebarProps {
   activePage: string;
@@ -25,72 +26,35 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
   const { user, signOut } = useAuth();
   const { isAdmin } = useIsAdmin();
   const { canSee } = useFeatureAccess();
+  const { locked, openPlans } = useVitrina();
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  // El menú ES el recorrido "Mi negocio": cada herramienta vive en una sola etapa, en orden, para
-  // que nadie se pierda ni haga lo mismo en dos sitios. Las secciones en pausa (src/lib/features.ts)
-  // solo las ve un admin, al final.
-  type NavItem = { icon: typeof Gem; key: string; label: string; hint: string };
-  const groups: { title: string; stage?: number; items: NavItem[] }[] = [
-    { title: "Mi negocio", items: [
-      { icon: LayoutDashboard, key: "Dashboard", label: t("nav.dashboard"), hint: "Tu recorrido de 6 etapas, tu siguiente paso y tus tareas de la semana." },
-      { icon: LayoutGrid, key: "Productos", label: "Mis productos", hint: "Todos tus productos y cuánto avanzó cada uno." },
-      { icon: Briefcase, key: "Mi negocio", label: "Mi ficha", hint: "Qué vendes, para quién y qué logra este producto. Lo usan todas las herramientas." },
-    ] },
-    { title: "1 · Elegir", stage: 1, items: [
-      { icon: Gem, key: "Ofertas", label: t("nav.offers"), hint: t("nav.hint.offers") },
-      { icon: Trophy, key: "Buscar Ofertas Winner", label: t("nav.winners"), hint: t("nav.hint.winners") },
-      { icon: Boxes, key: "Mini Apps", label: t("nav.kits"), hint: t("nav.hint.kits") },
-    ] },
-    { title: "2 · Validar", stage: 2, items: [
-      { icon: ClipboardCheck, key: "Validar", label: "Matriz de validación", hint: "Preguntas de sí o no para saber si tu producto y tu mercado tienen lo que hace falta para vender." },
-    ] },
-    { title: "3 · Precio", stage: 3, items: [
-      { icon: Calculator, key: "Precio", label: "Precio y ganancia", hint: "Cuánto te queda de cada venta y cuánto puedes pagar en anuncios sin perder." },
-    ] },
-    { title: "4 · Construir", stage: 4, items: [
-      { icon: BookOpen, key: "Crear producto", label: "Crear producto", hint: "Ebook, curso o reto" },
-      { icon: ListTodo, key: "Plan", label: "Plan de lanzamiento", hint: "Tus tareas con fecha para construir y lanzar tu producto en unos 14 días." },
-      { icon: FolderKanban, key: "Proyectos", label: t("nav.projects"), hint: t("nav.hint.projects") },
-    ].filter(item => canSee(item.key)) }, // "Crear producto" está en piloto (solo admin)
-    { title: "5 · Vender", stage: 5, items: [
-      { icon: Orbit, key: "Mándala", label: t("nav.mandala"), hint: t("nav.hint.mandala") },
-      { icon: UserRound, key: "Sin mostrar tu cara", label: "Vende sin mostrar tu cara", hint: "Un personaje creado con IA cuenta tu oferta en Reels y TikTok. Tú publicas; él da la cara." },
-      { icon: Quote, key: "Hooks", label: t("nav.hooks"), hint: t("nav.hint.hooks") },
-      { icon: CalendarDays, key: "Contenido", label: "Calendario de contenido", hint: "Ideas con demanda real para publicar sin pagar anuncios, con fecha y estado." },
-      { icon: FileText, key: "Generadores", label: t("nav.generators"), hint: t("nav.hint.generators") },
-    ] },
-    { title: "6 · Medir y recuperar", stage: 6, items: [
-      { icon: BarChart3, key: "Resultados", label: "Resultados de anuncios", hint: "Anota gasto, clics y ventas: la app te dice qué apagar y qué escalar." },
-      { icon: MessageCircle, key: "Recuperar", label: "Recuperar ventas", hint: "Mensajes de WhatsApp para quien casi compra, listos para enviar día a día." },
-    ] },
+  // Menú por intención (decisión de Jean, 03-oct-2026): los mismos grupos que el Inicio
+  // (src/lib/tools.ts), más Biblioteca y Cuenta. Las secciones en pausa (src/lib/features.ts) solo
+  // las ve un admin. Las claves y los data-tour="nav-<key>" no cambian (los usan el tour y la ayuda).
+  type NavItem = { icon: LucideIcon; key: string; label: string; hint: string };
+  const fromTool = (tl: Tool): NavItem => ({ icon: tl.icon, key: tl.key, label: tl.nav, hint: tl.desc });
+  const groups: { title: string; items: NavItem[] }[] = [
     { title: "", items: [
+      { icon: LayoutDashboard, key: "Dashboard", label: t("nav.dashboard"), hint: "¿Qué quieres hacer hoy? Todas las herramientas y lo último que creaste." },
+    ] },
+    ...TOOL_GROUPS.map(g => ({ title: g.title, items: TOOLS.filter(tl => tl.group === g.id && canSee(tl.key)).map(fromTool) })),
+    { title: "Biblioteca", items: [
+      // Aprende aparece cuando hay al menos un video (nada de secciones vacías).
+      ...(TUTORIALS.length ? [{ icon: GraduationCap, key: "Aprende", label: "Aprende", hint: "Un video corto por herramienta para verla en acción." }] : []),
+      { icon: LayoutGrid, key: "Productos", label: "Mis productos", hint: "Todos tus productos y cuánto avanzó cada uno." },
+      { icon: FolderKanban, key: "Proyectos", label: t("nav.projects"), hint: t("nav.hint.projects") },
+    ] },
+    { title: "Cuenta", items: [
+      { icon: Briefcase, key: "Mi negocio", label: "Mi ficha", hint: "Qué vendes, para quién y qué logra este producto. Lo usan todas las herramientas." },
       { icon: Coins, key: "Créditos", label: t("nav.credits"), hint: t("nav.hint.credits") },
     ] },
-    { title: "Solo admin (en pausa)", items: [
-      { icon: Store, key: "Mercado", label: t("nav.mercado"), hint: t("nav.hint.mercado") },
-      { icon: Telescope, key: "Oráculo", label: t("nav.oracle"), hint: t("nav.hint.oracle") },
-      { icon: Video, key: "Media Studio", label: t("nav.mediaStudio"), hint: t("nav.hint.mediaStudio") },
-      { icon: Lightbulb, key: "Crear", label: "Modo Crear", hint: "Buscar problemas que la gente quiere resolver." },
-    ].filter(item => canSee(item.key)) },
+    { title: "Solo admin (en pausa)", items: ADMIN_EXTRA_TOOLS.filter(tl => canSee(tl.key)).map(fromTool) },
   ];
 
   const [collapsed, setCollapsed] = useState<boolean>(() => localStorage.getItem(COLLAPSE_KEY) === "1");
 
-  // Menú como camino: etapas hechas con ✓, abiertas la de la pantalla actual y la que toca; las
-  // demás plegadas (un clic las abre: nada se esconde). Hasta terminar el tour de bienvenida va todo
-  // abierto, porque el tour señala botones de varias etapas.
-  const journey = useJourney();
-  const [toggled, setToggled] = useState<Record<number, boolean>>({});
-  useEffect(() => { setToggled({}); }, [activePage]); // al navegar vuelve a abrir solo lo relevante
-  let tourDone = true;
-  try { tourDone = localStorage.getItem("supernova:onboarding-v2-done") === "1"; } catch { /* sin almacenamiento: todo abierto */ }
-  const isOpen = (stage?: number) => {
-    if (!stage || !tourDone || !journey.loaded) return true;
-    if (stage in toggled) return toggled[stage];
-    return stage === PAGE_STAGE[activePage] || stage === journey.next;
-  };
   useEffect(() => { localStorage.setItem(COLLAPSE_KEY, collapsed ? "1" : "0"); }, [collapsed]);
 
   // In mobile mode, never collapsed
@@ -147,25 +111,20 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
       {/* Navigation */}
       <nav className={`flex-1 min-h-0 py-1 space-y-px overflow-y-auto overflow-x-hidden ${isCollapsed ? "px-2" : "px-3"}`}>
         {/* Producto activo: todo el menú de abajo trabaja sobre él. */}
-        <div className="pb-3"><ProductSwitcher collapsed={isCollapsed} onNavigate={handleNav} /></div>
+        {locked ? (
+          !isCollapsed && (
+            <div className="pb-3 px-1">
+              <button onClick={() => openPlans()} className="btn-primary-nova w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold">Empieza tus 3 días gratis</button>
+              <p className="mt-1.5 px-1 text-[11px] text-muted-foreground leading-snug">Estás viendo SUPERNOVA sin plan. Lo que tiene candado se abre con PRO.</p>
+            </div>
+          )
+        ) : <div className="pb-3"><ProductSwitcher collapsed={isCollapsed} onNavigate={handleNav} /></div>}
         {groups.filter(g => g.items.length).map((g, gi) => (
           <div key={g.title || gi} className={gi ? (isCollapsed ? "pt-2 mt-2 border-t border-border/50" : "pt-3") : ""}>
-            {g.title && !isCollapsed && (g.stage ? (() => {
-              const done = journey.loaded && journey.done[g.stage - 1];
-              const now = journey.loaded && journey.next === g.stage;
-              const open = isOpen(g.stage);
-              return (
-                <button onClick={() => setToggled(t => ({ ...t, [g.stage!]: !open }))} aria-expanded={open}
-                  className={`w-full px-3 pb-1 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] font-semibold text-left ${now ? "text-primary" : done ? "text-emerald-400/90" : "text-muted-foreground/70"} hover:text-foreground`}>
-                  {done ? <Check className="w-3 h-3 shrink-0" /> : <ChevronRight className={`w-3 h-3 shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />}
-                  <span className="truncate">{g.title}</span>
-                  {now && <span className="ml-auto normal-case tracking-normal text-[10px] font-semibold">ahora</span>}
-                </button>
-              );
-            })() : (
+            {g.title && !isCollapsed && (
               <p className="px-3 pb-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-semibold">{g.title}</p>
-            ))}
-            {(isCollapsed || isOpen(g.stage)) && g.items.map((item) => {
+            )}
+            {g.items.map((item) => {
           const isActive = activePage === item.key;
           const Icon = item.icon;
           return (
@@ -182,6 +141,7 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
             >
               <Icon className={`w-[15px] h-[15px] flex-shrink-0 ${isActive ? "text-foreground" : ""}`} strokeWidth={1.6} />
               {!isCollapsed && <span className="text-[13px] font-medium tracking-tight truncate">{item.label}</span>}
+              {!isCollapsed && locked && item.key !== "Dashboard" && item.key !== "Aprende" && <Lock className="ml-auto w-3 h-3 text-muted-foreground/60 shrink-0" strokeWidth={1.8} />}
             </button>
           );
         })}

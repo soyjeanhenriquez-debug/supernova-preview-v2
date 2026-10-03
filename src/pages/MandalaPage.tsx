@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { takeAutorun } from "@/lib/autorun";
+import { QuickBrief } from "@/components/QuickBrief";
 import {
   Copy, Dices, Loader2, Sparkles, Layers, Route, Orbit, ListChecks, Check, Video, Trash2,
   ChevronDown, ChevronUp, Repeat, AlertTriangle,
@@ -306,7 +308,8 @@ export function MandalaPage({ onNavigate, initialTab = "ruta" }: { onNavigate?: 
   const [angle, setAngle] = useState<Angle>(angleById("problema-solucion"));
   const [rotation, setRotation] = useState(-(ANGLES.findIndex(a => a.id === "problema-solucion") * SEG + SEG / 2));
   const [spinning, setSpinning] = useState(false);
-  const { profile: brief } = useBusinessProfile();
+  const { profile: brief, savePatch: saveBrief, loaded: briefLoaded } = useBusinessProfile();
+  const [adsLoaded, setAdsLoaded] = useState(false);
   const [platform, setPlatform] = useState<Platform>("meta");
   const [format, setFormat] = useState(FORMATS[0]);
   const { canSee } = useFeatureAccess();
@@ -337,6 +340,7 @@ export function MandalaPage({ onNavigate, initialTab = "ruta" }: { onNavigate?: 
     if (!error && Array.isArray(data)) {
       setAds(data as AdRow[]);
     }
+    setAdsLoaded(true);
   }, [user, activeId]);
   useEffect(() => { loadAds(); }, [loadAds]);
 
@@ -407,8 +411,10 @@ export function MandalaPage({ onNavigate, initialTab = "ruta" }: { onNavigate?: 
 
   const requireBrief = () => {
     if (briefReady(brief)) return true;
-    toast.error("Primero cuéntanos qué vendes", { description: "Llénalo en Mi negocio: qué es, para quién y qué logra. Te toma unos 30 segundos." });
-    onNavigate?.("Mi negocio");
+    // Sin ficha no se manda a otra pantalla: la pregunta está arriba, en esta misma.
+    toast("Escribe arriba qué vendes y seguimos", { description: "Una línea basta." });
+    document.getElementById("quick-brief")?.focus();
+    window.scrollTo({ top: 0, behavior: "smooth" });
     return false;
   };
 
@@ -482,6 +488,23 @@ export function MandalaPage({ onNavigate, initialTab = "ruta" }: { onNavigate?: 
     </button>
   );
 
+  // Botón de un clic "Hazme mi siguiente anuncio" (ficha de una oferta): al llegar, se escribe solo
+  // el siguiente anuncio de la ruta. Cobra el servidor, igual que tocar el botón aquí.
+  const autoRan = useRef(false);
+  useEffect(() => {
+    if (autoRan.current || !briefLoaded || !adsLoaded || isResults) return;
+    autoRan.current = true;
+    if (!takeAutorun("mandala-first-ad") || !briefReady(brief)) return;
+    const i = Math.max(0, ROUTE.findIndex(r => !done.has(`${r.stage}:${r.angle}`)));
+    const r = ROUTE[i];
+    setTab("ruta");
+    confirmSetup();
+    setRoutePick(i);
+    setOpenStep(3);
+    void createAd(stageById(r.stage), angleById(r.angle), `${r.stage}:${r.angle}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [briefLoaded, adsLoaded]);
+
   const measured = ads.some(a => a.spend != null || a.status === "ganador" || a.status === "descartado");
   const briefDone = briefReady(brief);
   const setupOk = setupDone || ads.length > 0;
@@ -494,7 +517,9 @@ export function MandalaPage({ onNavigate, initialTab = "ruta" }: { onNavigate?: 
   };
 
   // Resumen de "Mi negocio": la ficha se edita en su página, aquí solo se muestra.
-  const businessSummary = () => (
+  const businessSummary = () => !briefReady(brief) ? (
+    <QuickBrief profile={brief} savePatch={saveBrief} purpose="escribir tus anuncios" />
+  ) : (
     <div className="card-surface rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
         <p className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -627,8 +652,7 @@ export function MandalaPage({ onNavigate, initialTab = "ruta" }: { onNavigate?: 
           </div>
 
           <Step n={1} title="Tu negocio" done={briefDone} active={step === 1} onOpen={() => openStepN(1)}
-            summary={briefReady(brief) ? `${brief.product} · ${brief.who}` : "Llénalo en Mi negocio: qué vendes, para quién y qué logra."}>
-            <p className="text-sm text-muted-foreground">Todos tus anuncios salen de tu ficha de negocio. La llenas una vez en Mi negocio y la usan todas las herramientas.</p>
+            summary={briefReady(brief) ? `${brief.product} · ${brief.who}` : "Escribe qué vendes en una línea."}>
             {businessSummary()}
             {briefDone && <Btn primary onClick={() => setOpenStep(null)}>Siguiente paso →</Btn>}
           </Step>

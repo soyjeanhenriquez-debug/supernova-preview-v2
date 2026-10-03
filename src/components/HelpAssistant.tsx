@@ -168,7 +168,7 @@ export function HelpAssistant() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-2xl hover:scale-105 transition-transform flex items-center justify-center"
+          className="fixed bottom-[calc(76px+env(safe-area-inset-bottom))] lg:bottom-6 right-4 lg:right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-2xl hover:scale-105 transition-transform flex items-center justify-center"
           title="Asistente de ayuda"
           aria-label="Abrir asistente de ayuda"
         >
@@ -177,7 +177,7 @@ export function HelpAssistant() {
       )}
 
       {open && (
-        <div className="fixed bottom-6 right-6 z-50 w-[380px] max-w-[calc(100vw-32px)] h-[560px] max-h-[calc(100vh-48px)] rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed bottom-[calc(76px+env(safe-area-inset-bottom))] lg:bottom-6 right-4 lg:right-6 z-50 w-[380px] max-w-[calc(100vw-32px)] h-[560px] max-h-[calc(100dvh-110px)] lg:max-h-[calc(100vh-48px)] rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-secondary/40">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center">

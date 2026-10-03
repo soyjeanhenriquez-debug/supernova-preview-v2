@@ -632,7 +632,7 @@ export function GeneradoresPage() {
               <div className="card-surface rounded-xl p-5 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <label className="text-sm font-semibold text-foreground">
-                    ¿Qué vendes? Cuéntalo en 2 o 3 líneas
+                    {generatorInput.trim() && generatorInput === myBusiness ? "Sobre tu negocio (ya está puesto; cámbialo si quieres)" : "¿Qué vendes? Una línea basta"}
                   </label>
                   <div className="flex flex-wrap items-center gap-2">
                     {myBusiness && generatorInput.trim() !== myBusiness && (
@@ -643,9 +643,12 @@ export function GeneradoresPage() {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground -mt-2">
-                  Qué es, para quién es y cuánto cuesta. ¿No sabes qué poner? Toca <b className="text-foreground">Rellenar con IA</b>: es gratis y te escribe un ejemplo que puedes cambiar.
+                  ¿No sabes qué poner? Toca <b className="text-foreground">Rellenar con IA</b>: es gratis y te escribe un ejemplo que puedes cambiar.
                 </p>
-                <CopyLevelPicker profile={profile} onChange={changeTone} />
+                <details className="group">
+                  <summary className="cursor-pointer list-none text-xs text-muted-foreground hover:text-foreground select-none">▸ Personalizar el tono (opcional)</summary>
+                  <div className="mt-2"><CopyLevelPicker profile={profile} onChange={changeTone} /></div>
+                </details>
                 <textarea
                   value={generatorInput}
                   onChange={(e) => setGeneratorInput(e.target.value)}

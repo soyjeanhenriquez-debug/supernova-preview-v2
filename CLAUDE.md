@@ -22,7 +22,10 @@ su moneda.
   precios inventados.
 - **El recorrido "Mi negocio" (6 etapas, en orden):** 1 Elegir (Ofertas, Radar, Mini Apps) →
   2 Validar → 3 Precio → 4 Construir → 5 Vender (Mándala, Ganchos, Contenido, Generadores) →
-  6 Medir y recuperar. El menú lateral ES ese recorrido. La guía completa y vigente de cada
+  6 Medir y recuperar. **Navegación por intención (decisión de Jean, 03-oct-2026, por lo que
+  pidió Cindy):** el menú se organiza por lo que la persona quiere hacer (Encontrar / Crear /
+  Vender / Ganar). Las 6 etapas siguen existiendo como guía opcional (tarjeta "Tu camino"),
+  nunca como camino obligatorio ni como bloqueo. La guía completa y vigente de cada
   pantalla está en `SYSTEM_PROMPT` de `src/components/HelpAssistant.tsx`.
 - **Modelo de negocio (precios vigentes, `src/lib/plans.ts`):** dos planes, nada de plan gratis.
   - **SUPERNOVA PRO — US$29,99/mes** por **Whop**, 3 días de prueba con tarjeta, 2.000 créditos
@@ -117,6 +120,9 @@ su moneda.
   gana el sistema de la app.
 - **Rapidez es parte de la calidad:** listas cortas al abrir con "Ver más" (Radar 24, Ofertas 12,
   Ganchos 24), nada pesado en la primera carga, datos compartidos entre pantallas.
+- **La app no pregunta lo que puede deducir.** Ninguna herramienta se bloquea por una ficha
+  incompleta: se usa lo que ya sabemos (la oferta elegida, el producto activo) y las preguntas
+  extra van en "Personalizar", que es opcional.
 
 ---
 

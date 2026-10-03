@@ -23,8 +23,8 @@ export function SofisticarModal({ ad, onClose }: Props) {
   const [mode, setMode] = useState<Mode>("choose");
   const [streamText, setStreamText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [targetMarket, setTargetMarket] = useState(MARKETS[0]);
-  const [hasProduct, setHasProduct] = useState(HAS_PRODUCT[0]);
+  const [targetMarket, setTargetMarket] = useState("LATAM");
+  const [hasProduct, setHasProduct] = useState(HAS_PRODUCT[1]);
   const [budget, setBudget] = useState(BUDGETS[0]);
   const [adaptTo, setAdaptTo] = useState<"es" | "en">("es");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -149,8 +149,16 @@ export function SofisticarModal({ ad, onClose }: Props) {
           {mode === "sofisticar" && (
             <div className="grid md:grid-cols-5 h-full">
               <div className="md:col-span-2 border-r border-border p-6 space-y-4 overflow-y-auto">
-                <h4 className="font-display font-bold">Cuéntanos un poco de ti</h4>
-                <p className="text-xs text-muted-foreground">Con esto la IA ajusta el análisis a tu situación.</p>
+                <h4 className="font-display font-bold">Tu versión mejorada de este anuncio</h4>
+                <p className="text-xs text-muted-foreground">La hacemos para vender en LATAM, sin producto propio todavía y con poco presupuesto. Si es tu caso, solo toca el botón.</p>
+                <button onClick={() => run("sofisticar")} disabled={loading}
+                  className="btn-primary-nova w-full py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  Hacer mi versión mejorada → <span className="opacity-70 text-xs">{CREDIT_COSTS.sofisticar} créditos</span>
+                </button>
+                <details className="group">
+                  <summary className="cursor-pointer list-none text-xs text-muted-foreground hover:text-foreground select-none">▸ Personalizar (opcional)</summary>
+                  <div className="mt-3 space-y-4">
                 <Field label="¿En qué país quieres vender?">
                   <div className="flex flex-wrap gap-1.5">
                     {MARKETS.map((m) => <Chip key={m} active={targetMarket === m} onClick={() => setTargetMarket(m)}>{m}</Chip>)}
@@ -166,11 +174,8 @@ export function SofisticarModal({ ad, onClose }: Props) {
                     {BUDGETS.map((m) => <Chip key={m} active={budget === m} onClick={() => setBudget(m)}>{m}</Chip>)}
                   </div>
                 </Field>
-                <button onClick={() => run("sofisticar")} disabled={loading}
-                  className="btn-primary-nova w-full py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  Hacer mi versión mejorada → <span className="opacity-70 text-xs">{CREDIT_COSTS.sofisticar} créditos</span>
-                </button>
+                  </div>
+                </details>
               </div>
               <div className="md:col-span-3 p-6 overflow-y-auto" ref={scrollRef}>
                 <StreamOutput text={streamText} loading={loading} onSave={saveAsProject} />

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { QuickBrief } from "@/components/QuickBrief";
 import { ArrowRight, Check, ClipboardCheck, Pencil, Printer, RotateCcw, ThumbsDown, ThumbsUp, X } from "lucide-react";
 import { toast } from "sonner";
 import { profileReady, useBusinessProfile, type Validation } from "@/lib/businessProfile";
@@ -224,17 +225,7 @@ export function ValidationPage({ onNavigate }: { onNavigate?: (page: string) => 
     return (
       <div className="space-y-5 max-w-3xl">
         {header}
-        <div className="card-surface rounded-2xl p-6 space-y-3">
-          <h2 className="font-display font-semibold text-lg text-foreground">Primero cuéntanos qué vas a vender</h2>
-          <p className="text-sm text-muted-foreground">
-            Para revisar si tu idea se vende necesitamos saber qué producto es, para quién es y qué resultado promete.
-            Te toma un minuto y lo usamos en todas las herramientas.
-          </p>
-          <button onClick={() => onNavigate?.("Mi negocio")}
-            className="inline-flex items-center gap-2 rounded-lg gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground">
-            Completar Mi negocio <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
+        <QuickBrief profile={profile} savePatch={savePatch} purpose="revisar si tu idea se vende" />
       </div>
     );
   }

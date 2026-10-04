@@ -13,6 +13,7 @@
 | Cazador de ROI | Acervo privado: guardas URLs de Ad Library y sigues cuántos creativos activos tiene | US$5,90 pago único | Romildo Jr | Snapshots históricos + gráfico + veredicto "modelar / observar / descartar" | 24-sep-2026 |
 | SwipeSaaS | Swipe file de SaaS rentables: mecanismo, precio y anuncios activos | US$19 pago único (Hotmart, creado 29-jun-2026) | Romildo Jr | Ficha "mecanismo + modelo de precio + anuncios" para Mini Apps | 24-sep-2026 |
 | LanzaYa | Estudio de IA: creativos, carruseles, videos, miniaturas, páginas, copy | US$5 / 9 / 18 al mes | Romildo Jr | Inicio por intención y vitrina con candado + planes por herramienta | 03-oct-2026 |
+| HacksLabs | YouTube con IA + series de video + comunidad Spaces | sin dato | — | Comunidad dentro de la app con resultados reales, niveles y referidos | 03-oct-2026 |
 | Mini Apps Rentables | 2 mini SaaS al mes con código, Supabase, landing, creativos y licencia | US$14 al mes / US$140 al año | Romildo Jr | Entrega mensual "lista para vender"; nicho + landing + creativos en un paquete | 24-sep-2026 |
 | Prime IA (primeia.app) | Suite de generación de imagen/video con IA + Academia en Skool (avatares, ComfyUI) | App US$9,99 / 19,99 · Academia US$14,99 / 29,99 / 39,99 al mes | "Barbu Dev" (Skool 830 miembros; dominio con privacidad, PA, EE. UU.) | Academia gratis en Skool como puerta a la app; "ilimitado" en un modelo barato como gancho | 25-sep-2026 |
 
@@ -191,6 +192,16 @@ Capturas que pasó Jean el 03-oct-2026 (cuenta sin plan). Compite con nuestra pa
 
 **No tomamos:** candados en cosas que no existen ("Próximamente"); "ilimitado" en lo que cuesta por uso; bajar precios para igualar sus US$5–18 sin que Jean lo decida; portadas iguales para todos los cursos.
 
+## 9. HacksLabs (app.hackslabs.io) — YouTube con IA + comunidad dentro de la app
+
+Capturas que pasó Jean el 03-oct-2026. Compite con nuestra parte de **contenido y video**, y es el mejor ejemplo de **comunidad dentro de la app**.
+
+- **Qué es:** suite para crear canales de YouTube con IA: Nichos Long y Short, Top Channels, Proyectos, Studio, Dimension (IA), Audio, Video (beta), **Hacks Flow** (series de video: cadena de clips donde el último cuadro entra como imagen del siguiente; plantillas Gancho-desarrollo-cierre, Short vertical, Demo de producto; "Elementos" reutilizables; ensamblar y exportar con corte, disolvencia o barrido, 16:9 / 9:16 / 1:1, 720p / 1080p, subtítulos), Spaces, Academy y Creador (IA).
+- **Spaces (comunidad dentro de la app):** canales General, Sugerencias App, Actualizaciones, **¡Resultados!** (los miembros publican sus estadísticas reales de YouTube: "6.106 visualizaciones desde que se publicó"), Tips; publicaciones fijadas, me gusta y comentarios; **1.553 miembros, 33 en línea, +26 hoy**; reto semanal con racha por días; **niveles y puntos** ("Nivel 4 · YouTuber Viral, 3.299 puntos, 701 para Nivel 5"); **Top semanal** de miembros; **"Recomienda y gana"** (comisión recurrente por referidos).
+- **Por qué funciona:** el resultado de un miembro es el mejor anuncio para el siguiente; la gente vuelve a la app aunque no tenga que crear nada (retención); las sugerencias le dicen qué construir; los referidos venden por ellos.
+
+**Tomamos (propuesto, decisión de Jean):** canal ¡Resultados! con datos reales, Sugerencias y Actualizaciones dentro de la app; referidos con comisión. **Ojo:** el 23-sep Jean quitó XP, rachas por entrar y niveles ("lo que retiene es avanzar en tu negocio"); si se vuelve a gamificar, que sea por avances reales (primer producto, primera venta), no por entrar.
+
 ## Pendientes de verificación
 - Cifras de volumen de Quantum y PulpoIA (no comprobables desde fuera).
 - Canales de YouTube (@Quantumminers, @JrRomildo): no se pudieron leer; revisar a mano si hace falta.
@@ -201,3 +212,4 @@ Capturas que pasó Jean el 03-oct-2026 (cuenta sin plan). Compite con nuestra pa
 - 24-sep-2026: anuncios en Meta de todos + hallazgo de Club de Ofertas Escaladas y Ads Finder Pro.
 - 25-sep-2026: Prime IA (primeia.app / PrimeLabs): stack, precios, Academia en Skool y sus 2 anuncios activos.
 - 03-oct-2026: LanzaYa (estudio de IA de Romildo Jr): inicio, vitrina con candado y precios US$5 / 9 / 18.
+- 03-oct-2026: HacksLabs (Hacks Flow y la comunidad Spaces).

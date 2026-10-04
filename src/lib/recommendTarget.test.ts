@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   recommendTarget, alternativesFor, targetInfo, firstLine, daysEvidence, adMediaKind,
-  ideaFromOffer, ideaFromAd, ideaFromYt,
+  ideaFromOffer, ideaFromAd, ideaFromYt, fmtNum,
 } from "@/lib/recommendTarget";
 import { SEED_TARGETS } from "@/lib/creativeSeed";
 
@@ -127,5 +127,14 @@ describe("semillas desde cada fuente", () => {
     expect(d.aspect).toBe("9:16");
     expect(d.ytRef).toEqual({ id: "abcdefghijk", title: "Los romanos", seconds: 50 });
     expect(d.evidence).toMatch(/vistas en YouTube/);
+  });
+});
+
+describe("fmtNum", () => {
+  it("punto de miles siempre", () => {
+    expect(fmtNum(2000)).toBe("2.000");
+    expect(fmtNum(165)).toBe("165");
+    expect(fmtNum(1234567)).toBe("1.234.567");
+    expect(fmtNum(-1500)).toBe("-1.500");
   });
 });

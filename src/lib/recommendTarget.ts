@@ -21,6 +21,12 @@ export type RecInput =
 
 export type Recommendation = { target: SeedTarget; reason: string; aspect: SeedAspect };
 
+/** Número en formato español con punto de miles SIEMPRE (2.000; Intl "es" deja 2000 sin punto). */
+export function fmtNum(n: number): string {
+  const r = Math.round(Number(n) || 0);
+  return `${r < 0 ? "-" : ""}${String(Math.abs(r)).replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+}
+
 export function recommendTarget(input: RecInput): Recommendation {
   switch (input.source) {
     case "radar":
@@ -69,7 +75,7 @@ export type TargetInfo = { label: string; detail: string; credits: number; costL
 
 /** Nombre, qué incluye y costo de cada pieza (lo que dice el botón antes de gastar). */
 export function targetInfo(t: SeedTarget): TargetInfo {
-  const n = (credits: number) => `${credits.toLocaleString("es")} créditos`;
+  const n = (credits: number) => `${fmtNum(credits)} créditos`;
   switch (t) {
     case "creativos": return { label: "Creativos", detail: "3 imágenes para anuncios", credits: 3 * IMG, costLabel: n(3 * IMG) };
     case "carrusel": return { label: "Carrusel", detail: "5 láminas para Instagram", credits: 5 * IMG, costLabel: n(5 * IMG) };
@@ -104,7 +110,7 @@ export function firstLine(text: string | null | undefined): string {
 export function daysEvidence(days: number | null | undefined): string | undefined {
   const d = Math.round(Number(days));
   if (!Number.isFinite(d) || d < 1) return undefined;
-  return d === 1 ? "1 día pagando anuncios" : `${d.toLocaleString("es")} días pagando anuncios`;
+  return d === 1 ? "1 día pagando anuncios" : `${fmtNum(d)} días pagando anuncios`;
 }
 
 /**
@@ -181,7 +187,7 @@ export function ideaFromYt(it: YtLike, niche: string, short: boolean): IdeaDraft
     who: `Personas que ven videos de ${niche}`,
     promise: `Un video original sobre ${niche}`,
     hook: it.title.slice(0, 140),
-    evidence: views > 0 ? `${views.toLocaleString("es")} vistas en YouTube` : undefined,
+    evidence: views > 0 ? `${fmtNum(views)} vistas en YouTube` : undefined,
     ytRef: { id: it.id, title: it.title, seconds: it.seconds },
     aspect: short ? "9:16" : "16:9",
     refId: it.id,

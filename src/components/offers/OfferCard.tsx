@@ -1,4 +1,4 @@
-import { Flame, CalendarDays, Heart, Zap, Eye } from "lucide-react";
+import { Flame, CalendarDays, Heart, Zap, Eye, Sparkles } from "lucide-react";
 import { AdMediaPreview } from "@/components/AdMediaPreview";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { Delta, type FollowedRow } from "@/components/dashboard/RoiHunterWidget";
@@ -17,12 +17,14 @@ interface Props {
   onToggleFollow: () => void;
   onOpen: () => void;
   onCreate: () => void;
+  /** "Crear con esta idea": abre la hoja de crear (creativos, video…) con esta oferta como semilla. */
+  onCreateIdea?: () => void;
   insight?: FollowedRow;
   /** Vigilancia diaria (solo en "Siguiendo"): conteo en vivo de Meta, historia y alertas. */
   watch?: OfferWatch;
 }
 
-export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, insight, watch }: Props) {
+export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, onCreateIdea, insight, watch }: Props) {
   const copy = copyLabel(o.copy_score);
   const name = o.product_name || o.sample_title || o.page_name || "Oferta";
   const score = winnerPct(o);
@@ -91,9 +93,16 @@ export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, insi
           <button onClick={onCreate} className="h-11 btn-primary-nova rounded-xl text-[13px] font-semibold inline-flex items-center justify-center gap-1.5">
             <Zap className="w-4 h-4" /> Hacer mi versión <span className="opacity-70 font-medium">· {CREDIT_COSTS.gen_master_prompt} créditos</span>
           </button>
-          <button onClick={onOpen} className="h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-primary/40 inline-flex items-center justify-center gap-1.5">
-            <Eye className="w-4 h-4" /> Ver detalles
-          </button>
+          <div className={onCreateIdea ? "grid grid-cols-2 gap-2" : "grid"}>
+            <button onClick={onOpen} className="h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-primary/40 inline-flex items-center justify-center gap-1.5 min-w-0">
+              <Eye className="w-4 h-4 shrink-0" /> <span className="truncate">{onCreateIdea ? "Detalles" : "Ver detalles"}</span>
+            </button>
+            {onCreateIdea && (
+              <button onClick={onCreateIdea} className="h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-primary/40 inline-flex items-center justify-center gap-1.5 min-w-0">
+                <Sparkles className="w-4 h-4 shrink-0" /> <span className="truncate">Crear anuncios</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </article>

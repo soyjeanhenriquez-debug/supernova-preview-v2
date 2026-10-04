@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { ExternalLink, Loader2, Search, Sparkles, TrendingUp, Users, Eye, Clock } from "lucide-react";
+import { ExternalLink, Search, Sparkles, TrendingUp, Users, Eye, Clock, Smartphone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { CreateFromIdeaSheet } from "@/components/create/CreateFromIdeaSheet";
+import { ideaFromYt } from "@/lib/recommendTarget";
+
+const SHORT_INPUT = { source: "nicho_yt", kind: "short" } as const;
 
 /**
  * Radar de nichos de YouTube (03-oct-2026): con la API oficial de YouTube (función youtube-radar), los
@@ -31,6 +35,8 @@ export function YouTubeRadarPage({ onNavigate }: { onNavigate: (p: string) => vo
   const [items, setItems] = useState<YtItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // "Hacer un Short de esto": hoja de crear con este video como referencia (tema, nunca su texto).
+  const [shortOf, setShortOf] = useState<YtItem | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -117,11 +123,16 @@ export function YouTubeRadarPage({ onNavigate }: { onNavigate: (p: string) => vo
                     <ExternalLink className="w-4 h-4" />
                   </a>
                 </div>
+                <button onClick={() => setShortOf(it)} className="h-10 rounded-lg border border-border text-[12px] font-semibold text-foreground hover:border-foreground/30 inline-flex items-center justify-center gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5" /> Hacer un Short de esto
+                </button>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {shortOf && <CreateFromIdeaSheet idea={ideaFromYt(shortOf, q, true)} input={SHORT_INPUT} onClose={() => setShortOf(null)} />}
 
       <p className="text-[11px] text-muted-foreground flex items-center gap-1.5"><Users className="w-3 h-3" /><Clock className="w-3 h-3" /> Datos de la API oficial de YouTube, actualizados cada 6 horas. El ingreso es un estimado con rangos aproximados de pago por idioma; cada canal cobra distinto.</p>
     </div>

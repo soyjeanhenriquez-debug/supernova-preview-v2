@@ -74,7 +74,10 @@ function useRecentWork(onNavigate: (p: string) => void) {
         : empty,
       uid
         // Sin la columna "kind" (migración 20261004040000 sin aplicar) se reintenta sin ella.
-        ? videoQuery("id,prompt,kind,created_at").then((r: { data: unknown; error: unknown }) => (r.error ? videoQuery("id,prompt,created_at") : r))
+        // Las escenas de "Producir video" (kind yt_scene, varias por video) no van aquí: viven dentro
+        // de su producción en el Creador de YouTube y llenarían los espacios.
+        ? videoQuery("id,prompt,kind,created_at").neq("kind", "yt_scene")
+          .then((r: { data: unknown; error: unknown }) => (r.error ? videoQuery("id,prompt,created_at") : r))
         : empty,
     ]).then(([assets, ads, builds, images, videos]) => {
       if (!alive) return;
@@ -218,11 +221,12 @@ export function DashboardPage({ onNavigate }: Props) {
       {/* Tu idea de hoy: 1 oferta ganadora real, con su prueba. Abrir la hoja es gratis. Sin plan no se consulta. */}
       {!locked && <IdeaOfTheDay />}
 
-      {/* 2 · Crea (el Estudio) y 1 · Ideas ganadoras. "Tu negocio" va más abajo, para no agobiar. */}
+      {/* 1 · Ideas ganadoras y 2 · Crea (el Estudio), en el mismo orden que el camino 1-2-3 y el
+          menú: quien empieza de cero ve primero "Ideas de side hustle". "Tu negocio" va más abajo. */}
       <div className="space-y-8">
         {[
-          { id: "estudio", title: "Crea con IA", sub: "Un toque: la IA decide y tú eliges", tools: STUDIO_TOOLS },
           { id: "encontrar", title: "Ideas ganadoras", sub: "Lo que ya vende, antes de crear nada", tools: FIND_TOOLS },
+          { id: "estudio", title: "Crea con IA", sub: "Un toque: la IA decide y tú eliges", tools: STUDIO_TOOLS },
         ].map(g => {
           const tools = g.tools.filter(t => canSee(t.key));
           if (!tools.length) return null;

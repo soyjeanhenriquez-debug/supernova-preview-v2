@@ -3,7 +3,7 @@
 // El montaje (Ken Burns, subtítulos, audio) se hace GRATIS en el navegador. Aquí solo se paga lo
 // que gasta IA, una pieza por llamada, para que la producción en vivo muestre cada escena al
 // terminar y una falla no cueste el video entero:
-//   voice        { text ≤ 700, voice, lang, scene? } → cobra yt_voice_scene ANTES → APIMart
+//   voice        { text ≤ 600, voice, lang, scene?, speed? (1–1,25) } → cobra yt_voice_scene ANTES → APIMart
 //                gpt-4o-mini-tts → audio en base64 (no se guarda en el servidor).
 //   scene_image  { visual ≤ 600, style, aspect, scene? } → cobra yt_scene_image ANTES → APIMart
 //                gpt-image-2 → imagen en base64 (el navegador la guarda comprimida en WebP).
@@ -13,15 +13,17 @@
 // Las animaciones de escena van por video-studio (kind "yt_scene", vid_mini_5), no por aquí.
 //
 // Modelos y costo (lista de APIMart, 03-oct-2026):
-//   voz     gpt-4o-mini-tts ≈ US$0,015/min → escena de ≤700 caracteres (~45 s) ≤ US$0,011 → 5 créditos
-//           (US$0,04 al crédito más barato: 3,6× en el peor caso, ~5× en una escena normal de 30 s).
+//   voz     gpt-4o-mini-tts ≈ US$0,015/min (se cobra por audio generado: más lento = más caro).
+//           Escena de ≤600 caracteres a speed ≥ 1 (~41 s a 14,5 car/s) ≤ US$0,0104 → 5 créditos
+//           (US$0,04 al crédito más barato: ~3,9× en el peor caso; ~3,5× si la voz va a 13 car/s;
+//           ~5× en una escena normal de 30 s). Por eso speed < 1 no se acepta.
 //   imagen  gpt-image-2 1k ≈ US$0,0081 → 6 créditos (5,9×).
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { apimartImage, apimartSpeech, encodeBase64, hasApimart, APIMART_IMAGE_MODEL as IMAGE_MODEL, TTS_MODEL } from "../_shared/apimart.ts";
 
 const FN = "yt-produce";
-const MAX_TEXT = 700;
+const MAX_TEXT = 600; // contraparte: MAX_NARRATION en src/lib/ytScenes.ts
 const MAX_VISUAL = 600;
 const MAX_SCENE = 40;
 const VOICES = new Set(["alloy", "echo", "fable", "onyx", "nova", "shimmer"]);
@@ -119,7 +121,8 @@ Deno.serve(async (req) => {
       const voice = typeof body.voice === "string" ? body.voice : "";
       if (!VOICES.has(voice)) return json({ error: "Esa voz no existe. Elige otra." }, 400);
       const lang = typeof body.lang === "string" && LANG_TONE[body.lang] ? body.lang : "es";
-      const speed = typeof body.speed === "number" && body.speed >= 0.8 && body.speed <= 1.25 ? body.speed : 1;
+      // Solo 1–1,25: más lento alarga el audio y bajaría el margen de yt_voice_scene del piso 3×.
+      const speed = typeof body.speed === "number" && body.speed >= 1 && body.speed <= 1.25 ? body.speed : 1;
       const scene = sceneOf(body.scene);
       if (!hasApimart()) return json({ error: "La voz llega pronto.", pronto: true }, 503);
 
@@ -132,7 +135,7 @@ Deno.serve(async (req) => {
         await refund(txId, "voz falló");
         return json({ error: "No se pudo crear la voz. Te devolvimos los créditos." }, 502);
       }
-      await logCost(uid, `apimart:${TTS_MODEL}`, ((text.length / 14.5) / 60) * COST.voicePerMin, 0);
+      await logCost(uid, `apimart:${TTS_MODEL}`, ((text.length / 14.5 / speed) / 60) * COST.voicePerMin, 0);
       return json({ audio: encodeBase64(audio.bytes), mime: audio.mime, billing: { charged: g.charged, balance: g.balance } }, 200, billingHeaders(g));
     }
 

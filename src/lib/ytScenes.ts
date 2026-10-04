@@ -18,8 +18,8 @@ export type Scene = {
 
 /** Precios por pieza (iguales a credit_prices: yt_voice_scene, yt_scene_image, vid_mini_5). */
 export const PRICES = { voice: 5, image: 6, clip: 55 } as const;
-/** Una voz por escena cubre hasta ~45 s de narración. */
-export const MAX_NARRATION = 700;
+/** Una voz por escena cubre hasta ~41 s de narración (igual a MAX_TEXT de yt-produce). */
+export const MAX_NARRATION = 600;
 export const MAX_VISUAL = 600;
 export const MAX_SCENES = 40;
 export const MAX_NARRATION_SECONDS = 30 * 60;
@@ -68,7 +68,7 @@ export function splitText(text: string, max = MAX_NARRATION): string[] {
 /**
  * Lee el guion por escenas. Acepta el formato del Creador y sus traducciones (SCENE / CENA / SCÈNE,
  * Narration / Narração), negritas de Markdown y narración en la misma línea o en las siguientes.
- * Las narraciones de más de 700 caracteres se dividen en sub-escenas con el mismo visual.
+ * Las narraciones de más de MAX_NARRATION (600) caracteres se dividen en sub-escenas con el mismo visual.
  */
 export function parseScenes(script: string): Scene[] {
   const lines = (script ?? "").replace(/\r/g, "").split("\n");

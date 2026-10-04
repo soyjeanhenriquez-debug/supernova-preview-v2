@@ -42,7 +42,7 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   vid_mini_5: 55, vid_mini_10: 110,
   // Producir video de YouTube (edge function yt-produce). PROPUESTOS el 04-oct-2026: Jean los confirma
   // antes de aplicar la migración 20261004060000_yt_production.sql.
-  yt_voice_scene: 5, // gpt-4o-mini-tts ≤700 caracteres (≤US$0,011) → 3,6× peor caso, ~5× normal
+  yt_voice_scene: 5, // gpt-4o-mini-tts ≤600 caracteres a speed ≥1 (≤US$0,0104) → ~3,9× peor caso, ~5× normal
   yt_scene_image: 6, // gpt-image-2 (~US$0,0081) → 5,9×
 };
 
@@ -68,7 +68,7 @@ export const ACTION_LABEL: Record<CreditAction, string> = {
   business_map: "Escalera de tu negocio",
   vid_mini_5: "Video con IA de 5 segundos",
   vid_mini_10: "Video con IA de 10 segundos",
-  yt_voice_scene: "Voz de una escena (hasta ~45 s)",
+  yt_voice_scene: "Voz de una escena (hasta ~40 s)",
   yt_scene_image: "Imagen de una escena de tu video",
 };
 

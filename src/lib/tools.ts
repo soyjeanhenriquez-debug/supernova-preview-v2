@@ -135,12 +135,15 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
 const pick = (ids: string[]) => ids.map(id => TOOL_BY_ID[id]);
 
 /** Lo que más se crea (Inicio, menú "Crear" y el botón Crear del teléfono). Plan ATLAS, 04-oct-2026. */
-export const STUDIO_TOOLS = pick(["creativos", "videoanuncio", "ugc", "creadoryt", "carrusel", "fotosugc", "miniaturas", "series"]);
+// "UGC con IA" sale de aquí mientras su interruptor del servidor (edge_limits 'video-studio:ugc')
+// siga apagado: va en ADMIN_EXTRA_TOOLS y en ADMIN_ONLY_PAGES (src/lib/features.ts). Para lanzarlo,
+// devolverlo a esta lista y quitarlo de las otras dos (y de alternativesFor en recommendTarget.ts).
+export const STUDIO_TOOLS = pick(["creativos", "videoanuncio", "videoia", "creadoryt", "carrusel", "fotosugc", "miniaturas", "series"]);
 /** Más para crear: siguen en el menú y en el buscador, debajo de las 8 principales. */
-export const STUDIO_MORE_TOOLS = pick(["videoia", "fotoproducto", "personaje", "copy"]);
+export const STUDIO_MORE_TOOLS = pick(["fotoproducto", "personaje", "copy"]);
 /** Ideas ganadoras: qué ya vende, antes de crear nada. Todo gratis de mirar. */
 export const FIND_TOOLS = pick(["ideas", "radar", "ofertas", "nichosyt", "miniapps"]);
-export const ADMIN_EXTRA_TOOLS = pick(["mercado", "oraculo", "video"]);
+export const ADMIN_EXTRA_TOOLS = pick(["mercado", "oraculo", "video", "ugc"]);
 
 export const MODELS: { id: BusinessModel; label: string; short: string; line: string; tools: Tool[] }[] = [
   { id: "low", label: "Infoproducto (low ticket)", short: "Low ticket", line: "Ebook, curso o reto de US$7 a US$47, vendido con anuncios.",

@@ -125,7 +125,7 @@ function Pill({ icon: Icon, label, status }: { icon: typeof Mic; label: string; 
 export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
   uid: string; start: ProduceStart | null; resumeId?: string | null; onBack: () => void; onNavigate: (p: string) => void;
 }) {
-  const { applyServerCharge, balance } = useCredits();
+  const { applyServerCharge, balance, refresh: refreshCredits } = useCredits();
   const balanceRef = useRef(balance);
   balanceRef.current = balance;
 
@@ -240,14 +240,20 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
           patchScene(i, { clip: "done", error: null });
           const m = metaRef.current;
           if (m) void supabase.storage.from("creativos").remove([`${uid}/yt/${m.id}/s${i + 1}.webp`]); // imagen temporal
-        } catch {
-          patchScene(i, { clip: "failed", error: "No pudimos bajar la animación. La escena usa la imagen con movimiento." });
+        } catch (e) {
+          // El servidor devuelve los créditos cuando no puede entregar el MP4 (code file_unavailable).
+          if (e instanceof ApiError && e.code === "file_unavailable") {
+            patchScene(i, { clip: "failed", error: `${e.message} La escena usa la imagen con movimiento.` });
+            void refreshCredits();
+          } else {
+            patchScene(i, { clip: "failed", error: "No pudimos bajar la animación. La escena usa la imagen con movimiento." });
+          }
         }
         return;
       }
       if (alive.current) patchScene(i, { error: "La animación está tardando. Vuelve en unos minutos: seguirá aquí." }, false);
     } finally { polling.current.delete(i); }
-  }, [patchScene, uid]);
+  }, [patchScene, uid, refreshCredits]);
 
   const runTask = useCallback(async ({ i, kind }: Task): Promise<"ok" | "stop"> => {
     const m = metaRef.current!;
@@ -347,8 +353,11 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
     if (!resumeId) return;
     let cancelled = false;
     (async () => {
-      const saved = await getProduction(resumeId);
-      if (!saved || cancelled) { if (!saved) toast.error("No encontramos esa producción en este navegador."); return; }
+      const saved = await getProduction(resumeId).catch(() => null);
+      if (cancelled) return;
+      // Sin la producción (se borró en otra pestaña o falló el almacenamiento): volver, nunca dejar
+      // al usuario en "Abriendo tu producción…" para siempre.
+      if (!saved) { toast.error("No encontramos esa producción en este navegador."); onBack(); return; }
       const m = resumeState(saved);
       commit(m, true);
       setPhase("live");

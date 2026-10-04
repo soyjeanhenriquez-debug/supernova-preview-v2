@@ -198,6 +198,19 @@ export function planCost(shots: Pick<Shot, "seconds">[]): number {
   return shots.reduce((sum, s) => sum + VIDEO_PRICE[s.seconds], 0);
 }
 
+/**
+ * Desde qué toma rehacer un anuncio que falló a medias: la primera sin video, siempre que las
+ * anteriores estén listas y el plan siga teniendo las mismas tomas. Si no se puede seguir (no hay
+ * tomas buenas, o cambió la plantilla), devuelve 0 y se rehace entero. Las tomas buenas no se
+ * vuelven a cobrar.
+ */
+export function retryFromIndex(run: { done: boolean }[], shotCount: number): number {
+  if (run.length !== shotCount) return 0;
+  const i = run.findIndex(r => !r.done);
+  if (i <= 0) return 0;
+  return run.slice(0, i).every(r => r.done) ? i : 0;
+}
+
 /** Prompt final de una toma. `presenter`: la imagen inicial es la foto del presentador. */
 export function shotPrompt(shot: Shot, mode: "anuncio" | "ugc", opts: { presenter?: boolean; cast?: string; hook?: string } = {}): string {
   const line = tidy(shot.line, 240).replace(/"/g, "'");

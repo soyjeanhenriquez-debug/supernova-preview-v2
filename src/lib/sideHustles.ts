@@ -48,8 +48,8 @@ export const SIDE_HUSTLES: SideHustle[] = [
   },
   {
     id: "ugc", title: "Videos UGC con IA",
-    what: "Videos cortos donde un presentador IA explica un producto, como los que hacen los creadores.",
-    steps: ["Elige un producto (tuyo o de un cliente)", "La IA arma el guion y el presentador", "Publica en Reels o TikTok"],
+    what: "Videos cortos que explican un producto, como los que hacen los creadores, hechos con IA y sin grabarte.",
+    steps: ["Elige un producto (tuyo o de un cliente)", "La IA arma el guion y las 3 tomas del video", "Publica en Reels o TikTok"],
     explore: { page: "Buscar Ofertas Winner", label: "Ver anuncios ganadores" },
     offers: null,
   },

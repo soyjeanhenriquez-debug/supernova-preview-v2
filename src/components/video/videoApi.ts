@@ -25,15 +25,42 @@ export async function invokeVideo<T = { job: VideoJob; billing?: { charged: numb
 
 export const createVideo = (b: CreateBody) => invokeVideo(b);
 
-/** Espera a que el clip termine (consulta cada 6 s, hasta ~6 min). No cobra nada. */
-export async function waitForVideo(jobId: string, onProgress?: (p: number | null) => void): Promise<VideoJob> {
-  for (let i = 0; i < 60; i++) {
-    await new Promise(r => setTimeout(r, 6000));
-    const r = await invokeVideo({ action: "status", job_id: jobId });
+/** Errores seguidos al consultar el estado antes de rendirse (red del celular, 5xx pasajeros). */
+export const STATUS_MAX_ERRORS = 5;
+type StatusResponse = { job: VideoJob; progress?: number | null };
+
+/**
+ * Espera a que el clip termine (consulta cada 6 s, hasta ~6 min). No cobra nada. Un error suelto al
+ * consultar no corta la espera: el servidor ya cobró y el proveedor sigue generando. Solo se rinde
+ * tras STATUS_MAX_ERRORS errores seguidos. Si se corta, el trabajo sigue en el servidor y "Tus
+ * videos de hoy" vuelve a preguntar por él (loadRecent): aparece si salió, o se devuelve si falló.
+ */
+export async function waitForVideo(
+  jobId: string, onProgress?: (p: number | null) => void,
+  opts: { tries?: number; intervalMs?: number; check?: (body: Record<string, unknown>) => Promise<StatusResponse> } = {},
+): Promise<VideoJob> {
+  const { tries = 60, intervalMs = 6000, check = (b: Record<string, unknown>) => invokeVideo<StatusResponse>(b) } = opts;
+  let errors = 0;
+  let lastError: unknown = null;
+  for (let i = 0; i < tries; i++) {
+    await new Promise(r => setTimeout(r, intervalMs));
+    let r: StatusResponse;
+    try {
+      r = await check({ action: "status", job_id: jobId });
+    } catch (e) {
+      lastError = e;
+      if (++errors >= STATUS_MAX_ERRORS) break;
+      continue;
+    }
+    errors = 0;
     onProgress?.(typeof r.progress === "number" ? r.progress : null);
     if (r.job.status === "done" || r.job.status === "failed") return r.job;
   }
-  throw new Error("El video está tardando más de lo normal. Revisa en unos minutos en \"Tus videos de hoy\".");
+  if (errors >= STATUS_MAX_ERRORS) {
+    const why = lastError instanceof Error ? ` (${lastError.message})` : "";
+    throw new Error(`Perdimos la conexión mientras se creaba el video${why}. Sigue en camino: vuelve a esta pantalla en unos minutos y aparecerá en "Tus videos de hoy". Si falla, te devolvemos los créditos.`);
+  }
+  throw new Error("El video está tardando más de lo normal. Sigue en camino: vuelve a esta pantalla en unos minutos y aparecerá en \"Tus videos de hoy\". Si falla, te devolvemos los créditos.");
 }
 
 /** ¿UGC con presentador está abierto para esta cuenta? (interruptor de admin; gratis). */

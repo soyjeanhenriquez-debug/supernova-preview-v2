@@ -91,10 +91,13 @@ async function charge(uid: string, action: string, label: string): Promise<Gate 
   return { txId: g.tx_id ?? null, charged: Number(g.charged) || 0, balance: typeof g.balance === "number" ? g.balance : null };
 }
 
-async function refund(txId: string | null, reason: string) {
-  if (!txId) return;
-  try { await admin().rpc("refund_charge", { p_tx_id: txId, p_reason: reason.slice(0, 200) }); }
-  catch (e) { console.error("refund_charge:", e); }
+/** Devuelve los créditos de un cobro (idempotente, vale 1 hora). true si quedaron devueltos. */
+async function refund(txId: string | null, reason: string): Promise<boolean> {
+  if (!txId) return false;
+  try {
+    const { data } = await admin().rpc("refund_charge", { p_tx_id: txId, p_reason: reason.slice(0, 200) });
+    return data?.ok === true;
+  } catch (e) { console.error("refund_charge:", e); return false; }
 }
 
 const billingHeaders = (g: Gate): Record<string, string> => ({
@@ -177,27 +180,55 @@ async function serveFile(uid: string, body: Record<string, unknown>): Promise<Re
   if (gErr) return json({ error: "No se pudo verificar el acceso. Intenta de nuevo." }, 503);
   if (g?.ok !== true) return json({ error: g?.reason === "rate_limited" ? "Demasiadas descargas por ahora. Intenta más tarde." : "Tu cuenta no tiene acceso activo." }, g?.reason === "rate_limited" ? 429 : 403);
 
-  const { data: job } = await admin().from("video_jobs").select("id,status,result_url").eq("id", jobId).eq("user_id", uid).maybeSingle();
+  // select("*"): si la migración de kind aún no está aplicada, no rompe la consulta.
+  const { data: job } = await admin().from("video_jobs").select("*").eq("id", jobId).eq("user_id", uid).maybeSingle();
   if (!job) return json({ error: "Video no encontrado." }, 404);
   if (job.status !== "done" || !job.result_url) return json({ error: "El video todavía no está listo." }, 409);
+
+  // El trabajo es propio y está "done", pero el MP4 no se puede entregar. Las escenas de "Producir
+  // video" (yt_scene) SOLO llegan por aquí, así que se devuelven los créditos (refund_charge es
+  // idempotente y vale 1 hora) y el trabajo pasa a "failed" para que no se pida otra vez. Los clips
+  // normales ya se ven con su enlace en el estudio: ahí solo se avisa, sin reembolso.
+  const undelivered = async (reason: string, msg: string, status: number): Promise<Response> => {
+    if (job.kind !== "yt_scene") return json({ error: msg }, status);
+    const back = await refund(job.credit_tx_id ?? null, `file no disponible: ${reason}`);
+    await admin().from("video_jobs").update({ status: "failed", error: `No se pudo entregar el video (${reason}).`, updated_at: new Date().toISOString() }).eq("id", jobId);
+    return json({
+      error: back ? `${msg} Te devolvimos los créditos de esta escena.` : msg,
+      refunded: back, code: "file_unavailable",
+    }, status);
+  };
+
   let url: URL;
-  try { url = new URL(job.result_url); } catch { return json({ error: "Enlace de video inválido." }, 422); }
-  if (url.protocol !== "https:" || !hostAllowed(url.hostname)) return json({ error: "Este video no se puede descargar desde aquí." }, 403);
+  try { url = new URL(job.result_url); } catch { return await undelivered("enlace inválido", "Enlace de video inválido.", 422); }
+  if (url.protocol !== "https:" || !hostAllowed(url.hostname)) {
+    console.error("video-studio file: host fuera de la lista", url.hostname);
+    return await undelivered("host no permitido", "Este video no se puede descargar desde aquí.", 403);
+  }
 
   // Redirecciones a mano (máx. 3): cada salto tiene que seguir en un host de APIMart.
-  let r = await fetch(url, { redirect: "manual" });
-  for (let hop = 0; r.status >= 300 && r.status < 400 && hop < 3; hop++) {
-    const loc = r.headers.get("location");
-    await r.body?.cancel();
-    let next: URL;
-    try { next = new URL(loc ?? "", url); } catch { return json({ error: "Enlace de video inválido." }, 422); }
-    if (next.protocol !== "https:" || !hostAllowed(next.hostname)) return json({ error: "Este video no se puede descargar desde aquí." }, 403);
-    url = next;
+  let r: Response;
+  try {
     r = await fetch(url, { redirect: "manual" });
+    for (let hop = 0; r.status >= 300 && r.status < 400 && hop < 3; hop++) {
+      const loc = r.headers.get("location");
+      await r.body?.cancel();
+      let next: URL;
+      try { next = new URL(loc ?? "", url); } catch { return await undelivered("redirección inválida", "Enlace de video inválido.", 422); }
+      if (next.protocol !== "https:" || !hostAllowed(next.hostname)) {
+        console.error("video-studio file: redirección a host fuera de la lista", next.hostname);
+        return await undelivered("host no permitido", "Este video no se puede descargar desde aquí.", 403);
+      }
+      url = next;
+      r = await fetch(url, { redirect: "manual" });
+    }
+  } catch (e) {
+    console.error("video-studio file: error al bajar", e);
+    return await undelivered("error al bajar", "No se pudo bajar el video.", 502);
   }
-  if (!r.ok || !r.body) { await r.body?.cancel(); return json({ error: "El enlace del video venció (dura 24 horas)." }, 410); }
+  if (!r.ok || !r.body) { await r.body?.cancel(); return await undelivered("enlace vencido", "El enlace del video venció (dura 24 horas).", 410); }
   const len = Number(r.headers.get("content-length") ?? "");
-  if (Number.isFinite(len) && len > FILE_MAX_BYTES) { await r.body.cancel(); return json({ error: "El video es demasiado grande." }, 413); }
+  if (Number.isFinite(len) && len > FILE_MAX_BYTES) { await r.body.cancel(); return await undelivered("demasiado grande", "El video es demasiado grande.", 413); }
   const type = (r.headers.get("content-type") ?? "").toLowerCase();
   return new Response(capStream(r.body, FILE_MAX_BYTES), {
     status: 200,

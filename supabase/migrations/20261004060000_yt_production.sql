@@ -2,15 +2,16 @@
 -- antes de aplicar esta migración.
 --
 -- Costo real (lista de APIMart del 03-oct-2026) y margen con el crédito más barato (US$0,008):
---   yt_voice_scene  gpt-4o-mini-tts ≈ US$0,015/min; una escena de hasta 700 caracteres (~45 s)
---                   cuesta ≤ US$0,011 → 5 créditos = US$0,04 → 3,6× en el peor caso, ~5× en una
---                   escena normal de ~30 s.
+--   yt_voice_scene  gpt-4o-mini-tts ≈ US$0,015/min (por audio generado). Una escena de hasta 600
+--                   caracteres a speed 1–1,25 (~41 s a 14,5 car/s) cuesta ≤ US$0,0104 → 5 créditos =
+--                   US$0,04 → ~3,9× en el peor caso (~3,5× si la voz va a 13 car/s), ~5× en una
+--                   escena normal de ~30 s. La función rechaza speed < 1 y textos de más de 600.
 --   yt_scene_image  gpt-image-2 1k ≈ US$0,0081 → 6 créditos = US$0,048 → 5,9×.
 -- Un video de 8 min (16 escenas) sin animar: 176 créditos; con 20 % animado (3 × vid_mini_5): 341.
 -- Los dos los cobra el servidor (edge function yt-produce) ANTES de llamar a la IA y los devuelve
 -- con refund_charge si falla.
 INSERT INTO public.credit_prices (action, cost, label, charged_by) VALUES
-  ('yt_voice_scene', 5, 'Voz de una escena (hasta ~45 s)', 'server'),
+  ('yt_voice_scene', 5, 'Voz de una escena (hasta ~40 s)', 'server'),
   ('yt_scene_image', 6, 'Imagen de una escena de tu video', 'server')
 ON CONFLICT (action) DO UPDATE SET cost = EXCLUDED.cost, label = EXCLUDED.label, updated_at = now();
 

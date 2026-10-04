@@ -11,13 +11,13 @@ import { takeSeed, type CreativeSeed } from "@/lib/creativeSeed";
 import {
   SERIE_STYLES, SERIE_TEMPLATES, SPEECH_HINT, VIDEO_PRICE, VIDEO_TEMPLATES,
   buildShots, cleanBrief, hasForbiddenClaim, improvePrompt, parseImprovedLines, planCost, publishText,
-  recommendTemplate, serieFromBrief, shotPrompt, videoSizeFor,
+  recommendTemplate, retryFromIndex, serieFromBrief, shotPrompt, videoSizeFor,
   type Shot, type VideoBrief, type VideoMode, type VideoSize, type VideoTemplateId,
 } from "@/lib/videoTemplates";
 import { PresenterPicker } from "@/components/video/PresenterPicker";
 import { ReadyToPublish } from "@/components/video/ReadyToPublish";
 import {
-  createVideo, downloadVideo, loadVideoConfig, streamUgcScript, takePresenter, waitForVideo,
+  createVideo, downloadVideo, invokeVideo, loadVideoConfig, streamUgcScript, takePresenter, waitForVideo,
   type CreateBody, type VideoJob,
 } from "@/components/video/videoApi";
 
@@ -128,6 +128,15 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
   const loadRecent = useCallback(async () => {
     if (!user) return;
     const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+    // Trabajos que quedaron "running" (se cerró la pantalla o se cortó la espera): se pregunta su
+    // estado (gratis, máx. 8). Así aparecen los que salieron bien y se devuelven los que fallaron.
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: pending } = await (supabase as any).from("video_jobs").select("id")
+        .eq("user_id", user.id).eq("provider", "apimart").in("status", ["queued", "running"]).gte("created_at", since)
+        .order("created_at", { ascending: false }).limit(8);
+      await Promise.all(((pending ?? []) as { id: string }[]).map(j => invokeVideo({ action: "status", job_id: j.id }).catch(() => null)));
+    } catch { /* si falla, se muestra lo que ya está listo */ }
     const query = (cols: string) =>
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any).from("video_jobs").select(cols)
@@ -192,17 +201,19 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
     void loadRecent();
   };
 
-  const startAd = async () => {
+  /** Crea el anuncio. `from` > 0: rehace desde esa toma, sin volver a cobrar las que ya salieron. */
+  const startAd = async (from = 0) => {
     if (busy || !adMode || !brief || !shots.length) return;
     const bad = shots.find(s => s.line.trim().length < 4 || hasForbiddenClaim(s.line));
     if (bad) { toast.error(`Revisa "${bad.label}": la persona solo presenta o explica, sin testimonios, promesas ni cifras.`); return; }
-    if (adMode === "ugc" && ugcOpen === false) { toast.error("Los videos UGC con presentador se abren muy pronto. Mientras, prueba el anuncio en video."); return; }
-    const total = planCost(shots);
-    if (balance < total) { toast.error(`Te faltan créditos: este video cuesta ${total}.`); return; }
+    if (adMode === "ugc" && ugcOpen === false) { toast.error("Los videos UGC con presentador todavía no están abiertos. Usa el anuncio en video."); return; }
+    const start0 = from > 0 && from === retryFromIndex(run.map(x => ({ done: !!x.job })), shots.length) ? from : 0;
+    const total = planCost(shots.slice(start0));
+    if (balance < total) { toast.error(`Te faltan créditos: ${start0 > 0 ? "lo que falta" : "este video"} cuesta ${total}.`); return; }
     setBusy(true);
-    setRun(shots.map(s => ({ text: s.line, label: s.label })));
-    let prev: VideoJob | undefined;
-    for (let i = 0; i < shots.length; i++) {
+    setRun(cur => shots.map((s, j) => (j < start0 ? cur[j] : { text: s.line, label: s.label })));
+    let prev: VideoJob | undefined = start0 > 0 ? run[start0 - 1]?.job : undefined;
+    for (let i = start0; i < shots.length; i++) {
       const s = shots[i];
       const usePresenter = adMode === "ugc" && !!presenter;
       const start: Partial<CreateBody> = i === 0
@@ -230,6 +241,8 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
   useEffect(() => {
     if (autoRef.current || !seed?.autostart || !user) return;
     if (mode === "serie") { autoRef.current = true; void startSerie(); return; }
+    // UGC cerrado: se pasa al anuncio en video con la misma idea, sin arrancar (el costo es otro).
+    if (mode === "ugc" && ugcOpen === false) { autoRef.current = true; setMode("anuncio"); return; }
     if ((mode === "anuncio" || (mode === "ugc" && ugcOpen !== null)) && shots.length) { autoRef.current = true; void startAd(); }
   }, [seed, user, mode, shots.length, ugcOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -282,6 +295,7 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
   const adCost = planCost(shots);
   const cost = mode === "clip" ? VIDEO_PRICE[seconds] : mode === "serie" ? serieCount * VIDEO_PRICE[seconds] : adCost;
   const runDone = run.filter(s => s.job?.result_url);
+  const retryFrom = retryFromIndex(run.map(x => ({ done: !!x.job })), shots.length);
   const t = TITLES[mode];
 
   return (
@@ -371,7 +385,13 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
             </div>
 
             {adMode === "ugc" && ugcOpen === false && (
-              <p className="text-[12px] text-muted-foreground rounded-xl border border-border px-3 py-2.5">Los videos UGC con presentador se abren muy pronto: estamos probando que el español suene perfecto. Mientras, el anuncio en video ya está listo.</p>
+              <div className="rounded-xl border border-border px-3 py-2.5 space-y-2">
+                <p className="text-[12px] text-muted-foreground">Los videos con presentador todavía no están abiertos para tu cuenta. El anuncio en video hace lo mismo con tu idea, sin mostrar tu cara.</p>
+                <button onClick={() => { setMode("anuncio"); setRun([]); }} disabled={busy}
+                  className="inline-flex items-center gap-2 h-10 px-4 rounded-full border border-border text-[13px] text-foreground hover:border-foreground/30">
+                  <Film className="w-4 h-4" /> Hacer un anuncio en video
+                </button>
+              </div>
             )}
 
             <div className="space-y-1.5">
@@ -392,7 +412,10 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
             {run.map((s, i) => <VideoCard key={i} s={s} label={s.label ?? `Toma ${i + 1}`} />)}
           </div>
           {!busy && run.some(s => s.error) && (
-            <button onClick={() => void startAd()} className="inline-flex items-center gap-2 h-10 px-4 rounded-full border border-border text-[13px] text-foreground"><RefreshCw className="w-4 h-4" /> Intentar de nuevo · {adCost} créditos</button>
+            <button onClick={() => void startAd(retryFrom)} className="inline-flex items-center gap-2 h-10 px-4 rounded-full border border-border text-[13px] text-foreground">
+              <RefreshCw className="w-4 h-4" />
+              {retryFrom > 0 ? `Rehacer ${retryFrom === shots.length - 1 ? "la toma" : "desde la toma"} ${retryFrom + 1}` : "Intentar de nuevo"} · {planCost(shots.slice(retryFrom))} créditos
+            </button>
           )}
           {!busy && runDone.length === run.length && brief && (
             <ReadyToPublish name={adMode === "ugc" ? "ugc" : "anuncio"} text={publishText(brief, adMode)}

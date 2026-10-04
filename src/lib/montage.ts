@@ -263,11 +263,18 @@ export async function renderMontage(scenes: MontageScene[], opts: {
         drawScene(0, 0, 1);
       }
       if (now >= total + 0.2) { finish(); return; }
-      raf = requestAnimationFrame(frame);
+      // Una sola cadena de cuadros: con la pestaña oculta los rAF no corren y se acumularían (uno por
+      // tick del respaldo); al volver se ejecutarían todos juntos y cada uno abriría otra cadena.
+      cancelAnimationFrame(raf);
+      raf = document.hidden ? 0 : requestAnimationFrame(frame);
     };
     // Respaldo: si el navegador frena requestAnimationFrame (pestaña en segundo plano), se sigue
-    // dibujando con un temporizador para que el audio y la imagen no se separen del todo.
-    const backup = window.setInterval(() => { if (document.hidden) frame(); }, 1000 / FPS);
+    // dibujando con un temporizador para que el audio y la imagen no se separen del todo. Al volver
+    // a la pestaña, retoma la cadena de rAF (solo si no hay una pendiente).
+    const backup = window.setInterval(() => {
+      if (document.hidden) frame();
+      else if (!raf && !stopped) raf = requestAnimationFrame(frame);
+    }, 1000 / FPS);
     recorder.onerror = () => finish(new Error("La grabación falló. Intenta de nuevo."));
     recorder.start(1000);
     raf = requestAnimationFrame(frame);

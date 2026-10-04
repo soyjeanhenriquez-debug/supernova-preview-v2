@@ -25,8 +25,8 @@ describe("recommendTarget", () => {
     expect(recommendTarget({ source: "nicho_yt" })).toMatchObject({ target: "youtube", aspect: "16:9" });
     expect(recommendTarget({ source: "nicho_yt", kind: "short" })).toMatchObject({ target: "youtube", aspect: "9:16" });
   });
-  it("Side hustle UGC → video UGC", () => {
-    expect(recommendTarget({ source: "side_hustle", hustle: "ugc" }).target).toBe("video_ugc");
+  it("Side hustle UGC → anuncio en video (UGC con presentador sigue cerrado)", () => {
+    expect(recommendTarget({ source: "side_hustle", hustle: "ugc" }).target).toBe("video_anuncio");
   });
   it("Side hustle faceless → youtube", () => {
     expect(recommendTarget({ source: "side_hustle", hustle: "faceless" }).target).toBe("youtube");
@@ -60,6 +60,7 @@ describe("alternativesFor / targetInfo", () => {
       const alts = alternativesFor(t, "oferta");
       expect(alts).toHaveLength(3);
       expect(alts).not.toContain(t);
+      expect(alts).not.toContain("video_ugc"); // cerrado en el servidor: nunca como alternativa
     }
     expect(alternativesFor("youtube", "nicho_yt")).toEqual(["miniaturas", "video_anuncio", "carrusel"]);
   });

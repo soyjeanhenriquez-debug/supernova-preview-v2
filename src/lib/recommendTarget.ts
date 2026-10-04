@@ -8,7 +8,7 @@ import type { Offer } from "@/lib/offers";
  *  - Anuncio del Radar con video → video anuncio; con imagen (o sin saber) → creativos 4:5.
  *  - Oferta → creativos 4:5.
  *  - Video de Nichos de YouTube → guion de YouTube (16:9, o 9:16 si es un Short).
- *  - Side hustle: UGC → video UGC; faceless → YouTube; marca personal → carrusel; el resto → creativos.
+ *  - Side hustle: UGC → anuncio en video (UGC con presentador sigue cerrado); faceless → YouTube; marca personal → carrusel; el resto → creativos.
  */
 export type HustleKind = "low_ticket" | "faceless" | "ugc" | "marca" | "kits" | "local";
 
@@ -43,7 +43,8 @@ export function recommendTarget(input: RecInput): Recommendation {
         : { target: "youtube", aspect: "16:9", reason: "Este tema ya atrae vistas: haz tu propio guion por escenas." };
     case "side_hustle":
       switch (input.hustle) {
-        case "ugc": return { target: "video_ugc", aspect: "9:16", reason: "Un presentador IA explica el producto a cámara, sin grabarte." };
+        // UGC con presentador sigue cerrado en el servidor: el anuncio en video hace lo mismo sin cara.
+        case "ugc": return { target: "video_anuncio", aspect: "9:16", reason: "Un anuncio en video de 3 tomas, estilo UGC, sin grabarte." };
         case "faceless": return { target: "youtube", aspect: "16:9", reason: "Un canal sin cara empieza con un buen guion por escenas." };
         case "marca": return { target: "carrusel", aspect: "4:5", reason: "El carrusel es lo que más se guarda y comparte en Instagram." };
         case "local": return { target: "creativos", aspect: "1:1", reason: "A un negocio local le sirven imágenes cuadradas para feed y WhatsApp." };
@@ -93,7 +94,7 @@ export function targetInfo(t: SeedTarget): TargetInfo {
 export function alternativesFor(rec: SeedTarget, source: SeedSource): SeedTarget[] {
   const base: SeedTarget[] = source === "nicho_yt"
     ? ["miniaturas", "video_anuncio", "carrusel", "creativos"]
-    : ["creativos", "carrusel", "video_anuncio", "video_ugc", "youtube"];
+    : ["creativos", "carrusel", "video_anuncio", "youtube", "miniaturas"]; // video_ugc: cerrado en el servidor
   return base.filter((t) => t !== rec).slice(0, 3);
 }
 

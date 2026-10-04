@@ -161,13 +161,15 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
   useEffect(() => {
     const sd = takeYoutubeSeed();
     if (!sd) return;
-    if (sd.ytRef) {
-      // Un video de referencia: se ve su precio de análisis antes de gastar (no arranca solo).
+    if (sd.ytRef && !sd.autostart) {
+      // "Solo abrir, sin crear" con un video de referencia: se ve su precio de análisis antes de
+      // gastar (no arranca solo). Con "Crear · guion 30" (autostart) se sigue abajo: el tema del
+      // video es la idea y se escribe el guion original de 30, que es lo que decía el botón.
       setTab("link"); setUrl(`https://www.youtube.com/watch?v=${sd.ytRef.id}`);
       if (sd.aspect === "9:16") { setSize("9:16"); setMinutes(1); }
       return;
     }
-    const text = [sd.title || sd.product, sd.promise && sd.promise !== sd.title ? `— ${sd.promise}` : "", sd.hook ? `(idea de referencia, no copiar: ${sd.hook})` : ""].filter(Boolean).join(" ").slice(0, 300);
+    const text = [sd.title || sd.product, sd.promise && sd.promise !== sd.title ? `— ${sd.promise}` : "", sd.hook && sd.hook !== sd.title ? `(idea de referencia, no copiar: ${sd.hook})` : sd.ytRef ? "(tema de un video que ya tiene vistas; el guion es original)" : ""].filter(Boolean).join(" ").slice(0, 300);
     if (text.length < 4) return;
     setTab("idea"); setIdea(text);
     if (sd.aspect === "9:16") { setSize("9:16"); setMinutes(1); }

@@ -8,7 +8,10 @@ describe("herramientas", () => {
     for (const t of TOOLS) expect(pages.has(t.key), t.id).toBe(true);
   });
   it("Estudio y Encontrar como en el plan ATLAS", () => {
-    expect(STUDIO_TOOLS.map(t => t.id)).toEqual(["creativos", "videoanuncio", "ugc", "creadoryt", "carrusel", "fotosugc", "miniaturas", "series"]);
+    expect(STUDIO_TOOLS.map(t => t.id)).toEqual(["creativos", "videoanuncio", "videoia", "creadoryt", "carrusel", "fotosugc", "miniaturas", "series"]);
+    // UGC con IA sigue cerrado en el servidor: nunca como tarjeta principal para clientes.
+    expect(STUDIO_TOOLS.some(t => t.id === "ugc")).toBe(false);
+    expect(TOOLS.some(t => t.id === "ugc")).toBe(false);
     expect(FIND_TOOLS.map(t => t.id)).toEqual(["ideas", "radar", "ofertas", "nichosyt", "miniapps"]);
     expect(STUDIO_MORE_TOOLS.every(Boolean)).toBe(true);
   });

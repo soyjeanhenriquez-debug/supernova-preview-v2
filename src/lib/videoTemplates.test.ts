@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   VIDEO_PRICE, VIDEO_TEMPLATES, buildShots, cleanBrief, hasForbiddenClaim, improvePrompt, parseImprovedLines,
-  planCost, publishText, recommendTemplate, serieFromBrief, shortPhrase, shotPrompt, videoSizeFor, VIDEO_RULES, type VideoBrief,
+  planCost, publishText, recommendTemplate, retryFromIndex, serieFromBrief, shortPhrase, shotPrompt, videoSizeFor, VIDEO_RULES, type VideoBrief,
 } from "./videoTemplates";
 
 const brief: VideoBrief = {
@@ -32,6 +32,21 @@ describe("buildShots", () => {
     for (const t of VIDEO_TEMPLATES) for (const s of buildShots("anuncio", t.id, brief)) {
       expect(s.line.split(/\s+/).length).toBeLessThanOrEqual(14);
     }
+  });
+});
+
+describe("retryFromIndex", () => {
+  const d = (...xs: boolean[]) => xs.map(done => ({ done }));
+  it("rehace desde la primera toma sin video y no recobra las buenas", () => {
+    expect(retryFromIndex(d(true, true, false), 3)).toBe(2);
+    expect(retryFromIndex(d(true, false, false), 3)).toBe(1);
+    const shots = buildShots("anuncio", "problema_solucion", brief);
+    expect(planCost(shots.slice(retryFromIndex(d(true, true, false), shots.length)))).toBe(VIDEO_PRICE[5]);
+  });
+  it("sin tomas buenas o con otra plantilla, rehace entero", () => {
+    expect(retryFromIndex(d(false, false, false), 3)).toBe(0);
+    expect(retryFromIndex(d(true, true, false), 2)).toBe(0);
+    expect(retryFromIndex([], 3)).toBe(0);
   });
 });
 

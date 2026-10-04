@@ -9,7 +9,7 @@ import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import { track } from "@/lib/analytics";
 import { AFFILIATE_NOTE, HIGGSFIELD_URL } from "@/lib/partners";
 import { setSeed, TARGET_SLUG } from "@/lib/creativeSeed";
-import { setPresenter } from "@/components/video/videoApi";
+import { loadVideoConfig, setPresenter } from "@/components/video/videoApi";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { ModelPicker } from "@/components/media/ModelPicker";
 import { accessOf, hasComunidad, loadMediaModels, type MediaModel } from "@/lib/media";
@@ -89,6 +89,9 @@ export function PersonajePage({ onNavigate }: { onNavigate: (page: string) => vo
   const [vPrompt, setVPrompt] = useState(DEFAULT_VIDEO_PROMPT);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [videoBusy, setVideoBusy] = useState(false);
+  // "Hazlo hablar en video" solo si UGC con IA está abierto en el servidor (interruptor de admin; gratis).
+  const [ugcOpen, setUgcOpen] = useState(false);
+  useEffect(() => { let on = true; loadVideoConfig().then(c => { if (on) setUgcOpen(c.ugc); }); return () => { on = false; }; }, []);
 
   useEffect(() => { loadMediaModels().then(setModels); }, []);
   useEffect(() => { if (user) hasComunidad(user.id, user.email).then(setComunidad); }, [user]);
@@ -299,7 +302,7 @@ export function PersonajePage({ onNavigate }: { onNavigate: (page: string) => vo
                   {busy === "foto" ? <Loader2 className="w-4 h-4 animate-spin" /> : state.foto ? <RefreshCw className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
                   {state.foto ? "Otra foto" : "Crear su foto"} <span className="opacity-60 font-medium">· {imgM?.cost ?? CREDIT_COSTS.gen_ad_image} ⚡</span>
                 </button>
-                {state.foto && (
+                {state.foto && ugcOpen && (
                   <button onClick={hablarEnVideo} disabled={busy !== ""} className="w-full h-11 border-t border-border text-[13px] font-semibold text-foreground hover:bg-secondary/40 inline-flex items-center justify-center gap-2 disabled:opacity-50">
                     <Film className="w-4 h-4" /> Hazlo hablar en video
                   </button>

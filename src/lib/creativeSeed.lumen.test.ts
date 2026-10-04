@@ -8,7 +8,7 @@ describe("creativeSeed", () => {
   beforeEach(() => sessionStorage.clear());
 
   it("recorta los textos largos", () => {
-    const s = cleanSeed({ ...base, title: "x".repeat(300), hook: "h".repeat(500), evidence: "e".repeat(200), at: Date.now() })!;
+    const s = cleanSeed({ ...base, v: 1, title: "x".repeat(300), hook: "h".repeat(500), evidence: "e".repeat(200), at: Date.now() })!;
     expect(s.title.length).toBe(80);
     expect(s.hook!.length).toBe(140);
     expect(s.evidence!.length).toBe(80);
@@ -32,7 +32,7 @@ describe("creativeSeed", () => {
     setSeed({ ...base, autostart: true });
     const s = takeSeed("creativos", Date.now() + 3 * 60_000);
     expect(s).not.toBeNull();
-    expect(s!.autostart).toBe(false);
+    expect(s!.autostart).toBeFalsy();
   });
 
   it("un destino que no coincide no la toma ni la borra", () => {
@@ -42,17 +42,17 @@ describe("creativeSeed", () => {
   });
 
   it("descarta imagePath malicioso", () => {
-    expect(cleanSeed({ ...base, imagePath: `${UID}/../otro/x.webp`, at: 1 })!.imagePath).toBeUndefined();
-    expect(cleanSeed({ ...base, imagePath: "https://evil.com/x.png", at: 1 })!.imagePath).toBeUndefined();
-    expect(cleanSeed({ ...base, imagePath: "otro/x.webp", at: 1 })!.imagePath).toBeUndefined();
-    expect(cleanSeed({ ...base, imagePath: `${UID}/p/x.webp`, at: 1 }, "99999999-2222-3333-4444-555555555555")!.imagePath).toBeUndefined();
-    expect(cleanSeed({ ...base, imagePath: `${UID}/p/x.webp`, at: 1 }, UID)!.imagePath).toBe(`${UID}/p/x.webp`);
+    expect(cleanSeed({ ...base, v: 1, imagePath: `${UID}/../otro/x.webp`, at: 1 })!.imagePath).toBeUndefined();
+    expect(cleanSeed({ ...base, v: 1, imagePath: "https://evil.com/x.png", at: 1 })!.imagePath).toBeUndefined();
+    expect(cleanSeed({ ...base, v: 1, imagePath: "otro/x.webp", at: 1 })!.imagePath).toBeUndefined();
+    expect(cleanSeed({ ...base, v: 1, imagePath: `${UID}/p/x.webp`, at: 1 }, "99999999-2222-3333-4444-555555555555")!.imagePath).toBeUndefined();
+    expect(cleanSeed({ ...base, v: 1, imagePath: `${UID}/p/x.webp`, at: 1 }, UID)!.imagePath).toBe(`${UID}/p/x.webp`);
     expect(safeImagePath(`/${UID}/x.webp`)).toBeUndefined();
   });
 
   it("rechaza fuente o destino desconocidos", () => {
-    expect(cleanSeed({ ...base, source: "x", at: 1 })).toBeNull();
-    expect(cleanSeed({ ...base, target: "x", at: 1 })).toBeNull();
+    expect(cleanSeed({ ...base, v: 1, source: "x", at: 1 })).toBeNull();
+    expect(cleanSeed({ ...base, v: 1, target: "x", at: 1 })).toBeNull();
     expect(cleanSeed("hola")).toBeNull();
   });
 

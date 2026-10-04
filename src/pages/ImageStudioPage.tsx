@@ -9,8 +9,8 @@ import { QuickBrief } from "@/components/QuickBrief";
 
 /**
  * Estudio de imágenes (03-oct-2026): Creativos para anuncios, Carrusel y Miniaturas, hechos desde tu
- * producto, sin escribir prompts. Usa generate-ad-creative (Gemini Flash Image), que cobra en el
- * servidor ANTES de generar (acción gen_ad_image de credit_prices, 25 créditos ≈ 5× el costo real)
+ * producto, sin escribir prompts. Usa generate-ad-creative (APIMart, respaldo Gemini), que cobra en el
+ * servidor ANTES de generar (acción gen_ad_image de credit_prices: 6 créditos con APIMart GPT Image 2, ≈ 5,9× el costo real)
  * y devuelve el crédito si la IA falla. Cada imagen se guarda comprimida en el bucket privado
  * "creativos" (<user>/<producto>/…), así queda en "Tus imágenes" y en la Biblioteca.
  * Nada de promesas de ingresos ni marcas reales en las imágenes (manual, sección 2).

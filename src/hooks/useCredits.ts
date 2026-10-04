@@ -30,7 +30,7 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   pillar_assist: 10, sofisticar: 15, gen_ad_copies: 15, gen_avatar: 15,
   pain_discovery: 15, blueprint: 25, gen_landing: 40, landing_intelligence: 50,
   gen_funnel: 50, gen_master_prompt: 50, gen_light: 15, gen_medium: 30, gen_heavy: 75, gen_media: 0, // gen_media: el precio sale del catálogo (media_models)
-  gen_ad_image: 25,
+  gen_ad_image: 6, // APIMart GPT Image 2 (~US$0,0081): 6 créditos ≈ 5,9× costo (03-oct-2026, decisión de Jean)
   follow_offer: 5, // se cobra server-side en la RPC follow_offer (Cazador de ROI)
   unlock_kit: 150, // se cobra server-side en la RPC unlock_kit (Mini Apps Rentables)
   // Crear producto: por capítulo, lección o bono, según la IA (edge function product-builder).

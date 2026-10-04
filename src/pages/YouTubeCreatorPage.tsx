@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ArrowLeft, ArrowUp, Check, ChevronDown, Clock, Copy, Film, Languages, Link2, Loader2, Monitor, MonitorPlay, Palette,
-  RefreshCw, Shuffle, Sparkles, Youtube,
+  RefreshCw, Shuffle, Sparkles, Youtube, Clapperboard, PlayCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +9,10 @@ import { useCredits, generatorCost } from "@/hooks/useCredits";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { YT_REF_KEY, type YtItem } from "@/pages/YouTubeRadarPage";
+import { useAuth } from "@/contexts/AuthContext";
+import { ProduceStudio, type ProduceStart } from "@/components/youtube/ProduceStudio";
+import { estimateCost, parseScenes, scriptMeta, YT_STYLES } from "@/lib/ytScenes";
+import { listProductions, progressOf, type ProductionMeta } from "@/lib/productionStore";
 
 /**
  * Creador de videos para YouTube (03-oct-2026, rehecho tras ver el "Agente Hacks" de HacksLabs).
@@ -29,7 +33,30 @@ const SIZES: { id: Size; label: string; line: string }[] = [
   { id: "3:4", label: "3:4 — Vertical suave", line: "Feed de Instagram y Facebook." },
 ];
 const DURATIONS = [1, 3, 8, 12, 15, 20];
-const STYLES = ["Cinematográfico", "Animación 2D", "Anime", "Pintura", "Minimalista", "Documental"];
+const STYLES: readonly string[] = YT_STYLES;
+const SEED_KEY = "supernova.seed";
+
+/**
+ * Semilla de una idea (Radar, Nichos, Ideas…) para el Creador: contrato de src/lib/creativeSeed.ts
+ * (clave "supernova.seed", target "youtube"). Se lee una vez y se borra; caduca a los 10 min y
+ * `autostart` solo vale los primeros 2 min. Al fusionar, esto puede pasar a takeSeed("youtube").
+ */
+type YtSeed = { title: string; product: string; promise: string; hook?: string; aspect?: string; ytRef?: { id: string; title: string; seconds: number }; autostart: boolean };
+function takeYoutubeSeed(): YtSeed | null {
+  try {
+    const raw = sessionStorage.getItem(SEED_KEY);
+    if (!raw) return null;
+    const x = JSON.parse(raw);
+    if (x?.v !== 1 || x?.target !== "youtube") return null; // es de otro estudio: no se toca
+    sessionStorage.removeItem(SEED_KEY);
+    const age = Date.now() - Number(x.at);
+    if (!(age >= 0 && age < 10 * 60_000)) return null;
+    const str = (v: unknown, n: number) => (typeof v === "string" ? v.trim().slice(0, n) : "");
+    const ref = x.ytRef && typeof x.ytRef.id === "string" && /^[\w-]{11}$/.test(x.ytRef.id)
+      ? { id: x.ytRef.id, title: str(x.ytRef.title, 200), seconds: Math.max(0, Number(x.ytRef.seconds) || 0) } : undefined;
+    return { title: str(x.title, 80), product: str(x.product, 200), promise: str(x.promise, 200), hook: str(x.hook, 140) || undefined, aspect: str(x.aspect, 5) || undefined, ytRef: ref, autostart: x.autostart === true && age < 2 * 60_000 };
+  } catch { return null; }
+}
 const LANGS: { id: string; label: string }[] = [{ id: "es", label: "Español" }, { id: "en", label: "Inglés" }, { id: "pt", label: "Portugués" }, { id: "fr", label: "Francés" }];
 const GEN = "yt-script";
 
@@ -89,6 +116,10 @@ async function invokeRef(body: Record<string, unknown>) {
 
 export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => void }) {
   const { applyServerCharge, balance } = useCredits();
+  const { user } = useAuth();
+  // "Producir video": del guion al video terminado (nuevo) o reabrir una producción guardada.
+  const [produce, setProduce] = useState<{ start: ProduceStart | null; resumeId: string | null } | null>(null);
+  const [recent, setRecent] = useState<ProductionMeta[]>([]);
   const [tab, setTab] = useState<Tab>("idea");
   const [idea, setIdea] = useState("");
   const [ownScript, setOwnScript] = useState("");
@@ -124,6 +155,32 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
       if (r.kind === "short") { setSize("9:16"); setMinutes(1); } else setMinutes(r.seconds >= 900 ? 15 : r.seconds >= 600 ? 12 : 8);
     } catch { /* sin almacenamiento */ }
   }, []);
+
+  // Viene de una idea ("Crear con esta idea" / "Hacer un Short de esto"): todo puesto.
+  const [seedGo, setSeedGo] = useState(false);
+  useEffect(() => {
+    const sd = takeYoutubeSeed();
+    if (!sd) return;
+    if (sd.ytRef) {
+      // Un video de referencia: se ve su precio de análisis antes de gastar (no arranca solo).
+      setTab("link"); setUrl(`https://www.youtube.com/watch?v=${sd.ytRef.id}`);
+      if (sd.aspect === "9:16") { setSize("9:16"); setMinutes(1); }
+      return;
+    }
+    const text = [sd.title || sd.product, sd.promise && sd.promise !== sd.title ? `— ${sd.promise}` : "", sd.hook ? `(idea de referencia, no copiar: ${sd.hook})` : ""].filter(Boolean).join(" ").slice(0, 300);
+    if (text.length < 4) return;
+    setTab("idea"); setIdea(text);
+    if (sd.aspect === "9:16") { setSize("9:16"); setMinutes(1); }
+    if (sd.autostart) setSeedGo(true); // el botón que tocó mostraba "guion · 30"
+  }, []);
+
+  // Producciones guardadas en este navegador (para seguir donde se quedó).
+  useEffect(() => {
+    if (!user?.id || produce) return;
+    let alive = true;
+    void listProductions(user.id, 3).then(r => { if (alive) setRecent(r); });
+    return () => { alive = false; };
+  }, [user?.id, produce]);
 
   useEffect(() => {
     setPreview(null); setPreviewErr(null);
@@ -204,6 +261,22 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
   };
 
   const submit = () => { if (!ready) return; if (tab === "link") void analyze(); else void write(); };
+  useEffect(() => { if (seedGo && tab === "idea" && idea.trim().length >= 4) { setSeedGo(false); void write(); } }, [seedGo, tab, idea]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const scenesParsed = useMemo(() => (busy === "writing" ? [] : parseScenes(script)), [script, busy]);
+  const produceFrom = estimateCost(scenesParsed, 0).total;
+  const openProduce = () => {
+    const meta = scriptMeta(script);
+    setProduce({
+      resumeId: null,
+      start: {
+        script, title: analysis?.title || meta.title || (tab === "idea" ? idea.trim() : "") || "Mi video",
+        topic: analysis?.topic || (tab === "idea" ? idea.trim() : undefined), thumbnail: analysis?.thumbnail || meta.thumbnail || undefined,
+        style, format: size, lang,
+      },
+    });
+    window.scrollTo({ top: 0 });
+  };
   const sceneCount = useMemo(() => (script.match(/ESCENA\s+\d+/gi) ?? []).length, [script]);
   const words = useMemo(() => script.split(/\s+/).filter(Boolean).length, [script]);
 
@@ -220,6 +293,11 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
       <DropdownMenuContent align="start" className="min-w-[220px]">{children}</DropdownMenuContent>
     </DropdownMenu>
   );
+
+  // ---------------- Producir video ----------------
+  if (produce && user?.id) {
+    return <ProduceStudio uid={user.id} start={produce.start} resumeId={produce.resumeId} onBack={() => setProduce(null)} onNavigate={onNavigate} />;
+  }
 
   // ---------------- Pantalla del guion ----------------
   if (view === "script") {
@@ -259,6 +337,16 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
         {busy === "writing" ? (
           <p className="text-[12px] text-muted-foreground inline-flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Puedes leer mientras se escribe.</p>
         ) : (
+          <div className="space-y-3">
+          {scenesParsed.length >= 2 && (
+            <div className="rounded-2xl border border-border p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+              <div className="min-w-0">
+                <p className="text-[14px] text-foreground font-medium">Convierte este guion en tu video</p>
+                <p className="text-[12px] text-muted-foreground">Voz, una imagen por escena, movimiento y subtítulos · {scenesParsed.length} escenas · desde {produceFrom.toLocaleString("es")} créditos</p>
+              </div>
+              <button onClick={openProduce} className="btn-primary-nova h-11 px-5 rounded-xl text-[14px] font-semibold inline-flex items-center justify-center gap-2 shrink-0"><Clapperboard className="w-4 h-4" /> Producir video</button>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex items-center rounded-full border border-border overflow-hidden">
               <span className="pl-3 pr-1 text-muted-foreground"><Languages className="w-4 h-4" /></span>
@@ -272,6 +360,7 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
             <button onClick={() => { void navigator.clipboard.writeText(script); toast.success("Guion copiado"); }} className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border border-border text-[13px] text-foreground hover:border-foreground/30"><Copy className="w-4 h-4" /> Copiar</button>
             <button onClick={() => void (analysis ? analyze() : write())} className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border border-border text-[13px] text-foreground hover:border-foreground/30"><RefreshCw className="w-4 h-4" /> Otra versión · {analysis ? PRICE.link : PRICE.idea}</button>
             <button onClick={() => onNavigate("Miniaturas")} className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border border-border text-[13px] text-foreground hover:border-foreground/30"><MonitorPlay className="w-4 h-4" /> Hacer la miniatura</button>
+          </div>
           </div>
         )}
         <p className="text-[11px] text-muted-foreground">YouTube no paga por contenido copiado o hecho en masa sin aporte propio: revisa el guion, ponle tu toque y verifica los datos antes de publicar.</p>
@@ -360,6 +449,23 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
           Gancho en los primeros 15 s · Voz en off · ~{scenesApprox} escenas con imagen · Guion original · {price} créditos el guion
         </p>
       </div>
+
+      {recent.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-muted-foreground">Tus videos en este navegador</p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {recent.map(p => {
+              const pr = progressOf(p);
+              return (
+                <button key={p.id} onClick={() => setProduce({ start: null, resumeId: p.id })} className="text-left rounded-xl border border-border p-3 hover:border-foreground/30 min-w-0 min-h-[44px]">
+                  <p className="text-[13px] text-foreground font-medium truncate inline-flex items-center gap-1.5 max-w-full"><PlayCircle className="w-4 h-4 shrink-0 text-muted-foreground" /> <span className="truncate">{p.title}</span></p>
+                  <p className="text-[11px] text-muted-foreground">{p.scenes.length} escenas · {pr.ready ? "listo para armar" : `${pr.done} de ${pr.total} piezas`}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-center gap-4 text-[12px] text-muted-foreground pt-2">
         <button onClick={() => onNavigate("Nichos YouTube")} className="inline-flex items-center gap-1.5 hover:text-foreground"><Youtube className="w-4 h-4" /> Buscar videos que funcionan</button>

@@ -295,3 +295,6 @@ export function buildDescription(opts: { title: string; topic?: string; chapters
     hashtags,
   ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n").trim();
 }
+
+/** Estilos visuales del Creador de YouTube (los mismos nombres que entiende yt-produce). */
+export const YT_STYLES = ["Cinematográfico", "Animación 2D", "Anime", "Pintura", "Minimalista", "Documental"] as const;

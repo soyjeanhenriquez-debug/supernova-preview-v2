@@ -6,6 +6,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
 // eslint-disable @typescript-eslint/no-explicit-any
 
+/** Días mínimos pagándose para guardar un anuncio nuevo (04-oct-2026). */
+const MIN_DAYS = 3;
+
 const FB_FIELDS = [
   "id", "ad_creation_time", "ad_delivery_start_time", "ad_delivery_stop_time",
   "ad_creative_bodies", "ad_creative_link_titles", "ad_creative_link_descriptions",
@@ -200,6 +203,7 @@ Deno.serve(async (req) => {
     let totalInserted = 0;
     let totalFetched = 0;
     let totalErrors = 0;
+    let skippedYoung = 0;
 
     // Run in batches of 8 in parallel to be polite with FB API
     const CONCURRENCY = 25;
@@ -242,6 +246,10 @@ Deno.serve(async (req) => {
 
           const start = it.ad_delivery_start_time ? new Date(it.ad_delivery_start_time) : null;
           const days = start ? Math.max(1, Math.floor((Date.now() - start.getTime()) / 86400000)) : 1;
+          // Solo entran anuncios con 3 días o más pagándose y con fecha real de Meta (decisión de
+          // Jean, 04-oct-2026: la base crecía ~32 MB al día). Los de 1-2 días aún no prueban que
+          // vendan; si siguen activos, vuelven a entrar en una rotación posterior.
+          if (!start || days < MIN_DAYS) { skippedYoung++; continue; }
           const platforms = it.publisher_platforms ?? ["facebook"];
           const tier = days >= 60 ? "mega" : days >= 14 ? "rising" : "solid";
           const score = Math.min(100, 40 + Math.floor(days / 2));
@@ -298,6 +306,7 @@ Deno.serve(async (req) => {
       jobs_run: slice.length,
       fetched: totalFetched,
       inserted: totalInserted,
+      skipped_young: skippedYoung,
       errors: totalErrors,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {

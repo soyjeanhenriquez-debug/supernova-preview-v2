@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 
 const UID = "11111111-2222-3333-4444-555555555555";
 const PID = "aaaaaaaa-2222-3333-4444-555555555555";
@@ -47,6 +47,24 @@ describe("ImageStudioPage", () => {
     expect(screen.getByText(/Formato:/)).toBeInTheDocument();
     await new Promise(r => setTimeout(r, 50));
     expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("creativos: elegir un estilo cambia lo que se crea y el testimonio exige el dato real", async () => {
+    profile = { product: "Ebook de recetas", who: "Mamás que trabajan", promise: "Cocinar rápido", price: "" };
+    invoke.mockResolvedValue({ data: { error: "x" }, error: null });
+    render(<ImageStudioPage initialMode="creativo" />);
+    fireEvent.click(screen.getByRole("button", { name: /elegir estilo/ }));
+    fireEvent.click(screen.getByRole("tab", { name: "Para quien está por comprar" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Testimonio/ }));
+    fireEvent.click(screen.getByText(/Crear 3 imágenes/));
+    await new Promise(r => setTimeout(r, 30));
+    expect(invoke).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /^Testimonio/ }));
+    fireEvent.click(screen.getByRole("tab", { name: "Para quien no te conoce" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Iceberg/ }));
+    fireEvent.click(screen.getByText(/Crear 3 imágenes/));
+    await waitFor(() => expect(invoke).toHaveBeenCalled());
+    expect((invoke.mock.calls[0][1].body as { prompt: string }).prompt).toContain("Concepto: Iceberg");
   });
 
   it("semilla con autostart genera sin toques extra y no copia el gancho literal", async () => {

@@ -9,11 +9,12 @@ import { invokeErrorMessage } from "@/lib/fnAuth";
 import { QuickBrief } from "@/components/QuickBrief";
 import { takeSeed, setSeed, TARGET_SLUG, type CreativeSeed } from "@/lib/creativeSeed";
 import {
-  aiAspect, aspectOptions, buildSlots, carruselTexts, variationSpec, adCopyRequest,
+  aiAspect, aspectOptions, buildSlots, carruselTexts, variationSpec, adCopyRequest, missingRealTexts,
   MODE_COUNT, MODE_INFO, TARGET_MODE, IMAGE_TARGETS, formatNumber, type Aspect, type Brief, type StudioMode, type PromptCtx,
 } from "@/lib/imagePrompts";
 import { EMPTY_KIT, kitReferences, loadBrandKit, toWebp, type BrandKit } from "@/lib/brandKit";
 import { AiChoiceChip } from "@/components/image/AiChoiceChip";
+import { ConceptPicker } from "@/components/image/ConceptPicker";
 import { BrandKitPanel } from "@/components/image/BrandKitPanel";
 import { ImageSlotCard, type Slot } from "@/components/image/ImageSlotCard";
 import { ReadyToPublish } from "@/components/image/ReadyToPublish";
@@ -56,6 +57,10 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
   const [aspect, setAspect] = useState<Aspect>(() => aiAspect(initialMode).aspect);
   const [headline, setHeadline] = useState("");
   const [texts, setTexts] = useState<string[]>([]);
+  // Creativos: estilos elegidos (hasta 3), otro estilo escrito y los datos reales que piden algunos.
+  const [concepts, setConcepts] = useState<string[]>([]);
+  const [customStyle, setCustomStyle] = useState("");
+  const [realTexts, setRealTexts] = useState<Record<string, string>>({});
   const [slots, setSlots] = useState<Slot[]>([]);
   const [kit, setKit] = useState<BrandKit>(EMPTY_KIT);
   const [kitLoaded, setKitLoaded] = useState(false);
@@ -108,7 +113,9 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
   const ctx: PromptCtx = {
     brief, aspect, headline, hook: seed?.hook, angle: seed?.angle, texts,
     kit: { colors: kit.colors, style: kit.style }, hasRefs: mode !== "variar" && useRefs && kitRefs.length > 0,
+    ...(mode === "creativo" ? { concepts, customStyle, realTexts } : {}),
   };
+  const missing = mode === "creativo" ? missingRealTexts(ctx) : [];
 
   const runSlot = async (slot: Slot) => {
     setSlots(list => list.map(s => (s.id === slot.id ? { ...s, status: "busy", error: undefined } : s)));
@@ -137,6 +144,7 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
   const start = async () => {
     if (!ready || running) return;
     if (mode === "variar" && !varySource) { toast("Elige abajo la imagen que quieres variar."); return; }
+    if (missing.length) { toast("Falta tu dato real", { description: "Algunos estilos (testimonio, dato, experto…) usan solo información real. Escríbela o quita ese estilo." }); return; }
     const refs = refsForRun();
     const next: Slot[] = buildSlots(mode, ctx).map(s => ({ ...s, status: "idle" as const, refs }));
     if (balance < next.length * PRICE) {
@@ -238,6 +246,11 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
 
           <AiChoiceChip aspect={aspect} reason={choice.aspect === aspect ? choice.reason : "Elegiste este formato."}
             options={aspectOptions(mode)} onChange={setAspect} disabled={running} />
+
+          {mode === "creativo" && (
+            <ConceptPicker value={concepts} onChange={setConcepts} custom={customStyle} onCustom={setCustomStyle}
+              realTexts={realTexts} onRealText={(id, s) => setRealTexts(r => ({ ...r, [id]: s }))} disabled={running} />
+          )}
 
           {mode === "variar" && (
             <p className="text-[13px] text-foreground">

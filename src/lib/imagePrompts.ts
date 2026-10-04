@@ -6,6 +6,7 @@
  * entra solo como REFERENCIA ("escribe otro con la misma idea"), nunca literal.
  */
 import type { SeedTarget } from "@/lib/creativeSeed";
+import { CONCEPT_BY_ID, MAX_CONCEPTS } from "@/lib/adConcepts";
 
 export type StudioMode = "creativo" | "carrusel" | "miniatura" | "foto_ugc" | "foto_producto" | "variar";
 export type Aspect = "1:1" | "4:5" | "9:16" | "16:9";
@@ -27,7 +28,41 @@ export type PromptCtx = {
   kit?: KitStyle;
   /** Se mandan fotos del producto o logo como referencia. */
   hasRefs?: boolean;
+  /** Creativos: conceptos elegidos (src/lib/adConcepts.ts), hasta 3. */
+  concepts?: string[];
+  /** Creativos: otro estilo descrito por el usuario; la IA lo adapta. */
+  customStyle?: string;
+  /** Texto real para los conceptos que no se inventan (testimonio, dato, experto…), por id. */
+  realTexts?: Record<string, string>;
 };
+
+/** Conceptos de un creativo que aún necesitan el texto real del usuario (no se pueden crear sin él). */
+export function missingRealTexts(ctx: Pick<PromptCtx, "concepts" | "realTexts">): string[] {
+  return (ctx.concepts ?? []).filter(id => CONCEPT_BY_ID[id]?.needsReal && !clean(ctx.realTexts?.[id], 160));
+}
+
+/** Espacios de "Creativos" con los conceptos elegidos u otro estilo. Siempre 3: si eligió menos, se repiten en otra versión. */
+function conceptSlots(ctx: PromptCtx, text: string, t: string): SlotSpec[] | null {
+  const custom = clean(ctx.customStyle, 160);
+  // Con "otro estilo" escrito entran 2 conceptos: siempre son 3 imágenes.
+  const ids = (ctx.concepts ?? []).filter(id => CONCEPT_BY_ID[id]).slice(0, custom ? MAX_CONCEPTS - 1 : MAX_CONCEPTS);
+  const picks: { label: string; scene: string; real?: string }[] = ids.map(id => {
+    const c = CONCEPT_BY_ID[id];
+    const real = c.needsReal ? clean(ctx.realTexts?.[id], 160) : "";
+    return { label: c.name, scene: c.scene, real };
+  });
+  if (custom) picks.push({ label: "Tu estilo", scene: `Estilo pedido por el usuario (adáptalo a un anuncio que cumpla las reglas): ${custom}.` });
+  if (!picks.length) return null;
+  return [0, 1, 2].map(i => {
+    const p = picks[i % picks.length];
+    const round = Math.floor(i / picks.length);
+    const txt = p.real ? `Texto en la imagen, exactamente y sin cambiar nada: «${p.real}».` : text;
+    return {
+      id: `k${i}`, label: round ? `${p.label} · versión ${round + 1}` : p.label, aspect: ctx.aspect,
+      prompt: `Anuncio de Facebook e Instagram. Concepto: ${p.label}. ${p.scene}${round ? " Otra composición distinta a la anterior." : ""} ${txt} ${t}`,
+    };
+  });
+}
 
 export const RULES = "Personas latinas, naturales y creíbles. Sin logotipos, marcas ni personas famosas reales, ni personajes con derechos de autor. No muestres dinero, billetes, cifras de ingresos ni promesas de resultados. Nada sexual ni sugerente. Si hay texto, que sea en español, corto, grande, legible y escrito exactamente como se indica, sin otras palabras.";
 
@@ -129,7 +164,7 @@ export function buildSlots(mode: StudioMode, ctx: PromptCtx): SlotSpec[] {
   const text = textLine(ctx.headline, ctx.hook);
   switch (mode) {
     case "creativo":
-      return [
+      return conceptSlots(ctx, text, t) ?? [
         { id: "a", label: "Problema → solución", aspect: a,
           prompt: `Anuncio de Facebook e Instagram. Escena realista: una persona del público objetivo vive el problema que resuelve el producto y se ve el alivio de encontrar la solución. ${text} ${t}` },
         { id: "b", label: "El resultado deseado", aspect: a,

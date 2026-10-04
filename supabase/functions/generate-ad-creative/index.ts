@@ -1,8 +1,6 @@
-// SUPERNOVA — Generador de creativo de anuncio (imagen estática) vía Gemini
-// "Nano Banana". Reusa el mismo GEMINI_API_KEY/LOVABLE_API_KEY que ya usamos
-// para texto (oraculo-generate, ai-chat) — sin proveedor nuevo, sin cuenta ni
-// billing nuevo que configurar. Síncrono: la imagen vuelve en la misma
-// respuesta (no hace falta job/webhook como con HeyGen, que sí es async).
+// SUPERNOVA — Generador de creativo de anuncio (imagen estática). Principal: APIMart (GPT Image 2,
+// asíncrono, se consulta hasta que termina). Respaldo: Gemini "Nano Banana" directo con el mismo
+// GEMINI_API_KEY/LOVABLE_API_KEY del texto. La imagen vuelve en la misma respuesta.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
 
@@ -18,6 +16,60 @@ const ASPECT_HINT: Record<string, string> = {
   // Miniaturas (Estudio de imágenes): portada horizontal de YouTube.
   "16:9": "horizontal 16:9 format, YouTube video thumbnail, bold and readable at small size",
 };
+
+// ── APIMart (03-oct-2026): proveedor principal de imágenes, GPT Image 2 a ~US$0,0081 por imagen
+// (Gemini directo cuesta ~US$0,039). Es asíncrono: se crea la tarea y se consulta hasta que termina.
+// Si no hay llave o algo falla, se usa Gemini como respaldo (el cobro ya hecho no cambia).
+const APIMART = "https://api.apimart.ai/v1";
+const APIMART_MODEL = "gpt-image-2";
+
+// Base64 sin dependencias (los imports jsr:@std han fallado al arrancar workers en Supabase).
+function encodeBase64(bytes: Uint8Array): string {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+async function apimartImage(prompt: string, aspect: string): Promise<{ b64: string; mime: string } | null> {
+  const key = Deno.env.get("APIMART_API_KEY");
+  if (!key) return null;
+  const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+  try {
+    // El texto va entero (ahí están las reglas: sin dinero, sin marcas); si APIMart lo rechaza por
+    // largo, se reintenta recortado a 1.000 caracteres.
+    const create = (p: string) => fetch(`${APIMART}/images/generations`, {
+      method: "POST", headers,
+      body: JSON.stringify({ model: APIMART_MODEL, prompt: p, size: aspect, resolution: "1k", n: 1 }),
+    });
+    let r = await create(prompt.slice(0, 2000));
+    if (r.status === 400 && prompt.length > 1000) { await r.text(); r = await create(prompt.slice(0, 1000)); }
+    if (!r.ok) { console.error("apimart crear:", r.status, (await r.text()).slice(0, 300)); return null; }
+    const created = await r.json();
+    const taskId = created?.data?.[0]?.task_id ?? created?.data?.task_id;
+    if (!taskId) { console.error("apimart sin task_id:", JSON.stringify(created).slice(0, 300)); return null; }
+    // Hasta ~90 s: GPT Image 2 suele tardar 15-40 s.
+    for (let i = 0; i < 36; i++) {
+      await new Promise(res => setTimeout(res, 2500));
+      const t = await fetch(`${APIMART}/tasks/${encodeURIComponent(taskId)}`, { headers });
+      if (!t.ok) continue;
+      const d = (await t.json())?.data;
+      if (d?.status === "failed" || d?.status === "cancelled") { console.error("apimart tarea:", d?.status); return null; }
+      if (d?.status !== "completed") continue;
+      const first = d?.result?.images?.[0]?.url;
+      const url = Array.isArray(first) ? first[0] : first;
+      if (typeof url !== "string" || !url.startsWith("https://")) return null;
+      const img = await fetch(url);
+      if (!img.ok) return null;
+      const mime = img.headers.get("content-type")?.split(";")[0] || "image/png";
+      return { b64: encodeBase64(new Uint8Array(await img.arrayBuffer())), mime };
+    }
+    console.error("apimart: tiempo agotado");
+    return null;
+  } catch (e) {
+    console.error("apimart:", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
 
 // Tope de tamaño del cuerpo: este texto acaba en un modelo que cobra por token.
 // deno-lint-ignore no-explicit-any
@@ -118,8 +170,25 @@ Deno.serve(async (req) => {
     if (g instanceof Response) return g;
     gate = g;
 
-    const aspectHint = ASPECT_HINT[body.aspectRatio ?? "1:1"] ?? ASPECT_HINT["1:1"];
+    const aspect = ASPECT_HINT[body.aspectRatio ?? "1:1"] ? (body.aspectRatio ?? "1:1") : "1:1";
+    const aspectHint = ASPECT_HINT[aspect];
     const fullPrompt = `${prompt}\n\nFormato: ${aspectHint}. Estilo publicitario profesional, alta calidad, listo para usar como creativo de anuncio en redes sociales.`;
+
+    // 1) APIMart (principal y más barato).
+    const am = await apimartImage(fullPrompt, aspect);
+    if (am) {
+      const { error: logErr } = await guardClient().rpc("log_ai_usage", { p_user_id: gate.userId, p_fn: "generate-ad-creative", p_model: `apimart/${APIMART_MODEL}`, p_input: 0, p_output: 0, p_images: 1 });
+      if (logErr) console.error("log_ai_usage:", logErr.message);
+      return new Response(JSON.stringify({
+        image: `data:${am.mime};base64,${am.b64}`,
+        provider: "apimart",
+        billing: { charged: gate.charged, balance: gate.balance, receipt: gate.receipt },
+      }), {
+        headers: { ...corsHeaders, ...billingHeaders(gate), "Content-Type": "application/json" },
+      });
+    }
+
+    // 2) Respaldo: Gemini directo.
 
     const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/images/generations", {
       method: "POST",

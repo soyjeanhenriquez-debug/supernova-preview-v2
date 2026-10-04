@@ -3,10 +3,14 @@
 // GEMINI_API_KEY/LOVABLE_API_KEY del texto. La imagen vuelve en la misma respuesta.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
+import { apimartImage, APIMART_IMAGE_MODEL } from "../_shared/apimart.ts";
+import { checkReferencePaths } from "./refs.ts";
 
 interface Body {
   prompt: string;
   aspectRatio?: "1:1" | "4:5" | "9:16" | "16:9"; // feed Meta / feed vertical Meta / Stories-Reels-TikTok / miniatura YouTube
+  /** Rutas en el bucket "creativos" del propio usuario (<uid>/...), máx. 3. Nunca URLs. */
+  reference_paths?: string[];
 }
 
 const ASPECT_HINT: Record<string, string> = {
@@ -18,58 +22,15 @@ const ASPECT_HINT: Record<string, string> = {
 };
 
 // ── APIMart (03-oct-2026): proveedor principal de imágenes, GPT Image 2 a ~US$0,0081 por imagen
-// (Gemini directo cuesta ~US$0,039). Es asíncrono: se crea la tarea y se consulta hasta que termina.
-// Si no hay llave o algo falla, se usa Gemini como respaldo (el cobro ya hecho no cambia).
-const APIMART = "https://api.apimart.ai/v1";
-const APIMART_MODEL = "gpt-image-2";
-
-// Base64 sin dependencias (los imports jsr:@std han fallado al arrancar workers en Supabase).
-function encodeBase64(bytes: Uint8Array): string {
-  let bin = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return btoa(bin);
-}
-
-async function apimartImage(prompt: string, aspect: string): Promise<{ b64: string; mime: string } | null> {
-  const key = Deno.env.get("APIMART_API_KEY");
-  if (!key) return null;
-  const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
-  try {
-    // El texto va entero (ahí están las reglas: sin dinero, sin marcas); si APIMart lo rechaza por
-    // largo, se reintenta recortado a 1.000 caracteres.
-    const create = (p: string) => fetch(`${APIMART}/images/generations`, {
-      method: "POST", headers,
-      body: JSON.stringify({ model: APIMART_MODEL, prompt: p, size: aspect, resolution: "1k", n: 1 }),
-    });
-    let r = await create(prompt.slice(0, 2000));
-    if (r.status === 400 && prompt.length > 1000) { await r.text(); r = await create(prompt.slice(0, 1000)); }
-    if (!r.ok) { console.error("apimart crear:", r.status, (await r.text()).slice(0, 300)); return null; }
-    const created = await r.json();
-    const taskId = created?.data?.[0]?.task_id ?? created?.data?.task_id;
-    if (!taskId) { console.error("apimart sin task_id:", JSON.stringify(created).slice(0, 300)); return null; }
-    // Hasta ~90 s: GPT Image 2 suele tardar 15-40 s.
-    for (let i = 0; i < 36; i++) {
-      await new Promise(res => setTimeout(res, 2500));
-      const t = await fetch(`${APIMART}/tasks/${encodeURIComponent(taskId)}`, { headers });
-      if (!t.ok) continue;
-      const d = (await t.json())?.data;
-      if (d?.status === "failed" || d?.status === "cancelled") { console.error("apimart tarea:", d?.status); return null; }
-      if (d?.status !== "completed") continue;
-      const first = d?.result?.images?.[0]?.url;
-      const url = Array.isArray(first) ? first[0] : first;
-      if (typeof url !== "string" || !url.startsWith("https://")) return null;
-      const img = await fetch(url);
-      if (!img.ok) return null;
-      const mime = img.headers.get("content-type")?.split(";")[0] || "image/png";
-      return { b64: encodeBase64(new Uint8Array(await img.arrayBuffer())), mime };
-    }
-    console.error("apimart: tiempo agotado");
-    return null;
-  } catch (e) {
-    console.error("apimart:", e instanceof Error ? e.message : e);
-    return null;
-  }
-}
+// (Gemini directo cuesta ~US$0,039). El cliente vive en _shared/apimart.ts (asíncrono: crea la tarea
+// y consulta hasta que termina). Si no hay llave o algo falla, se usa Gemini como respaldo (el cobro
+// ya hecho no cambia), salvo con fotos de referencia: Gemini no las usaría, así que se reembolsa.
+//
+// Fotos de referencia (04-oct-2026, LUMEN): `reference_paths` = rutas del bucket privado
+// "creativos" del PROPIO usuario (máx. 3, ver refs.ts). Se validan y se firman URLs de 10 minutos
+// ANTES de cobrar; nunca se aceptan URLs del cliente. gpt-image-2 cobra por resolución (1k), la doc
+// no indica recargo por referencias: se mantiene gen_ad_image (6 créditos).
+const APIMART_MODEL = APIMART_IMAGE_MODEL;
 
 // Tope de tamaño del cuerpo: este texto acaba en un modelo que cobra por token.
 // deno-lint-ignore no-explicit-any
@@ -95,15 +56,23 @@ function guardClient() {
   });
 }
 
-async function requireUser(req: Request, fn: string, maxHour: number, maxDay: number, billing?: Billing): Promise<Gate | Response> {
-  const deny = (status: number, error: string, extra: Record<string, unknown> = {}) =>
-    new Response(JSON.stringify({ error, ...extra }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+function deny(status: number, error: string, extra: Record<string, unknown> = {}): Response {
+  return new Response(JSON.stringify({ error, ...extra }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+/** Usuario REAL a partir del token (auth.getUser). La llave anon sola no pasa. */
+async function authUser(req: Request): Promise<string | Response> {
   const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
   if (!token) return deny(401, "Inicia sesión para usar esta función.");
-  const guard = guardClient();
-  const { data } = await guard.auth.getUser(token);
+  const { data } = await guardClient().auth.getUser(token);
   const userId = data?.user?.id;
   if (!userId) return deny(401, "Sesión inválida o expirada. Vuelve a iniciar sesión.");
+  return userId;
+}
+
+/** Acceso vigente + tope de uso + cobro ANTES de gastar (precio de credit_prices, nunca del cliente). */
+async function chargeUser(userId: string, fn: string, maxHour: number, maxDay: number, billing?: Billing): Promise<Gate | Response> {
+  const guard = guardClient();
   const receipt = typeof billing?.receipt === "string" && /^[0-9a-f-]{36}$/i.test(billing.receipt) ? billing.receipt : null;
   const { data: g, error } = await guard.rpc("edge_guard_charge", {
     p_user_id: userId, p_fn: fn, p_max_hour: maxHour, p_max_day: maxDay,
@@ -125,6 +94,15 @@ async function requireUser(req: Request, fn: string, maxHour: number, maxDay: nu
     userId, txId: g.tx_id ?? null, charged: Number(g.charged) || 0,
     balance: typeof g.balance === "number" ? g.balance : null, receipt: g.receipt ?? null,
   };
+}
+
+/** Firma URLs de 10 min para las fotos de referencia del usuario. null = alguna no existe. */
+async function signReferences(paths: string[]): Promise<string[] | null> {
+  if (!paths.length) return [];
+  const { data, error } = await guardClient().storage.from("creativos").createSignedUrls(paths, 600);
+  if (error || !data || data.length !== paths.length) return null;
+  const urls = data.map(d => d.signedUrl).filter((u): u is string => typeof u === "string" && u.startsWith("https://"));
+  return urls.length === paths.length ? urls : null;
 }
 
 // Cabeceras para que la app actualice el saldo sin otra consulta (también en streams).
@@ -164,8 +142,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    const g = await requireUser(req, "generate-ad-creative", 20, 60, {
-      action: "gen_ad_image", label: `Creativo · ${prompt.slice(0, 60)}`,
+    const uid = await authUser(req);
+    if (uid instanceof Response) return uid;
+
+    // Fotos de referencia: se validan y se firman ANTES de cobrar (si fallan, no se cobra nada).
+    const refCheck = checkReferencePaths(body.reference_paths, uid);
+    if (!refCheck.ok) return deny(400, refCheck.error);
+    let refUrls: string[] = [];
+    if (refCheck.paths.length) {
+      if (!Deno.env.get("APIMART_API_KEY")) return deny(503, "Las fotos de referencia no están disponibles por ahora. Crea la imagen sin ellas.");
+      const signed = await signReferences(refCheck.paths);
+      if (!signed) return deny(400, "No encontramos una de tus fotos de referencia. Vuelve a subirla.");
+      refUrls = signed;
+    }
+
+    const g = await chargeUser(uid, "generate-ad-creative", 20, 60, {
+      action: "gen_ad_image", label: `${refUrls.length ? "Creativo con tu foto" : "Creativo"} · ${prompt.slice(0, 60)}`,
     });
     if (g instanceof Response) return g;
     gate = g;
@@ -175,8 +167,10 @@ Deno.serve(async (req) => {
     const fullPrompt = `${prompt}\n\nFormato: ${aspectHint}. Estilo publicitario profesional, alta calidad, listo para usar como creativo de anuncio en redes sociales.`;
 
     // 1) APIMart (principal y más barato).
-    const am = await apimartImage(fullPrompt, aspect);
+    const am = await apimartImage(fullPrompt, aspect, refUrls);
     if (am) {
+      // Costo real que informa APIMart (para confirmar si las referencias cuestan más; ver admin_margin).
+      if (am.cost !== null) console.log(`apimart costo=${am.cost} refs=${refUrls.length}`);
       const { error: logErr } = await guardClient().rpc("log_ai_usage", { p_user_id: gate.userId, p_fn: "generate-ad-creative", p_model: `apimart/${APIMART_MODEL}`, p_input: 0, p_output: 0, p_images: 1 });
       if (logErr) console.error("log_ai_usage:", logErr.message);
       return new Response(JSON.stringify({
@@ -186,6 +180,12 @@ Deno.serve(async (req) => {
       }), {
         headers: { ...corsHeaders, ...billingHeaders(gate), "Content-Type": "application/json" },
       });
+    }
+
+    // Con fotos de referencia no hay respaldo: Gemini las ignoraría y saldría otra cosa.
+    if (refUrls.length) {
+      await refundCharge(gate, "apimart con referencias falló");
+      return deny(502, "No se pudo crear la imagen con tu foto. No se te cobró: inténtalo de nuevo.");
     }
 
     // 2) Respaldo: Gemini directo.

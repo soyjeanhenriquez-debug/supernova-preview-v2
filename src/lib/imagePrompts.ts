@@ -248,3 +248,8 @@ export function adCopyRequest(mode: StudioMode, ctx: Pick<PromptCtx, "brief" | "
     clean(ctx.angle, 200) ? `Por qué funciona: ${clean(ctx.angle, 200)}.` : "",
   ].filter(Boolean).join("\n");
 }
+
+/** Números en formato español: 2.000, 1.840 (también con 4 cifras, como pide el manual). */
+export function formatNumber(n: number): string {
+  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}

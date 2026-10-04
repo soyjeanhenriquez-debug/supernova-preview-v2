@@ -94,3 +94,13 @@ describe("brandKit", () => {
     expect(kitReferences(k)).toEqual([`${UID}/p/refs/logo.webp`, `${UID}/p/refs/1.webp`, `${UID}/p/refs/2.webp`]);
   });
 });
+
+describe("formatNumber", () => {
+  it("usa punto de miles también con 4 cifras", async () => {
+    const { formatNumber } = await import("./imagePrompts");
+    expect(formatNumber(2000)).toBe("2.000");
+    expect(formatNumber(1840)).toBe("1.840");
+    expect(formatNumber(18)).toBe("18");
+    expect(formatNumber(1234567)).toBe("1.234.567");
+  });
+});

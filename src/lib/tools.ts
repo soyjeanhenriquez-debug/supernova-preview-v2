@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Trophy, Gem, Boxes, Lightbulb, BookOpen, ClipboardCheck, Orbit, Quote, FileText, UserRound, Video,
   ListTodo, CalendarDays, MessageCircle, Calculator, BarChart3, Telescope, Store, Image, LayoutTemplate,
-  MonitorPlay, Clapperboard, Send, TrendingUp, Mail, Film, Hash, Youtube, ShoppingBag,
+  MonitorPlay, Clapperboard, Send, TrendingUp, Mail, Film, Hash, Youtube, ShoppingBag, Radar,
   type LucideIcon,
 } from "lucide-react";
 
@@ -58,11 +58,16 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
   T({ id: "video", key: "Media Studio", icon: Video, title: "Video con presentador IA", nav: "Video con presentador",
     desc: "Videos cortos con un presentador hecho con IA.", keywords: "video videos avatar presentador ugc media studio" }),
 
+  T({ id: "creadoryt", key: "Creador YouTube", icon: Youtube, title: "Videos para YouTube", nav: "Creador de YouTube",
+    desc: "De la idea al guion por escenas, paso a paso, para canales sin cara.", keywords: "youtube faceless sin cara canal video largo guion creador documental animado" }),
+
   // ---------- Encontrar ----------
   T({ id: "radar", key: "Buscar Ofertas Winner", icon: Trophy, title: "Espiar anuncios ganadores", nav: "Radar de anuncios",
     desc: "Los que llevan más días pagándose: la mejor prueba de que venden.", keywords: "radar anuncios ganadores espiar facebook instagram meta winner" }),
   T({ id: "ofertas", key: "Ofertas", icon: Gem, title: "Ofertas que venden", nav: "Ofertas ganadoras",
     desc: "Negocios digitales que ya venden, con su precio y su embudo.", keywords: "ofertas negocios productos digitales embudo checkout precio" }),
+  T({ id: "nichosyt", key: "Nichos YouTube", icon: Radar, title: "Nichos de YouTube", nav: "Nichos de YouTube",
+    desc: "Los videos que más crecieron este mes y su ingreso estimado.", keywords: "nichos youtube canales virales tendencias shorts largos rpm monetizar" }),
   T({ id: "miniapps", key: "Mini Apps", icon: Boxes, title: "Mini Apps listas",
     desc: "Kits basados en ofertas reales para lanzar tu versión.", keywords: "mini apps kits app saas plantilla" }),
   T({ id: "dolores", key: "Crear", icon: Lightbulb, title: "Descubrir dolores",
@@ -109,17 +114,17 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
 
 const pick = (ids: string[]) => ids.map(id => TOOL_BY_ID[id]);
 
-export const STUDIO_TOOLS = pick(["creativos", "videoia", "series", "carrusel", "personaje", "copy", "miniaturas", "anuncios"]);
-export const FIND_TOOLS = pick(["radar", "ofertas", "miniapps", "dolores"]);
+export const STUDIO_TOOLS = pick(["creativos", "videoia", "creadoryt", "series", "carrusel", "personaje", "copy", "miniaturas"]);
+export const FIND_TOOLS = pick(["radar", "ofertas", "nichosyt", "miniapps", "dolores"]);
 export const ADMIN_EXTRA_TOOLS = pick(["mercado", "oraculo", "video"]);
 
 export const MODELS: { id: BusinessModel; label: string; short: string; line: string; tools: Tool[] }[] = [
   { id: "low", label: "Infoproducto (low ticket)", short: "Low ticket", line: "Ebook, curso o reto de US$7 a US$47, vendido con anuncios.",
-    tools: pick(["producto", "validar", "precio", "bump", "recuperar", "resultados", "plan", "ganchos"]) },
+    tools: pick(["producto", "anuncios", "validar", "precio", "bump", "recuperar", "resultados", "ganchos"]) },
   { id: "high", label: "Mentoría o servicio (high ticket)", short: "High ticket", line: "Programas de US$300 o más que se cierran en una llamada.",
-    tools: pick(["vsl", "dm", "ascension", "correos", "precio", "resultados"]) },
+    tools: pick(["vsl", "dm", "anuncios", "ascension", "correos", "precio", "resultados"]) },
   { id: "marca", label: "Marca personal", short: "Marca personal", line: "Contenido que te posiciona y atrae clientes sin pagar anuncios.",
-    tools: pick(["reels", "contenido", "captions", "youtube", "ganchos"]) },
+    tools: pick(["creadoryt", "nichosyt", "reels", "contenido", "captions", "ganchos"]) },
 ];
 
 /** Todas las herramientas (Inicio, menú, buscador y la prueba de que cada una abre una pantalla real). */

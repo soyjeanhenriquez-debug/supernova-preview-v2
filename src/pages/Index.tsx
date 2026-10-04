@@ -46,6 +46,8 @@ const ProductsPage = lazy(() => import("@/pages/ProductsPage").then(m => ({ defa
 const ProductBuilderPage = lazy(() => import("@/pages/ProductBuilderPage"));
 const ImageStudioPage = lazy(() => import("@/pages/ImageStudioPage").then(m => ({ default: m.ImageStudioPage })));
 const VideoStudioPage = lazy(() => import("@/pages/VideoStudioPage").then(m => ({ default: m.VideoStudioPage })));
+const YouTubeRadarPage = lazy(() => import("@/pages/YouTubeRadarPage").then(m => ({ default: m.YouTubeRadarPage })));
+const YouTubeCreatorPage = lazy(() => import("@/pages/YouTubeCreatorPage").then(m => ({ default: m.YouTubeCreatorPage })));
 const AprendePage = lazy(() => import("@/pages/AprendePage").then(m => ({ default: m.AprendePage })));
 
 function PageLoader() {
@@ -91,12 +93,14 @@ const PAGE_SLUG: Record<string, string> = {
   "Miniaturas": "miniaturas",
   "Video IA": "video-ia",
   "Series": "series",
+  "Nichos YouTube": "nichos-youtube",
+  "Creador YouTube": "creador-youtube",
 };
 const SLUG_PAGE: Record<string, string> = {
   "ofertas": "Ofertas", "mini-apps": "Mini Apps", "radar": "Buscar Ofertas Winner", "hooks": "Hooks", "mandala": "Mándala", "mercado": "Mercado",
   "oraculo": "Oráculo", "generadores": "Generadores", "media-studio": "Media Studio",
   "proyectos": "Proyectos", "creditos": "Créditos", "crear": "Crear", "precio": "Precio", "mi-negocio": "Mi negocio", "validar": "Validar", "plan": "Plan", "contenido": "Contenido", "resultados": "Resultados", "recuperar": "Recuperar", "productos": "Productos",
-  "crear-producto": "Crear producto", "personaje": "Sin mostrar tu cara", "aprende": "Aprende", "creativos": "Creativos", "carrusel": "Carrusel", "miniaturas": "Miniaturas", "video-ia": "Video IA", "series": "Series",
+  "crear-producto": "Crear producto", "personaje": "Sin mostrar tu cara", "aprende": "Aprende", "creativos": "Creativos", "carrusel": "Carrusel", "miniaturas": "Miniaturas", "video-ia": "Video IA", "series": "Series", "nichos-youtube": "Nichos YouTube", "creador-youtube": "Creador YouTube",
 };
 function pageFromHash(): string {
   // Un hash que no es nuestro (p. ej. el #access_token=… de un enlace de acceso) se ignora.
@@ -157,6 +161,8 @@ const Index = () => {
       case "Miniaturas": return <ImageStudioPage key="miniatura" initialMode="miniatura" />;
       case "Video IA": return <VideoStudioPage key="clip" initialMode="clip" />;
       case "Series": return <VideoStudioPage key="serie" initialMode="serie" />;
+      case "Nichos YouTube": return <YouTubeRadarPage onNavigate={setActivePage} />;
+      case "Creador YouTube": return <YouTubeCreatorPage onNavigate={setActivePage} />;
       case "Dashboard": return <DashboardPage onNavigate={setActivePage} />;
       case "Ofertas": return <OfertasPage onNavigate={setActivePage} />;
       case "Mini Apps": return <KitsPage onNavigate={setActivePage} />;

@@ -8,7 +8,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useNavigate } from "react-router-dom";
 import { useFeatureAccess } from "@/lib/features";
 import { ProductSwitcher } from "@/components/ProductSwitcher";
-import { STUDIO_TOOLS, FIND_TOOLS, ADMIN_EXTRA_TOOLS, openTool, useBusinessModel, type Tool } from "@/lib/tools";
+import { STUDIO_TOOLS, STUDIO_MORE_TOOLS, FIND_TOOLS, ADMIN_EXTRA_TOOLS, openTool, useBusinessModel, type Tool } from "@/lib/tools";
 import { TUTORIALS } from "@/lib/tutorials";
 import { useVitrina } from "@/contexts/VitrinaContext";
 
@@ -39,11 +39,12 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
   const visible = (list: Tool[]) => list.filter(tl => canSee(tl.key)).map(fromTool);
   const groups: { title: string; items: NavItem[] }[] = [
     { title: "", items: [
-      { icon: LayoutDashboard, key: "Dashboard", label: t("nav.dashboard"), hint: "¿Qué quieres hacer hoy? Todas las herramientas y lo último que creaste." },
+      { icon: LayoutDashboard, key: "Dashboard", label: t("nav.dashboard"), hint: "Tu idea de hoy, lo que puedes crear y lo último que hiciste." },
     ] },
-    { title: "Estudio IA", items: visible(STUDIO_TOOLS) },
-    { title: `Tu negocio · ${modelInfo.short}`, items: visible(modelInfo.tools) },
-    { title: "Encontrar", items: visible(FIND_TOOLS) },
+    // Plan ATLAS (04-oct-2026): el menú sigue el camino "1 Idea · 2 Crea · 3 Publica".
+    { title: "1 · Ideas ganadoras", items: visible(FIND_TOOLS) },
+    { title: "2 · Crear", items: visible([...STUDIO_TOOLS, ...STUDIO_MORE_TOOLS]) },
+    { title: `3 · Publicar y medir · ${modelInfo.short}`, items: visible(modelInfo.tools) },
     { title: "Biblioteca", items: [
       // Aprende aparece cuando hay al menos un video (nada de secciones vacías).
       ...(TUTORIALS.length ? [{ icon: GraduationCap, key: "Aprende", label: "Aprende", hint: "Un video corto por herramienta para verla en acción." }] : []),

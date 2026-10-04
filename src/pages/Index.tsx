@@ -17,6 +17,7 @@ import { useVitrina } from "@/contexts/VitrinaContext";
 import { LockedToolPage } from "@/components/LockedToolPage";
 import { TutorialButton } from "@/components/TutorialButton";
 import { tutorialFor } from "@/lib/tutorials";
+import { PAGE_SLUG, SLUG_PAGE } from "@/lib/pageSlugs";
 
 // Carga diferida: cada pantalla es su propio chunk → la primera carga solo
 // baja el Dashboard, el resto llega bajo demanda al navegar.
@@ -48,6 +49,7 @@ const ImageStudioPage = lazy(() => import("@/pages/ImageStudioPage").then(m => (
 const VideoStudioPage = lazy(() => import("@/pages/VideoStudioPage").then(m => ({ default: m.VideoStudioPage })));
 const YouTubeRadarPage = lazy(() => import("@/pages/YouTubeRadarPage").then(m => ({ default: m.YouTubeRadarPage })));
 const YouTubeCreatorPage = lazy(() => import("@/pages/YouTubeCreatorPage").then(m => ({ default: m.YouTubeCreatorPage })));
+const IdeasPage = lazy(() => import("@/pages/IdeasPage").then(m => ({ default: m.IdeasPage })));
 const AprendePage = lazy(() => import("@/pages/AprendePage").then(m => ({ default: m.AprendePage })));
 
 function PageLoader() {
@@ -58,50 +60,6 @@ function PageLoader() {
   );
 }
 
-// Cada pantalla tiene su dirección (#/ofertas, #/mini-apps…): refrescar te deja
-// donde estabas, "atrás" y "adelante" del navegador funcionan dentro de la app
-// y se puede guardar un enlace directo. Va en el hash para no tocar el router
-// ni los parámetros de retorno de Stripe (?checkout=…).
-const PAGE_SLUG: Record<string, string> = {
-  "Dashboard": "",
-  "Ofertas": "ofertas",
-  "Mini Apps": "mini-apps",
-  "Buscar Ofertas Winner": "radar",
-  "Anuncios Ganadores": "radar",
-  "Hooks": "hooks",
-  "Mándala": "mandala",
-  "Mercado": "mercado",
-  "Oráculo": "oraculo",
-  "Generadores": "generadores",
-  "Media Studio": "media-studio",
-  "Proyectos": "proyectos",
-  "Créditos": "creditos",
-  "Crear": "crear",
-  "Precio": "precio",
-  "Mi negocio": "mi-negocio",
-  "Validar": "validar",
-  "Plan": "plan",
-  "Contenido": "contenido",
-  "Resultados": "resultados",
-  "Recuperar": "recuperar",
-  "Productos": "productos",
-  "Crear producto": "crear-producto",
-  "Sin mostrar tu cara": "personaje",
-  "Aprende": "aprende",
-  "Creativos": "creativos",
-  "Carrusel": "carrusel",
-  "Miniaturas": "miniaturas",
-  "Video IA": "video-ia",
-  "Series": "series",
-  "Nichos YouTube": "nichos-youtube",
-  "Creador YouTube": "creador-youtube",
-};
-const SLUG_PAGE: Record<string, string> = {
-  "ofertas": "Ofertas", "mini-apps": "Mini Apps", "radar": "Buscar Ofertas Winner", "hooks": "Hooks", "mandala": "Mándala", "mercado": "Mercado",
-  "oraculo": "Oráculo", "generadores": "Generadores", "media-studio": "Media Studio",
-  "proyectos": "Proyectos", "creditos": "Créditos", "crear": "Crear", "precio": "Precio", "mi-negocio": "Mi negocio", "validar": "Validar", "plan": "Plan", "contenido": "Contenido", "resultados": "Resultados", "recuperar": "Recuperar", "productos": "Productos",
-  "crear-producto": "Crear producto", "personaje": "Sin mostrar tu cara", "aprende": "Aprende", "creativos": "Creativos", "carrusel": "Carrusel", "miniaturas": "Miniaturas", "video-ia": "Video IA", "series": "Series", "nichos-youtube": "Nichos YouTube", "creador-youtube": "Creador YouTube",
-};
 function pageFromHash(): string {
   // Un hash que no es nuestro (p. ej. el #access_token=… de un enlace de acceso) se ignora.
   let slug = "";
@@ -159,8 +117,13 @@ const Index = () => {
       case "Creativos": return <ImageStudioPage key="creativo" initialMode="creativo" />;
       case "Carrusel": return <ImageStudioPage key="carrusel" initialMode="carrusel" />;
       case "Miniaturas": return <ImageStudioPage key="miniatura" initialMode="miniatura" />;
+      case "Fotos UGC": return <ImageStudioPage key="foto_ugc" initialMode="foto_ugc" />;
+      case "Foto de producto": return <ImageStudioPage key="foto_producto" initialMode="foto_producto" />;
+      case "Ideas": return <IdeasPage onNavigate={setActivePage} />;
       case "Video IA": return <VideoStudioPage key="clip" initialMode="clip" />;
       case "Series": return <VideoStudioPage key="serie" initialMode="serie" />;
+      case "Video anuncio": return <VideoStudioPage key="anuncio" initialMode="anuncio" />;
+      case "UGC con IA": return <VideoStudioPage key="ugc" initialMode="ugc" />;
       case "Nichos YouTube": return <YouTubeRadarPage onNavigate={setActivePage} />;
       case "Creador YouTube": return <YouTubeCreatorPage onNavigate={setActivePage} />;
       case "Dashboard": return <DashboardPage onNavigate={setActivePage} />;

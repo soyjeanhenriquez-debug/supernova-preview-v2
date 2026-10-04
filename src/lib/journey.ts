@@ -68,7 +68,7 @@ export const STAGES = [
  * Créditos y las pantallas de solo admin no son de ninguna etapa.
  */
 export const PAGE_STAGE: Record<string, number> = {
-  "Mi negocio": 1, "Ofertas": 1, "Buscar Ofertas Winner": 1, "Anuncios Ganadores": 1, "Mini Apps": 1,
+  "Mi negocio": 1, "Ofertas": 1, "Buscar Ofertas Winner": 1, "Anuncios Ganadores": 1, "Mini Apps": 1, "Ideas": 1,
   "Validar": 2,
   "Precio": 3,
   "Crear producto": 4, "Plan": 4, "Proyectos": 4,

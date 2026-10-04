@@ -1,0 +1,51 @@
+// Cada pantalla tiene su dirección (#/ofertas, #/mini-apps…): refrescar te deja
+// donde estabas, "atrás" y "adelante" del navegador funcionan dentro de la app
+// y se puede guardar un enlace directo. Va en el hash para no tocar el router
+// ni los parámetros de retorno de Stripe (?checkout=…).
+export const PAGE_SLUG: Record<string, string> = {
+  "Dashboard": "",
+  "Ofertas": "ofertas",
+  "Mini Apps": "mini-apps",
+  "Buscar Ofertas Winner": "radar",
+  "Anuncios Ganadores": "radar",
+  "Hooks": "hooks",
+  "Mándala": "mandala",
+  "Mercado": "mercado",
+  "Oráculo": "oraculo",
+  "Generadores": "generadores",
+  "Media Studio": "media-studio",
+  "Proyectos": "proyectos",
+  "Créditos": "creditos",
+  "Crear": "crear",
+  "Precio": "precio",
+  "Mi negocio": "mi-negocio",
+  "Validar": "validar",
+  "Plan": "plan",
+  "Contenido": "contenido",
+  "Resultados": "resultados",
+  "Recuperar": "recuperar",
+  "Productos": "productos",
+  "Crear producto": "crear-producto",
+  "Sin mostrar tu cara": "personaje",
+  "Aprende": "aprende",
+  "Creativos": "creativos",
+  "Carrusel": "carrusel",
+  "Miniaturas": "miniaturas",
+  "Video IA": "video-ia",
+  "Series": "series",
+  "Nichos YouTube": "nichos-youtube",
+  "Creador YouTube": "creador-youtube",
+  // Plan ATLAS (04-oct-2026): deben coincidir con TARGET_SLUG de src/lib/creativeSeed.ts.
+  "Ideas": "ideas",
+  "Fotos UGC": "fotos-ugc",
+  "Foto de producto": "foto-producto",
+  "Video anuncio": "video-anuncio",
+  "UGC con IA": "ugc",
+};
+export const SLUG_PAGE: Record<string, string> = {
+  "ofertas": "Ofertas", "mini-apps": "Mini Apps", "radar": "Buscar Ofertas Winner", "hooks": "Hooks", "mandala": "Mándala", "mercado": "Mercado",
+  "oraculo": "Oráculo", "generadores": "Generadores", "media-studio": "Media Studio",
+  "proyectos": "Proyectos", "creditos": "Créditos", "crear": "Crear", "precio": "Precio", "mi-negocio": "Mi negocio", "validar": "Validar", "plan": "Plan", "contenido": "Contenido", "resultados": "Resultados", "recuperar": "Recuperar", "productos": "Productos",
+  "crear-producto": "Crear producto", "personaje": "Sin mostrar tu cara", "aprende": "Aprende", "creativos": "Creativos", "carrusel": "Carrusel", "miniaturas": "Miniaturas", "video-ia": "Video IA", "series": "Series", "nichos-youtube": "Nichos YouTube", "creador-youtube": "Creador YouTube",
+  "ideas": "Ideas", "fotos-ugc": "Fotos UGC", "foto-producto": "Foto de producto", "video-anuncio": "Video anuncio", "ugc": "UGC con IA",
+};

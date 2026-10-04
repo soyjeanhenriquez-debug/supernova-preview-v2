@@ -3,8 +3,10 @@ import {
   Trophy, Gem, Boxes, Lightbulb, BookOpen, ClipboardCheck, Orbit, Quote, FileText, UserRound, Video,
   ListTodo, CalendarDays, MessageCircle, Calculator, BarChart3, Telescope, Store, Image, LayoutTemplate,
   MonitorPlay, Clapperboard, Send, TrendingUp, Mail, Film, Hash, Youtube, ShoppingBag, Radar,
+  Megaphone, Smartphone, Camera,
   type LucideIcon,
 } from "lucide-react";
+import { CREDIT_COSTS } from "@/hooks/useCredits";
 
 /**
  * Navegación por intención (decisión de Jean, 03-oct-2026): el Inicio es un ESTUDIO. Arriba, las
@@ -31,44 +33,62 @@ export type Tool = {
   /** Abre ese generador de Generadores (id de GeneradoresPage). */
   generator?: string;
   featured?: boolean;
+  /** Lo que cuesta empezar, como lo ve el cliente: "Gratis" o "18 créditos". Solo créditos, nunca dólares. */
+  cost?: string;
 };
 
 const T = (t: Omit<Tool, "nav"> & { nav?: string }): Tool => ({ nav: t.title, ...t });
 
+// Costos que se muestran en las tarjetas. Salen de CREDIT_COSTS (los mismos que cobra el servidor con
+// credit_prices), para que el número de la tarjeta y el del botón nunca se separen.
+const C = CREDIT_COSTS;
+const cr = (n: number) => `${n.toLocaleString("es-ES", { useGrouping: true })} créditos`;
+const FREE = "Gratis";
+
 export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
   // ---------- Estudio IA ----------
-  T({ id: "creativos", key: "Creativos", icon: Image, featured: true, title: "Creativos para anuncios",
+  T({ id: "creativos", key: "Creativos", icon: Image, title: "Creativos para anuncios", cost: cr(C.gen_ad_image * 3),
     desc: "3 imágenes listas para Meta, hechas desde tu producto.", keywords: "creativo creativos imagen imagenes anuncio ads banner meta facebook instagram" }),
-  T({ id: "carrusel", key: "Carrusel", icon: LayoutTemplate, title: "Carrusel que vende",
+  T({ id: "videoanuncio", key: "Video anuncio", icon: Megaphone, title: "Anuncio en video", nav: "Video anuncio", cost: cr(C.vid_mini_5 * 3),
+    desc: "3 tomas de 5 s: gancho, demostración y llamada. La IA elige la plantilla.", keywords: "video anuncio ads reels tiktok meta gancho demo llamada comercial" }),
+  T({ id: "ugc", key: "UGC con IA", icon: Smartphone, title: "UGC con IA", cost: cr(C.vid_mini_10),
+    desc: "Un presentador creado con IA habla 10 s a cámara en español.", keywords: "ugc presentador avatar persona habla camara video tiktok reels influencer" }),
+  T({ id: "carrusel", key: "Carrusel", icon: LayoutTemplate, title: "Carrusel que vende", cost: cr(C.gen_ad_image * 5),
     desc: "5 láminas con gancho, problema, solución y llamada.", keywords: "carrusel carruseles laminas slides instagram post" }),
+  T({ id: "fotosugc", key: "Fotos UGC", icon: Smartphone, title: "Fotos estilo UGC", nav: "Fotos estilo UGC", cost: cr(C.gen_ad_image * 3),
+    desc: "Fotos como hechas con el celular: una persona usando tu producto.", keywords: "fotos ugc celular selfie persona producto natural lifestyle" }),
+  T({ id: "fotoproducto", key: "Foto de producto", icon: Camera, title: "Foto de producto", cost: cr(C.gen_ad_image * 3),
+    desc: "De estudio, en mockup y en uso.", keywords: "foto producto mockup estudio packshot tienda catalogo" }),
   T({ id: "personaje", key: "Sin mostrar tu cara", icon: UserRound, title: "Influencer IA", nav: "Influencer IA (sin tu cara)",
     desc: "Un personaje con IA que da la cara por ti en Reels y TikTok.", keywords: "personaje avatar influencer ia sin cara reels tiktok ugc" }),
-  T({ id: "copy", key: "Generadores", icon: FileText, title: "Robot de copy", nav: "Robot de copy",
+  T({ id: "copy", key: "Generadores", icon: FileText, title: "Robot de copy", nav: "Robot de copy", cost: `desde ${cr(C.gen_light)}`,
     desc: "26 generadores: anuncios, VSL, correos, WhatsApp y más.", keywords: "copy copys textos guion guiones correo email pagina de venta landing generador vsl" }),
   T({ id: "anuncios", key: "Mándala", icon: Orbit, title: "Anuncios paso a paso", nav: "Mándala Creativa",
     desc: "Tus primeros 5 anuncios, en el orden que conviene.", keywords: "anuncio anuncios ads mandala campaña" }),
-  T({ id: "miniaturas", key: "Miniaturas", icon: MonitorPlay, title: "Miniaturas",
+  T({ id: "miniaturas", key: "Miniaturas", icon: MonitorPlay, title: "Miniaturas", cost: cr(C.gen_ad_image * 2),
     desc: "Portadas para YouTube y Reels que se leen en pequeño.", keywords: "miniatura miniaturas thumbnail portada youtube" }),
   T({ id: "ganchos", key: "Hooks", icon: Quote, title: "Ganchos que atrapan", nav: "Ganchos (hooks)",
     desc: "Primeras frases de anuncios reales, listas para adaptar.", keywords: "ganchos hooks frases titulares atencion" }),
-  T({ id: "videoia", key: "Video IA", icon: Video, title: "Video con IA", nav: "Video con IA",
+  T({ id: "videoia", key: "Video IA", icon: Video, title: "Video con IA", nav: "Video con IA", cost: `desde ${cr(C.vid_mini_5)}`,
     desc: "Describe la escena y la IA la graba, con sonido.", keywords: "video videos ia clip reels tiktok youtube faceless sin cara anuncio ugc" }),
-  T({ id: "series", key: "Series", icon: Clapperboard, title: "Series de video", nav: "Series de video",
+  T({ id: "series", key: "Series", icon: Clapperboard, title: "Series de video", nav: "Series de video", cost: `${C.vid_mini_5} por escena`,
     desc: "Novelas, dibujos animados o anuncios en escenas seguidas.", keywords: "serie series novela novelas dibujos animados anime historia capitulos youtube" }),
   T({ id: "video", key: "Media Studio", icon: Video, title: "Video con presentador IA", nav: "Video con presentador",
     desc: "Videos cortos con un presentador hecho con IA.", keywords: "video videos avatar presentador ugc media studio" }),
 
-  T({ id: "creadoryt", key: "Creador YouTube", icon: Youtube, title: "Videos para YouTube", nav: "Creador de YouTube",
-    desc: "De la idea al guion por escenas, paso a paso, para canales sin cara.", keywords: "youtube faceless sin cara canal video largo guion creador documental animado" }),
+  T({ id: "creadoryt", key: "Creador YouTube", icon: Youtube, title: "Videos para YouTube", nav: "Creador de YouTube", cost: `guion ${cr(C.gen_medium)}`,
+    desc: "Del guion al video terminado: voz, imágenes y subtítulos, para canales sin cara.", keywords: "youtube faceless sin cara canal video largo guion creador documental animado" }),
 
   // ---------- Encontrar ----------
-  T({ id: "radar", key: "Buscar Ofertas Winner", icon: Trophy, title: "Espiar anuncios ganadores", nav: "Radar de anuncios",
+  T({ id: "ideas", key: "Ideas", icon: Lightbulb, featured: true, title: "Ideas de side hustle", nav: "Ideas de side hustle", cost: FREE,
+    desc: "6 caminos para empezar de cero, con ejemplos reales y la primera acción.", keywords: "ideas side hustle negocio empezar cero emprender caminos faceless ugc low ticket" }),
+  T({ id: "radar", key: "Buscar Ofertas Winner", icon: Trophy, title: "Espiar anuncios ganadores", nav: "Radar de anuncios", cost: FREE,
     desc: "Los que llevan más días pagándose: la mejor prueba de que venden.", keywords: "radar anuncios ganadores espiar facebook instagram meta winner" }),
-  T({ id: "ofertas", key: "Ofertas", icon: Gem, title: "Ofertas que venden", nav: "Ofertas ganadoras",
+  T({ id: "ofertas", key: "Ofertas", icon: Gem, title: "Ofertas que venden", nav: "Ofertas ganadoras", cost: FREE,
     desc: "Negocios digitales que ya venden, con su precio y su embudo.", keywords: "ofertas negocios productos digitales embudo checkout precio" }),
-  T({ id: "nichosyt", key: "Nichos YouTube", icon: Radar, title: "Nichos de YouTube", nav: "Nichos de YouTube",
+  T({ id: "nichosyt", key: "Nichos YouTube", icon: Radar, title: "Nichos de YouTube", nav: "Nichos de YouTube", cost: FREE,
     desc: "Los videos que más crecieron este mes y su ingreso estimado.", keywords: "nichos youtube canales virales tendencias shorts largos rpm monetizar" }),
-  T({ id: "miniapps", key: "Mini Apps", icon: Boxes, title: "Mini Apps listas",
+  T({ id: "miniapps", key: "Mini Apps", icon: Boxes, title: "Mini Apps listas", cost: "Ver es gratis",
     desc: "Kits basados en ofertas reales para lanzar tu versión.", keywords: "mini apps kits app saas plantilla" }),
   T({ id: "dolores", key: "Crear", icon: Lightbulb, title: "Descubrir dolores",
     desc: "Problemas que la gente quiere resolver y por los que paga.", keywords: "dolores problemas ideas nicho necesidades" }),
@@ -114,8 +134,12 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
 
 const pick = (ids: string[]) => ids.map(id => TOOL_BY_ID[id]);
 
-export const STUDIO_TOOLS = pick(["creativos", "videoia", "creadoryt", "series", "carrusel", "personaje", "copy", "miniaturas"]);
-export const FIND_TOOLS = pick(["radar", "ofertas", "nichosyt", "miniapps", "dolores"]);
+/** Lo que más se crea (Inicio, menú "Crear" y el botón Crear del teléfono). Plan ATLAS, 04-oct-2026. */
+export const STUDIO_TOOLS = pick(["creativos", "videoanuncio", "ugc", "creadoryt", "carrusel", "fotosugc", "miniaturas", "series"]);
+/** Más para crear: siguen en el menú y en el buscador, debajo de las 8 principales. */
+export const STUDIO_MORE_TOOLS = pick(["videoia", "fotoproducto", "personaje", "copy"]);
+/** Ideas ganadoras: qué ya vende, antes de crear nada. Todo gratis de mirar. */
+export const FIND_TOOLS = pick(["ideas", "radar", "ofertas", "nichosyt", "miniapps"]);
 export const ADMIN_EXTRA_TOOLS = pick(["mercado", "oraculo", "video"]);
 
 export const MODELS: { id: BusinessModel; label: string; short: string; line: string; tools: Tool[] }[] = [

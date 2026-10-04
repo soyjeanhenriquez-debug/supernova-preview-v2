@@ -66,7 +66,7 @@ export function LockedToolPage({ page }: { page: string }) {
   const tool = [...TOOLS, ...ADMIN_EXTRA_TOOLS].find(t => t.key === page);
   const info = tool ? { title: tool.title, desc: tool.desc } : EXTRA_PAGES[page] ?? { title: page, desc: "" };
   const Icon = tool?.icon ?? Lock;
-  const showSample = page === "Buscar Ofertas Winner" || page === "Ofertas" || page === "Anuncios Ganadores";
+  const showSample = page === "Buscar Ofertas Winner" || page === "Ofertas" || page === "Anuncios Ganadores" || page === "Ideas";
   const rows = useVitrinaSample(showSample);
   const tutorial = tutorialFor(page);
   const [playing, setPlaying] = useState(false);

@@ -18,7 +18,7 @@
 //   imagen  gpt-image-2 1k ≈ US$0,0081 → 6 créditos (5,9×).
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { apimartImage, apimartSpeech, encodeBase64, hasApimart, IMAGE_MODEL, TTS_MODEL } from "./apimart.ts";
+import { apimartImage, apimartSpeech, encodeBase64, hasApimart, APIMART_IMAGE_MODEL as IMAGE_MODEL, TTS_MODEL } from "../_shared/apimart.ts";
 
 const FN = "yt-produce";
 const MAX_TEXT = 700;

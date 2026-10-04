@@ -7,9 +7,8 @@
 //  · Imagen gpt-image-2: POST /v1/images/generations (async) → GET /v1/tasks/{id}.
 //    Se cobra por resolución (1k/2k/4k); `image_urls` (hasta 15, URL pública o data URI) activa
 //    imagen a imagen. La doc no indica recargo por referencias.
-//  · Voz: POST /v1/audio/speech, gpt-4o-mini-tts. La doc lista wav/opus/aac/flac/pcm (no mp3);
-//    si "mp3" se rechaza se reintenta en "aac". `instructions` no está en la doc: si se rechaza,
-//    se reintenta sin él.
+//  · Voz: POST /v1/audio/speech, gpt-4o-mini-tts. La doc lista wav/opus/aac/flac/pcm (no mp3) y
+//    no menciona `instructions`: se intenta mp3 + instructions → mp3 → wav (ver apimartSpeech).
 
 export const APIMART = "https://api.apimart.ai/v1";
 export const APIMART_IMAGE_MODEL = "gpt-image-2";
@@ -124,38 +123,52 @@ export async function apimartImage(prompt: string, aspect: string, imageUrls?: s
 export const APIMART_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"] as const;
 export type ApimartVoice = typeof APIMART_VOICES[number];
 
-/** Voz con gpt-4o-mini-tts (máx. 4.096 caracteres). Devuelve los bytes del audio o null. */
+export const TTS_MODEL = "gpt-4o-mini-tts";
+export const hasApimart = () => !!Deno.env.get("APIMART_API_KEY");
+
+/**
+ * Voz con gpt-4o-mini-tts (POST /v1/audio/speech, ~US$0,015/min, máx. 4.096 caracteres). La doc de
+ * APIMart lista wav/opus/aac/flac/pcm y no menciona `instructions` (OpenAI sí acepta mp3 e
+ * instructions): se intenta mp3 + instructions, luego mp3 solo y al final wav. Lo que funcione se
+ * recuerda en el worker para no repetir intentos. Devuelve los bytes y su tipo, o null.
+ * (Versión de ECO / yt-produce, unificada aquí por Nexo el 04-oct-2026.)
+ */
+let ttsMode: 0 | 1 | 2 = 0;
 export async function apimartSpeech(opts: {
-  input: string; voice: ApimartVoice | string; format?: "mp3" | "aac" | "opus" | "wav"; speed?: number; instructions?: string;
-}): Promise<Uint8Array | null> {
+  input: string; voice: ApimartVoice | string; format?: "mp3"; speed?: number; instructions?: string;
+}): Promise<{ bytes: Uint8Array; mime: string } | null> {
   const key = Deno.env.get("APIMART_API_KEY");
   if (!key) return null;
   const input = String(opts.input ?? "").slice(0, 4096);
   if (!input.trim()) return null;
   const voice = (APIMART_VOICES as readonly string[]).includes(opts.voice) ? opts.voice : "alloy";
-  const speed = typeof opts.speed === "number" && Number.isFinite(opts.speed) ? Math.min(4, Math.max(0.25, opts.speed)) : undefined;
-  const call = (format: string, withInstructions: boolean) => fetch(`${APIMART}/audio/speech`, {
-    method: "POST", headers: headers(key),
-    body: JSON.stringify({
-      model: "gpt-4o-mini-tts", input, voice, response_format: format,
-      ...(speed ? { speed } : {}),
-      ...(withInstructions && opts.instructions ? { instructions: opts.instructions.slice(0, 500) } : {}),
-    }),
-  });
-  try {
-    let format = opts.format ?? "mp3";
-    let withInstr = !!opts.instructions;
-    let r = await call(format, withInstr);
-    // Reintentos ante 400: primero sin `instructions`, después en aac (mp3 no está en la doc).
-    if (r.status === 400 && withInstr) { await r.text(); withInstr = false; r = await call(format, false); }
-    if (r.status === 400 && format === "mp3") { await r.text(); format = "aac"; r = await call(format, false); }
-    if (!r.ok) { console.error("apimart voz:", r.status, (await r.text()).slice(0, 300)); return null; }
-    const ct = r.headers.get("content-type") ?? "";
-    if (ct.includes("application/json")) { console.error("apimart voz json:", (await r.text()).slice(0, 300)); return null; }
-    const bytes = new Uint8Array(await r.arrayBuffer());
-    return bytes.length > 0 ? bytes : null;
-  } catch (e) {
-    console.error("apimart voz:", e instanceof Error ? e.message : e);
-    return null;
+  const speed = typeof opts.speed === "number" && Number.isFinite(opts.speed) ? Math.min(4, Math.max(0.25, opts.speed)) : 1;
+  const attempts: { response_format: string; instructions?: string }[] = [
+    { response_format: opts.format ?? "mp3", instructions: opts.instructions?.slice(0, 500) },
+    { response_format: opts.format ?? "mp3" },
+    { response_format: "wav" },
+  ];
+  for (let i = ttsMode; i < attempts.length; i++) {
+    const a = attempts[i];
+    if (i === 0 && !a.instructions) continue;
+    try {
+      const r = await fetch(`${APIMART}/audio/speech`, {
+        method: "POST", headers: headers(key),
+        body: JSON.stringify({ model: TTS_MODEL, input, voice, speed, ...a }),
+      });
+      if (r.status === 400 || r.status === 422) { console.error("apimart voz 400:", (await r.text()).slice(0, 200)); continue; }
+      if (!r.ok) { console.error("apimart voz:", r.status, (await r.text()).slice(0, 200)); return null; }
+      const ct = r.headers.get("content-type")?.split(";")[0] ?? "";
+      if (ct.includes("application/json")) { console.error("apimart voz json:", (await r.text()).slice(0, 200)); return null; }
+      const bytes = new Uint8Array(await r.arrayBuffer());
+      if (bytes.length < 500) { console.error("apimart voz: audio vacío"); return null; }
+      ttsMode = i as 0 | 1 | 2;
+      const mime = /audio\//.test(ct) ? ct : a.response_format === "wav" ? "audio/wav" : "audio/mpeg";
+      return { bytes, mime };
+    } catch (e) {
+      console.error("apimart voz:", e instanceof Error ? e.message : e);
+      return null;
+    }
   }
+  return null;
 }

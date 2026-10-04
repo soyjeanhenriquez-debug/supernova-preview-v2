@@ -145,7 +145,7 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
 
   const runOne = async (body: CreateBody, label: string, onProgress?: (p: number | null) => void): Promise<VideoJob> => {
     const r = await createVideo({ ...body, product_id: productId ?? undefined });
-    if (r.billing) applyServerCharge("gen_media", r.billing, `${label} ${body.seconds} s`);
+    if (r.billing) applyServerCharge(body.seconds >= 10 ? "vid_mini_10" : "vid_mini_5", r.billing, `${label} ${body.seconds} s`);
     const done = await waitForVideo(r.job.id, onProgress);
     if (done.status !== "done") throw new Error("El video falló. Te devolvimos los créditos.");
     return done;

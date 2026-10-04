@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { ChevronRight, Coins, FileText, BookOpen, Orbit, FolderKanban, Lock, PlayCircle } from "lucide-react";
+import { ChevronRight, Coins, FileText, BookOpen, Orbit, FolderKanban, Lock, PlayCircle, Image as ImageIcon, Video } from "lucide-react";
 import { useCredits } from "@/hooks/useCredits";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProducts } from "@/contexts/ProductContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureAccess } from "@/lib/features";
 import { STUDIO_TOOLS, FIND_TOOLS, MODELS, openTool, useBusinessModel, type Tool } from "@/lib/tools";
+import { IdeaOfTheDay } from "@/components/create/IdeaOfTheDay";
 import { track } from "@/lib/analytics";
 import { DailyPicksHero } from "@/components/dashboard/DailyPicksHero";
 import { RoiHunterWidget } from "@/components/dashboard/RoiHunterWidget";
@@ -16,9 +17,10 @@ import { useVitrinaSample, SampleOffers } from "@/components/LockedToolPage";
 import { TUTORIALS } from "@/lib/tutorials";
 
 /**
- * Inicio = "¿Qué quieres hacer hoy?" (navegación por intención, decisión de Jean del 03-oct-2026,
- * por lo que pidió Cindy): botones grandes que llevan directo a cada herramienta, lo último que
- * creó para retomarlo y, plegado, el recorrido de 6 etapas como ayuda opcional, nunca obligatorio.
+ * Inicio = "¿Qué quieres crear hoy?" (navegación por intención, decisión de Jean del 03-oct-2026;
+ * plan ATLAS del 04-oct-2026): el camino "1 Idea · 2 Crea · 3 Publica", "Tu idea de hoy" arriba
+ * (una oferta ganadora real con su botón "Crear con esta idea"), el Estudio, las ideas ganadoras,
+ * lo último que creó (incluidas imágenes y videos de hoy) y, plegado, el recorrido de 6 etapas.
  */
 interface Props { onNavigate: (p: string) => void; }
 
@@ -26,9 +28,23 @@ const JOURNEY_OPEN_KEY = "supernova:home-journey-open";
 
 type Recent = { id: string; title: string; kind: string; at: string; icon: typeof FileText; open: () => void };
 
-/** Lo último que creó en el producto activo: 3 lecturas pequeñas (máx. 4 filas cada una), sin textos largos. */
+/** Pantalla del estudio de video según el tipo de trabajo (columna video_jobs.kind). */
+const VIDEO_PAGE: Record<string, { page: string; label: string }> = {
+  anuncio: { page: "Video anuncio", label: "Video anuncio" },
+  ugc: { page: "UGC con IA", label: "UGC con IA" },
+  serie: { page: "Series", label: "Escena de serie" },
+  clip: { page: "Video IA", label: "Video con IA" },
+};
+
+/**
+ * Lo último que creó en el producto activo: lecturas pequeñas (máx. 4 filas cada una), sin textos
+ * largos. Las imágenes salen del bucket "creativos" (<uid>/<producto>, solo nombres y fechas, sin
+ * firmar URLs) y los videos de las últimas 24 h de video_jobs (sus enlaces caducan: hay que bajarlos).
+ */
 function useRecentWork(onNavigate: (p: string) => void) {
   const { activeId } = useProducts();
+  const { user } = useAuth();
+  const uid = user?.id ?? null;
   const { canSee } = useFeatureAccess();
   const builderOn = canSee("Crear producto");
   const [items, setItems] = useState<Recent[] | null>(null);
@@ -39,6 +55,10 @@ function useRecentWork(onNavigate: (p: string) => void) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const db = supabase as any;
     const empty = Promise.resolve({ data: [] });
+    const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+    const videoQuery = (cols: string) => db.from("video_jobs").select(cols)
+      .eq("user_id", uid).eq("status", "done").gte("created_at", since)
+      .order("created_at", { ascending: false }).limit(4);
     Promise.all([
       db.from("product_assets").select("id,name,kind,updated_at").eq("product_id", activeId)
         .order("updated_at", { ascending: false }).limit(4),
@@ -48,7 +68,15 @@ function useRecentWork(onNavigate: (p: string) => void) {
         ? db.from("product_builds").select("id,title,format,updated_at").eq("product_id", activeId)
           .order("updated_at", { ascending: false }).limit(4)
         : empty,
-    ]).then(([assets, ads, builds]) => {
+      uid
+        ? supabase.storage.from("creativos").list(`${uid}/${activeId}`, { limit: 4, sortBy: { column: "created_at", order: "desc" } })
+          .then(r => ({ data: r.data ?? [] }), () => ({ data: [] }))
+        : empty,
+      uid
+        // Sin la columna "kind" (migración 20261004040000 sin aplicar) se reintenta sin ella.
+        ? videoQuery("id,prompt,kind,created_at").then((r: { data: unknown; error: unknown }) => (r.error ? videoQuery("id,prompt,created_at") : r))
+        : empty,
+    ]).then(([assets, ads, builds, images, videos]) => {
       if (!alive) return;
       const list: Recent[] = [
         ...((assets.data ?? []) as { id: string; name: string; updated_at: string }[]).map(r => ({
@@ -64,11 +92,24 @@ function useRecentWork(onNavigate: (p: string) => void) {
           at: r.updated_at, icon: BookOpen,
           open: () => { try { sessionStorage.setItem("supernova.openBuild", r.id); } catch { /* sin almacenamiento */ } onNavigate("Crear producto"); },
         })),
+        ...((images.data ?? []) as { name: string; created_at?: string | null }[])
+          .filter(f => f.name.endsWith(".webp") && f.created_at)
+          .map(f => ({
+            id: `i-${f.name}`, title: "Imagen creada con IA", kind: "Imagen", at: f.created_at as string, icon: ImageIcon,
+            open: () => onNavigate("Creativos"),
+          })),
+        ...((videos.data ?? []) as { id: string; prompt: string | null; kind?: string | null; created_at: string }[]).map(r => {
+          const v = VIDEO_PAGE[r.kind ?? "clip"] ?? VIDEO_PAGE.clip;
+          return {
+            id: `v-${r.id}`, title: (r.prompt || v.label).split("\n")[0].slice(0, 80), kind: `${v.label} · descárgalo hoy`, at: r.created_at, icon: Video,
+            open: () => onNavigate(v.page),
+          };
+        }),
       ].sort((x, y) => y.at.localeCompare(x.at)).slice(0, 6);
       setItems(list);
     }).catch(() => { if (alive) setItems([]); });
     return () => { alive = false; };
-  }, [activeId, builderOn, onNavigate]);
+  }, [activeId, builderOn, onNavigate, uid]);
 
   return items;
 }
@@ -104,6 +145,7 @@ function ToolCard({ tool, onOpen, locked }: { tool: Tool; onOpen: () => void; lo
       <span className="min-w-0">
         <span className="block font-display font-semibold text-[14px] md:text-[15px] leading-snug text-foreground">{tool.title}</span>
         <span className="block mt-1 text-[12px] leading-snug text-muted-foreground line-clamp-2">{tool.desc}</span>
+        {tool.cost && <span className="block mt-2 text-[11px] tabular-nums text-muted-foreground/80">{tool.cost}</span>}
       </span>
     </button>
   );
@@ -140,6 +182,16 @@ export function DashboardPage({ onNavigate }: Props) {
         <div>
           {firstName && <p className="text-sm text-muted-foreground mb-1" data-ph-mask>Hola, {firstName}</p>}
           <h1 className="font-display font-bold text-[26px] md:text-[32px] tracking-[-0.02em] text-foreground">¿Qué quieres crear hoy?</h1>
+          {/* El camino en 3 pasos: elige una idea que ya vende, créala con IA y publícala. */}
+          <ol className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted-foreground" aria-label="Cómo funciona">
+            {["Idea", "Crea", "Publica"].map((s, i) => (
+              <li key={s} className="inline-flex items-center gap-1.5">
+                {i > 0 && <span aria-hidden className="text-border">·</span>}
+                <span className="w-[18px] h-[18px] rounded-full border border-border text-[10px] font-semibold text-foreground inline-flex items-center justify-center tabular-nums">{i + 1}</span>
+                <span className="text-foreground">{s}</span>
+              </li>
+            ))}
+          </ol>
           <button onClick={() => window.dispatchEvent(new Event(OPEN_TOUR_EVENT))} className="mt-1 text-[12px] text-muted-foreground hover:text-foreground underline-offset-4 hover:underline">Ver cómo funciona (1 minuto)</button>
         </div>
         {locked ? (
@@ -163,25 +215,14 @@ export function DashboardPage({ onNavigate }: Props) {
         </div>
       )}
 
-      {/* ¿Qué estás construyendo? Reordena "Tu negocio" (se recuerda en este navegador). */}
-      <div className="space-y-2">
-        <p className="text-[12px] text-muted-foreground">¿Qué estás construyendo?</p>
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none]">
-          {MODELS.map(m => (
-            <button key={m.id} onClick={() => setModel(m.id)} aria-pressed={model === m.id}
-              className={`shrink-0 h-9 px-4 rounded-full border text-[13px] transition-colors ${model === m.id ? "border-primary/60 text-foreground bg-primary/[0.07]" : "border-border text-muted-foreground hover:text-foreground"}`}>
-              {m.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Tu idea de hoy: 1 oferta ganadora real, con su prueba. Abrir la hoja es gratis. Sin plan no se consulta. */}
+      {!locked && <IdeaOfTheDay />}
 
-      {/* Estudio IA: lo que la gente quiere producir. Luego su negocio, luego qué ya vende. */}
+      {/* 2 · Crea (el Estudio) y 1 · Ideas ganadoras. "Tu negocio" va más abajo, para no agobiar. */}
       <div className="space-y-8">
         {[
-          { id: "estudio", title: "Estudio IA", sub: "Crea en un clic, desde tu producto", tools: STUDIO_TOOLS },
-          { id: "negocio", title: `Tu negocio · ${modelInfo.short}`, sub: modelInfo.line, tools: modelInfo.tools },
-          { id: "encontrar", title: "Encontrar qué vender", sub: "Lo que ya vende, antes de crear nada", tools: FIND_TOOLS },
+          { id: "estudio", title: "Crea con IA", sub: "Un toque: la IA decide y tú eliges", tools: STUDIO_TOOLS },
+          { id: "encontrar", title: "Ideas ganadoras", sub: "Lo que ya vende, antes de crear nada", tools: FIND_TOOLS },
         ].map(g => {
           const tools = g.tools.filter(t => canSee(t.key));
           if (!tools.length) return null;
@@ -226,7 +267,7 @@ export function DashboardPage({ onNavigate }: Props) {
             </div>
           ) : recent.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border px-4 py-5 text-[13px] text-muted-foreground">
-              Aquí aparecerá lo que crees: tus anuncios, tu producto y lo que guardes con "Hacer mi versión".
+              Aquí aparecerá lo que crees: tus imágenes, tus videos de hoy, tus anuncios y tu producto.
             </p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -245,6 +286,25 @@ export function DashboardPage({ onNavigate }: Props) {
               })}
             </div>
           )}
+        </section>
+
+        {/* 3 · Publica y mide: las herramientas de su negocio (low / high / marca, se recuerda en este navegador). */}
+        <section className="space-y-3">
+          <div className="flex items-baseline gap-2 min-w-0">
+            <h2 className="text-[11px] uppercase tracking-[0.18em] font-semibold text-foreground shrink-0">Publica y mide · {modelInfo.short}</h2>
+            <span className="text-[12px] text-muted-foreground truncate">{modelInfo.line}</span>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none]" role="group" aria-label="¿Qué estás construyendo?">
+            {MODELS.map(m => (
+              <button key={m.id} onClick={() => setModel(m.id)} aria-pressed={model === m.id}
+                className={`shrink-0 h-9 px-4 rounded-full border text-[13px] transition-colors ${model === m.id ? "border-primary/60 text-foreground bg-primary/[0.07]" : "border-border text-muted-foreground hover:text-foreground"}`}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {modelInfo.tools.filter(t => canSee(t.key)).map(t => <ToolCard key={t.id} tool={t} onOpen={() => open(t)} />)}
+          </div>
         </section>
 
         {/* El recorrido de 6 etapas y Tu semana: ayuda opcional, plegada; nunca un camino obligatorio. */}

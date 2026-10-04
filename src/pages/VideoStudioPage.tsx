@@ -334,7 +334,7 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
               <div className="flex items-start gap-2">
                 <Sparkles className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                 <p className="text-[13px] text-foreground min-w-0">
-                  <span className="font-semibold">{templateId ? "Tu plantilla" : "La IA eligió por ti"}: {VIDEO_TEMPLATES.find(x => x.id === template)?.label}</span>
+                  <span className="font-semibold">{templateId ? "Tu plantilla" : "Plantilla"}: {VIDEO_TEMPLATES.find(x => x.id === template)?.label}</span>
                   {!templateId && pick && <span className="text-muted-foreground"> · porque {pick.reason}</span>}
                   {" "}<button onClick={() => setShowTemplates(v => !v)} disabled={busy} className="underline underline-offset-2 text-muted-foreground hover:text-foreground">cambiar</button>
                 </p>

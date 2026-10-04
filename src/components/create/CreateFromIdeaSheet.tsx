@@ -14,7 +14,7 @@ import {
  * "Crear con esta idea" (gratis abrirla): de una idea real (anuncio del Radar, oferta, video de
  * Nichos o idea de side hustle) al estudio en 1 toque.
  *
- *  · Arriba, "La IA eligió por ti": la pieza que más conviene, con su porqué y su costo en el botón.
+ *  · Primero las piezas que se pueden crear (la recomendada marcada); al final, "¿No sabes cuál elegir?" con la recomendación de la IA, su porqué y su costo en el botón.
  *    Ese toque ES el pedido explícito: la semilla viaja con `autostart` y el estudio genera al llegar
  *    (quien cobra es el servidor, antes de gastar, y devuelve si la IA falla).
  *  · Debajo, 3 alternativas, cada una con su costo.
@@ -97,40 +97,44 @@ export function CreateFromIdeaSheet({ idea, input, onClose }: Props) {
               </div>
             )}
 
-            {/* La recomendada: una sola acción principal, en ámbar, con su costo */}
-            <section className="rounded-2xl border border-primary/40 bg-primary/5 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" /> La IA eligió por ti
-              </p>
-              <div className="mt-2 font-display font-semibold text-[17px] text-foreground">{main.label} <span className="text-muted-foreground font-normal text-[13px]">· {rec.aspect}</span></div>
-              <p className="text-[12.5px] text-muted-foreground">{main.detail}</p>
-              <p className="text-[13px] text-foreground/90 mt-2 leading-relaxed">{rec.reason}</p>
-              <button onClick={() => go(rec.target, true)}
-                className="mt-3 w-full h-12 btn-primary-nova rounded-xl text-[14px] font-semibold inline-flex items-center justify-center gap-2">
-                {locked ? <Lock className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
-                {locked ? "Activa tu plan para crear" : <>Crear <span className="opacity-75 font-medium">· {main.costLabel}</span></>}
-              </button>
-            </section>
-
+            {/* Primero, lo que puedes crear (la recomendada va primera y marcada). La recomendación de
+                la IA, con su porqué y el botón principal, queda al final: para quien no sabe cuál elegir. */}
             <section>
-              <p className="text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground font-semibold mb-2">Otras opciones</p>
+              <p className="text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground font-semibold mb-2">¿Qué quieres crear?</p>
               <ul className="space-y-2">
-                {alts.map((t) => {
+                {[rec.target, ...alts].map((t) => {
                   const info = targetInfo(t);
                   return (
                     <li key={t}>
                       <button onClick={() => go(t, true)}
                         className="w-full min-h-[48px] rounded-xl border border-border px-3.5 py-2.5 text-left flex items-center gap-3 hover:border-foreground/30 transition-colors">
                         <span className="min-w-0 flex-1">
-                          <span className="block text-[13.5px] font-semibold text-foreground">{info.label}</span>
+                          <span className="block text-[13.5px] font-semibold text-foreground">
+                            {info.label}
+                            {t === rec.target && <span className="ml-2 text-[10.5px] font-semibold text-primary">Recomendada</span>}
+                          </span>
                           <span className="block text-[11.5px] text-muted-foreground truncate">{info.detail}</span>
                         </span>
-                        <span className="shrink-0 text-[12px] text-muted-foreground tabular-nums whitespace-nowrap">{info.costLabel}</span>
+                        <span className="shrink-0 text-[12px] text-muted-foreground tabular-nums whitespace-nowrap">{locked ? <Lock className="w-3.5 h-3.5" /> : info.costLabel}</span>
                       </button>
                     </li>
                   );
                 })}
               </ul>
+            </section>
+
+            {/* Si no sabe cuál elegir: la IA le recomienda una, con su porqué y su costo en el botón. */}
+            <section className="rounded-2xl border border-primary/40 bg-primary/5 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" /> ¿No sabes cuál elegir?
+              </p>
+              <div className="mt-2 font-display font-semibold text-[16px] text-foreground">Te recomendamos: {main.label} <span className="text-muted-foreground font-normal text-[13px]">· {rec.aspect}</span></div>
+              <p className="text-[13px] text-foreground/90 mt-1.5 leading-relaxed">{rec.reason}</p>
+              <button onClick={() => go(rec.target, true)}
+                className="mt-3 w-full h-12 btn-primary-nova rounded-xl text-[14px] font-semibold inline-flex items-center justify-center gap-2">
+                {locked ? <Lock className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+                {locked ? "Activa tu plan para crear" : <>Crear {main.label.toLowerCase()} <span className="opacity-75 font-medium">· {main.costLabel}</span></>}
+              </button>
             </section>
           </div>
 

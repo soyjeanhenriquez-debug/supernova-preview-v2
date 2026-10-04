@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 /**
  * "Elige tu presentador": las fotos de personaje del propio usuario (bucket privado "personajes",
- * carpeta <uid>/...), "La IA eligió por ti" (sin foto: la IA crea a la persona) o "Crear uno nuevo".
+ * carpeta <uid>/...), "Persona creada con IA" (sin foto: la IA crea a la persona) o "Crear uno nuevo".
  * Solo se listan rutas de la carpeta del usuario; el servidor vuelve a comprobarlo.
  */
 type Photo = { path: string; url: string };
@@ -32,7 +32,7 @@ export function PresenterPicker({ uid, value, onChange, disabled }: {
         if (value && value.startsWith(`${uid}/`) && !paths.includes(value)) paths.unshift(value);
         const { data: signed } = paths.length ? await store.createSignedUrls(paths.slice(0, MAX), 3600) : { data: [] };
         if (alive) setPhotos((signed ?? []).flatMap(s => (s.signedUrl && s.path ? [{ path: s.path, url: s.signedUrl }] : [])));
-      } catch { /* sin fotos: queda "La IA eligió por ti" */ }
+      } catch { /* sin fotos: queda "Persona creada con IA" */ }
       finally { if (alive) setLoading(false); }
     })();
     return () => { alive = false; };
@@ -45,7 +45,7 @@ export function PresenterPicker({ uid, value, onChange, disabled }: {
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
         <button type="button" disabled={disabled} onClick={() => onChange(null)} className={`${tile(value === null)} flex flex-col items-center justify-center gap-1 bg-card/40 px-1`}>
           <Sparkles className="w-4 h-4 text-primary" />
-          <span className="text-[10px] leading-tight text-center text-foreground">La IA eligió por ti</span>
+          <span className="text-[10px] leading-tight text-center text-foreground">Persona creada con IA</span>
           {value === null && <Check className="absolute top-1 right-1 w-3.5 h-3.5 text-foreground" />}
         </button>
         {photos.map(p => (

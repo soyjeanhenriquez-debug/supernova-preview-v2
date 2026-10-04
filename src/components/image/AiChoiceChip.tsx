@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import { ASPECT_LABEL, type Aspect } from "@/lib/imagePrompts";
 
-/** "La IA eligió por ti · cambiar": muestra el formato elegido y su porqué; al tocar, las opciones. */
+/** "Formato: X · cambiar": muestra el formato ya elegido y su porqué; al tocar, las opciones. */
 export function AiChoiceChip({ aspect, reason, options, onChange, disabled }: {
   aspect: Aspect; reason: string; options: Aspect[]; onChange: (a: Aspect) => void; disabled?: boolean;
 }) {
@@ -10,7 +10,7 @@ export function AiChoiceChip({ aspect, reason, options, onChange, disabled }: {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
-        <span className="inline-flex items-center gap-1.5 text-muted-foreground"><Sparkles className="w-3.5 h-3.5 text-primary" strokeWidth={1.8} /> La IA eligió por ti:</span>
+        <span className="inline-flex items-center gap-1.5 text-muted-foreground"><Sparkles className="w-3.5 h-3.5 text-primary" strokeWidth={1.8} /> Formato:</span>
         <span className="text-foreground">{ASPECT_LABEL[aspect]}</span>
         <button type="button" onClick={() => setOpen(o => !o)} disabled={disabled} aria-expanded={open}
           className="text-[12px] text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-50">

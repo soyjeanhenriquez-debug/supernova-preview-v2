@@ -10,7 +10,8 @@ import { useVersionCheck, updateIsReady } from "@/hooks/useVersionCheck";
 import { useFeatureAccess } from "@/lib/features";
 import { useProducts } from "@/contexts/ProductContext";
 import { JourneyProvider } from "@/contexts/JourneyContext";
-import { StageBar, NextStepCard } from "@/components/journey/StageBar";
+import { NextStepCard } from "@/components/journey/StageBar";
+import { HIDDEN_PAGES } from "@/lib/tools";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { useVitrina } from "@/contexts/VitrinaContext";
@@ -65,7 +66,9 @@ function pageFromHash(): string {
   let slug = "";
   // Solo el primer tramo decide la pantalla: "#/ofertas/<id>" sigue siendo Ofertas.
   try { slug = decodeURIComponent(window.location.hash.replace(/^#\/?/, "")).split("/")[0]; } catch { /* hash malformado */ }
-  return SLUG_PAGE[slug] ?? "Dashboard";
+  const page = SLUG_PAGE[slug] ?? "Dashboard";
+  // Pantallas ocultas (src/lib/tools.ts): su dirección vieja (#/ideas, #/side-hustle) lleva al Inicio.
+  return HIDDEN_PAGES.has(page) ? "Dashboard" : page;
 }
 
 const Index = () => {
@@ -76,7 +79,8 @@ const Index = () => {
   // (lee la oferta de la dirección al montarse, también si ya estaba abierta).
   const [openNonce, setOpenNonce] = useState(0);
 
-  const setActivePage = useCallback((page: string) => {
+  const setActivePage = useCallback((requested: string) => {
+    const page = HIDDEN_PAGES.has(requested) ? "Dashboard" : requested; // pantallas ocultas → Inicio
     // Volver a tocar la pantalla en la que ya estás la monta de nuevo (p. ej. otro generador
     // desde el menú estando ya en Generadores: lee su orden al montarse).
     if (activeRef.current === page) setOpenNonce(n => n + 1);
@@ -193,7 +197,6 @@ const Index = () => {
         <TopBar activePage={activePage} onOpenMobileNav={() => setMobileNavOpen(true)} onSearch={() => setSearchOpen(true)} />
         {/* En qué etapa vas y tu siguiente paso, en todas las pantallas. El Inicio ya muestra el
             recorrido completo. Vive fuera del div con key={productKey}: no parpadea al cambiar de producto. */}
-        {!locked && activePage !== "Dashboard" && <StageBar page={activePage} onNavigate={setActivePage} />}
         <main className="flex-1 p-4 md:p-6 lg:p-8 pb-[calc(84px+env(safe-area-inset-bottom))] lg:pb-8 overflow-auto">
           {/* Si una pantalla falla, el menú sigue vivo y cambiar de pantalla la recupera. */}
           {/* Video corto de la herramienta, si ya existe (src/lib/tutorials.ts). */}

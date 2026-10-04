@@ -44,7 +44,7 @@ describe("ImageStudioPage", () => {
     profile = { product: "Ebook de recetas", who: "Mamás que trabajan", promise: "Cocinar rápido", price: "" };
     render(<ImageStudioPage initialMode="foto_ugc" />);
     expect(screen.getByText(/Crear 3 fotos · 18 créditos/)).toBeInTheDocument();
-    expect(screen.getByText(/La IA eligió por ti/)).toBeInTheDocument();
+    expect(screen.getByText(/Formato:/)).toBeInTheDocument();
     await new Promise(r => setTimeout(r, 50));
     expect(invoke).not.toHaveBeenCalled();
   });

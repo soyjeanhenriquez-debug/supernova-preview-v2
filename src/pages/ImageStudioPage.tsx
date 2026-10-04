@@ -22,7 +22,7 @@ import { SavedGallery, type SavedImage } from "@/components/image/SavedGallery";
 /**
  * Estudio de imágenes (03-oct-2026; plan ATLAS 04-oct-2026): Creativos, Carrusel, Miniaturas, Fotos
  * estilo UGC, Foto de producto y Variar, hechos desde tu producto o desde una idea ganadora (semilla
- * de creativeSeed), sin escribir prompts. La IA elige el formato ("La IA eligió por ti · cambiar").
+ * de creativeSeed), sin escribir prompts. La IA elige el formato ("Formato: X · cambiar").
  *
  * Cobro: generate-ad-creative cobra en el servidor ANTES de generar (acción gen_ad_image de
  * credit_prices: 6 créditos, ≈ 5,9× el costo real con APIMart GPT Image 2) y devuelve el crédito si la

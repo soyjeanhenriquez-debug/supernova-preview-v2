@@ -521,7 +521,7 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
           <div className="rounded-2xl border border-border p-4 text-[14px] text-foreground">{limitError}</div>
         ) : (<>
           <div className="space-y-3">
-            <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-muted-foreground">La IA eligió por ti</p>
+            <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-muted-foreground">Ajustes de tu video</p>
             <div className="flex flex-wrap gap-2">
               <Chip icon={Mic} label="Voz" value={VOICE_LABEL[voice]}>
                 {VOICES.map(v => <DropdownMenuItem key={v} onClick={() => setVoice(v)}>{VOICE_LABEL[v]} {voice === v && <Check className="w-3.5 h-3.5 ml-auto" />}</DropdownMenuItem>)}

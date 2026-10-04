@@ -33,7 +33,7 @@ export function TopBar({ activePage, onOpenMobileNav, onSearch }: TopBarProps) {
   useEffect(() => {
     if (!accessLoading && !multiLang && i18n.resolvedLanguage !== "es") i18n.changeLanguage("es");
   }, [accessLoading, multiLang, i18n]);
-  const low = balance < 100;
+  const low = !isAdmin && balance < 100; // los admin no gastan de un saldo: se muestra "Ilimitado"
   // Mismo nombre que en el menú (la clave interna de la página no es para mostrarla).
   const NAV_KEY: Record<string, string> = {
     "Dashboard": "nav.dashboard", "Ofertas": "nav.offers", "Mini Apps": "nav.kits",
@@ -108,11 +108,13 @@ export function TopBar({ activePage, onOpenMobileNav, onSearch }: TopBarProps) {
               ? "border-destructive/40 bg-destructive/10 text-destructive"
               : "border-border bg-card/60 text-foreground hover:border-foreground/30"
           }`}
-          title={`${balance} / ${limit} ${t("common.credits")}`}
+          title={isAdmin ? "Créditos ilimitados (admin)" : `${balance} / ${limit} ${t("common.credits")}`}
         >
           <Coins className={`w-[13px] h-[13px] ${low ? "text-destructive" : "text-primary"}`} strokeWidth={1.8} />
-          <span className="tabular-nums font-semibold"><CountUp value={balance} /></span>
-          <span className="text-muted-foreground/70 hidden sm:inline">/ {limit.toLocaleString()}</span>
+          {isAdmin ? <span className="font-semibold">Ilimitado</span> : (<>
+            <span className="tabular-nums font-semibold"><CountUp value={balance} /></span>
+            <span className="text-muted-foreground/70 hidden sm:inline">/ {limit.toLocaleString()}</span>
+          </>)}
         </div>
 
         {multiLang && <LanguageSwitcher />}

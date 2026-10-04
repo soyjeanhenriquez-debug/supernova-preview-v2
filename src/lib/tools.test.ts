@@ -12,7 +12,8 @@ describe("herramientas", () => {
     // UGC con IA sigue cerrado en el servidor: nunca como tarjeta principal para clientes.
     expect(STUDIO_TOOLS.some(t => t.id === "ugc")).toBe(false);
     expect(TOOLS.some(t => t.id === "ugc")).toBe(false);
-    expect(FIND_TOOLS.map(t => t.id)).toEqual(["ideas", "radar", "ofertas", "nichosyt", "miniapps"]);
+    // "Ideas de side hustle" quedó oculta el 05-oct-2026 (HIDDEN_TOOL_IDS).
+    expect(FIND_TOOLS.map(t => t.id)).toEqual(["radar", "ofertas", "nichosyt", "miniapps"]);
     expect(STUDIO_MORE_TOOLS.every(Boolean)).toBe(true);
   });
   it("cada tarjeta del Estudio y de Encontrar dice su costo en créditos o Gratis, nunca dólares", () => {

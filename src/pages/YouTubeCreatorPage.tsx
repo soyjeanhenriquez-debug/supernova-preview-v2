@@ -17,7 +17,7 @@ import { listProductions, progressOf, type ProductionMeta } from "@/lib/producti
 /**
  * Creador de videos para YouTube (03-oct-2026, rehecho tras ver el "Agente Hacks" de HacksLabs).
  * UNA pantalla: "¿Qué video quieres hacer?" con tres pestañas (Idea · Mi guion · Link de YouTube) y
- * "La IA eligió por ti" (formato, duración, estilo, idioma) ya decidido, con "Otra combinación".
+ * "Ajustes del video" (formato, duración, estilo, idioma) ya decididos según la idea, con "Otra combinación".
  * El usuario no tiene que pensar: escribe una idea o pega un enlace y la IA hace el resto.
  * - Idea / Mi guion → generador "yt-script" de ai-chat (se escribe en vivo; cobro en el servidor).
  * - Link → función yt-reference: Google Gemini VE el video público y devuelve estructura y un guion
@@ -427,10 +427,10 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
         </p>
       </div>
 
-      {/* La IA eligió por ti */}
+      {/* Ajustes del video (ya elegidos según la idea; se pueden cambiar) */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-muted-foreground">La IA eligió por ti</p>
+          <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-muted-foreground">Ajustes del video</p>
           <button onClick={shuffle} className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground"><Shuffle className="w-3.5 h-3.5" /> Otra combinación</button>
         </div>
         <div className="flex flex-wrap gap-2">

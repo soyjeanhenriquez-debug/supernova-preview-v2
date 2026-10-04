@@ -3,7 +3,7 @@ import {
   Trophy, Gem, Boxes, Lightbulb, BookOpen, ClipboardCheck, Orbit, Quote, FileText, UserRound, Video,
   ListTodo, CalendarDays, MessageCircle, Calculator, BarChart3, Telescope, Store, Image, LayoutTemplate,
   MonitorPlay, Clapperboard, Send, TrendingUp, Mail, Film, Hash, Youtube, ShoppingBag, Radar,
-  Megaphone, Smartphone, Camera,
+  Megaphone, Smartphone, Camera, PanelsTopLeft,
   type LucideIcon,
 } from "lucide-react";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
@@ -122,6 +122,8 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
     desc: "Descripciones para Instagram que invitan a escribirte.", keywords: "captions descripcion instagram post texto" }),
   T({ id: "youtube", key: "Generadores", generator: "yt-script", icon: Youtube, title: "Guion de YouTube", nav: "Guion de YouTube",
     desc: "Videos largos que posicionan y venden.", keywords: "youtube guion video largo" }),
+  T({ id: "paginas", key: "Generadores", generator: "landing-copy", icon: PanelsTopLeft, title: "Página de ventas", nav: "Página de ventas", cost: cr(C.gen_medium),
+    desc: "Todo el texto de tu página, del titular al botón de compra.", keywords: "pagina paginas landing pagina de ventas web sitio textos titular" }),
   T({ id: "contenido", key: "Contenido", icon: CalendarDays, title: "Calendario de contenido",
     desc: "Ideas con demanda real para publicar sin pagar anuncios.", keywords: "contenido calendario publicaciones organico posts reels" }),
 
@@ -142,10 +144,24 @@ export const STUDIO_TOOLS = pick(["creativos", "videoanuncio", "videoia", "cread
 /** Más para crear: siguen en el menú y en el buscador, debajo de las 8 principales. */
 export const STUDIO_MORE_TOOLS = pick(["fotoproducto", "personaje", "copy"]);
 /** Ideas ganadoras: qué ya vende, antes de crear nada. Todo gratis de mirar. */
-export const FIND_TOOLS = pick(["ideas", "radar", "ofertas", "nichosyt", "miniapps"]);
+export const FIND_TOOLS = pick(["radar", "ofertas", "nichosyt", "miniapps"]);
 export const ADMIN_EXTRA_TOOLS = pick(["mercado", "oraculo", "video", "ugc"]);
 
-export const MODELS: { id: BusinessModel; label: string; short: string; line: string; tools: Tool[] }[] = [
+/**
+ * Panel de herramientas del Inicio (estructura tomada de LanzaYa, 04-oct-2026): pestañas por lo que
+ * quieres hacer. "Lo esencial" son las 12 que abren el panel; "Todo" las muestra todas. Solo
+ * herramientas que ya funcionan: nada de tarjetas de cosas que no existen.
+ */
+export const HOME_CATEGORIES: { id: string; label: string; tools: Tool[] }[] = [
+  { id: "esencial", label: "Lo esencial", tools: pick(["creativos", "carrusel", "videoia", "miniaturas", "personaje", "fotoproducto", "copy", "paginas", "producto", "ofertas", "radar", "videoanuncio"]) },
+  { id: "ideas", label: "Ideas que venden", tools: pick(["radar", "ofertas", "nichosyt", "miniapps", "ganchos", "dolores"]) },
+  { id: "imagenes", label: "Imágenes", tools: pick(["creativos", "carrusel", "miniaturas", "fotosugc", "fotoproducto"]) },
+  { id: "video", label: "Video", tools: pick(["videoanuncio", "videoia", "creadoryt", "series", "personaje", "ugc", "video"]) },
+  { id: "textos", label: "Textos y anuncios", tools: pick(["copy", "paginas", "anuncios", "ganchos", "vsl", "correos", "reels", "captions", "dm", "youtube", "contenido"]) },
+  { id: "negocio", label: "Tu negocio", tools: pick(["producto", "validar", "precio", "plan", "bump", "ascension", "recuperar", "resultados"]) },
+];
+
+export const MODELS:{ id: BusinessModel; label: string; short: string; line: string; tools: Tool[] }[] = [
   { id: "low", label: "Infoproducto (low ticket)", short: "Low ticket", line: "Ebook, curso o reto de US$7 a US$47, vendido con anuncios.",
     tools: pick(["producto", "anuncios", "validar", "precio", "bump", "recuperar", "resultados", "ganchos"]) },
   { id: "high", label: "Mentoría o servicio (high ticket)", short: "High ticket", line: "Programas de US$300 o más que se cierran en una llamada.",
@@ -155,7 +171,13 @@ export const MODELS: { id: BusinessModel; label: string; short: string; line: st
 ];
 
 /** Todas las herramientas (Inicio, menú, buscador y la prueba de que cada una abre una pantalla real). */
-export const TOOLS: Tool[] = Object.values(TOOL_BY_ID).filter(t => !ADMIN_EXTRA_TOOLS.includes(t));
+/**
+ * Herramientas ocultas (05-oct-2026, decisión de Jean): no salen en el menú, el Inicio ni el buscador.
+ * Su pantalla y sus datos siguen existiendo; Index.tsx redirige su dirección al Inicio.
+ */
+export const HIDDEN_TOOL_IDS = new Set(["ideas"]);
+export const HIDDEN_PAGES = new Set(["Ideas"]);
+export const TOOLS: Tool[] = Object.values(TOOL_BY_ID).filter(t => !ADMIN_EXTRA_TOOLS.includes(t) && !HIDDEN_TOOL_IDS.has(t.id));
 
 /**
  * Abre una herramienta. Las que son un generador concreto dejan dicho cuál abrir (GeneradoresPage

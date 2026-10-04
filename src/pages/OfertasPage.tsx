@@ -11,6 +11,10 @@ import { OFFERS_TAB_KEY, type FollowedRow } from "@/components/dashboard/RoiHunt
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { type Offer, NICHE_LABEL, MODEL_LABEL, MARKET_GROUP, offerToDemoAd, openOfferAdsInRadar } from "@/lib/offers";
 import { type OfferWatch, parseWatch } from "@/lib/offerWatch";
+import { CreateFromIdeaSheet } from "@/components/create/CreateFromIdeaSheet";
+import { ideaFromOffer } from "@/lib/recommendTarget";
+
+const OFFER_INPUT = { source: "oferta" } as const;
 
 // La ficha abierta vive en la dirección (#/ofertas/<id>): se puede compartir y,
 // sobre todo, el botón "atrás" del teléfono CIERRA la ficha en vez de sacarte de
@@ -73,6 +77,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const [stats, setStats] = useState<Stats | null>(null);
   const [creating, setCreating] = useState<Offer | null>(null);
   const [detail, setDetail] = useState<Offer | null>(null);
+  const [ideaOffer, setIdeaOffer] = useState<Offer | null>(null);
 
   const openDetail = useCallback((o: Offer) => {
     setDetail(o);
@@ -315,7 +320,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
       ) : (
         <>
           <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {rows.map((o) => <OfferCard key={o.id} o={o} onOpen={() => openDetail(o)} onCreate={() => setCreating(o)} following={follows.isFollowing(o.id)} onToggleFollow={() => follows.toggle(o)} />)}
+            {rows.map((o) => <OfferCard key={o.id} o={o} onOpen={() => openDetail(o)} onCreate={() => setCreating(o)} onCreateIdea={() => setIdeaOffer(o)} following={follows.isFollowing(o.id)} onToggleFollow={() => follows.toggle(o)} />)}
           </div>
           {rows.length < total && (
             <div className="flex justify-center pt-2">
@@ -340,6 +345,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
           onClose={closeDetail}
         />
       )}
+      {ideaOffer && <CreateFromIdeaSheet idea={ideaFromOffer(ideaOffer)} input={OFFER_INPUT} onClose={() => setIdeaOffer(null)} />}
       {creating && <MiniAppModal ad={offerToDemoAd(creating)} brief={offerBrief(creating)} onNavigate={onNavigate} onClose={() => setCreating(null)} />}
     </div>
   );

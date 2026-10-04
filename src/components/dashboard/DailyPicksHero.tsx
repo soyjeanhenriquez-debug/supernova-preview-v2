@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Flame, ExternalLink, Zap, Radar, ArrowRight, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { MiniAppModal } from "@/components/MiniAppModal";
+import { CreateFromIdeaSheet } from "@/components/create/CreateFromIdeaSheet";
+import { ideaFromOffer } from "@/lib/recommendTarget";
 import { offerBrief } from "@/lib/sellThis";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { buildAdsLibraryPageUrl, type AdMarket } from "@/lib/demo-winning-ads";
@@ -12,6 +14,7 @@ import {
 
 interface Pick { slot: number; market_group: string; offer: Offer; }
 interface Props { onNavigate?: (page: string) => void; }
+const OFFER_INPUT = { source: "oferta" } as const;
 
 /**
  * "Tus 3 negocios de hoy": el wow al abrir la app. La RPC get_daily_picks()
@@ -23,6 +26,7 @@ export function DailyPicksHero({ onNavigate }: Props) {
   const [picks, setPicks] = useState<Pick[] | null>(null);
   const [totalOffers, setTotalOffers] = useState<number | null>(null);
   const [copying, setCopying] = useState<Offer | null>(null);
+  const [ideaOffer, setIdeaOffer] = useState<Offer | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -69,15 +73,16 @@ export function DailyPicksHero({ onNavigate }: Props) {
       <div className="grid md:grid-cols-3 gap-4">
         {picks === null
           ? [0, 1, 2].map((i) => <div key={i} className="card-surface rounded-2xl h-[340px] animate-pulse" />)
-          : picks.map((p) => <PickCard key={p.offer.id} pick={p} onCopy={() => setCopying(p.offer)} onNavigate={onNavigate} />)}
+          : picks.map((p) => <PickCard key={p.offer.id} pick={p} onCopy={() => setCopying(p.offer)} onCreateIdea={() => setIdeaOffer(p.offer)} onNavigate={onNavigate} />)}
       </div>
 
+      {ideaOffer && <CreateFromIdeaSheet idea={ideaFromOffer(ideaOffer)} input={OFFER_INPUT} onClose={() => setIdeaOffer(null)} />}
       {copying && <MiniAppModal ad={offerToDemoAd(copying)} brief={offerBrief(copying)} onNavigate={onNavigate} onClose={() => setCopying(null)} />}
     </section>
   );
 }
 
-function PickCard({ pick, onCopy, onNavigate }: { pick: Pick; onCopy: () => void; onNavigate?: (p: string) => void }) {
+function PickCard({ pick, onCopy, onCreateIdea, onNavigate }: { pick: Pick; onCopy: () => void; onCreateIdea: () => void; onNavigate?: (p: string) => void }) {
   const o = pick.offer;
   const group = MARKET_GROUP[pick.market_group];
   const copy = copyLabel(o.copy_score);
@@ -135,6 +140,9 @@ function PickCard({ pick, onCopy, onNavigate }: { pick: Pick; onCopy: () => void
           <ExternalLink className="w-4 h-4" />
         </a>
       </div>
+      <button onClick={onCreateIdea} className="mt-2 h-10 rounded-lg border border-border text-[12.5px] font-semibold text-foreground hover:border-primary/40 hover:text-primary inline-flex items-center justify-center gap-1.5 transition-colors">
+        <Sparkles className="w-3.5 h-3.5" /> Crear anuncios con esta idea
+      </button>
     </article>
   );
 }

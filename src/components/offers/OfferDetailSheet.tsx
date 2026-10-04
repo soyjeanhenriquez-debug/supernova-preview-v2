@@ -19,6 +19,8 @@ import { useSellThis, offerBrief } from "@/lib/sellThis";
 import { setAutorun, type AutorunAction } from "@/lib/autorun";
 import { useFeatureAccess } from "@/lib/features";
 import { BusinessMap } from "@/components/offers/BusinessMap";
+import { CreateFromIdeaSheet } from "@/components/create/CreateFromIdeaSheet";
+import { ideaFromOffer } from "@/lib/recommendTarget";
 
 /**
  * Ficha de una oferta. Pensada primero para el teléfono: hoja que sube desde
@@ -32,6 +34,7 @@ import { BusinessMap } from "@/components/offers/BusinessMap";
  *                cómo adaptarla a LATAM, países y precio para probar.
  */
 type TabKey = "oferta" | "numeros" | "veredicto";
+const OFFER_INPUT = { source: "oferta" } as const;
 type Phase = "loading" | "generating" | "ready" | "error";
 
 interface Props {
@@ -52,6 +55,8 @@ export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate
   const bodyRef = useRef<HTMLDivElement>(null);
   const { sell, selling } = useSellThis();
   const { canSee } = useFeatureAccess();
+  // "Crea tus anuncios con esta oferta": abre la hoja de crear (gratis abrirla; el botón dice el costo).
+  const [ideaOpen, setIdeaOpen] = useState(false);
 
   // Botones de un clic: esta oferta pasa a ser tu producto y la herramienta hace el trabajo al abrirse.
   // Lo que gasta créditos lo dice el botón y lo cobra el servidor como siempre; lo demás es gratis.
@@ -157,6 +162,11 @@ export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate
                 ))}
               </div>
             </div>
+            {/* De la oferta al estudio en un toque: la IA elige la pieza y muestra el costo antes de gastar. */}
+            <button onClick={() => setIdeaOpen(true)}
+              className="w-full h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-primary/50 hover:text-primary flex items-center justify-center gap-2 transition-colors">
+              <Sparkles className="w-4 h-4" /> Crea tus anuncios con esta oferta <span className="opacity-70 font-medium">· la IA elige</span>
+            </button>
             {/* Gratis: la oferta pasa a tu ficha de "Mi negocio" (con el precio que vimos, si lo hay). */}
             <button onClick={() => void sell({ ...offerBrief(o), price: intel?.price_text || o.price_hint })} disabled={selling}
               className="w-full h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-primary/50 hover:text-primary flex items-center justify-center gap-2 disabled:opacity-60 transition-colors">
@@ -176,6 +186,9 @@ export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate
           </footer>
         </div>
       </div>
+      {ideaOpen && (
+        <CreateFromIdeaSheet idea={ideaFromOffer(o, intel?.price_text)} input={OFFER_INPUT} onClose={() => setIdeaOpen(false)} />
+      )}
     </ModalPortal>
   );
 }

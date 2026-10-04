@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useProducts } from "@/contexts/ProductContext";
 import { useFeatureAccess } from "@/lib/features";
-import { TOOLS, ADMIN_EXTRA_TOOLS } from "@/lib/tools";
+import { TOOLS, ADMIN_EXTRA_TOOLS, openTool } from "@/lib/tools";
 import { track } from "@/lib/analytics";
 
 /**
@@ -79,7 +79,7 @@ export function GlobalSearch({ open, onOpenChange, onNavigate, onOpenOffer }: Pr
   const term = norm(q.trim());
   const tools = useMemo(() => {
     const all = [...TOOLS, ...ADMIN_EXTRA_TOOLS].filter(t => canSee(t.key));
-    if (!term) return all.filter(t => t.featured || t.group === "crear").slice(0, 5);
+    if (!term) return all.filter(t => t.featured || ["carrusel", "personaje", "copy", "radar"].includes(t.id)).slice(0, 5);
     const words = term.split(/\s+/);
     return all.filter(t => {
       const hay = norm(`${t.title} ${t.nav} ${t.desc} ${t.keywords}`);
@@ -113,7 +113,7 @@ export function GlobalSearch({ open, onOpenChange, onNavigate, onOpenOffer }: Pr
                 {tools.map(t => {
                   const Icon = t.icon;
                   return (
-                    <CommandItem key={t.key} value={`tool-${t.key}`} onSelect={() => { done("herramienta", t.key); onNavigate(t.key); }}>
+                    <CommandItem key={t.id} value={`tool-${t.id}`} onSelect={() => { done("herramienta", t.id); openTool(t, onNavigate); }}>
                       <Icon className="w-4 h-4 mr-3 text-muted-foreground shrink-0" strokeWidth={1.7} />
                       <span className="min-w-0">
                         <span className="block text-[13px] text-foreground truncate">{t.title}</span>

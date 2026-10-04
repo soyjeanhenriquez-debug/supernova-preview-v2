@@ -17,10 +17,10 @@ type Step = {
 export const OPEN_TOUR_EVENT = "supernova:open-tour";
 const STEPS: Step[] = [
   {
-    target: "home-Buscar Ofertas Winner",
-    title: "Toca lo que quieres hacer",
+    target: "home-creativos",
+    title: "Toca lo que quieres crear",
     page: "1 de 3",
-    body: "Cada botón te lleva directo a una herramienta. Si no sabes por dónde empezar, <strong>espía los anuncios ganadores</strong>: los que llevan más días pagándose son la mejor prueba de que venden. Mirar es gratis.",
+    body: "Cada botón hace el trabajo desde tu producto: <strong>creativos, carruseles, tu influencer IA o el copy</strong>. Más abajo eliges qué estás construyendo y ves las herramientas de tu negocio. ¿No sabes qué vender? <strong>Espía los anuncios ganadores</strong>: mirar es gratis.",
     placement: "bottom",
   },
   {

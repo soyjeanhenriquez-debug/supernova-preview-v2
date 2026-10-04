@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProducts } from "@/contexts/ProductContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureAccess } from "@/lib/features";
-import { TOOLS, TOOL_GROUPS, type Tool } from "@/lib/tools";
+import { STUDIO_TOOLS, FIND_TOOLS, MODELS, openTool, useBusinessModel, type Tool } from "@/lib/tools";
 import { track } from "@/lib/analytics";
 import { DailyPicksHero } from "@/components/dashboard/DailyPicksHero";
 import { RoiHunterWidget } from "@/components/dashboard/RoiHunterWidget";
@@ -86,7 +86,7 @@ function ToolCard({ tool, onOpen, locked }: { tool: Tool; onOpen: () => void; lo
   return (
     <button
       onClick={onOpen}
-      data-tour={`home-${tool.key}`}
+      data-tour={`home-${tool.id}`}
       className={`group relative text-left rounded-2xl border p-4 md:p-5 transition-colors flex flex-col gap-3 min-h-[124px] ${
         tool.featured
           ? "border-primary/50 bg-primary/[0.06] hover:border-primary"
@@ -115,6 +115,7 @@ export function DashboardPage({ onNavigate }: Props) {
   const { active } = useProducts();
   const { canSee } = useFeatureAccess();
   const { locked, openPlans } = useVitrina();
+  const { model, setModel, current: modelInfo } = useBusinessModel();
   const recent = useRecentWork(onNavigate);
   const sample = useVitrinaSample(locked);
   const firstName = (user?.user_metadata?.display_name || user?.email?.split("@")[0] || "")
@@ -129,8 +130,8 @@ export function DashboardPage({ onNavigate }: Props) {
   });
 
   const open = (tool: Tool) => {
-    track("home_card_click", { card: tool.key, vitrina: locked });
-    onNavigate(tool.key);
+    track("home_card_click", { card: tool.id, vitrina: locked, modelo: model });
+    openTool(tool, onNavigate);
   };
 
   return (
@@ -138,7 +139,7 @@ export function DashboardPage({ onNavigate }: Props) {
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           {firstName && <p className="text-sm text-muted-foreground mb-1" data-ph-mask>Hola, {firstName}</p>}
-          <h1 className="font-display font-bold text-[26px] md:text-[32px] tracking-[-0.02em] text-foreground">¿Qué quieres hacer hoy?</h1>
+          <h1 className="font-display font-bold text-[26px] md:text-[32px] tracking-[-0.02em] text-foreground">¿Qué quieres crear hoy?</h1>
           <button onClick={() => window.dispatchEvent(new Event(OPEN_TOUR_EVENT))} className="mt-1 text-[12px] text-muted-foreground hover:text-foreground underline-offset-4 hover:underline">Ver cómo funciona (1 minuto)</button>
         </div>
         {locked ? (
@@ -162,19 +163,36 @@ export function DashboardPage({ onNavigate }: Props) {
         </div>
       )}
 
-      {/* Cuadrícula de herramientas por intención. */}
-      <div className="space-y-7">
-        {TOOL_GROUPS.map(g => {
-          const tools = TOOLS.filter(t => t.group === g.id && canSee(t.key));
+      {/* ¿Qué estás construyendo? Reordena "Tu negocio" (se recuerda en este navegador). */}
+      <div className="space-y-2">
+        <p className="text-[12px] text-muted-foreground">¿Qué estás construyendo?</p>
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none]">
+          {MODELS.map(m => (
+            <button key={m.id} onClick={() => setModel(m.id)} aria-pressed={model === m.id}
+              className={`shrink-0 h-9 px-4 rounded-full border text-[13px] transition-colors ${model === m.id ? "border-primary/60 text-foreground bg-primary/[0.07]" : "border-border text-muted-foreground hover:text-foreground"}`}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Estudio IA: lo que la gente quiere producir. Luego su negocio, luego qué ya vende. */}
+      <div className="space-y-8">
+        {[
+          { id: "estudio", title: "Estudio IA", sub: "Crea en un clic, desde tu producto", tools: STUDIO_TOOLS },
+          { id: "negocio", title: `Tu negocio · ${modelInfo.short}`, sub: modelInfo.line, tools: modelInfo.tools },
+          { id: "encontrar", title: "Encontrar qué vender", sub: "Lo que ya vende, antes de crear nada", tools: FIND_TOOLS },
+        ].map(g => {
+          const tools = g.tools.filter(t => canSee(t.key));
           if (!tools.length) return null;
           return (
             <section key={g.id}>
-              <div className="flex items-baseline gap-2 mb-3">
-                <h2 className="text-[11px] uppercase tracking-[0.18em] font-semibold text-foreground">{g.title}</h2>
-                <span className="text-[12px] text-muted-foreground">{g.sub}</span>
+              <div className="flex items-baseline gap-2 mb-3 min-w-0">
+                <h2 className="text-[11px] uppercase tracking-[0.18em] font-semibold text-foreground shrink-0">{g.title}</h2>
+                <span className="text-[12px] text-muted-foreground truncate">{g.sub}</span>
               </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {tools.map(t => <ToolCard key={t.key} tool={t} locked={locked} onOpen={() => open(t)} />)}
+                {tools.map(t => <ToolCard key={t.id} tool={t} locked={locked} onOpen={() => open(t)} />)}
               </div>
             </section>
           );

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { Loader2 } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
@@ -44,6 +44,7 @@ const RecoveryPage = lazy(() => import("@/pages/RecoveryPage").then(m => ({ defa
 const ContentPage = lazy(() => import("@/pages/ContentPage").then(m => ({ default: m.ContentPage })));
 const ProductsPage = lazy(() => import("@/pages/ProductsPage").then(m => ({ default: m.ProductsPage })));
 const ProductBuilderPage = lazy(() => import("@/pages/ProductBuilderPage"));
+const ImageStudioPage = lazy(() => import("@/pages/ImageStudioPage").then(m => ({ default: m.ImageStudioPage })));
 const AprendePage = lazy(() => import("@/pages/AprendePage").then(m => ({ default: m.AprendePage })));
 
 function PageLoader() {
@@ -84,12 +85,15 @@ const PAGE_SLUG: Record<string, string> = {
   "Crear producto": "crear-producto",
   "Sin mostrar tu cara": "personaje",
   "Aprende": "aprende",
+  "Creativos": "creativos",
+  "Carrusel": "carrusel",
+  "Miniaturas": "miniaturas",
 };
 const SLUG_PAGE: Record<string, string> = {
   "ofertas": "Ofertas", "mini-apps": "Mini Apps", "radar": "Buscar Ofertas Winner", "hooks": "Hooks", "mandala": "Mándala", "mercado": "Mercado",
   "oraculo": "Oráculo", "generadores": "Generadores", "media-studio": "Media Studio",
   "proyectos": "Proyectos", "creditos": "Créditos", "crear": "Crear", "precio": "Precio", "mi-negocio": "Mi negocio", "validar": "Validar", "plan": "Plan", "contenido": "Contenido", "resultados": "Resultados", "recuperar": "Recuperar", "productos": "Productos",
-  "crear-producto": "Crear producto", "personaje": "Sin mostrar tu cara", "aprende": "Aprende",
+  "crear-producto": "Crear producto", "personaje": "Sin mostrar tu cara", "aprende": "Aprende", "creativos": "Creativos", "carrusel": "Carrusel", "miniaturas": "Miniaturas",
 };
 function pageFromHash(): string {
   // Un hash que no es nuestro (p. ej. el #access_token=… de un enlace de acceso) se ignora.
@@ -101,8 +105,17 @@ function pageFromHash(): string {
 
 const Index = () => {
   const [activePage, setActivePageState] = useState(pageFromHash);
+  const activeRef = useRef(activePage);
+  activeRef.current = activePage;
+  // Abrir una oferta desde el buscador: la dirección #/ofertas/<id> y volver a montar Ofertas
+  // (lee la oferta de la dirección al montarse, también si ya estaba abierta).
+  const [openNonce, setOpenNonce] = useState(0);
 
   const setActivePage = useCallback((page: string) => {
+    // Volver a tocar la pantalla en la que ya estás la monta de nuevo (p. ej. otro generador
+    // desde el menú estando ya en Generadores: lee su orden al montarse).
+    if (activeRef.current === page) setOpenNonce(n => n + 1);
+    activeRef.current = page;
     setActivePageState(page);
     const slug = PAGE_SLUG[page];
     if (slug !== undefined) {
@@ -136,6 +149,9 @@ const Index = () => {
     if (locked && activePage !== "Dashboard" && activePage !== "Aprende") return <LockedToolPage page={activePage} />;
     switch (activePage) {
       case "Aprende": return <AprendePage onNavigate={setActivePage} />;
+      case "Creativos": return <ImageStudioPage key="creativo" initialMode="creativo" />;
+      case "Carrusel": return <ImageStudioPage key="carrusel" initialMode="carrusel" />;
+      case "Miniaturas": return <ImageStudioPage key="miniatura" initialMode="miniatura" />;
       case "Dashboard": return <DashboardPage onNavigate={setActivePage} />;
       case "Ofertas": return <OfertasPage onNavigate={setActivePage} />;
       case "Mini Apps": return <KitsPage onNavigate={setActivePage} />;
@@ -167,9 +183,6 @@ const Index = () => {
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  // Abrir una oferta desde el buscador: la dirección #/ofertas/<id> y volver a montar Ofertas
-  // (lee la oferta de la dirección al montarse, también si ya estaba abierta).
-  const [openNonce, setOpenNonce] = useState(0);
   const openOffer = useCallback((id: string) => {
     window.history.pushState(null, "", `${window.location.pathname}${window.location.search}#/ofertas/${id}`);
     setActivePageState("Ofertas");

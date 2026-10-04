@@ -8,13 +8,15 @@ import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
 
 interface Body {
   prompt: string;
-  aspectRatio?: "1:1" | "4:5" | "9:16"; // feed Meta / feed vertical Meta / Stories-Reels-TikTok
+  aspectRatio?: "1:1" | "4:5" | "9:16" | "16:9"; // feed Meta / feed vertical Meta / Stories-Reels-TikTok / miniatura YouTube
 }
 
 const ASPECT_HINT: Record<string, string> = {
   "1:1": "square 1:1 format, Instagram/Facebook feed ad",
   "4:5": "vertical 4:5 format, Instagram/Facebook feed ad",
   "9:16": "vertical 9:16 full-screen format, Instagram/TikTok Stories and Reels ad",
+  // Miniaturas (Estudio de imágenes): portada horizontal de YouTube.
+  "16:9": "horizontal 16:9 format, YouTube video thumbnail, bold and readable at small size",
 };
 
 // Tope de tamaño del cuerpo: este texto acaba en un modelo que cobra por token.

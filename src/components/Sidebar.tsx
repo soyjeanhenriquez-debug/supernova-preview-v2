@@ -8,7 +8,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useNavigate } from "react-router-dom";
 import { useFeatureAccess } from "@/lib/features";
 import { ProductSwitcher } from "@/components/ProductSwitcher";
-import { TOOLS, TOOL_GROUPS, ADMIN_EXTRA_TOOLS, type Tool } from "@/lib/tools";
+import { STUDIO_TOOLS, FIND_TOOLS, ADMIN_EXTRA_TOOLS, openTool, useBusinessModel, type Tool } from "@/lib/tools";
 import { TUTORIALS } from "@/lib/tutorials";
 import { useVitrina } from "@/contexts/VitrinaContext";
 
@@ -33,13 +33,17 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
   // Menú por intención (decisión de Jean, 03-oct-2026): los mismos grupos que el Inicio
   // (src/lib/tools.ts), más Biblioteca y Cuenta. Las secciones en pausa (src/lib/features.ts) solo
   // las ve un admin. Las claves y los data-tour="nav-<key>" no cambian (los usan el tour y la ayuda).
-  type NavItem = { icon: LucideIcon; key: string; label: string; hint: string };
-  const fromTool = (tl: Tool): NavItem => ({ icon: tl.icon, key: tl.key, label: tl.nav, hint: tl.desc });
+  type NavItem = { icon: LucideIcon; key: string; label: string; hint: string; tool?: Tool; id?: string };
+  const fromTool = (tl: Tool): NavItem => ({ icon: tl.icon, key: tl.key, label: tl.nav, hint: tl.desc, tool: tl, id: tl.id });
+  const { current: modelInfo } = useBusinessModel();
+  const visible = (list: Tool[]) => list.filter(tl => canSee(tl.key)).map(fromTool);
   const groups: { title: string; items: NavItem[] }[] = [
     { title: "", items: [
       { icon: LayoutDashboard, key: "Dashboard", label: t("nav.dashboard"), hint: "¿Qué quieres hacer hoy? Todas las herramientas y lo último que creaste." },
     ] },
-    ...TOOL_GROUPS.map(g => ({ title: g.title, items: TOOLS.filter(tl => tl.group === g.id && canSee(tl.key)).map(fromTool) })),
+    { title: "Estudio IA", items: visible(STUDIO_TOOLS) },
+    { title: `Tu negocio · ${modelInfo.short}`, items: visible(modelInfo.tools) },
+    { title: "Encontrar", items: visible(FIND_TOOLS) },
     { title: "Biblioteca", items: [
       // Aprende aparece cuando hay al menos un video (nada de secciones vacías).
       ...(TUTORIALS.length ? [{ icon: GraduationCap, key: "Aprende", label: "Aprende", hint: "Un video corto por herramienta para verla en acción." }] : []),
@@ -50,7 +54,7 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
       { icon: Briefcase, key: "Mi negocio", label: "Mi ficha", hint: "Qué vendes, para quién y qué logra este producto. Lo usan todas las herramientas." },
       { icon: Coins, key: "Créditos", label: t("nav.credits"), hint: t("nav.hint.credits") },
     ] },
-    { title: "Solo admin (en pausa)", items: ADMIN_EXTRA_TOOLS.filter(tl => canSee(tl.key)).map(fromTool) },
+    { title: "Solo admin (en pausa)", items: visible(ADMIN_EXTRA_TOOLS) },
   ];
 
   const [collapsed, setCollapsed] = useState<boolean>(() => localStorage.getItem(COLLAPSE_KEY) === "1");
@@ -125,13 +129,14 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
               <p className="px-3 pb-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-semibold">{g.title}</p>
             )}
             {g.items.map((item) => {
-          const isActive = activePage === item.key;
+          // Varias entradas abren Generadores (un generador cada una): solo "Robot de copy" se marca activa.
+          const isActive = activePage === item.key && (!item.tool?.generator);
           const Icon = item.icon;
           return (
             <button
-              key={item.key}
-              data-tour={`nav-${item.key}`}
-              onClick={() => handleNav(item.key)}
+              key={item.id ?? item.key}
+              data-tour={`nav-${item.id ?? item.key}`}
+              onClick={() => (item.tool ? openTool(item.tool, handleNav) : handleNav(item.key))}
               title={isCollapsed ? `${item.label}: ${item.hint}` : item.hint}
               className={`flex items-center gap-3 w-full rounded-lg transition-colors text-left ${isCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2"} ${
                 isActive

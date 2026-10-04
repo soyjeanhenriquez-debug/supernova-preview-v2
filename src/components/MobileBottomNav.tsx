@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFeatureAccess } from "@/lib/features";
 import { openSetPassword } from "@/lib/setPassword";
-import { TOOLS } from "@/lib/tools";
+import { STUDIO_TOOLS, openTool } from "@/lib/tools";
 
 /**
  * Menú inferior del teléfono y la tableta (debajo de lg, donde no hay menú lateral fijo):
@@ -24,8 +24,8 @@ export function MobileBottomNav({ activePage, onNavigate, onSearch }: Props) {
   const [sheet, setSheet] = useState<null | "crear" | "cuenta">(null);
   const { canSee } = useFeatureAccess();
   const { user, signOut } = useAuth();
-  const createTools = TOOLS.filter(t => t.group === "crear" && canSee(t.key));
-  const createActive = createTools.some(t => t.key === activePage);
+  const createTools = STUDIO_TOOLS.filter(t => canSee(t.key));
+  const createActive = createTools.some(t => t.key === activePage && !t.generator);
 
   const go = (page: string) => { setSheet(null); onNavigate(page); };
 
@@ -58,7 +58,7 @@ export function MobileBottomNav({ activePage, onNavigate, onSearch }: Props) {
                 {createTools.map(t => {
                   const Icon = t.icon;
                   return (
-                    <button key={t.key} onClick={() => go(t.key)} className="text-left rounded-xl border border-border bg-background/40 p-3 flex flex-col gap-2 hover:border-foreground/30">
+                    <button key={t.id} onClick={() => { setSheet(null); openTool(t, onNavigate); }} className="text-left rounded-xl border border-border bg-background/40 p-3 flex flex-col gap-2 hover:border-foreground/30">
                       <Icon className="w-[17px] h-[17px] text-foreground" strokeWidth={1.7} />
                       <span className="text-[13px] font-medium leading-snug text-foreground">{t.title}</span>
                     </button>

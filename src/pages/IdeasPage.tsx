@@ -165,7 +165,7 @@ export function IdeasPage({ onNavigate }: { onNavigate?: (page: string) => void 
                       </ul>
                     </>
                   ) : (
-                    <p className="text-[11.5px] text-muted-foreground">Hoy no hay ejemplos probados en el catálogo para este camino.</p>
+                    <p className="text-[11.5px] text-muted-foreground">Todavía no hay ejemplos para mostrar en este camino.</p>
                   )}
                 </div>
               )}

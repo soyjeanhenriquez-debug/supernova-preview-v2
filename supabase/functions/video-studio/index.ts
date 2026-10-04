@@ -317,7 +317,7 @@ Deno.serve(async (req) => {
       return json({ error: "El guion suena a testimonio (\"lo compré\", \"me funcionó\"). La persona solo puede presentar o explicar. No se te cobró." }, 400);
     }
     if (kind === "ugc" && !(await switchOpen(uid, UGC_SWITCH))) {
-      return json({ error: "Los videos UGC con presentador se abren muy pronto. Mientras, prueba el anuncio en video.", code: "ugc_off" }, 503);
+      return json({ error: "Los videos UGC con presentador aún no están abiertos. Mientras, prueba el anuncio en video.", code: "ugc_off" }, 503);
     }
     const image = await startImage(uid, body);
     if (image === undefined) return json({ error: "No encontramos la imagen inicial. Elige otra." }, 400);

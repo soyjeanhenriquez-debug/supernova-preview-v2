@@ -51,6 +51,10 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
     desc: "Portadas para YouTube y Reels que se leen en pequeño.", keywords: "miniatura miniaturas thumbnail portada youtube" }),
   T({ id: "ganchos", key: "Hooks", icon: Quote, title: "Ganchos que atrapan", nav: "Ganchos (hooks)",
     desc: "Primeras frases de anuncios reales, listas para adaptar.", keywords: "ganchos hooks frases titulares atencion" }),
+  T({ id: "videoia", key: "Video IA", icon: Video, title: "Video con IA", nav: "Video con IA",
+    desc: "Describe la escena y la IA la graba, con sonido.", keywords: "video videos ia clip reels tiktok youtube faceless sin cara anuncio ugc" }),
+  T({ id: "series", key: "Series", icon: Clapperboard, title: "Series de video", nav: "Series de video",
+    desc: "Novelas, dibujos animados o anuncios en escenas seguidas.", keywords: "serie series novela novelas dibujos animados anime historia capitulos youtube" }),
   T({ id: "video", key: "Media Studio", icon: Video, title: "Video con presentador IA", nav: "Video con presentador",
     desc: "Videos cortos con un presentador hecho con IA.", keywords: "video videos avatar presentador ugc media studio" }),
 
@@ -105,17 +109,17 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
 
 const pick = (ids: string[]) => ids.map(id => TOOL_BY_ID[id]);
 
-export const STUDIO_TOOLS = pick(["creativos", "carrusel", "personaje", "copy", "anuncios", "miniaturas", "ganchos", "video"]);
+export const STUDIO_TOOLS = pick(["creativos", "videoia", "series", "carrusel", "personaje", "copy", "miniaturas", "anuncios"]);
 export const FIND_TOOLS = pick(["radar", "ofertas", "miniapps", "dolores"]);
-export const ADMIN_EXTRA_TOOLS = pick(["mercado", "oraculo"]);
+export const ADMIN_EXTRA_TOOLS = pick(["mercado", "oraculo", "video"]);
 
 export const MODELS: { id: BusinessModel; label: string; short: string; line: string; tools: Tool[] }[] = [
   { id: "low", label: "Infoproducto (low ticket)", short: "Low ticket", line: "Ebook, curso o reto de US$7 a US$47, vendido con anuncios.",
-    tools: pick(["producto", "validar", "precio", "bump", "recuperar", "resultados", "plan"]) },
+    tools: pick(["producto", "validar", "precio", "bump", "recuperar", "resultados", "plan", "ganchos"]) },
   { id: "high", label: "Mentoría o servicio (high ticket)", short: "High ticket", line: "Programas de US$300 o más que se cierran en una llamada.",
     tools: pick(["vsl", "dm", "ascension", "correos", "precio", "resultados"]) },
   { id: "marca", label: "Marca personal", short: "Marca personal", line: "Contenido que te posiciona y atrae clientes sin pagar anuncios.",
-    tools: pick(["reels", "contenido", "captions", "youtube", "recuperar"]) },
+    tools: pick(["reels", "contenido", "captions", "youtube", "ganchos"]) },
 ];
 
 /** Todas las herramientas (Inicio, menú, buscador y la prueba de que cada una abre una pantalla real). */

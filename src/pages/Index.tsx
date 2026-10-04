@@ -45,6 +45,7 @@ const ContentPage = lazy(() => import("@/pages/ContentPage").then(m => ({ defaul
 const ProductsPage = lazy(() => import("@/pages/ProductsPage").then(m => ({ default: m.ProductsPage })));
 const ProductBuilderPage = lazy(() => import("@/pages/ProductBuilderPage"));
 const ImageStudioPage = lazy(() => import("@/pages/ImageStudioPage").then(m => ({ default: m.ImageStudioPage })));
+const VideoStudioPage = lazy(() => import("@/pages/VideoStudioPage").then(m => ({ default: m.VideoStudioPage })));
 const AprendePage = lazy(() => import("@/pages/AprendePage").then(m => ({ default: m.AprendePage })));
 
 function PageLoader() {
@@ -88,12 +89,14 @@ const PAGE_SLUG: Record<string, string> = {
   "Creativos": "creativos",
   "Carrusel": "carrusel",
   "Miniaturas": "miniaturas",
+  "Video IA": "video-ia",
+  "Series": "series",
 };
 const SLUG_PAGE: Record<string, string> = {
   "ofertas": "Ofertas", "mini-apps": "Mini Apps", "radar": "Buscar Ofertas Winner", "hooks": "Hooks", "mandala": "Mándala", "mercado": "Mercado",
   "oraculo": "Oráculo", "generadores": "Generadores", "media-studio": "Media Studio",
   "proyectos": "Proyectos", "creditos": "Créditos", "crear": "Crear", "precio": "Precio", "mi-negocio": "Mi negocio", "validar": "Validar", "plan": "Plan", "contenido": "Contenido", "resultados": "Resultados", "recuperar": "Recuperar", "productos": "Productos",
-  "crear-producto": "Crear producto", "personaje": "Sin mostrar tu cara", "aprende": "Aprende", "creativos": "Creativos", "carrusel": "Carrusel", "miniaturas": "Miniaturas",
+  "crear-producto": "Crear producto", "personaje": "Sin mostrar tu cara", "aprende": "Aprende", "creativos": "Creativos", "carrusel": "Carrusel", "miniaturas": "Miniaturas", "video-ia": "Video IA", "series": "Series",
 };
 function pageFromHash(): string {
   // Un hash que no es nuestro (p. ej. el #access_token=… de un enlace de acceso) se ignora.
@@ -152,6 +155,8 @@ const Index = () => {
       case "Creativos": return <ImageStudioPage key="creativo" initialMode="creativo" />;
       case "Carrusel": return <ImageStudioPage key="carrusel" initialMode="carrusel" />;
       case "Miniaturas": return <ImageStudioPage key="miniatura" initialMode="miniatura" />;
+      case "Video IA": return <VideoStudioPage key="clip" initialMode="clip" />;
+      case "Series": return <VideoStudioPage key="serie" initialMode="serie" />;
       case "Dashboard": return <DashboardPage onNavigate={setActivePage} />;
       case "Ofertas": return <OfertasPage onNavigate={setActivePage} />;
       case "Mini Apps": return <KitsPage onNavigate={setActivePage} />;

@@ -91,6 +91,8 @@ function probeClipFile(): Promise<boolean> {
 }
 
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+/** 2000 → "2.000" (formato español; toLocaleString("es") no agrupa números de 4 cifras). */
+const num = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 const fmtMB = (b: number) => `${(b / 1048576).toLocaleString("es", { maximumFractionDigits: 1 })} MB`;
 
 function Chip({ icon: Icon, label, value, children, disabled }: { icon: typeof Mic; label: string; value: string; children: ReactNode; disabled?: boolean }) {
@@ -536,16 +538,16 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
           <div className="rounded-2xl border border-border p-4 md:p-5 space-y-3">
             <div className="flex items-baseline justify-between gap-3 flex-wrap">
               <p className="text-[14px] text-foreground font-medium">{scenes.length} escenas · unos {timecode(estSeconds)} de video</p>
-              <p className="text-[12px] text-muted-foreground">Te quedan {balance.toLocaleString("es")} créditos</p>
+              <p className="text-[12px] text-muted-foreground">Te quedan {num(balance)} créditos</p>
             </div>
             <dl className="text-[13px] space-y-1.5">
               <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Voz · {scenes.length} × {PRICES.voice}</dt><dd className="text-foreground tabular-nums">{cost.voice}</dd></div>
               <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Imágenes · {scenes.length} × {PRICES.image}</dt><dd className="text-foreground tabular-nums">{cost.images}</dd></div>
               {cost.animated > 0 && <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Animación · {cost.animated} clips × {PRICES.clip}</dt><dd className="text-foreground tabular-nums">{cost.clips}</dd></div>}
               <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Montaje, subtítulos y descarga</dt><dd className="text-foreground">Gratis</dd></div>
-              <div className="flex justify-between gap-3 pt-2 border-t border-border/60"><dt className="text-foreground font-medium">Total</dt><dd className="text-foreground font-semibold tabular-nums">{cost.total.toLocaleString("es")} créditos</dd></div>
+              <div className="flex justify-between gap-3 pt-2 border-t border-border/60"><dt className="text-foreground font-medium">Total</dt><dd className="text-foreground font-semibold tabular-nums">{num(cost.total)} créditos</dd></div>
             </dl>
-            {fits > 0 && <p className="text-[12px] text-muted-foreground">Así rinde tu plan: con los {PLAN_CREDITS.toLocaleString("es")} créditos al mes del plan PRO te alcanza para unos {fits} videos como este.</p>}
+            {fits > 0 && <p className="text-[12px] text-muted-foreground">Así rinde tu plan: con los {num(PLAN_CREDITS)} créditos al mes del plan PRO te alcanza para unos {fits} videos como este.</p>}
           </div>
 
           {!recordOk && <p className="text-[12px] text-muted-foreground">Este navegador no puede grabar el video final. Puedes producir las escenas aquí y armarlo desde Chrome, Edge o Safari actualizados en esta misma computadora.</p>}
@@ -554,10 +556,10 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
           <div className="space-y-2">
             <button onClick={() => void startProduction()} disabled={balance < cost.total || !scenes.length}
               className="btn-primary-nova w-full sm:w-auto h-12 px-6 rounded-xl text-[15px] font-semibold inline-flex items-center justify-center gap-2">
-              <Sparkles className="w-4 h-4" /> Producir mi video · {cost.total.toLocaleString("es")} créditos
+              <Sparkles className="w-4 h-4" /> Producir mi video · {num(cost.total)} créditos
             </button>
             <p className="text-[12px] text-muted-foreground">
-              {balance < cost.total ? `Te faltan ${(cost.total - balance).toLocaleString("es")} créditos. Baja el % animado o acorta el guion.` : "Cada pieza se cobra al crearse. Si una falla, te devolvemos sus créditos. Lo hecho se guarda en este navegador."}
+              {balance < cost.total ? `Te faltan ${num(cost.total - balance)} créditos. Baja el % animado o acorta el guion.` : "Cada pieza se cobra al crearse. Si una falla, te devolvemos sus créditos. Lo hecho se guarda en este navegador."}
             </p>
           </div>
 
@@ -583,7 +585,7 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
             <h2 className="font-display font-semibold text-[20px] md:text-[24px] text-foreground truncate">{meta.title}</h2>
-            <p className="text-[13px] text-muted-foreground">{prog.done} de {prog.total} piezas listas · usados {meta.spent.toLocaleString("es")} créditos · te quedan {balance.toLocaleString("es")}</p>
+            <p className="text-[13px] text-muted-foreground">{prog.done} de {prog.total} piezas listas · usados {num(meta.spent)} créditos · te quedan {num(balance)}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {running ? (
@@ -634,7 +636,7 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
       {/* El lienzo existe siempre (oculto fuera del montaje) para poder grabar en él. */}
       <div className={phase === "montage" ? "space-y-4" : "hidden"}>
         <h2 className="font-display font-semibold text-[20px] md:text-[24px] text-foreground">Armando tu video</h2>
-        <canvas ref={canvasRef} className={`w-full rounded-2xl border border-border bg-black ${meta?.format === "16:9" ? "aspect-video" : "max-w-[360px] mx-auto"}`} />
+        <canvas ref={canvasRef} className={`block w-full rounded-2xl border border-border bg-black ${meta?.format === "16:9" ? "aspect-video" : "max-w-[360px] mx-auto"}`} />
         <div className="space-y-2">
           <div className="h-1.5 rounded-full bg-secondary overflow-hidden"><div className="h-full bg-primary transition-all" style={{ width: `${rec && rec.total ? (rec.elapsed / rec.total) * 100 : 0}%` }} /></div>
           <p className="text-[13px] text-foreground">{rec && rec.total ? `Grabando ${timecode(rec.elapsed)} de ${timecode(rec.total)}` : "Preparando escenas…"}</p>
@@ -647,7 +649,7 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
         <div className="space-y-6">
           <div className="space-y-3">
             <h2 className="font-display font-semibold text-[20px] md:text-[24px] text-foreground">Tu video está listo</h2>
-            <video src={result.url} controls playsInline className={`w-full rounded-2xl border border-border bg-black ${meta.format === "16:9" ? "aspect-video" : "max-w-[360px] mx-auto"}`} />
+            <video src={result.url} controls playsInline className={`block w-full rounded-2xl border border-border bg-black ${meta.format === "16:9" ? "aspect-video" : "max-w-[360px] mx-auto"}`} />
             <div className="flex flex-wrap items-center gap-2">
               <button onClick={download} className="btn-primary-nova inline-flex items-center gap-2 h-12 px-5 rounded-xl text-[14px] font-semibold"><Download className="w-4 h-4" /> Descargar {result.ext.toUpperCase()} · {fmtMB(result.blob.size)}</button>
               <button onClick={() => { setPhase("live"); }} className="inline-flex items-center gap-1.5 h-12 px-4 rounded-xl border border-border text-[13px] text-foreground hover:border-foreground/30"><RefreshCw className="w-4 h-4" /> Cambiar escenas</button>

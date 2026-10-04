@@ -17,6 +17,43 @@ const RPM: Record<string, { long: [number, number]; short: [number, number] }> =
   pt: { long: [0.5, 2], short: [0.02, 0.06] },
 };
 
+// Cada nicho rápido se busca con su palabra en el idioma elegido (antes "Historia" traía portugués).
+const NICHE_Q: Record<string, Record<string, string>> = {
+  "historia": { es: "historia", en: "history", pt: "história" },
+  "curiosidades": { es: "curiosidades", en: "facts you didn't know", pt: "curiosidades" },
+  "finanzas personales": { es: "finanzas personales", en: "personal finance", pt: "finanças pessoais" },
+  "mascotas": { es: "perros y gatos", en: "dogs and cats", pt: "cachorros e gatos" },
+  "espiritualidad": { es: "espiritualidad", en: "spirituality", pt: "espiritualidade" },
+  "salud": { es: "salud", en: "health tips", pt: "saúde" },
+  "misterio": { es: "misterios sin resolver", en: "unsolved mysteries", pt: "mistérios" },
+  "motivación": { es: "motivación", en: "motivation", pt: "motivação" },
+  "biografías": { es: "biografía", en: "biography", pt: "biografia" },
+  "religión": { es: "historias de la biblia", en: "bible stories", pt: "histórias da bíblia" },
+  "tecnología": { es: "tecnología", en: "technology explained", pt: "tecnologia" },
+  "cocina fácil": { es: "recetas fáciles", en: "easy recipes", pt: "receitas fáceis" },
+};
+const REGION: Record<string, string> = { es: "MX", en: "US", pt: "BR" };
+// Categorías de YouTube que no son nichos de canales sin cara: Música (10), Deportes (17), Videojuegos (20).
+const SKIP_CATEGORIES = new Set(["10", "17", "20"]);
+
+// Idioma del video: el que declara YouTube; si no lo declara, por palabras comunes del título.
+const STOP: Record<string, string[]> = {
+  es: ["el", "la", "los", "las", "que", "de", "y", "un", "una", "por", "para", "con", "del", "se", "qué", "cómo", "su", "lo", "más", "es", "en"],
+  pt: ["o", "os", "as", "que", "de", "e", "um", "uma", "não", "com", "do", "da", "dos", "das", "você", "é", "em", "no", "na", "meu", "minha"],
+  en: ["the", "of", "and", "to", "in", "you", "is", "for", "with", "this", "that", "how", "why", "what", "my", "your", "a", "an"],
+};
+function detectLang(text: string): string | null {
+  const words = text.toLowerCase().replace(/[^a-záéíóúñãõâêôçü\s]/gi, " ").split(/\s+/).filter(Boolean);
+  const score = (l: string) => words.filter(w => STOP[l].includes(w)).length + (l === "pt" ? (text.match(/ção|ções|ão\b|õe/gi)?.length ?? 0) * 2 : 0) + (l === "es" ? (text.match(/ñ|¿|¡|ción\b/gi)?.length ?? 0) * 2 : 0);
+  const ranked = (["es", "pt", "en"] as const).map(l => [l, score(l)] as const).sort((a, b) => b[1] - a[1]);
+  return ranked[0][1] >= 1 && ranked[0][1] > ranked[1][1] ? ranked[0][0] : null;
+}
+function videoLang(v: { snippet?: { defaultAudioLanguage?: string; defaultLanguage?: string; title?: string; description?: string } }): string | null {
+  const decl = (v.snippet?.defaultAudioLanguage ?? v.snippet?.defaultLanguage ?? "").slice(0, 2).toLowerCase();
+  if (decl) return decl;
+  return detectLang(`${v.snippet?.title ?? ""} ${(v.snippet?.description ?? "").slice(0, 200)}`);
+}
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
@@ -56,7 +93,8 @@ Deno.serve(async (req) => {
     if (q.length < 2) return json({ error: "Escribe un nicho." }, 400);
     const lang = body.lang === "en" || body.lang === "pt" ? body.lang : "es";
     const kind: "long" | "short" = body.kind === "short" ? "short" : "long";
-    const key = `${kind}:${lang}:${q.toLowerCase()}`;
+    const key = `v3:${kind}:${lang}:${q.toLowerCase()}`;
+    const searchQ = NICHE_Q[q.toLowerCase()]?.[lang] ?? q;
 
     // Caché: si alguien buscó lo mismo hace menos de 6 h, no se gasta cuota.
     const { data: cached } = await db.from("youtube_radar_cache").select("payload,fetched_at").eq("key", key).maybeSingle();
@@ -71,8 +109,9 @@ Deno.serve(async (req) => {
 
     const since = new Date(Date.now() - 30 * 24 * 3600_000).toISOString();
     const search = await yt("search", {
-      part: "snippet", type: "video", order: "viewCount", maxResults: "30", q,
-      publishedAfter: since, relevanceLanguage: lang, safeSearch: "strict",
+      // Relevancia (que sea del nicho) y luego se ordena por vistas; 50 candidatos cuestan lo mismo que 30.
+      part: "snippet", type: "video", order: "relevance", maxResults: "50", q: searchQ,
+      publishedAfter: since, relevanceLanguage: lang, regionCode: REGION[lang], safeSearch: "strict",
       videoDuration: kind === "short" ? "short" : "medium",
     });
     const ids: string[] = (search.items ?? []).map((i: { id?: { videoId?: string } }) => i.id?.videoId).filter(Boolean);
@@ -94,6 +133,9 @@ Deno.serve(async (req) => {
       const s = subs.get(v.snippet.channelId) ?? 0;
       const secs = seconds(v.contentDetails?.duration);
       return {
+        lang: videoLang(v),
+        skip: SKIP_CATEGORIES.has(String(v.snippet.categoryId ?? "")),
+        hashtags: (String(v.snippet.title ?? "").match(/#/g) ?? []).length,
         id: v.id,
         title: String(v.snippet.title ?? "").slice(0, 200),
         channel: String(v.snippet.channelTitle ?? "").slice(0, 100),
@@ -105,10 +147,14 @@ Deno.serve(async (req) => {
         income_est: [Math.round((views / 1000) * rpm[0]), Math.round((views / 1000) * rpm[1])],
       };
     })
-      // Largos: de 6 min en adelante. Shorts: hasta 3 min.
-      .filter((i: { seconds: number }) => (kind === "short" ? i.seconds > 0 && i.seconds <= 180 : i.seconds >= 360))
+      // Menos y bien filtrado: solo el idioma pedido (lo que no se puede confirmar, fuera), largos de
+      // 6 min en adelante, Shorts hasta 3 min y sin títulos de relleno de hashtags (#pov #sketch…).
+      .filter((i: { seconds: number; lang: string | null; hashtags: number; views: number; skip: boolean }) =>
+        !i.skip && i.lang === lang && i.hashtags <= 2 && i.views >= 1000 &&
+        (kind === "short" ? i.seconds > 0 && i.seconds <= 180 : i.seconds >= 360))
       .sort((a: { views: number }, b: { views: number }) => b.views - a.views)
-      .slice(0, 24);
+      .slice(0, 12)
+      .map(({ hashtags: _h, skip: _s, ...rest }: { hashtags: number; skip: boolean }) => rest);
 
     const payload = { items, q, lang, kind, rpm, fetched_at: new Date().toISOString() };
     await db.from("youtube_radar_cache").upsert({ key, payload, fetched_at: new Date().toISOString() });

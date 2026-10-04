@@ -103,9 +103,13 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [showRef, setShowRef] = useState(false);
   const [targetLang, setTargetLang] = useState("en");
+  // Vista previa gratis del enlace: datos del video y el precio exacto del análisis según su duración.
+  const [preview, setPreview] = useState<{ video: Analysis["video"]; price: number } | null>(null);
+  const [previewErr, setPreviewErr] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const view: "input" | "script" = script || busy === "writing" ? "script" : "input";
 
-  const PRICE = { idea: generatorCost(GEN).cost, link: 50, translate: 15 };
+  const PRICE = { idea: generatorCost(GEN).cost, link: preview?.price ?? 50, translate: 15 };
   const price = tab === "link" ? PRICE.link : PRICE.idea;
 
   // Viene de Nichos de YouTube: el enlace ya puesto (no se analiza solo: el usuario ve el precio y decide).
@@ -121,12 +125,32 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
     } catch { /* sin almacenamiento */ }
   }, []);
 
+  useEffect(() => {
+    setPreview(null); setPreviewErr(null);
+    if (tab !== "link" || !/youtu\.?be/.test(url)) return;
+    let alive = true;
+    const t = setTimeout(async () => {
+      setPreviewing(true);
+      try {
+        const d = await invokeRef({ action: "meta", url });
+        if (!alive) return;
+        setPreview({ video: d.video, price: d.price });
+        // Un Short se rehace como Short; un video largo, con una duración parecida.
+        if (d.video.seconds <= 180) { setSize("9:16"); setMinutes(1); }
+        else { if (size === "9:16") setSize("16:9"); setMinutes(d.video.seconds >= 900 ? 15 : d.video.seconds >= 600 ? 12 : 8); }
+        if (!styleTouched) setStyle(guessStyle(d.video.title));
+      } catch (e) { if (alive) setPreviewErr(e instanceof Error ? e.message : "No pudimos leer ese enlace."); }
+      finally { if (alive) setPreviewing(false); }
+    }, 600);
+    return () => { alive = false; clearTimeout(t); };
+  }, [url, tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // La IA elige el estilo según la idea, hasta que el usuario lo cambie a mano.
   useEffect(() => { if (!styleTouched && idea.trim().length > 5) setStyle(guessStyle(idea)); }, [idea, styleTouched]);
   useEffect(() => { if (size === "9:16" && minutes > 3) setMinutes(1); }, [size]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scenesApprox = Math.max(4, Math.round((minutes * 60) / 10));
-  const ready = tab === "idea" ? idea.trim().length >= 4 : tab === "guion" ? ownScript.trim().length >= 80 : /youtu\.?be/.test(url);
+  const ready = tab === "idea" ? idea.trim().length >= 4 : tab === "guion" ? ownScript.trim().length >= 80 : !!preview;
 
   const shuffle = () => {
     const s = STYLES.filter(x => x !== style);
@@ -292,6 +316,19 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
               className="absolute right-3 bottom-3 w-9 h-9 rounded-full btn-primary-nova flex items-center justify-center disabled:opacity-40">
               <ArrowUp className="w-4 h-4" />
             </button>
+          </div>
+        )}
+        {tab === "link" && (previewing || preview || previewErr) && (
+          <div className="rounded-xl border border-border/70 p-3 flex gap-3 items-center">
+            {previewing ? <p className="text-[12px] text-muted-foreground inline-flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Leyendo el video…</p>
+              : previewErr ? <p className="text-[12px] text-muted-foreground">{previewErr}</p>
+              : preview && (<>
+                {preview.video.thumb && <img src={preview.video.thumb} alt="" className="w-28 aspect-video object-cover rounded-lg shrink-0" />}
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium text-foreground line-clamp-2">{preview.video.title}</p>
+                  <p className="text-[11px] text-muted-foreground">{preview.video.channel} · {preview.video.seconds <= 180 ? `Short de ${preview.video.seconds} s` : `${Math.round(preview.video.seconds / 60)} min`} · {preview.video.views.toLocaleString("es")} vistas</p>
+                </div>
+              </>)}
           </div>
         )}
         <p className="text-[11px] text-muted-foreground px-1">

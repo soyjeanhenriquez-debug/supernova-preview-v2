@@ -10,7 +10,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const FN = "yt-reference";
-const MODEL = "gemini-2.5-flash";
+const MODEL = "gemini-3.8-flash"; // gemini-2.5-flash ya no está disponible para cuentas nuevas
 const MAX_SECONDS = 30 * 60;
 const LANGS: Record<string, string> = { es: "español neutro latinoamericano", en: "inglés", pt: "portugués de Brasil", fr: "francés" };
 
@@ -80,8 +80,8 @@ async function gemini(parts: unknown[], maxTokens: number) {
   const d = await r.json();
   const text = d?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
   const u = d?.usageMetadata ?? {};
-  // Video + audio cuentan como entrada; promedio conservador US$0,50/M entrada y US$2,50/M salida.
-  const cost = (Number(u.promptTokenCount ?? 0) * 0.5 + Number(u.candidatesTokenCount ?? 0) * 2.5 + Number(u.thoughtsTokenCount ?? 0) * 2.5) / 1e6;
+  // gemini-3.8-flash: US$0,75/M entrada (video y audio, se cuenta a US$1 por prudencia) y US$3,75/M salida.
+  const cost = (Number(u.promptTokenCount ?? 0) * 1 + Number(u.candidatesTokenCount ?? 0) * 3.75 + Number(u.thoughtsTokenCount ?? 0) * 3.75) / 1e6;
   return { out: JSON.parse(text.replace(/^```json\s*|\s*```$/g, "")), cost, usage: u };
 }
 
@@ -125,6 +125,11 @@ Deno.serve(async (req) => {
     // ---------- analizar video de referencia ----------
     const id = videoId(String(body.url ?? ""));
     if (!id) return json({ error: "Pega un enlace de YouTube válido (video o Short)." }, 400);
+    if (body.action === "meta") {
+      // Vista previa gratis, con tope para no gastar la cuota de YouTube.
+      const { data: lim } = await admin().rpc("edge_guard_charge", { p_user_id: uid, p_fn: `${FN}-meta`, p_max_hour: 60, p_max_day: 300, p_action: null, p_label: null, p_kind: null, p_receipt: null });
+      if (lim?.ok !== true) return json({ error: "Demasiadas consultas seguidas. Intenta en un rato." }, 429);
+    }
     const ytKey = Deno.env.get("YOUTUBE_API_KEY");
     if (!ytKey) return json({ error: "El análisis de videos llega pronto." }, 503);
     const meta = await fetch(`https://www.googleapis.com/youtube/v3/videos?${new URLSearchParams({ part: "snippet,contentDetails,statistics,status", id, key: ytKey })}`).then(r => r.json());
@@ -139,7 +144,11 @@ Deno.serve(async (req) => {
       thumb: v.snippet?.thumbnails?.medium?.url ?? null,
     };
 
-    const g = await charge(uid, "yt_reference", `Analizar video: ${video.title.slice(0, 60)}`);
+    // Gratis: solo los datos del video y lo que costará analizarlo (para mostrar el precio exacto).
+    const tier = secs <= 180 ? { action: "yt_reference_short", cost: 20 } : secs <= 900 ? { action: "yt_reference", cost: 50 } : { action: "yt_reference_long", cost: 100 };
+    if (body.action === "meta") return json({ video, price: tier.cost });
+
+    const g = await charge(uid, tier.action, `Analizar video: ${video.title.slice(0, 60)}`);
     if (g instanceof Response) return g;
     txId = g.txId;
     const words = Math.round(minutes * 145);

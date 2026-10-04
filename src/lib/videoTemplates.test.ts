@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   VIDEO_PRICE, VIDEO_TEMPLATES, buildShots, cleanBrief, hasForbiddenClaim, improvePrompt, parseImprovedLines,
-  planCost, publishText, recommendTemplate, shortPhrase, shotPrompt, videoSizeFor, type VideoBrief,
+  planCost, publishText, recommendTemplate, serieFromBrief, shortPhrase, shotPrompt, videoSizeFor, VIDEO_RULES, type VideoBrief,
 } from "./videoTemplates";
 
 const brief: VideoBrief = {
@@ -128,7 +128,8 @@ describe("parseImprovedLines", () => {
   });
   it("rechaza número equivocado, JSON roto o testimonio", () => {
     expect(parseImprovedLines('["a b c d", "e f g h"]', 3, "anuncio")).toBeNull();
-    expect(parseImprovedLines("sin json", 1, "ugc")).toBeNull();
+    expect(parseImprovedLines("sin json", 2, "ugc")).toBeNull();
+    expect(parseImprovedLines("1. Uno dos tres\n2. Cuatro cinco\n3. Seis siete", 3, "anuncio")).toEqual(["Uno dos tres", "Cuatro cinco", "Seis siete"]);
     expect(parseImprovedLines('["Lo compré y me encantó"]', 1, "ugc")).toBeNull();
     expect(parseImprovedLines(`["${"x".repeat(300)}"]`, 1, "ugc")).toBeNull();
   });
@@ -136,6 +137,17 @@ describe("parseImprovedLines", () => {
     const { system, user } = improvePrompt(buildShots("anuncio", "problema_solucion", brief), { ...brief, hook: "Cocina 1 vez" }, "anuncio");
     expect(system).toMatch(/JSON de 3/);
     expect(user).toMatch(/no lo copies/);
+  });
+});
+
+describe("reglas", () => {
+  it("las reglas no traen frases en primera persona (el servidor revisa el prompt entero)", () => {
+    expect(VIDEO_RULES).not.toMatch(TESTIMONIAL);
+  });
+  it("la serie desde una idea trae 3 escenas sin promesas", () => {
+    const s = serieFromBrief(brief);
+    expect(s).toHaveLength(3);
+    expect(s.some(hasForbiddenClaim)).toBe(false);
   });
 });
 

@@ -8,6 +8,8 @@ import { useCredits, generatorCost, CREDIT_COSTS } from "@/hooks/useCredits";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import { track } from "@/lib/analytics";
 import { AFFILIATE_NOTE, HIGGSFIELD_URL } from "@/lib/partners";
+import { setSeed, TARGET_SLUG } from "@/lib/creativeSeed";
+import { setPresenter } from "@/components/video/videoApi";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { ModelPicker } from "@/components/media/ModelPicker";
 import { accessOf, hasComunidad, loadMediaModels, type MediaModel } from "@/lib/media";
@@ -206,6 +208,18 @@ export function PersonajePage({ onNavigate }: { onNavigate: (page: string) => vo
     finally { setBusy(""); }
   };
 
+  // "Hazlo hablar en video": abre UGC con IA con esta foto como presentador y la idea del producto.
+  // No genera solo: el usuario ve el guion y el costo y toca "Crear video UGC".
+  const hablarEnVideo = () => {
+    if (!state.foto || !pj) return;
+    setPresenter(state.foto);
+    setSeed({
+      source: "manual", target: "video_ugc", title: `${pj.nombre} presenta ${profile.product}`.slice(0, 80),
+      product: profile.product, who: profile.who, promise: profile.promise, aspect: "9:16",
+    });
+    window.location.hash = `#/${TARGET_SLUG.video_ugc}`;
+  };
+
   const crearVideo = async () => {
     if (!vidM || !state.foto) return;
     if (!vPrompt.trim()) { toast.error("Escribe qué pasa en el video."); return; }
@@ -285,6 +299,11 @@ export function PersonajePage({ onNavigate }: { onNavigate: (page: string) => vo
                   {busy === "foto" ? <Loader2 className="w-4 h-4 animate-spin" /> : state.foto ? <RefreshCw className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
                   {state.foto ? "Otra foto" : "Crear su foto"} <span className="opacity-60 font-medium">· {imgM?.cost ?? CREDIT_COSTS.gen_ad_image} ⚡</span>
                 </button>
+                {state.foto && (
+                  <button onClick={hablarEnVideo} disabled={busy !== ""} className="w-full h-11 border-t border-border text-[13px] font-semibold text-foreground hover:bg-secondary/40 inline-flex items-center justify-center gap-2 disabled:opacity-50">
+                    <Film className="w-4 h-4" /> Hazlo hablar en video
+                  </button>
+                )}
                 {usable("image").length > 0 && (
                   <div className="border-t border-border p-2">
                     <ModelPicker models={models} kinds={["image"]} value={imgModel} onChange={setImgModel} isAdmin={!!isAdmin} comunidad={comunidad} onUpsell={setUpsell} />

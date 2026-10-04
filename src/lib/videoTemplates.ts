@@ -293,12 +293,26 @@ export function improvePrompt(shots: Shot[], brief: VideoBrief, mode: "anuncio" 
 /** Lee la respuesta de la IA: N líneas válidas o null (si alguna rompe las reglas, se descarta todo). */
 export function parseImprovedLines(text: string, n: number, mode: "anuncio" | "ugc"): string[] | null {
   const m = text.match(/\[[\s\S]*\]/);
-  if (!m) return null;
-  let arr: unknown;
-  try { arr = JSON.parse(m[0]); } catch { return null; }
+  let arr: unknown = null;
+  if (m) { try { arr = JSON.parse(m[0]); } catch { arr = null; } }
+  if (!Array.isArray(arr)) {
+    // Sin JSON: se aceptan N renglones numerados o sueltos (la IA a veces responde así).
+    arr = text.split(/\r?\n/).map(l => l.replace(/^\s*(?:\d+[.)-]|[-•*])\s*/, "").replace(/^\([^)]{0,30}\)\s*/, "").replace(/^["'“”]+|["'“”]+$/g, "").trim()).filter(Boolean);
+  }
   if (!Array.isArray(arr) || arr.length !== n) return null;
   const maxChars = mode === "ugc" ? 240 : 110;
   const out = arr.map(x => tidy(x, 400));
   if (out.some(l => l.length < 4 || l.length > maxChars || hasForbiddenClaim(l))) return null;
   return out;
+}
+
+/** Serie que llega desde una idea: 3 escenas encadenadas con el producto (sin copiar el gancho). */
+export function serieFromBrief(brief: VideoBrief): string[] {
+  const { product, who } = parts(cleanBrief(brief));
+  const quien = who ? lower1(who) : "una persona latina";
+  return [
+    `Escena 1 (gancho): ${quien} vive un problema cotidiano y se frustra; algo inesperado llama su atención.`,
+    `Escena 2: descubre ${product} y lo prueba con curiosidad, cámara cercana.`,
+    "Escena 3 (cierre): sonríe aliviada y mira a cámara, invitando a seguir la cuenta.",
+  ];
 }

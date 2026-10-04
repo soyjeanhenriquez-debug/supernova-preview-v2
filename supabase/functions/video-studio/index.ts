@@ -184,10 +184,17 @@ async function serveFile(uid: string, body: Record<string, unknown>): Promise<Re
   try { url = new URL(job.result_url); } catch { return json({ error: "Enlace de video inválido." }, 422); }
   if (url.protocol !== "https:" || !hostAllowed(url.hostname)) return json({ error: "Este video no se puede descargar desde aquí." }, 403);
 
-  const r = await fetch(url, { redirect: "follow" });
-  let finalHost = url.hostname;
-  try { finalHost = new URL(r.url || url.href).hostname; } catch { /* se queda el original */ }
-  if (!hostAllowed(finalHost)) { await r.body?.cancel(); return json({ error: "Este video no se puede descargar desde aquí." }, 403); }
+  // Redirecciones a mano (máx. 3): cada salto tiene que seguir en un host de APIMart.
+  let r = await fetch(url, { redirect: "manual" });
+  for (let hop = 0; r.status >= 300 && r.status < 400 && hop < 3; hop++) {
+    const loc = r.headers.get("location");
+    await r.body?.cancel();
+    let next: URL;
+    try { next = new URL(loc ?? "", url); } catch { return json({ error: "Enlace de video inválido." }, 422); }
+    if (next.protocol !== "https:" || !hostAllowed(next.hostname)) return json({ error: "Este video no se puede descargar desde aquí." }, 403);
+    url = next;
+    r = await fetch(url, { redirect: "manual" });
+  }
   if (!r.ok || !r.body) { await r.body?.cancel(); return json({ error: "El enlace del video venció (dura 24 horas)." }, 410); }
   const len = Number(r.headers.get("content-length") ?? "");
   if (Number.isFinite(len) && len > FILE_MAX_BYTES) { await r.body.cancel(); return json({ error: "El video es demasiado grande." }, 413); }

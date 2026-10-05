@@ -51,6 +51,7 @@ const VideoStudioPage = lazy(() => import("@/pages/VideoStudioPage").then(m => (
 const YouTubeRadarPage = lazy(() => import("@/pages/YouTubeRadarPage").then(m => ({ default: m.YouTubeRadarPage })));
 const YouTubeCreatorPage = lazy(() => import("@/pages/YouTubeCreatorPage").then(m => ({ default: m.YouTubeCreatorPage })));
 const IdeasPage = lazy(() => import("@/pages/IdeasPage").then(m => ({ default: m.IdeasPage })));
+const OrderBumpPage = lazy(() => import("@/pages/OrderBumpPage").then(m => ({ default: m.OrderBumpPage })));
 const AprendePage = lazy(() => import("@/pages/AprendePage").then(m => ({ default: m.AprendePage })));
 
 function PageLoader() {
@@ -146,6 +147,7 @@ const Index = () => {
       case "Plan": return <LaunchPlanPage onNavigate={setActivePage} />;
       case "Contenido": return <ContentPage onNavigate={setActivePage} />;
       case "Recuperar": return <RecoveryPage onNavigate={setActivePage} />;
+      case "Order bump": return <OrderBumpPage onNavigate={setActivePage} />;
       case "Productos": return <ProductsPage onNavigate={setActivePage} />;
       case "Crear producto": return <ProductBuilderPage onNavigate={setActivePage} />;
       case "Mercado": return <MercadoPage onNavigate={setActivePage} />;

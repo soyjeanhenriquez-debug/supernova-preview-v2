@@ -84,7 +84,7 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
     },
     {
       n: 2, key: "2", short: "Validar", title: "Comprueba que se vende",
-      why: "14 preguntas de sí o no. Unos 3 minutos.", doneNote: "Tu oferta pasó la matriz",
+      why: "14 preguntas de Sí, No o No sé, con cómo saberlo. Unos 3 minutos.", doneNote: "Tu oferta pasó la matriz",
       // Hecha si la matriz está completa y la oferta pasa (nota ≥ 50); con nota baja hay que ajustarla.
       done: done[1],
       progress: profile.validation?.completed_at && profile.validation?.score != null && profile.validation.score < 50

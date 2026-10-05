@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { STUDIO_TOOLS, STUDIO_MORE_TOOLS, FIND_TOOLS, TOOLS } from "./tools";
+import { STUDIO_TOOLS, STUDIO_MORE_TOOLS, FIND_TOOLS, TOOLS, TOOL_BY_ID } from "./tools";
 import { SLUG_PAGE } from "./pageSlugs";
 
 describe("herramientas", () => {
@@ -23,5 +23,10 @@ describe("herramientas", () => {
     }
     expect(STUDIO_TOOLS.find(t => t.id === "videoanuncio")!.cost).toBe("165 créditos");
     expect(STUDIO_TOOLS.find(t => t.id === "creativos")!.cost).toBe("18 créditos");
+  });
+  it("Order bump abre su propia pantalla, no Robot de copy", () => {
+    expect(TOOL_BY_ID.bump.key).toBe("Order bump");
+    expect(TOOL_BY_ID.bump.generator).toBeUndefined();
+    expect(SLUG_PAGE["order-bump"]).toBe("Order bump");
   });
 });

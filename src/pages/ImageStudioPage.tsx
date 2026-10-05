@@ -16,6 +16,7 @@ import {
 import { EMPTY_KIT, kitReferences, loadBrandKit, toWebp, type BrandKit } from "@/lib/brandKit";
 import { AiChoiceChip } from "@/components/image/AiChoiceChip";
 import { ConceptPicker } from "@/components/image/ConceptPicker";
+import { DEFAULT_LEVEL, type ConceptGroup } from "@/lib/adConcepts";
 import { BrandKitPanel } from "@/components/image/BrandKitPanel";
 import { ImageSlotCard, type Slot } from "@/components/image/ImageSlotCard";
 import { ReadyToPublish } from "@/components/image/ReadyToPublish";
@@ -61,6 +62,7 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
   const [texts, setTexts] = useState<string[]>([]);
   // Creativos: estilos elegidos (hasta 3), otro estilo escrito y los datos reales que piden algunos.
   const [concepts, setConcepts] = useState<string[]>([]);
+  const [level, setLevel] = useState<ConceptGroup>(DEFAULT_LEVEL);
   const [customStyle, setCustomStyle] = useState("");
   const [realTexts, setRealTexts] = useState<Record<string, string>>({});
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -115,7 +117,7 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
   const ctx: PromptCtx = {
     brief, aspect, headline, hook: seed?.hook, angle: seed?.angle, texts,
     kit: { colors: kit.colors, style: kit.style }, hasRefs: mode !== "variar" && useRefs && kitRefs.length > 0,
-    ...(mode === "creativo" ? { concepts, customStyle, realTexts } : {}),
+    ...(mode === "creativo" ? { concepts, level, customStyle, realTexts } : {}),
   };
   const missing = mode === "creativo" ? missingRealTexts(ctx) : [];
 
@@ -250,7 +252,7 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
             options={aspectOptions(mode)} onChange={setAspect} disabled={running} />
 
           {mode === "creativo" && (
-            <ConceptPicker value={concepts} onChange={setConcepts} custom={customStyle} onCustom={setCustomStyle}
+            <ConceptPicker level={level} onLevel={l => { setLevel(l); setConcepts([]); }} value={concepts} onChange={setConcepts} custom={customStyle} onCustom={setCustomStyle}
               realTexts={realTexts} onRealText={(id, s) => setRealTexts(r => ({ ...r, [id]: s }))} disabled={running} />
           )}
 

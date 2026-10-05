@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { AD_CONCEPTS, CONCEPT_BY_ID } from "@/lib/adConcepts";
+import { AD_CONCEPTS, CONCEPT_BY_ID, levelConcepts } from "@/lib/adConcepts";
 import { buildSlots, missingRealTexts, type PromptCtx } from "@/lib/imagePrompts";
 
 const base: PromptCtx = { brief: { product: "Guía de ventas", who: "Emprendedoras", promise: "Vender por WhatsApp" }, aspect: "4:5" };
@@ -14,11 +14,21 @@ describe("conceptos de creativos", () => {
     expect(buildSlots("creativo", base).map(s => s.label)).toEqual(["Problema → solución", "El resultado deseado", "Producto en mockup"]);
   });
 
-  it("con 1 concepto salen 3 versiones de ese concepto", () => {
+  it("nunca 3 versiones del mismo: con 1 concepto se completa con otros 2 distintos de su nivel", () => {
     const slots = buildSlots("creativo", { ...base, concepts: ["iceberg"] });
     expect(slots).toHaveLength(3);
-    expect(slots.map(s => s.label)).toEqual(["Iceberg", "Iceberg · versión 2", "Iceberg · versión 3"]);
-    expect(slots[0].prompt).toContain("iceberg");
+    expect(new Set(slots.map(s => s.label)).size).toBe(3);
+    expect(slots[0].label).toBe("Iceberg");
+    expect(slots.every(s => CONCEPT_BY_ID[AD_CONCEPTS.find(c => c.name === s.label)!.id].group === "n0")).toBe(true);
+  });
+
+  it("con un nivel y sin elegir salen sus 3 recomendados, sin los que piden datos reales", () => {
+    expect(buildSlots("creativo", { ...base, level: "n1" }).map(s => s.label)).toEqual(["Pregunta", "Notas", "Señales de alerta"]);
+    expect(buildSlots("creativo", { ...base, level: "n0" }).map(s => s.label)).toEqual(["Iceberg", "Descubrimiento", "Publicación normal"]);
+  });
+
+  it("cada nivel tiene al menos 3 conceptos que no piden datos reales", () => {
+    for (const l of ["n0", "n1", "n2", "n3", "n4"] as const) expect(levelConcepts(l).filter(c => !c.needsReal).length).toBeGreaterThanOrEqual(3);
   });
 
   it("con otro estilo escrito entran 2 conceptos y tu estilo", () => {

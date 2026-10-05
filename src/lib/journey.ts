@@ -70,7 +70,7 @@ export const STAGES = [
 export const PAGE_STAGE: Record<string, number> = {
   "Mi negocio": 1, "Ofertas": 1, "Buscar Ofertas Winner": 1, "Anuncios Ganadores": 1, "Mini Apps": 1, "Ideas": 1,
   "Validar": 2,
-  "Precio": 3,
+  "Precio": 3, "Order bump": 3,
   "Crear producto": 4, "Plan": 4, "Proyectos": 4,
   "Mándala": 5, "Hooks": 5, "Contenido": 5, "Generadores": 5, "Media Studio": 5, "Sin mostrar tu cara": 5,
   "Resultados": 6, "Recuperar": 6,

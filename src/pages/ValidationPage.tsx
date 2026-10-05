@@ -1,128 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QuickBrief } from "@/components/QuickBrief";
-import { ArrowRight, Check, ClipboardCheck, Pencil, Printer, RotateCcw, ThumbsDown, ThumbsUp, X } from "lucide-react";
+import { ArrowRight, Check, CircleHelp, ClipboardCheck, Loader2, Pencil, Printer, RotateCcw, Search, X } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { profileReady, useBusinessProfile, type Validation } from "@/lib/businessProfile";
 import { PageHeader } from "@/components/PageHeader";
+import {
+  QUESTIONS, TOTAL, PAGE_LABEL, normalizeAnswers, blockScore, overallScore, byAnswer, verdict, nextStep,
+  suggestions, defaultKeyword, keywordWords, summarizeRadar, fmt,
+  type Answer, type Answers, type Block, type Question, type RadarCheck, type Suggestion,
+} from "@/lib/validation";
 
 /**
  * Etapa 2 del recorrido "Mi negocio": ¿esto se vende?
- * Inspirada en la "Matriz do Perpétuo" de Leandro Ladeira: preguntas de verdadero/falso que separan
- * fortalezas y puntos débiles del PRODUCTO y del MERCADO, y terminan en una matriz imprimible.
- * Adaptada a productos digitales, mini apps, cursos, afiliados y tiendas (ecommerce).
+ * Inspirada en la "Matriz do Perpétuo" de Leandro Ladeira: separa fortalezas y puntos débiles del
+ * PRODUCTO y del MERCADO y termina en una matriz imprimible.
+ * Desde el 04-oct-2026: Sí / No / No sé, con "Cómo saberlo" en cada pregunta, sugerencias sacadas
+ * de la ficha (que el usuario confirma) y "Compruébalo por mí", que consulta el catálogo real con
+ * la RPC radar_search (gratis, sin IA). La lógica vive en src/lib/validation.ts.
  * Sin IA: no gasta créditos. Se guarda en business_profile.validation (solo con savePatch).
  */
-
-type Block = "producto" | "mercado";
-type Question = {
-  id: string;
-  block: Block;
-  text: string;
-  /** Texto para tiendas de productos físicos (business_type === "ecommerce"). */
-  textEcom?: string;
-  /** Peso dentro de su bloque (1 normal, 2 importante). */
-  weight: number;
-  /** Consejo corto cuando la respuesta es "Falso". */
-  tip: string;
-  tipEcom?: string;
-  /** Página de la app que ayuda a resolverlo. */
-  page: string;
-};
-
-const QUESTIONS: Question[] = [
-  // PRODUCTO
-  { id: "p_problema", block: "producto", weight: 2, page: "Ofertas",
-    text: "Resuelve un problema urgente o cumple un deseo fuerte (no es solo \"algo bonito de tener\").",
-    tip: "La gente paga por dejar de sufrir algo o por lograr algo que desea mucho. Busca un ángulo más urgente." },
-  { id: "p_tangible", block: "producto", weight: 1, page: "Mándala",
-    text: "El resultado se puede ver o sentir: la persona sabe cuándo lo logró.",
-    textEcom: "Se nota en una foto o un video corto cómo funciona y qué cambia al usarlo.",
-    tip: "Convierte la promesa en algo concreto: qué tendrá, en cuánto tiempo, cómo lo notará.",
-    tipEcom: "Si no se puede mostrar en uso, cuesta venderlo con anuncios. Piensa en cómo demostrarlo en 5 segundos." },
-  { id: "p_frase", block: "producto", weight: 1, page: "Mándala",
-    text: "Puedes explicar qué es y para quién es en una sola frase.",
-    tip: "Si no cabe en una frase, el anuncio tampoco lo va a explicar. Simplifica la promesa." },
-  { id: "p_prueba_venta", block: "producto", weight: 2, page: "Buscar Ofertas Winner",
-    text: "Hay alguien vendiendo algo parecido con anuncios desde hace más de 30 días.",
-    tip: "Un anuncio que sigue activo más de un mes suele ser señal de que vende. Busca esa prueba antes de invertir." },
-  { id: "p_entrega", block: "producto", weight: 1, page: "Mini Apps",
-    text: "Puedes entregarlo tú (o con ayuda de la IA) sin depender de otras personas.",
-    textEcom: "Tienes un proveedor confiable y el envío llega en un tiempo razonable.",
-    tip: "Empieza por una versión que puedas armar tú: una guía, una plantilla o una mini app.",
-    tipEcom: "Pide muestras y compara proveedores antes de anunciar. Un envío lento trae reclamos y reembolsos." },
-  { id: "p_giro", block: "producto", weight: 1, page: "Generadores",
-    text: "Tu versión tiene una diferencia clara frente a lo que ya existe (tu giro).",
-    tip: "No hace falta inventar nada: cambia el público, el formato, el bono o la forma de explicarlo." },
-  { id: "p_testimonios", block: "producto", weight: 1, page: "Mi negocio",
-    text: "Es fácil conseguir testimonios o pruebas reales de que funciona.",
-    tip: "Dáselo gratis o con descuento a 3–5 personas a cambio de su opinión sincera. Nunca inventes testimonios." },
-  { id: "p_precio_valor", block: "producto", weight: 1, page: "Precio",
-    text: "El precio se siente pequeño comparado con lo que la persona gana o se ahorra.",
-    tip: "Suma bonos, compáralo con lo que cuesta seguir con el problema o prueba otro precio." },
-  { id: "p_escalera", block: "producto", weight: 1, page: "Mi negocio",
-    text: "Después puedes venderle algo más a quien ya compró (otra parte, una versión mejor, una recompra).",
-    textEcom: "Se puede vender en packs o combos, o la gente lo vuelve a comprar.",
-    tip: "Piensa en un segundo producto o una versión premium: vender a quien ya confía en ti cuesta menos.",
-    tipEcom: "Arma un pack de 2 o 3 unidades o un combo con un accesorio: sube lo que te queda por pedido." },
-
-  // MERCADO
-  { id: "m_dinero", block: "mercado", weight: 2, page: "Mi negocio",
-    text: "Tu público tiene dinero para pagarlo y costumbre de comprar por internet.",
-    textEcom: "Tu público tiene dinero para pagarlo y confía en comprar por internet (o puedes ofrecer pago contra entrega).",
-    tip: "Revisa a quién le vendes: a veces el mismo producto funciona mejor para otro público con más poder de compra." },
-  { id: "m_permitido", block: "mercado", weight: 2, page: "Hooks",
-    text: "Se puede anunciar sin problemas: no es un tema muy regulado (salud con promesas, dinero fácil, apuestas…).",
-    tip: "En temas delicados las plataformas rechazan anuncios o cierran cuentas. Cambia el ángulo a uno sin promesas médicas ni de ingresos." },
-  { id: "m_alcance", block: "mercado", weight: 1, page: "Hooks",
-    text: "Sabes dónde está ese público y puedes llegarle con anuncios o contenido.",
-    tip: "Define sus intereses, qué ve y qué sigue. Si no lo sabes, empieza por ganchos que le hablen directo." },
-  { id: "m_todo_el_ano", block: "mercado", weight: 1, page: "Ofertas",
-    text: "Se compra todo el año, no solo en una temporada (Navidad, verano, regreso a clases…).",
-    tip: "Una oferta de temporada puede servir, pero solo unas semanas. Para empezar, busca una que se venda siempre." },
-  { id: "m_competencia", block: "mercado", weight: 1, page: "Buscar Ofertas Winner",
-    text: "Hay varios vendiendo algo parecido (eso prueba que hay mercado), pero ninguno gigante que se quede con todo.",
-    tip: "Cero competencia suele significar cero demanda; un solo gigante lo hace muy difícil. Busca un punto medio." },
-];
-
-const TOTAL = QUESTIONS.length;
-const BLOCK_WEIGHT: Record<Block, number> = { producto: 0.6, mercado: 0.4 };
-
-const PAGE_LABEL: Record<string, string> = {
-  "Ofertas": "Ver ofertas",
-  "Buscar Ofertas Winner": "Buscar ofertas winner",
-  "Mini Apps": "Crear una mini app",
-  "Precio": "Calcular el precio",
-  "Mándala": "Abrir la Mándala",
-  "Generadores": "Usar los generadores",
-  "Hooks": "Ver ganchos",
-  "Mi negocio": "Ir a Mi negocio",
-};
-
-/** Puntaje de un bloque: peso de los "Verdadero" / peso de lo respondido. null si no hay respuestas. */
-function blockScore(block: Block, answers: Record<string, boolean>) {
-  let yes = 0, total = 0;
-  for (const q of QUESTIONS) {
-    if (q.block !== block || !(q.id in answers)) continue;
-    total += q.weight;
-    if (answers[q.id]) yes += q.weight;
-  }
-  return total ? yes / total : null;
-}
-
-function overallScore(answers: Record<string, boolean>) {
-  const p = blockScore("producto", answers);
-  const m = blockScore("mercado", answers);
-  if (p === null && m === null) return null;
-  if (p === null) return Math.round((m ?? 0) * 100);
-  if (m === null) return Math.round(p * 100);
-  return Math.round((p * BLOCK_WEIGHT.producto + m * BLOCK_WEIGHT.mercado) * 100);
-}
-
-function verdict(score: number) {
-  if (score >= 75) return { tone: "good" as const, title: "Adelante: tiene lo que necesita para vender", text: "Tu oferta pasa la prueba. Sigue con el precio y cuida los puntos débiles que queden." };
-  if (score >= 50) return { tone: "mid" as const, title: "Se puede, pero refuerza estos puntos antes de invertir", text: "Hay base, pero los puntos débiles te pueden hacer gastar de más en anuncios. Trabájalos primero." };
-  return { tone: "bad" as const, title: "Cambia de oferta o ajústala antes de gastar en anuncios", text: "Hoy le faltan señales importantes. Mejor ajustarla o elegir otra ahora que perder dinero después." };
-}
 
 // Al imprimir: solo la matriz, en blanco y negro legible.
 const PRINT_CSS = `
@@ -137,26 +34,43 @@ const PRINT_CSS = `
 }
 `;
 
+const ANSWER_LABEL: Record<Answer, string> = { si: "Sí", no: "No", nose: "No sé" };
+const RADAR_PREFILL_KEY = "supernova_radar_prefill";
+
+type RadarState =
+  | { status: "idle" }
+  | { status: "loading"; kw: string }
+  | { status: "done"; kw: string; result: RadarCheck }
+  | { status: "error"; kw: string; message: string };
+
 export function ValidationPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { profile, loaded, savePatch } = useBusinessProfile();
-  const [answers, setAnswers] = useState<Record<string, boolean>>({});
+  const [answers, setAnswers] = useState<Answers>({});
   const [completedAt, setCompletedAt] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [ready, setReady] = useState(false);
+  const [keyword, setKeyword] = useState("");
+  const [radar, setRadar] = useState<RadarState>({ status: "idle" });
   const saveTimer = useRef<number | null>(null);
   const pending = useRef<Validation | null>(null);
+  // Copias al día para "Compruébalo por mí": responde después de esperar al Radar y no debe
+  // pisar lo que el usuario marcó mientras tanto.
+  const answersRef = useRef<Answers>({});
+  const completedRef = useRef<string | null>(null);
+  answersRef.current = answers;
+  completedRef.current = completedAt;
 
-  // Carga lo guardado una sola vez.
+  // Carga lo guardado una sola vez (true/false de la versión anterior se leen como sí/no).
   useEffect(() => {
     if (!loaded || ready) return;
     const saved = profile.validation;
     if (saved?.answers) {
-      const valid = Object.fromEntries(Object.entries(saved.answers).filter(([k, v]) => QUESTIONS.some(q => q.id === k) && typeof v === "boolean"));
-      setAnswers(valid);
+      setAnswers(normalizeAnswers(saved.answers));
       setCompletedAt(saved.completed_at ?? null);
     }
+    setKeyword(defaultKeyword(profile.product ?? ""));
     setReady(true);
-  }, [loaded, ready, profile.validation]);
+  }, [loaded, ready, profile.validation, profile.product]);
 
   const flush = useCallback(() => {
     if (saveTimer.current) { window.clearTimeout(saveTimer.current); saveTimer.current = null; }
@@ -176,20 +90,23 @@ export function ValidationPage({ onNavigate }: { onNavigate?: (page: string) => 
     else saveTimer.current = window.setTimeout(flush, 700);
   };
 
-  const answer = (id: string, value: boolean) => {
-    const next = { ...answers, [id]: value };
+  const answer = (id: string, value: Answer) => {
+    const next: Answers = { ...answersRef.current, [id]: value };
+    const completedAt = completedRef.current;
+    answersRef.current = next;
     const allDone = QUESTIONS.every(q => q.id in next);
     const done = allDone ? (completedAt ?? new Date().toISOString()) : null;
+    completedRef.current = done;
     setAnswers(next);
     setCompletedAt(done);
     // La nota se guarda para que el recorrido sepa si la oferta pasó (≥ 50) o hay que ajustarla.
     persist({ answers: next, completed_at: done, score: overallScore(next) }, allDone && !completedAt);
     if (allDone && !completedAt) {
       setEditing(false);
-      const sc = overallScore(next) ?? 0;
-      toast.success("¡Listo! Tu matriz está completa", sc >= 50 && onNavigate
-        ? { description: "Siguiente paso: ponle precio.", action: { label: "Ir →", onClick: () => onNavigate("Precio") } }
-        : { description: "Tu nota es baja: revisa los puntos débiles antes de seguir." });
+      const unsure = byAnswer(next, "nose").length;
+      toast.success("¡Listo! Tu matriz está completa", {
+        description: unsure ? `Te quedan ${unsure} puntos por comprobar. Míralos en tu resultado.` : "Mira tu resultado y tu siguiente paso.",
+      });
       window.setTimeout(() => document.getElementById("sn-validation-matrix")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     }
   };
@@ -199,12 +116,62 @@ export function ValidationPage({ onNavigate }: { onNavigate?: (page: string) => 
     setAnswers({});
     setCompletedAt(null);
     setEditing(true);
+    setRadar({ status: "idle" });
     persist({ answers: {}, completed_at: null, score: null }, true);
+  };
+
+  /** Lleva a otra pantalla; al Radar le pasa la palabra clave ya escrita. */
+  const go = (page: string) => {
+    if (!onNavigate) return;
+    if (page === "Buscar Ofertas Winner" && keyword.trim().length >= 3) {
+      try { localStorage.setItem(RADAR_PREFILL_KEY, keyword.trim()); } catch { /* sin almacenamiento: abre el Radar vacío */ }
+    }
+    flush();
+    onNavigate(page);
+  };
+
+  /**
+   * "Compruébalo por mí": busca en el catálogo anuncios con 30+ días con la palabra clave.
+   * RPC radar_search (la misma del Radar): gratis, límite pequeño, nada de count exact ni select *.
+   */
+  const checkRadar = async (kwRaw?: string) => {
+    const kw = (kwRaw ?? keyword).trim();
+    if (kw.length < 3) { toast.error("Escribe al menos una palabra de 3 letras"); return; }
+    if (kwRaw !== undefined) setKeyword(kw);
+    setRadar({ status: "loading", kw });
+    const { data, error } = await supabase.rpc("radar_search", {
+      p_keyword: kw, p_markets: null, p_exclude_markets: null,
+      p_min_score: 0, p_min_days: 30, p_min_dups: 0,
+      p_sort: "days", p_offset: 0, p_limit: 10,
+    });
+    const r = data as { rows?: { page_name?: string; advertiser?: string; days_active?: number }[]; total?: number; capped?: boolean; error?: string } | null;
+    if (error || !r || r.error) {
+      const message = r?.error === "forbidden"
+        ? "El Radar se abre con tu plan activo. Mientras tanto, responde con lo que sepas o marca «No sé»."
+        : r?.error === "keyword_length"
+          ? "Usa palabras de al menos 3 letras."
+          : "No pudimos consultar el Radar ahora. Intenta de nuevo en unos segundos.";
+      setRadar({ status: "error", kw, message });
+      return;
+    }
+    const result = summarizeRadar(r);
+    setRadar({ status: "done", kw, result });
+    if (result.total > 0) answer("p_prueba_venta", "si");
   };
 
   const isEcom = profile.business_type === "ecommerce";
   const qText = (q: Question) => (isEcom && q.textEcom) || q.text;
+  const qHow = (q: Question) => (isEcom && q.howEcom) || q.how;
   const qTip = (q: Question) => (isEcom && q.tipEcom) || q.tip;
+
+  // Sugerencias de la ficha + lo que encontró el Radar. Nunca se marcan solas.
+  const suggest = useMemo(() => {
+    const s: Record<string, Suggestion> = suggestions(profile);
+    if (radar.status === "done" && radar.result.advertisers >= 3) {
+      s.m_competencia = { answer: "si", why: `En el Radar salen al menos ${radar.result.advertisers} anunciantes distintos con «${radar.kw}» y más de 30 días.` };
+    }
+    return s;
+  }, [profile, radar]);
 
   const answered = QUESTIONS.filter(q => q.id in answers).length;
   const complete = answered === TOTAL;
@@ -217,8 +184,13 @@ export function ValidationPage({ onNavigate }: { onNavigate?: (page: string) => 
   const header = (
     <PageHeader stage="Mi negocio · Etapa 2" title="Comprueba que se vende"
       icon={<ClipboardCheck className="w-5 h-5 text-primary shrink-0" />}
-      line={`${TOTAL} preguntas de sí o no. Unos 3 minutos. Gratis.`}
-      details={["Responde con honestidad: verás qué tiene de fuerte tu producto y qué le falta.", "Nota 75 o más: adelante · de 50 a 74: refuerza · menos de 50: cambia la oferta.", "Al final puedes imprimir tu matriz."]} />
+      line={`${TOTAL} preguntas: Sí, No o No sé. Cada una te dice cómo saberlo. Unos 3 minutos. Gratis.`}
+      details={[
+        "Debajo de cada pregunta está «Cómo saberlo»: una comprobación de 1 minuto. Si no estás seguro, marca «No sé»: es mejor que adivinar.",
+        "«No sé» cuenta medio punto y queda en tu lista «Por comprobar».",
+        "La pregunta del Radar se puede comprobar sola con anuncios reales: toca «Compruébalo por mí».",
+        "Nota 75 o más: adelante · de 50 a 74: refuerza · menos de 50: cambia la oferta. Al final puedes imprimir tu matriz.",
+      ]} />
   );
 
   if (!profileReady(profile)) {
@@ -238,7 +210,7 @@ export function ValidationPage({ onNavigate }: { onNavigate?: (page: string) => 
       <span className="text-foreground font-medium break-words min-w-0">{profile.product}</span>
       <span className="text-muted-foreground hidden sm:inline" aria-hidden>·</span>
       <span className="text-muted-foreground break-words min-w-0">para {profile.who}</span>
-      <button onClick={() => onNavigate?.("Mi negocio")} className="ml-auto text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">Cambiar</button>
+      <button onClick={() => go("Mi negocio")} className="ml-auto text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">Cambiar</button>
     </div>
   );
 
@@ -246,40 +218,136 @@ export function ValidationPage({ onNavigate }: { onNavigate?: (page: string) => 
     <div className="space-y-1.5" aria-live="polite">
       <div className="flex justify-between text-xs text-muted-foreground">
         <span>{answered} de {TOTAL} respondidas</span>
-        <span>{Math.round((answered / TOTAL) * 100)}%</span>
+        <span>{Math.round((answered / TOTAL) * 100)} %</span>
       </div>
-      <div className="h-2 rounded-full bg-muted overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={TOTAL} aria-valuenow={answered} aria-label="Preguntas respondidas">
-        <div className="h-full bg-primary transition-all" style={{ width: `${(answered / TOTAL) * 100}%` }} />
+      <div className="h-1.5 rounded-full bg-muted overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={TOTAL} aria-valuenow={answered} aria-label="Preguntas respondidas">
+        <div className="h-full bg-foreground/70 transition-all" style={{ width: `${(answered / TOTAL) * 100}%` }} />
       </div>
     </div>
   );
 
+  const pageLink = (page: string | undefined, label?: string) => page && onNavigate ? (
+    <button onClick={() => go(page)}
+      className="sn-no-print inline-flex items-center gap-1 text-xs font-medium text-foreground/80 hover:text-foreground underline-offset-2 hover:underline">
+      {label ?? PAGE_LABEL[page] ?? page} <ArrowRight className="w-3 h-3" />
+    </button>
+  ) : null;
+
+  /** Resultado de "Compruébalo por mí" en lenguaje simple. */
+  const radarResult = () => {
+    if (radar.status === "loading") {
+      return <p className="text-xs text-muted-foreground inline-flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Buscando anuncios con «{radar.kw}»…</p>;
+    }
+    if (radar.status === "error") return <p className="text-xs text-muted-foreground">{radar.message}</p>;
+    if (radar.status !== "done") return null;
+    const { result, kw } = radar;
+    if (result.total > 0) {
+      return (
+        <div className="text-xs leading-snug space-y-1">
+          <p className="text-foreground">
+            <Check className="inline w-3.5 h-3.5 mr-1 text-emerald-400" aria-hidden />
+            Encontramos {result.capped ? "más de " : ""}{fmt(result.total)} {result.total === 1 ? "anuncio" : "anuncios"} con más de 30 días activos sobre «{kw}». Marcamos Sí.
+          </p>
+          {result.examples.length > 0 && (
+            <p className="text-muted-foreground">Por ejemplo: {result.examples.map(e => `${e.name} · ${fmt(e.days)} días`).join(" — ")}.</p>
+          )}
+          {pageLink("Buscar Ofertas Winner", "Verlos en el Radar")}
+        </div>
+      );
+    }
+    const words = keywordWords(kw).length > 1 ? keywordWords(kw) : keywordWords(profile.product ?? "").filter(w => w !== kw);
+    return (
+      <div className="text-xs leading-snug space-y-1.5">
+        <p className="text-foreground">No encontramos anuncios con más de 30 días sobre «{kw}». Prueba con otra palabra, más corta o más general.</p>
+        {words.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 sn-no-print">
+            <span className="text-muted-foreground self-center">Prueba con:</span>
+            {words.slice(0, 4).map(w => (
+              <button key={w} onClick={() => checkRadar(w)}
+                className="rounded-full border border-border px-2.5 py-1 text-foreground/90 hover:border-foreground/40">{w}</button>
+            ))}
+          </div>
+        )}
+        <p className="text-muted-foreground">Si con 2 o 3 palabras distintas no aparece nada, lo honesto es marcar No.</p>
+      </div>
+    );
+  };
+
+  const radarBox = (
+    <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-2">
+      <form className="flex flex-col sm:flex-row gap-2" onSubmit={e => { e.preventDefault(); checkRadar(); }}>
+        <label htmlFor="sn-val-kw" className="sr-only">Palabra clave de tu producto</label>
+        <input id="sn-val-kw" value={keyword} onChange={e => setKeyword(e.target.value)} maxLength={80}
+          placeholder="Palabra clave (ej.: freidora, inglés, uñas)"
+          className="flex-1 min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30" />
+        <button type="submit" disabled={radar.status === "loading"}
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-foreground/30 px-3.5 py-2 text-sm font-medium text-foreground hover:bg-foreground/5 disabled:opacity-50">
+          {radar.status === "loading" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Compruébalo por mí
+        </button>
+      </form>
+      <p className="text-[11px] text-muted-foreground">Busca en los anuncios reales de nuestro catálogo. Gratis, no gasta créditos.</p>
+      {radarResult()}
+    </div>
+  );
+
+  const suggestionLine = (q: Question) => {
+    const s = suggest[q.id];
+    if (!s || answers[q.id] === s.answer) return null;
+    return (
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+        <span className="text-muted-foreground"><span className="text-foreground font-medium">Sugerencia: {ANSWER_LABEL[s.answer]}.</span> {s.why}</span>
+        <button onClick={() => answer(q.id, s.answer)} className="rounded-full border border-border px-2.5 py-0.5 text-foreground/90 hover:border-foreground/40">
+          Usar «{ANSWER_LABEL[s.answer]}»
+        </button>
+      </div>
+    );
+  };
+
+  const answerButton = (q: Question, value: Answer) => {
+    const on = answers[q.id] === value;
+    const icon = value === "si" ? <Check className="w-4 h-4" /> : value === "no" ? <X className="w-4 h-4" /> : <CircleHelp className="w-4 h-4" />;
+    const onColor = value === "si" ? "border-emerald-400/60 text-foreground bg-emerald-400/10"
+      : value === "no" ? "border-red-400/60 text-foreground bg-red-400/10"
+      : "border-foreground/40 text-foreground bg-foreground/10";
+    return (
+      <button onClick={() => answer(q.id, value)} aria-pressed={on}
+        className={`inline-flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40 ${on ? onColor : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"}`}>
+        {icon} {ANSWER_LABEL[value]}
+      </button>
+    );
+  };
+
   const questionCard = (q: Question, n: number) => {
     const v = answers[q.id];
-    const has = q.id in answers;
+    const extra = q.id === "p_frase" ? ` Tu frase: «${profile.product} para ${profile.who}».`
+      : q.id === "p_precio_valor" && profile.price?.trim() ? ` Tu precio en la ficha: ${profile.price.trim()}.`
+      : "";
     return (
       <li key={q.id} className="card-surface rounded-2xl p-4 space-y-3">
-        <p id={`q-${q.id}`} className="text-sm sm:text-base text-foreground leading-snug">
-          <span className="text-muted-foreground mr-1.5 tabular-nums">{n}.</span>{qText(q)}
+        <p id={`q-${q.id}`} className="text-sm sm:text-base text-foreground leading-snug font-medium">
+          <span className="text-muted-foreground mr-1.5 tabular-nums font-normal">{n}.</span>{qText(q)}
         </p>
-        <div className="grid grid-cols-2 gap-2" role="group" aria-labelledby={`q-${q.id}`}>
-          <button onClick={() => answer(q.id, true)} aria-pressed={has && v === true}
-            className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${has && v === true
-              ? "border-emerald-500 bg-emerald-500/20 text-emerald-300"
-              : "border-emerald-500/30 text-emerald-400/80 hover:bg-emerald-500/10"}`}>
-            <ThumbsUp className="w-4 h-4" /> Verdadero
-          </button>
-          <button onClick={() => answer(q.id, false)} aria-pressed={has && v === false}
-            className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 ${has && v === false
-              ? "border-red-500 bg-red-500/20 text-red-300"
-              : "border-red-500/30 text-red-400/80 hover:bg-red-500/10"}`}>
-            <ThumbsDown className="w-4 h-4" /> Falso
-          </button>
+        <div className="text-xs text-muted-foreground leading-snug space-y-1">
+          <p><span className="text-foreground/90 font-medium">Cómo saberlo: </span>{qHow(q)}{extra}</p>
+          {q.id !== "p_prueba_venta" && pageLink(q.page)}
         </div>
-        {has && v === false && (
+        {q.id === "p_prueba_venta" && radarBox}
+        {q.id === "m_competencia" && radar.status !== "done" && (
+          <p className="text-xs text-muted-foreground">Tip: «Compruébalo por mí» en la pregunta 4 también te ayuda con esta.</p>
+        )}
+        {suggestionLine(q)}
+        <div className="grid grid-cols-3 gap-2" role="group" aria-labelledby={`q-${q.id}`}>
+          {answerButton(q, "si")}
+          {answerButton(q, "no")}
+          {answerButton(q, "nose")}
+        </div>
+        {v === "no" && (
           <p className="text-xs text-muted-foreground leading-snug">
-            <span className="text-amber-400 font-medium">Cómo mejorarlo: </span>{qTip(q)}
+            <span className="text-foreground/90 font-medium">Cómo mejorarlo: </span>{qTip(q)}
           </p>
+        )}
+        {v === "nose" && (
+          <p className="text-xs text-muted-foreground leading-snug">Quedó en tu lista «Por comprobar». Cuenta medio punto hasta que lo compruebes.</p>
         )}
       </li>
     );
@@ -303,9 +371,9 @@ export function ValidationPage({ onNavigate }: { onNavigate?: (page: string) => 
   };
 
   const quadrant = (title: string, items: Question[], kind: "strong" | "weak", emptyText: string) => (
-    <div className={`sn-quad rounded-2xl border p-4 space-y-2 ${kind === "strong" ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}`}>
-      <h3 className={`text-sm font-semibold flex items-center gap-1.5 ${kind === "strong" ? "text-emerald-400" : "text-red-400"}`}>
-        {kind === "strong" ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />} {title}
+    <div className="sn-quad rounded-2xl border border-border p-4 space-y-2">
+      <h3 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
+        {kind === "strong" ? <Check className="w-4 h-4 text-emerald-400" /> : <X className="w-4 h-4 text-red-400" />} {title}
         <span className="text-muted-foreground font-normal">({items.length})</span>
       </h3>
       {items.length === 0 ? (
@@ -318,12 +386,7 @@ export function ValidationPage({ onNavigate }: { onNavigate?: (page: string) => 
               {kind === "weak" && (
                 <div className="mt-1 space-y-1">
                   <p className="text-xs text-muted-foreground">{qTip(q)}</p>
-                  {onNavigate && (
-                    <button onClick={() => onNavigate(q.page)}
-                      className="sn-no-print inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-                      {PAGE_LABEL[q.page] ?? q.page} <ArrowRight className="w-3 h-3" />
-                    </button>
-                  )}
+                  {pageLink(q.page)}
                 </div>
               )}
             </li>
@@ -333,7 +396,26 @@ export function ValidationPage({ onNavigate }: { onNavigate?: (page: string) => 
     </div>
   );
 
-  const byAnswer = (block: Block, value: boolean) => QUESTIONS.filter(q => q.block === block && q.id in answers && answers[q.id] === value);
+  const toCheck = byAnswer(answers, "nose");
+  const toCheckList = toCheck.length > 0 && (
+    <div className="sn-quad rounded-2xl border border-border p-4 space-y-2">
+      <h3 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
+        <CircleHelp className="w-4 h-4 text-muted-foreground" /> Por comprobar <span className="text-muted-foreground font-normal">({toCheck.length})</span>
+      </h3>
+      <p className="text-xs text-muted-foreground">Respondiste «No sé». Cada comprobación toma 1 minuto; después vuelve y cambia tu respuesta.</p>
+      <ul className="space-y-2.5">
+        {toCheck.map(q => (
+          <li key={q.id} className="text-sm text-foreground leading-snug">
+            {qText(q)}{q.weight === 2 && <span className="ml-1.5 text-[11px] text-muted-foreground">(importante)</span>}
+            <div className="mt-1 space-y-1">
+              <p className="text-xs text-muted-foreground"><span className="text-foreground/90">Cómo saberlo: </span>{qHow(q)}</p>
+              {pageLink(q.page)}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 
   const scoreCard = () => {
     if (score === null) {
@@ -343,11 +425,10 @@ export function ValidationPage({ onNavigate }: { onNavigate?: (page: string) => 
         </div>
       );
     }
-    const vd = verdict(score);
-    const tone = vd.tone === "good" ? "border-emerald-500/40 bg-emerald-500/5" : vd.tone === "mid" ? "border-amber-500/40 bg-amber-500/5" : "border-red-500/40 bg-red-500/5";
-    const color = vd.tone === "good" ? "text-emerald-400" : vd.tone === "mid" ? "text-amber-400" : "text-red-400";
+    const vd = verdict(score, answers);
+    const color = vd.tone === "good" ? "text-emerald-400" : vd.tone === "mid" ? "text-amber-400" : vd.tone === "bad" ? "text-red-400" : "text-foreground";
     return (
-      <div className={`rounded-2xl border p-5 space-y-2 ${tone}`}>
+      <div className="card-surface rounded-2xl p-5 space-y-2">
         <p className="text-xs uppercase tracking-wider text-muted-foreground">
           {complete ? "Resultado" : `Resultado parcial · ${answered} de ${TOTAL}`}
         </p>
@@ -356,23 +437,64 @@ export function ValidationPage({ onNavigate }: { onNavigate?: (page: string) => 
         <p className="text-sm text-muted-foreground">{complete ? vd.text : "El resultado puede cambiar: termina todas las preguntas para verlo completo."}</p>
         <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
           <div className="rounded-lg border border-border px-3 py-2">
-            <p className="text-muted-foreground">Producto (60%)</p>
+            <p className="text-muted-foreground">Producto (60 %)</p>
             <p className="text-foreground font-semibold tabular-nums">{productScore === null ? "—" : `${Math.round(productScore * 100)}/100`}</p>
           </div>
           <div className="rounded-lg border border-border px-3 py-2">
-            <p className="text-muted-foreground">Mercado (40%)</p>
+            <p className="text-muted-foreground">Mercado (40 %)</p>
             <p className="text-foreground font-semibold tabular-nums">{marketScore === null ? "—" : `${Math.round(marketScore * 100)}/100`}</p>
           </div>
         </div>
-        {complete && vd.tone === "bad" && onNavigate && (
-          <button onClick={() => onNavigate("Ofertas")}
-            className="sn-no-print mt-1 inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted/40">
-            Buscar otra oferta <ArrowRight className="w-4 h-4" />
-          </button>
-        )}
       </div>
     );
   };
+
+  /** Un solo siguiente paso, el más importante. */
+  const nextStepCard = () => {
+    if (!complete || !onNavigate) return null;
+    const ns = nextStep(answers);
+    const primary = "inline-flex items-center gap-2 btn-primary-nova px-4 py-2.5 text-sm";
+    const secondary = "inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm text-foreground hover:border-foreground/40";
+    let title: string, text: string, main: { label: string; page: string }, alt: { label: string; page: string } | null = null;
+    if (ns.kind === "fix") {
+      title = "Primero arregla esto";
+      text = `${qText(ns.question)} Respondiste No, y es de los puntos que más pesan. ${qTip(ns.question)}`;
+      main = { label: PAGE_LABEL[ns.question.page ?? ""] ?? "Ajustar mi ficha", page: ns.question.page ?? "Mi negocio" };
+      alt = { label: "Buscar otra oferta", page: "Ofertas" };
+    } else if (ns.kind === "check") {
+      title = "Primero comprueba esto";
+      text = `${qText(ns.question)} — ${qHow(ns.question)}`;
+      main = { label: PAGE_LABEL[ns.question.page ?? ""] ?? "Comprobarlo", page: ns.question.page ?? "Mi negocio" };
+      alt = (score ?? 0) >= 50 ? { label: "Ponle precio igual", page: "Precio" } : null;
+    } else if (ns.kind === "price") {
+      title = "Siguiente paso: ponle precio";
+      text = "Tu oferta pasa la matriz. Ahora mira cuánto te queda por venta antes de pagar anuncios.";
+      main = { label: "Calcular mi precio", page: "Precio" };
+    } else {
+      title = "Siguiente paso: busca una oferta con más señales";
+      text = "Hoy le faltan varias señales. Elegir otra oferta que ya se vende te ahorra dinero en anuncios.";
+      main = { label: "Buscar otra oferta", page: "Ofertas" };
+      alt = { label: "Ajustar mi ficha", page: "Mi negocio" };
+    }
+    return (
+      <div className="sn-no-print rounded-2xl border border-primary/40 p-4 space-y-2">
+        <p className="text-xs uppercase tracking-wider text-primary font-semibold">Tu siguiente paso</p>
+        <p className="font-semibold text-foreground">{title}</p>
+        <p className="text-sm text-muted-foreground leading-snug">{text}</p>
+        <div className="flex flex-wrap gap-2 pt-1">
+          <button onClick={() => go(main.page)} className={primary}>{main.label} <ArrowRight className="w-4 h-4" /></button>
+          {alt && <button onClick={() => go(alt.page)} className={secondary}>{alt.label}</button>}
+          {ns.kind === "check" && (
+            <button onClick={() => { setEditing(true); window.setTimeout(() => document.getElementById(`q-${ns.question.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 50); }}
+              className="text-sm text-muted-foreground hover:text-foreground px-2 py-2">Ya lo comprobé: cambiar respuesta</button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const strong = (block: Block) => byAnswer(answers, "si", block);
+  const weak = (block: Block) => byAnswer(answers, "no", block);
 
   const matrix = (
     <section id="sn-validation-matrix" className="space-y-4 scroll-mt-4" aria-label="Matriz de validación">
@@ -401,43 +523,25 @@ export function ValidationPage({ onNavigate }: { onNavigate?: (page: string) => 
       </div>
 
       {scoreCard()}
+      {nextStepCard()}
 
       {answered > 0 && (
         <div className="grid sm:grid-cols-2 gap-3">
-          {quadrant("Fortalezas del producto", byAnswer("producto", true), "strong", "Todavía ninguna.")}
-          {quadrant("Puntos débiles del producto", byAnswer("producto", false), "weak", "Ninguno por ahora. ¡Bien!")}
-          {quadrant("Fortalezas del mercado", byAnswer("mercado", true), "strong", "Todavía ninguna.")}
-          {quadrant("Puntos débiles del mercado", byAnswer("mercado", false), "weak", "Ninguno por ahora. ¡Bien!")}
+          {quadrant("Fortalezas del producto", strong("producto"), "strong", "Todavía ninguna.")}
+          {quadrant("Puntos débiles del producto", weak("producto"), "weak", "Ninguno por ahora. ¡Bien!")}
+          {quadrant("Fortalezas del mercado", strong("mercado"), "strong", "Todavía ninguna.")}
+          {quadrant("Puntos débiles del mercado", weak("mercado"), "weak", "Ninguno por ahora. ¡Bien!")}
         </div>
       )}
+      {toCheckList}
 
       <p className="text-[11px] text-muted-foreground/80">
         Es una guía para decidir con más claridad, no una garantía de ventas. La prueba final siempre son los primeros anuncios.
+        {toCheck.length > 0 && " Cada «No sé» cuenta medio punto: tu nota dice más cuando los compruebas."}
       </p>
 
       {complete && (
-        <div className="sn-no-print flex flex-wrap items-center gap-2 pt-1">
-          {/* Nota baja (< 50): primero se ajusta la oferta; el precio queda como opción secundaria. */}
-          {onNavigate && score !== null && score < 50 ? (
-            <>
-              <button onClick={() => onNavigate("Mi negocio")}
-                className="inline-flex items-center gap-2 rounded-lg gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground">
-                Ajustar mi ficha <ArrowRight className="w-4 h-4" />
-              </button>
-              <button onClick={() => onNavigate("Ofertas")}
-                className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm text-foreground hover:border-primary/50">
-                Buscar otra oferta
-              </button>
-              <button onClick={() => onNavigate("Precio")} className="text-sm text-muted-foreground hover:text-foreground px-2 py-2">
-                Ponle precio igual →
-              </button>
-            </>
-          ) : onNavigate && (
-            <button onClick={() => onNavigate("Precio")}
-              className="inline-flex items-center gap-2 rounded-lg gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground">
-              Siguiente paso: ponle precio <ArrowRight className="w-4 h-4" />
-            </button>
-          )}
+        <div className="sn-no-print flex flex-wrap items-center gap-2">
           <button onClick={reset} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground px-2 py-2">
             <RotateCcw className="w-3.5 h-3.5" /> Empezar de nuevo
           </button>
@@ -459,10 +563,10 @@ export function ValidationPage({ onNavigate }: { onNavigate?: (page: string) => 
           <div className="space-y-6 min-w-0">
             {progressBar}
             {questionBlock("producto", "Tu producto", "¿Tiene lo que necesita para venderse?", 0)}
-            {questionBlock("mercado", "Tu mercado", "¿El público y las plataformas lo acompañan?", productCount)}
+            {questionBlock("mercado", "Tu mercado", "¿Tu cliente y las plataformas lo acompañan?", productCount)}
             {complete && editing && (
               <button onClick={() => { flush(); setEditing(false); }}
-                className="inline-flex items-center gap-2 rounded-lg gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground">
+                className="inline-flex items-center gap-2 btn-primary-nova px-4 py-2.5 text-sm">
                 <Check className="w-4 h-4" /> Listo, ver mi matriz
               </button>
             )}

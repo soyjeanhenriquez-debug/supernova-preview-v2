@@ -6,7 +6,7 @@
  * entra solo como REFERENCIA ("escribe otro con la misma idea"), nunca literal.
  */
 import type { SeedTarget } from "@/lib/creativeSeed";
-import { CONCEPT_BY_ID, MAX_CONCEPTS } from "@/lib/adConcepts";
+import { CONCEPT_BY_ID, MAX_CONCEPTS, levelConcepts, type ConceptGroup } from "@/lib/adConcepts";
 
 export type StudioMode = "creativo" | "carrusel" | "miniatura" | "foto_ugc" | "foto_producto" | "variar";
 export type Aspect = "1:1" | "4:5" | "9:16" | "16:9";
@@ -30,6 +30,8 @@ export type PromptCtx = {
   hasRefs?: boolean;
   /** Creativos: conceptos elegidos (src/lib/adConcepts.ts), hasta 3. */
   concepts?: string[];
+  /** Creativos: nivel de conciencia del cliente; completa con conceptos distintos de ese nivel. */
+  level?: ConceptGroup;
   /** Creativos: otro estilo descrito por el usuario; la IA lo adapta. */
   customStyle?: string;
   /** Texto real para los conceptos que no se inventan (testimonio, dato, experto…), por id. */
@@ -41,7 +43,11 @@ export function missingRealTexts(ctx: Pick<PromptCtx, "concepts" | "realTexts">)
   return (ctx.concepts ?? []).filter(id => CONCEPT_BY_ID[id]?.needsReal && !clean(ctx.realTexts?.[id], 160));
 }
 
-/** Espacios de "Creativos" con los conceptos elegidos u otro estilo. Siempre 3: si eligió menos, se repiten en otra versión. */
+/**
+ * Espacios de "Creativos": siempre 3 conceptos DISTINTOS (nunca 3 versiones del mismo estático).
+ * Primero los que eligió y su estilo escrito; si faltan, se completan con otros conceptos del mismo
+ * nivel de conciencia que no piden datos reales. Sin nivel ni elección: los 3 de siempre (null).
+ */
 function conceptSlots(ctx: PromptCtx, text: string, t: string): SlotSpec[] | null {
   const custom = clean(ctx.customStyle, 160);
   // Con "otro estilo" escrito entran 2 conceptos: siempre son 3 imágenes.
@@ -52,14 +58,21 @@ function conceptSlots(ctx: PromptCtx, text: string, t: string): SlotSpec[] | nul
     return { label: c.name, scene: c.scene, real };
   });
   if (custom) picks.push({ label: "Tu estilo", scene: `Estilo pedido por el usuario (adáptalo a un anuncio que cumpla las reglas): ${custom}.` });
+  // Sin nivel, se completa con el nivel del primer concepto elegido.
+  const lvl = ctx.level ?? (ids[0] ? CONCEPT_BY_ID[ids[0]].group : undefined);
+  if (lvl) {
+    for (const c of levelConcepts(lvl)) {
+      if (picks.length >= MAX_CONCEPTS) break;
+      if (c.needsReal || ids.includes(c.id)) continue;
+      picks.push({ label: c.name, scene: c.scene });
+    }
+  }
   if (!picks.length) return null;
-  return [0, 1, 2].map(i => {
-    const p = picks[i % picks.length];
-    const round = Math.floor(i / picks.length);
+  return picks.slice(0, MAX_CONCEPTS).map((p, i) => {
     const txt = p.real ? `Texto en la imagen, exactamente y sin cambiar nada: «${p.real}».` : text;
     return {
-      id: `k${i}`, label: round ? `${p.label} · versión ${round + 1}` : p.label, aspect: ctx.aspect,
-      prompt: `Anuncio de Facebook e Instagram. Concepto: ${p.label}. ${p.scene}${round ? " Otra composición distinta a la anterior." : ""} ${txt} ${t}`,
+      id: `k${i}`, label: p.label, aspect: ctx.aspect,
+      prompt: `Anuncio de Facebook e Instagram. Concepto: ${p.label}. ${p.scene} ${txt} ${t}`,
     };
   });
 }

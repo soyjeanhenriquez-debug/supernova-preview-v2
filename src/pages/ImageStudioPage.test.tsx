@@ -53,19 +53,18 @@ describe("ImageStudioPage", () => {
     profile = { product: "Ebook de recetas", who: "Mamás que trabajan", promise: "Cocinar rápido", price: "" };
     invoke.mockResolvedValue({ data: { error: "x" }, error: null });
     render(<ImageStudioPage initialMode="creativo" />);
-    fireEvent.click(screen.getByRole("button", { name: /elegir estilo/ }));
-    fireEvent.click(screen.getByRole("tab", { name: "Para quien está por comprar" }));
-    fireEvent.click(screen.getByRole("button", { name: /^Testimonio/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Conoce tu producto/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Ejemplo de Testimonio/ }));
     fireEvent.click(screen.getByText(/Crear 3 imágenes/));
     await new Promise(r => setTimeout(r, 30));
     expect(invoke).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: /^Testimonio/ }));
-    fireEvent.click(screen.getByRole("tab", { name: "Para quien no te conoce" }));
-    fireEvent.click(screen.getByRole("button", { name: /^Iceberg/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Ejemplo de Testimonio/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /No sabe que tiene el problema/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Ejemplo de Iceberg/ }));
     fireEvent.click(screen.getByText(/Crear 3 imágenes/));
     await waitFor(() => expect(invoke).toHaveBeenCalled());
     expect((invoke.mock.calls[0][1].body as { prompt: string }).prompt).toContain("Concepto: Iceberg");
-  });
+  }, 15_000); // renderiza 32 tarjetas con imagen: con toda la batería en paralelo pasa de 5 s
 
   it("semilla con autostart genera sin toques extra y no copia el gancho literal", async () => {
     setSeed({ source: "radar", target: "carrusel", title: "Curso de uñas", product: "Curso de uñas acrílicas", who: "Mujeres que quieren emprender", promise: "Hacer uñas desde casa", hook: "Deja de pagar por tus uñas", evidence: "214 días pagando anuncios", autostart: true });

@@ -20,8 +20,9 @@ export type PriceScenario = {
 export type Pricing = { currency: string; scenarios: PriceScenario[]; chosen?: string | null };
 /** Etapas del recorrido marcadas a mano como hechas (las que no tienen datos propios). */
 export type Journey = { done?: Record<string, boolean>; gemelo?: Gemelo | null; personaje?: PersonajeState | null };
-/** Etapa 2 · Matriz de validación: respuestas verdadero/falso por id de pregunta (src/pages/ValidationPage.tsx). */
-export type Validation = { answers: Record<string, boolean>; completed_at?: string | null; score?: number | null };
+/** Etapa 2 · Matriz de validación: "si" | "no" | "nose" por id de pregunta (src/pages/ValidationPage.tsx).
+ *  Las guardadas antes del 04-oct-2026 traen true/false: src/lib/validation.ts las lee como sí/no. */
+export type Validation = { answers: Record<string, "si" | "no" | "nose" | boolean>; completed_at?: string | null; score?: number | null };
 /** Etapa 4 · Plan de lanzamiento (src/pages/LaunchPlanPage.tsx). due = 'YYYY-MM-DD'. */
 export type LaunchTask = {
   id: string; title: string; group: string; due: string | null; done: boolean;

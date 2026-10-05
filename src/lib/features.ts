@@ -8,8 +8,8 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
  */
 // "Proyectos" NO va aquí: es donde se guardan las mini apps de "Hacer mi versión".
 // "Crear producto" (Fase 1, ebook o curso con IA): en piloto con Jean; se quita de aquí para lanzarlo.
-// "UGC con IA": solo admin mientras el interruptor 'video-studio:ugc' del servidor siga apagado.
-export const ADMIN_ONLY_PAGES = new Set(["Media Studio", "Mercado", "Crear", "Oráculo", "Crear producto", "UGC con IA"]);
+// "UGC con IA" ya no está aquí: abre Influencer IA, que sabe mostrar "pronto" si el servidor lo tiene cerrado.
+export const ADMIN_ONLY_PAGES = new Set(["Media Studio", "Mercado", "Crear", "Oráculo", "Crear producto"]);
 
 /** Los idiomas inglés y portugués también quedan en pausa para clientes: la app va en español. */
 export const MULTI_LANGUAGE_FOR_CLIENTS = false;

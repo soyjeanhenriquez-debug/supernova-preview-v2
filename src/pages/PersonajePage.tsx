@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, Check, Copy, Crown, Download, Film, ImageIcon, Loader2, Lock, RefreshCw, ShieldCheck, Sparkles, UserRound, X } from "lucide-react";
+import { ArrowRight, Check, Copy, Crown, Download, Film, ImageIcon, Loader2, Lock, Mic, RefreshCw, ShieldCheck, Sparkles, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,8 +8,9 @@ import { useCredits, generatorCost, CREDIT_COSTS } from "@/hooks/useCredits";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import { track } from "@/lib/analytics";
 import { AFFILIATE_NOTE, HIGGSFIELD_URL } from "@/lib/partners";
-import { setSeed, TARGET_SLUG } from "@/lib/creativeSeed";
-import { loadVideoConfig, setPresenter } from "@/components/video/videoApi";
+import { createVideo, downloadVideo, invokeVideo, loadVideoConfig, waitForVideo, type VideoJob } from "@/components/video/videoApi";
+import { VIDEO_PRICE, buildShots, cleanBrief, hasForbiddenClaim, recommendTemplate, shotPrompt } from "@/lib/videoTemplates";
+import { SPOKEN_MAX, STOCK_INFLUENCERS, VOICES, guessGenero, lineFromGuion, voicePrompt, type Genero, type StockInfluencer } from "@/lib/influencers";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { ModelPicker } from "@/components/media/ModelPicker";
 import { accessOf, hasComunidad, loadMediaModels, type MediaModel } from "@/lib/media";
@@ -21,17 +22,20 @@ import {
 } from "@/lib/personaje";
 
 /**
- * Etapa 5 · "Vende sin mostrar tu cara": un personaje creado con IA cuenta tu oferta gemela en
- * Reels/TikTok/Shorts. 1) Personaje (3 propuestas + foto) · 2) 10 guiones con ganchos probados ·
- * 3) Videos (PRONTO: fal.ai, base en supabase/functions/video-generate). Cobra el servidor con los
- * precios de siempre (gen_light, gen_medium, gen_ad_image). Reglas de honestidad: src/lib/personaje.ts.
+ * Influencer IA ("Vende sin mostrar tu cara"): un personaje creado con IA cuenta tu oferta en
+ * Reels/TikTok/Shorts. Desde el 05-oct-2026 es el ÚNICO lugar para videos que hablan (UGC con IA
+ * vive aquí; antes estaba duplicado en el estudio de video y el paso 3 hacía clips mudos):
+ * 1) Tu influencer: uno de los 4 de SUPERNOVA (gratis) o 3 propuestas a tu medida + foto.
+ * 2) 10 guiones con ganchos probados.
+ * 3) Su video hablando: qué dice + estilo de voz → video-studio kind "ugc" (Seedance 2.0 Mini, con
+ *    voz y labios sincronizados), 110 créditos que cobra el servidor y devuelve si falla.
+ * Reglas de honestidad: src/lib/personaje.ts. Avatares y voces: src/lib/influencers.ts.
  */
 const PRESALE_URL = import.meta.env.VITE_VIDEO_PRESALE_URL as string | undefined;
 const PRESALE_DEADLINE = import.meta.env.VITE_VIDEO_PRESALE_DEADLINE as string | undefined; // "30 de noviembre de 2026"
 
 type Step = 1 | 2 | 3;
-type Job = { id: string; status: "queued" | "running" | "done" | "failed"; prompt: string; result_url: string | null; model: string; created_at: string };
-const DEFAULT_VIDEO_PROMPT = "La persona de la foto mira a cámara y habla con naturalidad, con gestos suaves de las manos. Luz natural, cámara estable, estilo video vertical para redes sociales.";
+const TALK_COST = VIDEO_PRICE[10];
 
 async function streamGenerator(generatorId: string, title: string, system: string, user: string): Promise<{ text: string; resp: Response }> {
   const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
@@ -70,12 +74,12 @@ async function compress(dataUrl: string): Promise<Blob> {
   return await new Promise<Blob>((res, rej) => c.toBlob(b => (b ? res(b) : rej(new Error("No se pudo preparar la foto."))), "image/webp", 0.85));
 }
 
-export function PersonajePage({ onNavigate }: { onNavigate: (page: string) => void }) {
+export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: string) => void; initialStep?: Step }) {
   const { user } = useAuth();
   const { profile, savePatch, loaded, productId } = useBusinessProfile();
-  const { applyServerCharge, canAfford } = useCredits();
+  const { applyServerCharge, canAfford, balance } = useCredits();
   const state: PersonajeState = profile.journey?.personaje ?? {};
-  const [step, setStep] = useState<Step>(state.guiones?.length ? 2 : 1);
+  const [step, setStep] = useState<Step>(initialStep && state.elegido ? initialStep : state.guiones?.length ? 2 : 1);
   const [country, setCountry] = useState<CountryCode>(profile.journey?.gemelo?.country ?? "RD");
   const [busy, setBusy] = useState<"" | "ideas" | "foto" | "guiones">("");
   const [fotoUrl, setFotoUrl] = useState<string | null>(null);
@@ -84,48 +88,44 @@ export function PersonajePage({ onNavigate }: { onNavigate: (page: string) => vo
   const [models, setModels] = useState<MediaModel[]>([]);
   const [comunidad, setComunidad] = useState(false);
   const [imgModel, setImgModel] = useState<string | null>(null);
-  const [vidModel, setVidModel] = useState<string | null>(null);
   const [upsell, setUpsell] = useState<MediaModel | null>(null);
-  const [vPrompt, setVPrompt] = useState(DEFAULT_VIDEO_PROMPT);
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [videoBusy, setVideoBusy] = useState(false);
-  // "Hazlo hablar en video" solo si UGC con IA está abierto en el servidor (interruptor de admin; gratis).
-  const [ugcOpen, setUgcOpen] = useState(false);
+  // Video que habla (UGC): abierto según el interruptor del servidor (edge_limits 'video-studio:ugc').
+  const [ugcOpen, setUgcOpen] = useState<boolean | null>(null);
   useEffect(() => { let on = true; loadVideoConfig().then(c => { if (on) setUgcOpen(c.ugc); }); return () => { on = false; }; }, []);
+  const [line, setLine] = useState("");
+  const [talk, setTalk] = useState<{ busy: boolean; progress: number | null; error: string | null }>({ busy: false, progress: null, error: null });
+  const [talkJobs, setTalkJobs] = useState<VideoJob[]>([]);
+  const [stockBusy, setStockBusy] = useState<string | null>(null);
 
   useEffect(() => { loadMediaModels().then(setModels); }, []);
   useEffect(() => { if (user) hasComunidad(user.id, user.email).then(setComunidad); }, [user]);
   const opts = useMemo(() => ({ isAdmin: !!isAdmin, comunidad }), [isAdmin, comunidad]);
   const usable = useCallback((kind: MediaModel["kind"]) => models.filter(m => m.kind === kind && accessOf(m, opts) === "ok"), [models, opts]);
-  // Modelo por defecto: el recomendado que se pueda usar, o el primero.
+  // Modelo de foto por defecto: el recomendado que se pueda usar, o el primero.
   useEffect(() => {
     const im = usable("image"); if (!imgModel && im.length) setImgModel((im.find(m => m.recommended) ?? im[0]).id);
-    const vm = usable("video"); if (!vidModel && vm.length) setVidModel((vm.find(m => m.recommended) ?? vm[0]).id);
-  }, [usable, imgModel, vidModel]);
+  }, [usable, imgModel]);
   const imgM = models.find(m => m.id === imgModel && accessOf(m, opts) === "ok") ?? null;
-  const vidM = models.find(m => m.id === vidModel && accessOf(m, opts) === "ok") ?? null;
-  const videosOpen = usable("video").length > 0;
 
-  const loadJobs = useCallback(async () => {
-    if (!user) return;
+  // Videos que habla (últimos 7 días). Los que quedaron a medias se consultan (gratis) para que
+  // aparezcan si salieron o se devuelvan si fallaron.
+  const uid = user?.id ?? null;
+  const loadTalkJobs = useCallback(async () => {
+    if (!uid) return;
+    const since = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (supabase as any).from("video_jobs").select("id,status,prompt,result_url,model,created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(6);
-    setJobs((data ?? []) as Job[]);
-  }, [user]);
-  useEffect(() => { if (step === 3 && videosOpen) void loadJobs(); }, [step, videosOpen, loadJobs]);
-  // Mientras haya videos en proceso, se pregunta cada 7 s (el servidor consulta a fal y reembolsa si falla).
-  useEffect(() => {
-    const pending = jobs.filter(j => j.status === "running" || j.status === "queued");
-    if (!pending.length) return;
-    const t = setTimeout(async () => {
-      for (const j of pending) {
-        const { data } = await supabase.functions.invoke("video-generate", { body: { action: "status", job_id: j.id } });
-        if (data?.error && data?.job?.status === "failed") toast.error(data.error);
-      }
-      void loadJobs();
-    }, 7000);
-    return () => clearTimeout(t);
-  }, [jobs, loadJobs]);
+    const q = () => (supabase as any).from("video_jobs").select("id,status,prompt,result_url,seconds,created_at,kind")
+      .eq("user_id", uid).eq("kind", "ugc").gte("created_at", since).order("created_at", { ascending: false }).limit(6);
+    const { data } = await q();
+    const list = (data ?? []) as VideoJob[];
+    const pending = list.filter(j => j.status === "running" || j.status === "queued");
+    if (pending.length) {
+      await Promise.all(pending.map(j => invokeVideo({ action: "status", job_id: j.id }).catch(() => null)));
+      const again = await q();
+      setTalkJobs((again.data ?? []) as VideoJob[]);
+    } else setTalkJobs(list);
+  }, [uid]);
+  useEffect(() => { if (step === 3 && ugcOpen) void loadTalkJobs(); }, [step, ugcOpen, loadTalkJobs]);
 
   const save = (patch: Partial<PersonajeState>) =>
     savePatch({ journey: { ...(profile.journey ?? {}), personaje: { ...state, ...patch, actualizado: new Date().toISOString() } } });
@@ -211,35 +211,56 @@ export function PersonajePage({ onNavigate }: { onNavigate: (page: string) => vo
     finally { setBusy(""); }
   };
 
-  // "Hazlo hablar en video": abre UGC con IA con esta foto como presentador y la idea del producto.
-  // No genera solo: el usuario ve el guion y el costo y toca "Crear video UGC".
-  const hablarEnVideo = () => {
-    if (!state.foto || !pj) return;
-    setPresenter(state.foto);
-    setSeed({
-      source: "manual", target: "video_ugc", title: `${pj.nombre} presenta ${profile.product}`.slice(0, 80),
-      product: profile.product, who: profile.who, promise: profile.promise, aspect: "9:16",
-    });
-    window.location.hash = `#/${TARGET_SLUG.video_ugc}`;
+  // Elegir un avatar de SUPERNOVA: gratis. La foto se copia a la carpeta del usuario para que el
+  // servidor la acepte como presentador (solo usa imágenes de la carpeta propia).
+  const elegirStock = async (s: StockInfluencer) => {
+    if (!user || !productId || stockBusy) return;
+    setStockBusy(s.id);
+    try {
+      const blob = await (await fetch(s.foto)).blob();
+      const path = `${user.id}/${productId}/supernova-${s.id}-${Date.now()}.webp`;
+      const up = await supabase.storage.from("personajes").upload(path, blob, { contentType: "image/webp", upsert: false });
+      if (up.error) throw new Error("No se pudo preparar su foto. Intenta de nuevo.");
+      if (state.foto) void supabase.storage.from("personajes").remove([state.foto]);
+      await save({ elegido: { ...s.personaje, genero: s.genero, vozId: s.vozId, stock: s.id }, foto: path, guiones: [] });
+      track("personaje_creado", { stock: s.id });
+    } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo elegir este influencer."); }
+    finally { setStockBusy(null); }
   };
 
-  const crearVideo = async () => {
-    if (!vidM || !state.foto) return;
-    if (!vPrompt.trim()) { toast.error("Escribe qué pasa en el video."); return; }
-    setVideoBusy(true);
+  const setVoz = (patch: { genero?: Genero; vozId?: string }) => { if (state.elegido) void save({ elegido: { ...state.elegido, ...patch } }); };
+
+  // Video que habla: Seedance 2.0 Mini crea voz y labios a la vez; la voz se le describe (influencers.ts).
+  const crearVideoHablando = async () => {
+    const pj = state.elegido;
+    if (!pj || !state.foto || talk.busy) return;
+    const said = line.trim();
+    if (said.length < 4) { toast.error("Escribe lo que va a decir."); return; }
+    if (hasForbiddenClaim(said)) { toast.error("Tu influencer solo presenta o explica: sin testimonios (\"lo compré\", \"me funcionó\"), promesas ni cifras de dinero."); return; }
+    if (balance < TALK_COST) { toast.error(`Te faltan créditos: el video que habla cuesta ${TALK_COST}.`); return; }
+    const brief = cleanBrief({ product: profile.product, who: profile.who, promise: profile.promise });
+    const shot = { ...buildShots("ugc", recommendTemplate(brief, "ugc").id, brief)[0], line: said };
+    const genero = guessGenero(pj);
+    // La voz va justo después de lo que dice (el servidor recorta el prompt a 1.500 caracteres).
+    const parts = shotPrompt(shot, "ugc", { presenter: true }).split("\n");
+    const at = parts.findIndex(p => p.startsWith("La persona mira a cámara"));
+    parts.splice(at < 0 ? 1 : at + 1, 0, voicePrompt(genero, pj.vozId));
+    setTalk({ busy: true, progress: null, error: null });
     try {
-      const { data, error } = await supabase.functions.invoke("video-generate", { body: { model_id: vidM.id, prompt: vPrompt.trim(), image_path: state.foto, product_id: productId } });
-      if (error || !data?.job) {
-        const body = await (error as { context?: Response } | null)?.context?.json?.().catch(() => null);
-        if (body?.code === "comunidad_required") { setUpsell(vidM); return; }
-        throw new Error(body?.error || data?.error || "No se pudo crear el video. No se te cobró.");
-      }
-      if (data.billing) applyServerCharge("gen_media", data.billing, `Video · ${vidM.label}`);
-      track("video_generado", { modelo: vidM.id });
-      toast.success("Tu video se está creando. Tarda de 1 a 5 minutos: puedes seguir usando la app.");
-      await loadJobs();
-    } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo crear el video."); }
-    finally { setVideoBusy(false); }
+      const r = await createVideo({
+        prompt: parts.join("\n"), seconds: 10, size: "9:16", audio: true, kind: "ugc",
+        image_path: state.foto, image_bucket: "personajes", product_id: productId ?? undefined,
+      });
+      if (r.billing) applyServerCharge("vid_mini_10", r.billing, `Video de ${pj.nombre} hablando`);
+      void loadTalkJobs();
+      const done = await waitForVideo(r.job.id, p => setTalk(t => ({ ...t, progress: p })));
+      if (done.status !== "done") throw new Error("El video falló. Te devolvimos los créditos.");
+      track("video_generado", { modo: "influencer", voz: pj.vozId ?? "calida", stock: pj.stock ?? null });
+      toast.success(`¡Listo! ${pj.nombre} ya habla en tu video.`);
+      setTalk({ busy: false, progress: null, error: null });
+    } catch (e) {
+      setTalk({ busy: false, progress: null, error: e instanceof Error ? e.message : "No se pudo crear el video." });
+    } finally { void loadTalkJobs(); }
   };
 
   const crearGuiones = async () => {
@@ -266,23 +287,27 @@ export function PersonajePage({ onNavigate }: { onNavigate: (page: string) => vo
   const copiar = (t: string, msg = "Copiado") => navigator.clipboard?.writeText(t).then(() => toast.success(msg));
   const pj = state.elegido;
 
+  const genero = pj ? guessGenero(pj) : "mujer";
+  const vozId = pj?.vozId ?? "calida";
+  const talkReady = talkJobs.filter(j => j.status === "done" && j.result_url);
+
   return (
     <div className="max-w-5xl mx-auto space-y-6 py-2">
       <div>
-        <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 5 · Vender</p>
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground mt-1">Vende sin mostrar tu cara</h1>
-        <p className="text-[15px] text-muted-foreground mt-1.5 max-w-2xl">Un personaje creado con IA cuenta «{profile.product}» en Reels, TikTok y Shorts. Tú publicas; él da la cara.</p>
+        <p className="text-xs uppercase tracking-wider text-primary font-semibold">Crear · Vende sin mostrar tu cara</p>
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground mt-1">Tu influencer IA</h1>
+        <p className="text-[15px] text-muted-foreground mt-1.5 max-w-2xl">Elige o crea a tu influencer, dale una voz y hazlo hablar de «{profile.product}» en Reels, TikTok y Shorts. Tú publicas; él da la cara.</p>
       </div>
 
       <ol className="flex flex-wrap gap-2" aria-label="Pasos">
-        {([[1, "Tu personaje", !!pj], [2, "Tus 10 guiones", !!state.guiones?.length], [3, "Tus videos", false]] as const).map(([n, label, done]) => (
+        {([[1, "Tu influencer", !!pj], [2, "Sus 10 guiones", !!state.guiones?.length], [3, "Su video hablando", talkReady.length > 0]] as const).map(([n, label, done]) => (
           <li key={n}>
             <button onClick={() => (n === 1 || pj) && setStep(n)} disabled={n !== 1 && !pj}
               className={`h-9 pl-1.5 pr-4 rounded-full border text-[13px] font-semibold inline-flex items-center gap-2 transition-colors disabled:opacity-50 ${step === n ? "bg-card border-foreground/15 text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
               <span className={`w-6 h-6 rounded-full grid place-items-center text-[11px] ${step === n ? "bg-primary text-primary-foreground" : done ? "bg-success text-black" : "bg-secondary"}`}>
                 {done ? <Check className="w-3.5 h-3.5" /> : n}
               </span>
-              {label}{n === 3 && <span className="text-[10px] font-bold text-primary">PRONTO</span>}
+              {label}
             </button>
           </li>
         ))}
@@ -298,15 +323,15 @@ export function PersonajePage({ onNavigate }: { onNavigate: (page: string) => vo
                     : busy === "foto" ? <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                     : <ImageIcon className="w-8 h-8 text-muted-foreground" />}
                 </div>
+                {state.foto && (
+                  <button onClick={() => setStep(3)} disabled={busy !== ""} className="w-full h-11 border-t border-border text-[13px] font-semibold text-primary hover:bg-secondary/40 inline-flex items-center justify-center gap-2 disabled:opacity-50">
+                    <Mic className="w-4 h-4" /> Hazlo hablar en video
+                  </button>
+                )}
                 <button onClick={crearFoto} disabled={busy !== ""} className="w-full h-11 border-t border-border text-[13px] font-semibold text-foreground hover:bg-secondary/40 inline-flex items-center justify-center gap-2 disabled:opacity-50">
                   {busy === "foto" ? <Loader2 className="w-4 h-4 animate-spin" /> : state.foto ? <RefreshCw className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
                   {state.foto ? "Otra foto" : "Crear su foto"} <span className="opacity-60 font-medium">· {imgM?.cost ?? CREDIT_COSTS.gen_ad_image} ⚡</span>
                 </button>
-                {state.foto && ugcOpen && (
-                  <button onClick={hablarEnVideo} disabled={busy !== ""} className="w-full h-11 border-t border-border text-[13px] font-semibold text-foreground hover:bg-secondary/40 inline-flex items-center justify-center gap-2 disabled:opacity-50">
-                    <Film className="w-4 h-4" /> Hazlo hablar en video
-                  </button>
-                )}
                 {usable("image").length > 0 && (
                   <div className="border-t border-border p-2">
                     <ModelPicker models={models} kinds={["image"]} value={imgModel} onChange={setImgModel} isAdmin={!!isAdmin} comunidad={comunidad} onUpsell={setUpsell} />
@@ -330,24 +355,54 @@ export function PersonajePage({ onNavigate }: { onNavigate: (page: string) => vo
                   <button onClick={() => { copiar(pj.bio, "Bio copiada"); track("bio_copiada"); }} className="text-[12px] font-semibold text-primary inline-flex items-center gap-1"><Copy className="w-3.5 h-3.5" /> Copiar bio</button>
                 </div>
                 <p className="text-[12px] text-muted-foreground flex gap-2"><ShieldCheck className="w-4 h-4 shrink-0 text-success" /> Es un personaje, no un experto: nunca le pongas títulos, edades o resultados inventados. Instagram y TikTok piden marcar el contenido como hecho con IA; hazlo al publicar.</p>
-                <button onClick={() => setStep(2)} className="h-11 px-5 rounded-full btn-primary-nova text-[14px] inline-flex items-center gap-2">Siguiente: sus 10 guiones <ArrowRight className="w-4 h-4" /></button>
+                <div className="flex flex-wrap gap-2">
+                  {state.foto && <button onClick={() => setStep(3)} className="h-11 px-5 rounded-full btn-primary-nova text-[14px] inline-flex items-center gap-2"><Mic className="w-4 h-4" /> Hazlo hablar en video</button>}
+                  <button onClick={() => setStep(2)} className={`h-11 px-5 rounded-full text-[14px] inline-flex items-center gap-2 ${state.foto ? "border border-border font-semibold text-foreground hover:border-foreground/30" : "btn-primary-nova"}`}>Sus 10 guiones <ArrowRight className="w-4 h-4" /></button>
+                </div>
               </div>
             </div>
           ) : (
             <>
-              <div className="rounded-2xl border border-border bg-card p-5 flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+              <div className="space-y-3">
                 <div>
-                  <p className="font-display text-lg font-semibold text-foreground">Te proponemos 3 personajes</p>
-                  <p className="text-sm text-muted-foreground">Distintos entre sí, pensados para tu cliente y para destacar en tu nicho.</p>
+                  <p className="font-display text-lg font-semibold text-foreground">Elige uno de SUPERNOVA <span className="text-[12px] font-semibold text-success align-middle ml-1">Gratis</span></p>
+                  <p className="text-sm text-muted-foreground">Listos para usar: con foto, historia, bio y voz. Todos hablan en español latino neutro.</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-background" role="radiogroup" aria-label="País">
-                    {(Object.keys(COUNTRIES) as CountryCode[]).map(cc => (
-                      <button key={cc} role="radio" aria-checked={country === cc} onClick={() => setCountry(cc)}
-                        className={`h-9 px-3 rounded-lg text-[13px] font-bold ${country === cc ? "bg-secondary text-foreground" : "text-muted-foreground"}`}>{cc}</button>
-                    ))}
-                  </div>
-                  <button onClick={crearIdeas} disabled={busy !== ""} className="h-11 px-5 rounded-full btn-primary-nova text-[14px] inline-flex items-center gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {STOCK_INFLUENCERS.map(s => (
+                    <div key={s.id} className="rounded-2xl border border-border bg-card overflow-hidden flex flex-col hover:border-foreground/25 transition-colors">
+                      <div className="aspect-[4/5] bg-secondary/40">
+                        <img src={s.foto} alt={`${s.personaje.nombre}, influencer IA de SUPERNOVA`} loading="lazy" className="w-full h-full object-cover object-top" />
+                      </div>
+                      <div className="p-3 flex-1 flex flex-col gap-1">
+                        <p className="font-display text-[16px] font-semibold text-foreground">{s.personaje.nombre}</p>
+                        <p className="text-[12px] text-muted-foreground">{s.genero === "mujer" ? (s.edad === "joven" ? "Mujer joven" : "Mujer mayor") : (s.edad === "joven" ? "Hombre joven" : "Hombre mayor")} · {s.pais}</p>
+                        <p className="text-[12px] text-foreground/75 flex-1">{s.personaje.rol}</p>
+                        <button onClick={() => void elegirStock(s)} disabled={!!stockBusy || busy !== ""}
+                          className="mt-2 h-10 rounded-full border border-border text-[13px] font-semibold text-foreground hover:border-primary hover:text-primary inline-flex items-center justify-center gap-2 disabled:opacity-50">
+                          {stockBusy === s.id ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Elegir a {s.personaje.nombre}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+                <div>
+                  <p className="font-display text-lg font-semibold text-foreground">O crea uno a tu medida</p>
+                  <p className="text-sm text-muted-foreground">La IA te propone 3 personajes distintos, pensados para tu cliente y tu nicho. Luego creas su foto.</p>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                  <label className="block flex-1 max-w-xs">
+                    <span className="text-[12px] text-muted-foreground">¿Dónde vive tu cliente?</span>
+                    <select value={country} onChange={e => setCountry(e.target.value as CountryCode)}
+                      className="mt-1 w-full h-11 rounded-xl bg-background border border-border px-3 text-[14px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                      {(Object.keys(COUNTRIES) as CountryCode[]).map(cc => <option key={cc} value={cc}>{COUNTRIES[cc].name}</option>)}
+                    </select>
+                    <span className="block text-[11px] text-muted-foreground mt-1">Así sus ejemplos y su forma de hablar encajan con tu público.</span>
+                  </label>
+                  <button onClick={crearIdeas} disabled={busy !== "" || !!stockBusy} className="h-11 px-5 rounded-full btn-primary-nova text-[14px] inline-flex items-center gap-2 self-start sm:self-auto sm:mb-5">
                     {busy === "ideas" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                     {state.opciones?.length ? "Otras 3" : "Crear 3 personajes"} <span className="opacity-70 font-medium">· {ideasCost.cost} ⚡</span>
                   </button>
@@ -397,6 +452,7 @@ export function PersonajePage({ onNavigate }: { onNavigate: (page: string) => vo
                   <p className="text-[14px] text-foreground/85 leading-relaxed">{g.guion}</p>
                   <p className="text-[12px] text-muted-foreground"><b className="text-foreground/80">Texto en pantalla:</b> {g.pantalla}</p>
                   <p className="text-[12px] text-muted-foreground"><b className="text-foreground/80">Cierre:</b> {g.cta}</p>
+                  <button onClick={() => { setLine(lineFromGuion(g)); setStep(3); }} className="text-[12px] font-semibold text-primary inline-flex items-center gap-1"><Mic className="w-3.5 h-3.5" /> Que lo diga en video</button>
                 </div>
               ))}
             </div>
@@ -405,81 +461,118 @@ export function PersonajePage({ onNavigate }: { onNavigate: (page: string) => vo
             <div className="rounded-2xl border border-border bg-card p-5 text-[14px] text-foreground/85 space-y-1.5">
               <p className="font-semibold text-foreground">Cómo publicarlos esta semana</p>
               <p>1. Crea la cuenta con el nombre y la bio de {pj.nombre}, y su foto de perfil.</p>
-              <p>2. Graba cada guion con la foto y la voz de la app de tu celular (CapCut o Edits), o espera los videos automáticos.</p>
+              <p>2. Toca «Que lo diga en video» en cualquier guion y {pj.nombre} lo dice a cámara. También puedes grabarlos con la foto en CapCut o Edits (gratis).</p>
               <p>3. Publica 1 o 2 al día. En 10 días mira cuál tuvo más vistas y guardados, y haz más de ese tipo.</p>
               <p className="text-[12px] text-muted-foreground pt-1">Consejo: prueba 2 o 3 personajes a la vez. En la prueba pública que estudiamos, el que parecía ganador no fue el que más creció.</p>
             </div>
           )}
-          <button onClick={() => setStep(3)} className="h-11 px-5 rounded-full border border-border text-[14px] font-semibold text-foreground inline-flex items-center gap-2 hover:border-foreground/30">Ver: videos automáticos <ArrowRight className="w-4 h-4" /></button>
+          <button onClick={() => setStep(3)} className="h-11 px-5 rounded-full btn-primary-nova text-[14px] inline-flex items-center gap-2"><Mic className="w-4 h-4" /> Siguiente: su video hablando</button>
         </section>
       )}
 
-      {step === 3 && videosOpen && pj && (
+      {step === 3 && pj && ugcOpen === null && (
+        <div className="h-64 rounded-2xl border border-border bg-card animate-pulse" />
+      )}
+
+      {step === 3 && pj && ugcOpen && (
         <section key="s3v" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
           {!state.foto ? (
             <div className="rounded-2xl border border-border bg-card p-6 text-center space-y-3">
               <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground" />
               <p className="text-foreground font-semibold">Primero crea la foto de {pj.nombre}</p>
-              <p className="text-sm text-muted-foreground">El video sale de esa foto: así tu personaje se ve igual en todos tus videos.</p>
+              <p className="text-sm text-muted-foreground">El video sale de esa foto: así tu influencer se ve igual en todos tus videos.</p>
               <button onClick={() => setStep(1)} className="h-11 px-5 rounded-full btn-primary-nova text-[14px] inline-flex items-center gap-2">Crear su foto <ArrowRight className="w-4 h-4" /></button>
             </div>
           ) : (
-            <div className="grid md:grid-cols-[180px_minmax(0,1fr)] gap-4">
-              <div className="rounded-2xl border border-border bg-card overflow-hidden aspect-[9/16]">
+            <div className="grid md:grid-cols-[200px_minmax(0,1fr)] gap-4">
+              <div className="rounded-2xl border border-border bg-card overflow-hidden aspect-[9/16] max-md:max-w-[200px]">
                 {fotoUrl ? <img src={fotoUrl} alt={`Foto de ${pj.nombre}`} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-secondary/40" />}
               </div>
-              <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
-                <p className="font-display text-lg font-semibold text-foreground">Crea un video de {pj.nombre}</p>
-                <label className="block">
-                  <span className="text-[12px] text-muted-foreground">Qué pasa en el video (movimiento, gestos, lugar)</span>
-                  <textarea value={vPrompt} onChange={e => setVPrompt(e.target.value)} rows={3} maxLength={1800}
-                    className="mt-1 w-full rounded-xl bg-background border border-border px-3.5 py-2.5 text-[14px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
-                </label>
-                {!!state.guiones?.length && (
-                  <div className="flex flex-wrap gap-1.5">
-                    <span className="text-[12px] text-muted-foreground self-center">Usar escena de un guion:</span>
-                    {state.guiones.slice(0, 5).map((g, i) => (
-                      <button key={i} onClick={() => setVPrompt(`${DEFAULT_VIDEO_PROMPT} Tema del video: ${g.pantalla || g.titulo}.`)}
-                        className="text-[12px] rounded-full border border-border px-2.5 py-1 text-foreground/80 hover:border-primary hover:text-primary">{i + 1}. {g.titulo.slice(0, 28)}</button>
+              <div className="rounded-2xl border border-border bg-card p-5 space-y-5">
+                <div>
+                  <p className="font-display text-lg font-semibold text-foreground">Haz que {pj.nombre} hable</p>
+                  <p className="text-sm text-muted-foreground">Video vertical de 10 segundos, con su voz y los labios sincronizados.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-[13px] font-semibold text-foreground">1 · Qué dice</p>
+                  <textarea value={line} onChange={e => setLine(e.target.value.slice(0, SPOKEN_MAX))} rows={3} disabled={talk.busy}
+                    placeholder={`Ej.: ¿Te cuesta empezar? Mira ${profile.product}. Te dejo el enlace abajo.`}
+                    className="w-full rounded-xl bg-background border border-border px-3.5 py-2.5 text-[14px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] text-muted-foreground mr-1">{line.length}/{SPOKEN_MAX} · unas 25 palabras caben en 10 s</span>
+                    {state.guiones?.slice(0, 6).map((g, i) => (
+                      <button key={i} onClick={() => setLine(lineFromGuion(g))} disabled={talk.busy}
+                        className="text-[12px] rounded-full border border-border px-2.5 py-1 text-foreground/80 hover:border-primary hover:text-primary">Guion {i + 1}</button>
+                    ))}
+                    {!state.guiones?.length && (
+                      <button onClick={() => setStep(2)} className="text-[12px] font-semibold text-primary">¿Sin ideas? Escribe sus 10 guiones</button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[13px] font-semibold text-foreground">2 · Su voz</p>
+                    <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-background" role="radiogroup" aria-label="Voz de mujer u hombre">
+                      {(["mujer", "hombre"] as const).map(g => (
+                        <button key={g} role="radio" aria-checked={genero === g} onClick={() => setVoz({ genero: g })} disabled={talk.busy}
+                          className={`h-8 px-3 rounded-lg text-[12px] font-semibold ${genero === g ? "bg-secondary text-foreground" : "text-muted-foreground"}`}>{g === "mujer" ? "Voz de mujer" : "Voz de hombre"}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid sm:grid-cols-3 gap-2" role="radiogroup" aria-label="Estilo de voz">
+                    {VOICES.map(v => (
+                      <button key={v.id} role="radio" aria-checked={vozId === v.id} onClick={() => setVoz({ vozId: v.id })} disabled={talk.busy}
+                        className={`text-left rounded-xl border p-3 transition-colors ${vozId === v.id ? "border-primary bg-primary/[0.06]" : "border-border hover:border-foreground/30"}`}>
+                        <p className="text-[13px] font-semibold text-foreground flex items-center gap-1.5">{vozId === v.id && <Check className="w-3.5 h-3.5 text-primary" />}{v.label}</p>
+                        <p className="text-[12px] text-muted-foreground">{v.desc}</p>
+                      </button>
                     ))}
                   </div>
-                )}
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <ModelPicker models={models} kinds={["video", "avatar"]} value={vidModel} onChange={setVidModel} isAdmin={!!isAdmin} comunidad={comunidad} onUpsell={setUpsell} />
-                  <button onClick={crearVideo} disabled={videoBusy || !vidM} className="h-11 px-5 rounded-full btn-primary-nova text-[14px] inline-flex items-center gap-2">
-                    {videoBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Film className="w-4 h-4" />} Generar video {vidM?.cost != null && <span className="opacity-70 font-medium">· {vidM.cost} ⚡</span>}
-                  </button>
+                  <p className="text-[11px] text-muted-foreground">La IA crea la voz junto con el video, a partir del estilo que elijas. Puede variar un poco de un video a otro; si no te convence, prueba otro estilo.</p>
                 </div>
-                <p className="text-[12px] text-muted-foreground flex gap-2"><ShieldCheck className="w-4 h-4 shrink-0 text-success" /> Si el video falla, te devolvemos los créditos solos. Recuerda marcarlo como contenido hecho con IA al publicarlo.</p>
+
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <button onClick={() => void crearVideoHablando()} disabled={talk.busy || line.trim().length < 4}
+                    className="h-12 px-6 rounded-full btn-primary-nova text-[15px] inline-flex items-center gap-2 disabled:opacity-60">
+                    {talk.busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
+                    {talk.busy ? (typeof talk.progress === "number" && talk.progress > 0 ? `Creando… ${talk.progress} %` : "Creando… 1 a 3 min") : `Crear video que habla · ${TALK_COST} ⚡`}
+                  </button>
+                  {talk.busy && <span className="text-[12px] text-muted-foreground">Puedes seguir usando la app; aparecerá abajo.</span>}
+                </div>
+                {talk.error && <p className="text-[13px] text-destructive">{talk.error}</p>}
+                <p className="text-[12px] text-muted-foreground flex gap-2"><ShieldCheck className="w-4 h-4 shrink-0 text-success" /> Si el video falla, te devolvemos los créditos solos. Tu influencer presenta o explica, nunca finge ser cliente. Márcalo como contenido hecho con IA al publicarlo.</p>
               </div>
             </div>
           )}
-          {!!jobs.length && (
+          {!!talkJobs.length && (
             <div className="space-y-2">
-              <p className="text-[12px] tracking-widest font-semibold text-muted-foreground">TUS VIDEOS</p>
+              <p className="text-[12px] tracking-widest font-semibold text-muted-foreground">SUS VIDEOS</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {jobs.map(j => (
+                {talkJobs.map(j => (
                   <div key={j.id} className="rounded-2xl border border-border bg-card overflow-hidden">
-                    <div className="aspect-[9/16] bg-secondary/40 grid place-items-center">
+                    <div className="aspect-[9/16] bg-black grid place-items-center">
                       {j.status === "done" && j.result_url
-                        ? <video src={j.result_url} controls playsInline className="w-full h-full object-cover" />
+                        ? <video src={j.result_url} controls playsInline className="w-full h-full object-contain" />
                         : j.status === "failed"
                           ? <p className="text-[12px] text-muted-foreground px-3 text-center">No se pudo crear. Te devolvimos los créditos.</p>
-                          : <div className="text-center space-y-2"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /><p className="text-[12px] text-muted-foreground">Creando… 1 a 5 min</p></div>}
+                          : <div className="text-center space-y-2"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /><p className="text-[12px] text-muted-foreground">Creando… 1 a 3 min</p></div>}
                     </div>
                     {j.status === "done" && j.result_url && (
-                      <a href={j.result_url} target="_blank" rel="noopener noreferrer" download className="h-10 border-t border-border text-[13px] font-semibold text-foreground inline-flex w-full items-center justify-center gap-2 hover:bg-secondary/40"><Download className="w-4 h-4" /> Descargar</a>
+                      <button onClick={() => void downloadVideo(j.result_url!, `${pj.nombre.toLowerCase().replace(/\W+/g, "-")}-${j.id.slice(0, 6)}.mp4`)}
+                        className="h-10 border-t border-border text-[13px] font-semibold text-foreground inline-flex w-full items-center justify-center gap-2 hover:bg-secondary/40"><Download className="w-4 h-4" /> Descargar</button>
                     )}
                   </div>
                 ))}
               </div>
-              <p className="text-[11px] text-muted-foreground">Descarga tus videos: el enlace del proveedor puede vencer con el tiempo.</p>
+              <p className="text-[11px] text-muted-foreground">Descárgalos hoy: el enlace del video dura 24 horas.</p>
             </div>
           )}
         </section>
       )}
 
-      {step === 3 && !videosOpen && (
+      {step === 3 && ugcOpen === false && (
         <section key="s3" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
           <div className="rounded-2xl border border-primary/30 bg-primary/[0.06] p-6 space-y-4">
             <div className="flex items-center gap-3">

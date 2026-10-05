@@ -51,8 +51,6 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
     desc: "3 imágenes listas para Meta, hechas desde tu producto.", keywords: "creativo creativos imagen imagenes anuncio ads banner meta facebook instagram" }),
   T({ id: "videoanuncio", key: "Video anuncio", icon: Megaphone, title: "Anuncio en video", nav: "Video anuncio", cost: cr(C.vid_mini_5 * 3),
     desc: "3 tomas de 5 s: gancho, demostración y llamada. La IA elige la plantilla.", keywords: "video anuncio ads reels tiktok meta gancho demo llamada comercial" }),
-  T({ id: "ugc", key: "UGC con IA", icon: Smartphone, title: "UGC con IA", cost: cr(C.vid_mini_10),
-    desc: "Un presentador creado con IA habla 10 s a cámara en español.", keywords: "ugc presentador avatar persona habla camara video tiktok reels influencer" }),
   T({ id: "carrusel", key: "Carrusel", icon: LayoutTemplate, title: "Carrusel que vende", cost: cr(C.gen_ad_image * 5),
     desc: "5 láminas con gancho, problema, solución y llamada.", keywords: "carrusel carruseles laminas slides instagram post" }),
   T({ id: "fotosugc", key: "Fotos UGC", icon: Smartphone, title: "Fotos estilo UGC", nav: "Fotos estilo UGC", cost: cr(C.gen_ad_image * 3),
@@ -60,7 +58,7 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
   T({ id: "fotoproducto", key: "Foto de producto", icon: Camera, title: "Foto de producto", cost: cr(C.gen_ad_image * 3),
     desc: "De estudio, en mockup y en uso.", keywords: "foto producto mockup estudio packshot tienda catalogo" }),
   T({ id: "personaje", key: "Sin mostrar tu cara", icon: UserRound, title: "Influencer IA", nav: "Influencer IA (sin tu cara)",
-    desc: "Un personaje con IA que da la cara por ti en Reels y TikTok.", keywords: "personaje avatar influencer ia sin cara reels tiktok ugc" }),
+    desc: "Elige o crea tu influencer, dale una voz y hazlo hablar en video por ti.", keywords: "personaje avatar influencer ia sin cara reels tiktok ugc presentador habla camara voz video" }),
   T({ id: "copy", key: "Generadores", icon: FileText, title: "Robot de copy", nav: "Robot de copy", cost: `desde ${cr(C.gen_light)}`,
     desc: "26 generadores: anuncios, VSL, correos, WhatsApp y más.", keywords: "copy copys textos guion guiones correo email pagina de venta landing generador vsl" }),
   T({ id: "anuncios", key: "Mándala", icon: Orbit, title: "Anuncios paso a paso", nav: "Mándala Creativa",
@@ -138,15 +136,15 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
 const pick = (ids: string[]) => ids.map(id => TOOL_BY_ID[id]);
 
 /** Lo que más se crea (Inicio, menú "Crear" y el botón Crear del teléfono). Plan ATLAS, 04-oct-2026. */
-// "UGC con IA" sale de aquí mientras su interruptor del servidor (edge_limits 'video-studio:ugc')
-// siga apagado: va en ADMIN_EXTRA_TOOLS y en ADMIN_ONLY_PAGES (src/lib/features.ts). Para lanzarlo,
-// devolverlo a esta lista y quitarlo de las otras dos (y de alternativesFor en recommendTarget.ts).
+// "UGC con IA" ya no es una herramienta aparte (05-oct-2026): vive en "Influencer IA" (personaje), que
+// muestra el video que habla si el interruptor del servidor (edge_limits 'video-studio:ugc') está abierto
+// y, si no, el aviso de "pronto". La ruta #/ugc abre Influencer IA en el paso 3.
 export const STUDIO_TOOLS = pick(["creativos", "videoanuncio", "videoia", "creadoryt", "carrusel", "fotosugc", "miniaturas", "series"]);
 /** Más para crear: siguen en el menú y en el buscador, debajo de las 8 principales. */
 export const STUDIO_MORE_TOOLS = pick(["fotoproducto", "personaje", "copy"]);
 /** Ideas ganadoras: qué ya vende, antes de crear nada. Todo gratis de mirar. */
 export const FIND_TOOLS = pick(["radar", "ofertas", "nichosyt", "miniapps"]);
-export const ADMIN_EXTRA_TOOLS = pick(["mercado", "oraculo", "video", "ugc"]);
+export const ADMIN_EXTRA_TOOLS = pick(["mercado", "oraculo", "video"]);
 
 /**
  * Panel de herramientas del Inicio (estructura tomada de LanzaYa, 04-oct-2026): pestañas por lo que
@@ -157,7 +155,7 @@ export const HOME_CATEGORIES: { id: string; label: string; tools: Tool[] }[] = [
   { id: "esencial", label: "Lo esencial", tools: pick(["creativos", "carrusel", "videoia", "miniaturas", "personaje", "fotoproducto", "copy", "paginas", "producto", "ofertas", "radar", "videoanuncio"]) },
   { id: "ideas", label: "Ideas que venden", tools: pick(["radar", "ofertas", "nichosyt", "miniapps", "ganchos", "dolores"]) },
   { id: "imagenes", label: "Imágenes", tools: pick(["creativos", "carrusel", "miniaturas", "fotosugc", "fotoproducto"]) },
-  { id: "video", label: "Video", tools: pick(["videoanuncio", "videoia", "creadoryt", "series", "personaje", "ugc", "video"]) },
+  { id: "video", label: "Video", tools: pick(["videoanuncio", "videoia", "creadoryt", "series", "personaje", "video"]) },
   { id: "textos", label: "Textos y anuncios", tools: pick(["copy", "paginas", "anuncios", "ganchos", "vsl", "correos", "reels", "captions", "dm", "youtube", "contenido"]) },
   { id: "negocio", label: "Tu negocio", tools: pick(["producto", "validar", "precio", "plan", "bump", "ascension", "recuperar", "resultados"]) },
 ];

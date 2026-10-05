@@ -9,7 +9,7 @@ describe("herramientas", () => {
   });
   it("Estudio y Encontrar como en el plan ATLAS", () => {
     expect(STUDIO_TOOLS.map(t => t.id)).toEqual(["creativos", "videoanuncio", "videoia", "creadoryt", "carrusel", "fotosugc", "miniaturas", "series"]);
-    // UGC con IA sigue cerrado en el servidor: nunca como tarjeta principal para clientes.
+    // UGC con IA vive dentro de Influencer IA (personaje): no hay tarjeta aparte.
     expect(STUDIO_TOOLS.some(t => t.id === "ugc")).toBe(false);
     expect(TOOLS.some(t => t.id === "ugc")).toBe(false);
     // "Ideas de side hustle" quedó oculta el 05-oct-2026 (HIDDEN_TOOL_IDS).

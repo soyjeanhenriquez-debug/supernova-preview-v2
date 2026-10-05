@@ -1,6 +1,6 @@
 import { useCreditsLeft } from "@/hooks/useCreditsLeft";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Clapperboard, Download, Film, Loader2, Megaphone, Play, RefreshCw, Sparkles, UserRound, Volume2, VolumeX, Wand2, X } from "lucide-react";
+import { Clapperboard, Download, Film, Loader2, Megaphone, Play, RefreshCw, Sparkles, Volume2, VolumeX, Wand2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,7 +37,6 @@ type Mode = VideoMode;
 
 const MODES: { id: Mode; label: string; icon: typeof Film }[] = [
   { id: "anuncio", label: "Anuncio", icon: Megaphone },
-  { id: "ugc", label: "UGC", icon: UserRound },
   { id: "clip", label: "Un clip", icon: Film },
   { id: "serie", label: "Serie", icon: Clapperboard },
 ];
@@ -108,6 +107,9 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
     return () => { alive = false; };
   }, [firstFrame]);
   useEffect(() => { if (mode === "ugc" && ugcOpen === null) void loadVideoConfig().then(c => setUgcOpen(c.ugc)); }, [mode, ugcOpen]);
+  // UGC con presentador vive en Influencer IA (05-oct-2026): ahí se elige el influencer, lo que dice
+  // y su voz. Si algo pide el modo UGC aquí (semilla vieja o presentador), se va para allá.
+  useEffect(() => { if (mode === "ugc") window.location.hash = "#/personaje"; }, [mode]);
 
   // Idea de arranque del clip desde el producto, si lo hay.
   useEffect(() => {

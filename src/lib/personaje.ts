@@ -18,6 +18,9 @@ export type Personaje = {
   voz: string;        // cómo habla
   gancho: string;     // lo que lo hace distinto en su nicho
   bio: string;        // ≤150 caracteres, incluye "Personaje creado con IA"
+  genero?: "mujer" | "hombre" | null; // para la voz del video que habla (si falta, se deduce del aspecto)
+  vozId?: string | null;              // estilo de voz elegido (src/lib/influencers.ts)
+  stock?: string | null;              // id del avatar de SUPERNOVA, si eligió uno listo
 };
 
 export type Guion = { titulo: string; gancho: string; guion: string; pantalla: string; cta: string };

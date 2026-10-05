@@ -1,3 +1,4 @@
+import { useCreditsLeft } from "@/hooks/useCreditsLeft";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Clapperboard, Download, Film, Loader2, Megaphone, Play, RefreshCw, Sparkles, UserRound, Volume2, VolumeX, Wand2, X } from "lucide-react";
 import { toast } from "sonner";
@@ -52,6 +53,7 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
   const { user } = useAuth();
   const { profile, loaded, savePatch, productId } = useBusinessProfile();
   const { applyServerCharge, balance } = useCredits();
+  const creditsLeft = useCreditsLeft().label;
   const [mode, setMode] = useState<Mode>(initialMode);
   const [seed, setSeed] = useState<CreativeSeed | null>(null);
   const [ugcOpen, setUgcOpen] = useState<boolean | null>(null);
@@ -400,7 +402,7 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
                 {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                 {busy ? "Creando tu video…" : `${adMode === "ugc" ? "Crear video UGC" : "Crear anuncio"} · ${adCost} créditos`}
               </button>
-              <p className="text-[11px] text-muted-foreground">Te quedan {balance.toLocaleString("es")} créditos. Si una toma falla, te devolvemos sus créditos.</p>
+              <p className="text-[11px] text-muted-foreground">{creditsLeft}. Si una toma falla, te devolvemos sus créditos.</p>
             </div>
           </div>
         )
@@ -474,7 +476,7 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
               {busy ? "Creando tu video…" : `${mode === "clip" ? "Crear video" : `Crear serie de ${serieCount} clips`} · ${cost} créditos`}
             </button>
-            <p className="text-[11px] text-muted-foreground">Te quedan {balance.toLocaleString("es")} créditos. Si un video falla, no se te cobra. Descarga tus videos: el enlace dura 24 horas.</p>
+            <p className="text-[11px] text-muted-foreground">{creditsLeft}. Si un video falla, no se te cobra. Descarga tus videos: el enlace dura 24 horas.</p>
           </div>
         </div>
       )}

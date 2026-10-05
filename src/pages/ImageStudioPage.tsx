@@ -1,3 +1,4 @@
+import { useCreditsLeft } from "@/hooks/useCreditsLeft";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Sparkles, Image as ImageIcon, LayoutTemplate, MonitorPlay, Smartphone, Package, Shuffle, X } from "lucide-react";
 import { toast } from "sonner";
@@ -52,6 +53,7 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
   const { user } = useAuth();
   const { profile, loaded, savePatch, productId } = useBusinessProfile();
   const { applyServerCharge, balance } = useCredits();
+  const creditsLeft = useCreditsLeft().label;
   const [mode, setMode] = useState<StudioMode>(initialMode);
   const [seed, setSeedState] = useState<CreativeSeed | null>(null);
   const [aspect, setAspect] = useState<Aspect>(() => aiAspect(initialMode).aspect);
@@ -295,7 +297,7 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
               {running ? `Creando tus ${info.unit}…` : `Crear ${count} ${info.unit} · ${count * PRICE} créditos`}
             </button>
             <p className="text-[11px] text-muted-foreground">
-              Te quedan {formatNumber(balance)} créditos. Si una imagen falla, no se te cobra.
+              {creditsLeft}. Si una imagen falla, no se te cobra.
               {ctx.hasRefs ? " Se usan tus fotos como referencia." : ""}
             </p>
           </div>

@@ -1,3 +1,4 @@
+import { useCreditsLeft } from "@/hooks/useCreditsLeft";
 import { useEffect, useState } from "react";
 import { Zap, X } from "lucide-react";
 import { useCredits } from "@/hooks/useCredits";
@@ -8,6 +9,7 @@ interface Props { onRecharge?: () => void }
 
 export function LowCreditBanner({ onRecharge }: Props) {
   const { balance } = useCredits();
+  const { isAdmin } = useCreditsLeft();
   const [dismissed, setDismissed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return sessionStorage.getItem(SESSION_KEY) === "1";
@@ -17,7 +19,7 @@ export function LowCreditBanner({ onRecharge }: Props) {
     if (balance >= 200) setDismissed(false);
   }, [balance]);
 
-  if (balance >= 200 || dismissed) return null;
+  if (isAdmin || balance >= 200 || dismissed) return null;
 
   return (
     <div className="flex items-center justify-between gap-3 px-5 py-2.5 bg-[hsl(28_85%_28%)] text-white border-b border-[hsl(28_85%_22%)] animate-fade-in">

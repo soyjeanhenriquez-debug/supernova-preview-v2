@@ -1,3 +1,4 @@
+import { useCreditsLeft } from "@/hooks/useCreditsLeft";
 import { useState } from "react";
 import { Check, Copy, Download, Loader2, PenLine } from "lucide-react";
 import { toast } from "sonner";
@@ -13,6 +14,7 @@ export function ReadyToPublish({ mode, count, onDownloadAll, copyRequest, title 
   mode: StudioMode; count: number; onDownloadAll: () => Promise<void>; copyRequest: string; title: string;
 }) {
   const { applyServerCharge, balance } = useCredits();
+  const creditsLeft = useCreditsLeft().label;
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -84,7 +86,7 @@ export function ReadyToPublish({ mode, count, onDownloadAll, copyRequest, title 
           </button>
         )}
       </div>
-      {wantsCopy && !text && <p className="text-[11px] text-muted-foreground -mt-2">Te quedan {formatNumber(balance)} créditos. Si falla, no se te cobra.</p>}
+      {wantsCopy && !text && <p className="text-[11px] text-muted-foreground -mt-2">{creditsLeft}. Si falla, no se te cobra.</p>}
 
       {text && (
         <div className="rounded-xl border border-border bg-background/40 p-4 space-y-3">

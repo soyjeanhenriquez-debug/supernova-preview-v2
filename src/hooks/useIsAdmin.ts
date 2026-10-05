@@ -25,12 +25,14 @@ export function useIsAdmin() {
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
+  // Depende del id, no del objeto: un objeto user nuevo con el mismo id no repite la consulta.
+  const uid = user?.id ?? null;
   useEffect(() => {
     let cancelled = false;
-    if (!user) { setIsAdmin(false); return; }
-    fetchIsAdmin(user.id).then((v) => { if (!cancelled) setIsAdmin(v); });
+    if (!uid) { setIsAdmin(false); return; }
+    fetchIsAdmin(uid).then((v) => { if (!cancelled) setIsAdmin(v); });
     return () => { cancelled = true; };
-  }, [user]);
+  }, [uid]);
 
   return { isAdmin, loading: isAdmin === null };
 }

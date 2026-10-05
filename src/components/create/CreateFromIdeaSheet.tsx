@@ -1,3 +1,4 @@
+import { useCreditsLeft } from "@/hooks/useCreditsLeft";
 import { useEffect, useMemo } from "react";
 import { X, Sparkles, Flame, Quote, ArrowRight, Lock } from "lucide-react";
 import { toast } from "sonner";
@@ -32,6 +33,7 @@ interface Props {
 
 export function CreateFromIdeaSheet({ idea, input, onClose }: Props) {
   const { balance } = useCredits();
+  const creditsLeft = useCreditsLeft().label;
   const { locked, openPlans } = useVitrina();
   const rec = useMemo(() => recommendTarget(input), [input]);
   const alts = useMemo(() => alternativesFor(rec.target, idea.source), [rec.target, idea.source]);
@@ -139,7 +141,7 @@ export function CreateFromIdeaSheet({ idea, input, onClose }: Props) {
           </div>
 
           <footer className="shrink-0 border-t border-border px-4 sm:px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center justify-between gap-3">
-            <span className="text-[12px] text-muted-foreground tabular-nums">{locked ? "Mirar es gratis" : `Te quedan ${fmtNum(balance)} créditos`}</span>
+            <span className="text-[12px] text-muted-foreground tabular-nums">{locked ? "Mirar es gratis" : creditsLeft}</span>
             <button onClick={() => go(rec.target, false)} className="h-10 px-2 text-[12.5px] font-medium text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
               Solo abrir, sin crear <ArrowRight className="w-3.5 h-3.5" />
             </button>

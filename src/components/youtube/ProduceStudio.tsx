@@ -1,3 +1,4 @@
+import { useCreditsLeft } from "@/hooks/useCreditsLeft";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowLeft, Captions, Check, ChevronDown, Clapperboard, Copy, Download, Film, ImageIcon, Loader2, Mic, Monitor, Palette,
@@ -126,6 +127,7 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
   uid: string; start: ProduceStart | null; resumeId?: string | null; onBack: () => void; onNavigate: (p: string) => void;
 }) {
   const { applyServerCharge, balance, refresh: refreshCredits } = useCredits();
+  const creditsLeft = useCreditsLeft().label;
   const balanceRef = useRef(balance);
   balanceRef.current = balance;
 
@@ -547,7 +549,7 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
           <div className="rounded-2xl border border-border p-4 md:p-5 space-y-3">
             <div className="flex items-baseline justify-between gap-3 flex-wrap">
               <p className="text-[14px] text-foreground font-medium">{scenes.length} escenas · unos {timecode(estSeconds)} de video</p>
-              <p className="text-[12px] text-muted-foreground">Te quedan {num(balance)} créditos</p>
+              <p className="text-[12px] text-muted-foreground">{creditsLeft}</p>
             </div>
             <dl className="text-[13px] space-y-1.5">
               <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Voz · {scenes.length} × {PRICES.voice}</dt><dd className="text-foreground tabular-nums">{cost.voice}</dd></div>

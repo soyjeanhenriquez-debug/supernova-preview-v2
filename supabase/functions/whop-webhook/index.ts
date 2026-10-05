@@ -10,15 +10,16 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
  *    (formato Standard Webhooks, normalmente prefijo `whsec_`).
  *  - En Whop (dashboard → Developers → Webhooks) apunta a:
  *    https://krfdoofwhtcxbyhkjoik.supabase.co/functions/v1/whop-webhook
- *    Eventos: membership_activated, membership_deactivated, invoice_paid,
- *    invoice_past_due, membership_trial_ending_soon.
+ *    Eventos: membership_activated, membership_deactivated, payment_succeeded,
+ *    payment_failed, refund_created (sin los de pago, el cobro al terminar la prueba y los
+ *    reembolsos no llegan: 25-26 sep, un pago y un reembolso nunca se registraron).
  *
  * Whop sigue el spec Standard Webhooks:
  *   headers: webhook-id, webhook-timestamp, webhook-signature
  *   signed_content = "{id}.{timestamp}.{body}"
  *   signature = base64(HMAC_SHA256(secret, signed_content)), en header como "v1,<sig>"
  * Se exige además que webhook-timestamp esté a menos de 5 min del reloj (anti-reenvío).
- * El esquema legacy (x-whop-signature) sigue aceptado de forma temporal: ver verifySignature.
+ * Cada entrega de membresía se anota por webhook-id (stripe_events): un reenvío no se aplica dos veces.
  */
 
 const enc = new TextEncoder();
@@ -64,12 +65,6 @@ async function hmacBase64(rawKey: Uint8Array, content: string): Promise<string> 
   return btoa(String.fromCharCode(...new Uint8Array(sig)));
 }
 
-async function hmacHex(rawKey: Uint8Array, body: string): Promise<string> {
-  const key = await crypto.subtle.importKey("raw", rawKey, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(body));
-  return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let out = 0;
@@ -81,27 +76,15 @@ function timingSafeEqual(a: string, b: string): boolean {
 // así una entrega capturada no se puede reenviar después. Whop firma cada reintento con su hora.
 const MAX_SKEW_S = 300;
 
-/** Verifica Standard Webhooks (firma + hora). El esquema legacy (x-whop-signature) no trae hora,
- *  así que un evento firmado se podría reenviar para siempre: se sigue aceptando SOLO mientras se
- *  confirma que Whop ya no lo usa, y deja un aviso "LEGACY" en el log. Si en los logs no aparece
- *  ese aviso tras varias ventas, borrar el bloque legacy.
+/** Verifica Standard Webhooks (firma + hora). El esquema legacy (x-whop-signature, sin hora) se
+ *  quitó el 04-oct-2026: Whop ya firma todo con webhook-signature (ningún aviso LEGACY en los logs)
+ *  y sin hora un evento firmado se podía reenviar para siempre.
  *  Prueba cada candidato de clave para tolerar el formato del secret de Whop. */
 async function verifySignature(req: Request, secret: string, body: string): Promise<boolean> {
   const keys = candidateKeys(secret);
 
   const swSig = req.headers.get("webhook-signature");
-  if (!swSig) {
-    const legacy = req.headers.get("x-whop-signature");
-    if (!legacy) return false;
-    const received = legacy.replace(/^sha256=/, "").trim().toLowerCase();
-    for (const key of keys) {
-      if (received && timingSafeEqual(received, await hmacHex(key, body))) {
-        console.warn("LEGACY: evento de Whop firmado con x-whop-signature (sin hora). Revisar antes de quitar el esquema legacy.");
-        return true;
-      }
-    }
-    return false;
-  }
+  if (!swSig) return false;
   const id = req.headers.get("webhook-id") ?? "";
   const ts = req.headers.get("webhook-timestamp") ?? "";
   // El spec usa segundos; se toleran milisegundos por si acaso.
@@ -143,16 +126,28 @@ function mapEvent(rawType: string, data: Record<string, unknown>): SubStatus | n
 
   const has = (...words: string[]) => words.every((w) => t.includes(w));
 
-  // Membresía activada / válida
-  if (has("membership") && (t.includes("activat") || t.includes("valid") || t.includes("went valid"))) {
-    return isTrial ? "trialing" : "active";
+  // Reembolso o contracargo: se quita el acceso (Whop devuelve el dinero; la membresía no sigue).
+  if (t.includes("refund") || t.includes("chargeback") || t.includes("dispute")) {
+    return "canceled";
   }
-  // Membresía dada de baja / inválida / cancelada / expirada
+  // "Cancelar al final del período": sigue pagado hasta esa fecha; la baja real llega después
+  // como membership.deactivated. Tratarlo como baja le quitaba el acceso ya pagado.
+  if (t.includes("period end")) return null;
+  // Membresía dada de baja / inválida / cancelada / expirada. VA ANTES que "activada": la palabra
+  // "deactivated" contiene "activat" e "invalid" contiene "valid"; con el orden al revés una baja
+  // (ej. tarjeta rechazada al terminar la prueba, 25-sep) dejaba al usuario ACTIVO.
   if (has("membership") && (t.includes("deactivat") || t.includes("invalid") || t.includes("cancel") || t.includes("expire"))) {
     return "canceled";
   }
-  // Pago exitoso (payment.succeeded / invoice_paid)
+  // Membresía activada / válida
+  if (has("membership") && (t.includes("activat") || t.includes("valid"))) {
+    return isTrial ? "trialing" : "active";
+  }
+  // Pago exitoso (payment.succeeded / invoice_paid). Un pago de US$0 (inicio de la prueba) no
+  // vuelve "active": eso desbloquearía "Crear producto", que espera al primer cobro real.
   if ((t.includes("payment") || t.includes("invoice")) && (t.includes("succeed") || t.includes("paid"))) {
+    const amt = [data.final_amount, data.total, data.subtotal, data.amount].find((v) => v !== undefined && v !== null);
+    if (amt !== undefined && Number(amt) === 0) return null;
     return "active";
   }
   // Pago fallido / vencido / incobrable
@@ -233,7 +228,12 @@ serve(async (req) => {
   }
 
   const eventType = payload.type ?? payload.action ?? payload.event ?? "";
-  const data = payload.data ?? {};
+  // Un reembolso trae el pago anidado (data.payment): de ahí salen plan, usuario y membresía.
+  // Los campos propios del evento mandan sobre los del pago.
+  const nestedPayment = payload.data?.payment;
+  const data: Record<string, unknown> = nestedPayment && typeof nestedPayment === "object"
+    ? { ...(nestedPayment as Record<string, unknown>), ...payload.data }
+    : payload.data ?? {};
   // ── Packs de créditos (productos de pago único en Whop) ──────────────────
   // Van ANTES que la lógica de membresías: si un pack se tratara como membresía pisaría la
   // suscripción del comprador y, al "expirar" el pack, le quitaría el acceso.
@@ -380,24 +380,52 @@ serve(async (req) => {
     p_email: email,
   });
 
-  const membershipId = String(data.id ?? data.membership_id ?? "") || null;
+  // En eventos de pago/reembolso data.id es el id del PAGO (pay_…), no de la membresía: la
+  // membresía viene aparte. Tampoco traen fin de período: si falta, no se pisa el que ya había.
+  const isMembershipEvent = eventType.toLowerCase().includes("membership");
+  const membershipId = String(
+    (isMembershipEvent ? data.id : undefined) ?? data.membership_id ?? (data.membership as Record<string, unknown>)?.id ?? "",
+  ) || null;
   const planId = String(data.plan_id ?? (data.plan as Record<string, unknown>)?.id ?? "") || null;
   const periodEnd = data.renewal_period_end ?? data.expires_at ?? data.valid_until ?? null;
 
-  const { error } = await supabaseAdmin.from("subscriptions").upsert(
-    {
-      email,
-      user_id: userId,
-      whop_membership_id: membershipId,
-      plan_id: planId,
-      status: newStatus,
-      current_period_end: periodEnd ? new Date(periodEnd as string).toISOString() : null,
-      raw: { type: eventType, data },
-    },
-    { onConflict: "email" },
-  );
+  // Pagos y reembolsos solo corrigen una suscripción que YA existe (toda alta llega antes como
+  // membership.activated). Si no traen plan, además tienen que coincidir por membresía: así el
+  // reembolso de un pack o de otro producto nunca le quita el acceso a SUPERNOVA.
+  if (!isMembershipEvent) {
+    const { data: existing } = await supabaseAdmin.from("subscriptions")
+      .select("whop_membership_id").eq("email", email).maybeSingle();
+    const matches = !!existing && (evPlanId ? true : !!membershipId && existing.whop_membership_id === membershipId);
+    if (!matches) {
+      console.error(`${eventType} de ${maskEmail(email)} sin suscripción que coincida (plan=${evPlanId || "?"}): ignorado, revisar en Whop`);
+      return new Response(JSON.stringify({ ok: true, skipped: `no-match:${eventType}` }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
+
+  // Una entrega = un cambio: un reenvío del mismo webhook-id (dentro de la ventana de 5 min) no
+  // se aplica otra vez. Si la base falla se borra la marca para que el reintento de Whop pase.
+  const deliveryKey = `whop_evt:${(req.headers.get("webhook-id") ?? "").slice(0, 120)}`;
+  const { error: dupEvt } = await supabaseAdmin.from("stripe_events").insert({ id: deliveryKey, type: `whop_sub:${eventType.slice(0, 60)}` });
+  if (dupEvt) {
+    return new Response(JSON.stringify({ ok: true, duplicate: true }), { headers: { "Content-Type": "application/json" } });
+  }
+
+  const row: Record<string, unknown> = {
+    email,
+    status: newStatus,
+    raw: { type: eventType, data },
+  };
+  if (userId) row.user_id = userId;
+  if (membershipId) row.whop_membership_id = membershipId;
+  if (planId) row.plan_id = planId;
+  if (periodEnd) row.current_period_end = new Date(periodEnd as string).toISOString();
+
+  const { error } = await supabaseAdmin.from("subscriptions").upsert(row, { onConflict: "email" });
 
   if (error) {
+    await supabaseAdmin.from("stripe_events").delete().eq("id", deliveryKey);
     console.error("Upsert error:", error);
     return new Response(JSON.stringify({ error: "DB error" }), {
       status: 500,

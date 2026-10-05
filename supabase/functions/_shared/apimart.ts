@@ -13,6 +13,19 @@
 export const APIMART = "https://api.apimart.ai/v1";
 export const APIMART_IMAGE_MODEL = "gpt-image-2";
 
+/**
+ * Modelos de imagen que se ofrecen (05-oct-2026). Cada uno con su acción de credit_prices: el precio lo
+ * pone el servidor, nunca el cliente. Los Nano Banana (Gemini) escriben "1K" en mayúscula y llevan el
+ * filtro de contenido encendido; GPT Image 2 usa "1k".
+ */
+export const IMAGE_MODELS = {
+  "gpt-image-2": { apimart: "gpt-image-2", action: "gen_ad_image", resolution: "1k", nsfw: false, label: "GPT Image 2" },
+  "nano-banana-2": { apimart: "nano-banana-2-ext", action: "gen_ad_image_nb2", resolution: "1K", nsfw: true, label: "Nano Banana 2" },
+  "nano-banana-pro": { apimart: "nano-banana-pro-ext", action: "gen_ad_image_nbpro", resolution: "1K", nsfw: true, label: "Nano Banana Pro" },
+} as const;
+export type ImageModelId = keyof typeof IMAGE_MODELS;
+export const isImageModel = (x: unknown): x is ImageModelId => typeof x === "string" && Object.prototype.hasOwnProperty.call(IMAGE_MODELS, x);
+
 export type ApimartAspect = "1:1" | "4:5" | "9:16" | "16:9";
 
 function headers(key: string): Record<string, string> {
@@ -81,20 +94,22 @@ export function pickUrls(result: unknown): { video: string | null; frame: string
 }
 
 /**
- * Imagen con gpt-image-2. `imageUrls` (opcional, máx. 15 según la doc; aquí se usan ≤ 3) activa
+ * Imagen con gpt-image-2 (o el modelo de IMAGE_MODELS que se pida). `imageUrls` (opcional, máx. 15 según la doc; aquí se usan ≤ 3) activa
  * imagen a imagen: SOLO URLs firmadas por el servidor de carpetas del propio usuario, nunca del cliente.
  * El texto va entero (ahí están las reglas: sin dinero, sin marcas); si APIMart lo rechaza por largo,
  * se reintenta recortado a 1.000 caracteres. Hasta ~90 s (suele tardar 15-40 s).
  */
-export async function apimartImage(prompt: string, aspect: string, imageUrls?: string[]): Promise<{ b64: string; mime: string; cost: number | null } | null> {
+export async function apimartImage(prompt: string, aspect: string, imageUrls?: string[], model: ImageModelId = "gpt-image-2"): Promise<{ b64: string; mime: string; cost: number | null } | null> {
   const key = Deno.env.get("APIMART_API_KEY");
   if (!key) return null;
-  const refs = (imageUrls ?? []).filter(u => typeof u === "string" && u.startsWith("https://")).slice(0, 15);
+  const refs = (imageUrls ?? []).filter(u => typeof u === "string" && u.startsWith("https://")).slice(0, 14);
+  const m = IMAGE_MODELS[model];
   try {
     const create = (p: string) => fetch(`${APIMART}/images/generations`, {
       method: "POST", headers: headers(key),
       body: JSON.stringify({
-        model: APIMART_IMAGE_MODEL, prompt: p, size: aspect, resolution: "1k", n: 1,
+        model: m.apimart, prompt: p, size: aspect, resolution: m.resolution, n: 1,
+        ...(m.nsfw ? { nsfw_check: true } : {}),
         ...(refs.length ? { image_urls: refs } : {}),
       }),
     });

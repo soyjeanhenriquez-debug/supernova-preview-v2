@@ -3,7 +3,7 @@
 // GEMINI_API_KEY/LOVABLE_API_KEY del texto. La imagen vuelve en la misma respuesta.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
-import { apimartImage, APIMART_IMAGE_MODEL } from "../_shared/apimart.ts";
+import { apimartImage, IMAGE_MODELS, isImageModel, type ImageModelId } from "../_shared/apimart.ts";
 import { checkReferencePaths } from "./refs.ts";
 
 interface Body {
@@ -11,6 +11,8 @@ interface Body {
   aspectRatio?: "1:1" | "4:5" | "9:16" | "16:9"; // feed Meta / feed vertical Meta / Stories-Reels-TikTok / miniatura YouTube
   /** Rutas en el bucket "creativos" del propio usuario (<uid>/...), máx. 3. Nunca URLs. */
   reference_paths?: string[];
+  /** IA de imagen elegida por la persona (lista blanca IMAGE_MODELS; por defecto GPT Image 2). */
+  model?: string;
 }
 
 const ASPECT_HINT: Record<string, string> = {
@@ -30,7 +32,6 @@ const ASPECT_HINT: Record<string, string> = {
 // "creativos" del PROPIO usuario (máx. 3, ver refs.ts). Se validan y se firman URLs de 10 minutos
 // ANTES de cobrar; nunca se aceptan URLs del cliente. gpt-image-2 cobra por resolución (1k), la doc
 // no indica recargo por referencias: se mantiene gen_ad_image (6 créditos).
-const APIMART_MODEL = APIMART_IMAGE_MODEL;
 
 // Tope de tamaño del cuerpo: este texto acaba en un modelo que cobra por token.
 // deno-lint-ignore no-explicit-any
@@ -156,8 +157,14 @@ Deno.serve(async (req) => {
       refUrls = signed;
     }
 
+    // Modelo: solo los de la lista blanca; un id desconocido se rechaza (no se cobra al precio de otro).
+    if (body.model !== undefined && !isImageModel(body.model)) return deny(400, "Esa IA de imagen no está disponible.");
+    const model: ImageModelId = isImageModel(body.model) ? body.model : "gpt-image-2";
+    const mdl = IMAGE_MODELS[model];
+    if (model !== "gpt-image-2" && !Deno.env.get("APIMART_API_KEY")) return deny(503, "Esa IA de imagen no está disponible ahora. Prueba con GPT Image 2.");
+
     const g = await chargeUser(uid, "generate-ad-creative", 20, 60, {
-      action: "gen_ad_image", label: `${refUrls.length ? "Creativo con tu foto" : "Creativo"} · ${prompt.slice(0, 60)}`,
+      action: mdl.action, label: `${refUrls.length ? "Creativo con tu foto" : "Creativo"}${model !== "gpt-image-2" ? ` · ${mdl.label}` : ""} · ${prompt.slice(0, 60)}`,
     });
     if (g instanceof Response) return g;
     gate = g;
@@ -167,11 +174,11 @@ Deno.serve(async (req) => {
     const fullPrompt = `${prompt}\n\nFormato: ${aspectHint}. Estilo publicitario profesional, alta calidad, listo para usar como creativo de anuncio en redes sociales.`;
 
     // 1) APIMart (principal y más barato).
-    const am = await apimartImage(fullPrompt, aspect, refUrls);
+    const am = await apimartImage(fullPrompt, aspect, refUrls, model);
     if (am) {
       // Costo real que informa APIMart (para confirmar si las referencias cuestan más; ver admin_margin).
-      if (am.cost !== null) console.log(`apimart costo=${am.cost} refs=${refUrls.length}`);
-      const { error: logErr } = await guardClient().rpc("log_ai_usage", { p_user_id: gate.userId, p_fn: "generate-ad-creative", p_model: `apimart/${APIMART_MODEL}`, p_input: 0, p_output: 0, p_images: 1 });
+      if (am.cost !== null) console.log(`apimart ${mdl.apimart} costo=${am.cost} refs=${refUrls.length}`);
+      const { error: logErr } = await guardClient().rpc("log_ai_usage", { p_user_id: gate.userId, p_fn: "generate-ad-creative", p_model: `apimart/${mdl.apimart}`, p_input: 0, p_output: 0, p_images: 1 });
       if (logErr) console.error("log_ai_usage:", logErr.message);
       return new Response(JSON.stringify({
         image: `data:${am.mime};base64,${am.b64}`,
@@ -182,7 +189,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Con fotos de referencia no hay respaldo: Gemini las ignoraría y saldría otra cosa.
+    // Con fotos de referencia o con un modelo elegido no hay respaldo: saldría otra cosa (u otro
+    // modelo más barato que el que pagó). Se devuelve el crédito.
+    if (model !== "gpt-image-2") {
+      await refundCharge(gate, `apimart ${mdl.apimart} falló`);
+      return deny(502, `No se pudo crear la imagen con ${mdl.label}. No se te cobró: inténtalo de nuevo o prueba otra IA.`);
+    }
     if (refUrls.length) {
       await refundCharge(gate, "apimart con referencias falló");
       return deny(502, "No se pudo crear la imagen con tu foto. No se te cobró: inténtalo de nuevo.");

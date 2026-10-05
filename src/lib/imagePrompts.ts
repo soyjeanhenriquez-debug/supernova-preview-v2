@@ -85,7 +85,7 @@ export const MODE_COUNT: Record<StudioMode, number> = {
 
 export const MODE_INFO: Record<StudioMode, { title: string; line: string; unit: string }> = {
   creativo: { title: "Creativos para anuncios", line: "3 imágenes listas para Meta, cada una con un ángulo distinto.", unit: "imágenes" },
-  carrusel: { title: "Carrusel que vende", line: "5 láminas: gancho, problema, solución, lo que logra y llamada a la acción.", unit: "láminas" },
+  carrusel: { title: "Carrusel que vende", line: "Gancho, promesa, valor y llamada a la acción, con 3 portadas a elegir y el diseño de tu marca. Las letras salen perfectas: se dibujan con fuentes reales.", unit: "láminas" },
   miniatura: { title: "Miniaturas", line: "Portadas para YouTube o Reels que se leen en pequeño.", unit: "miniaturas" },
   foto_ugc: { title: "Fotos estilo UGC", line: "3 fotos como hechas con el celular: una persona real usando tu producto.", unit: "fotos" },
   foto_producto: { title: "Foto de producto", line: "3 fotos de tu producto: de estudio, en mockup y en uso.", unit: "fotos" },

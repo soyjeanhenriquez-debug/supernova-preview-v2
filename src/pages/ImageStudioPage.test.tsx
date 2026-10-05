@@ -23,6 +23,8 @@ vi.mock("@/hooks/useCredits", () => ({
   useCredits: () => ({ applyServerCharge: vi.fn(), balance: 500 }),
   generatorCost: () => ({ action: "gen_light", cost: 15 }),
 }));
+const runGenerator = vi.fn();
+vi.mock("@/lib/generatorStream", () => ({ runGenerator: (...a: unknown[]) => runGenerator(...a) }));
 vi.mock("@/lib/businessProfile", () => ({
   useBusinessProfile: () => ({ profile, loaded: true, savePatch: vi.fn(), productId: PID }),
   profileReady: (p: { product: string; who: string; promise: string }) => p.product.length >= 3 && p.who.length >= 3 && p.promise.length >= 3,
@@ -66,14 +68,31 @@ describe("ImageStudioPage", () => {
     expect((invoke.mock.calls[0][1].body as { prompt: string }).prompt).toContain("Concepto: Iceberg");
   }, 15_000); // renderiza 32 tarjetas con imagen: con toda la batería en paralelo pasa de 5 s
 
-  it("semilla con autostart genera sin toques extra y no copia el gancho literal", async () => {
+  it("carrusel: la semilla con autostart escribe el texto una sola vez y no crea imágenes", async () => {
+    runGenerator.mockReset();
+    runGenerator.mockResolvedValue("no es json");
     setSeed({ source: "radar", target: "carrusel", title: "Curso de uñas", product: "Curso de uñas acrílicas", who: "Mujeres que quieren emprender", promise: "Hacer uñas desde casa", hook: "Deja de pagar por tus uñas", evidence: "214 días pagando anuncios", autostart: true });
     render(<ImageStudioPage initialMode="creativo" />);
     expect(screen.getByText("Curso de uñas")).toBeInTheDocument();
-    await waitFor(() => expect(invoke).toHaveBeenCalledTimes(5), { timeout: 3000 });
-    const body = invoke.mock.calls[0][1].body as { prompt: string; aspectRatio: string };
-    expect(body.aspectRatio).toBe("4:5");
-    expect(body.prompt).toContain("Curso de uñas acrílicas");
+    await waitFor(() => expect(runGenerator).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    const req = runGenerator.mock.calls[0][0] as { id: string; prompt: string };
+    expect(req.id).toBe("carrusel-copy");
+    expect(req.prompt).toContain("Curso de uñas acrílicas");
+    expect(req.prompt).toMatch(/NO copies sus palabras/);
+    await new Promise(r => setTimeout(r, 50));
+    expect(runGenerator).toHaveBeenCalledTimes(1);
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("carrusel sin semilla muestra el costo del texto y no gasta nada solo", async () => {
+    runGenerator.mockReset();
+    profile = { product: "Ebook de recetas", who: "Mamás que trabajan", promise: "Cocinar rápido", price: "" };
+    render(<ImageStudioPage initialMode="carrusel" />);
+    expect(screen.getByText(/Escribir mi carrusel con IA · 15 créditos/)).toBeInTheDocument();
+    expect(screen.getByText("Así se verá tu carrusel")).toBeInTheDocument();
+    await new Promise(r => setTimeout(r, 50));
+    expect(runGenerator).not.toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it("semilla sin autostart no genera", async () => {

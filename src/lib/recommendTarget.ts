@@ -71,6 +71,7 @@ const IMG = CREDIT_COSTS.gen_ad_image;
 const VID5 = cc.vid_mini_5 ?? 55;
 const VID10 = cc.vid_mini_10 ?? 110;
 const YT_SCRIPT = CREDIT_COSTS.gen_medium; // yt-script es un generador "medio" de ai-chat
+const CAROUSEL = CREDIT_COSTS.gen_light; // carrusel-copy: generador "ligero" de ai-chat (las láminas se dibujan gratis)
 
 export type TargetInfo = { label: string; detail: string; credits: number; costLabel: string };
 
@@ -79,7 +80,7 @@ export function targetInfo(t: SeedTarget): TargetInfo {
   const n = (credits: number) => `${fmtNum(credits)} créditos`;
   switch (t) {
     case "creativos": return { label: "Creativos", detail: "3 imágenes para anuncios", credits: 3 * IMG, costLabel: n(3 * IMG) };
-    case "carrusel": return { label: "Carrusel", detail: "5 láminas para Instagram", credits: 5 * IMG, costLabel: n(5 * IMG) };
+    case "carrusel": return { label: "Carrusel", detail: "8 láminas con 3 portadas a elegir", credits: CAROUSEL, costLabel: n(CAROUSEL) };
     case "miniaturas": return { label: "Miniaturas", detail: "2 portadas para YouTube", credits: 2 * IMG, costLabel: n(2 * IMG) };
     case "foto_ugc": return { label: "Fotos estilo UGC", detail: "3 fotos como hechas con el celular", credits: 3 * IMG, costLabel: n(3 * IMG) };
     case "foto_producto": return { label: "Fotos de producto", detail: "3 fotos de estudio y en uso", credits: 3 * IMG, costLabel: n(3 * IMG) };

@@ -10,7 +10,7 @@ import { invokeErrorMessage } from "@/lib/fnAuth";
 import { QuickBrief } from "@/components/QuickBrief";
 import { takeSeed, setSeed, TARGET_SLUG, type CreativeSeed } from "@/lib/creativeSeed";
 import {
-  aiAspect, aspectOptions, buildSlots, carruselTexts, variationSpec, adCopyRequest, missingRealTexts,
+  aiAspect, aspectOptions, buildSlots, variationSpec, adCopyRequest, missingRealTexts,
   MODE_COUNT, MODE_INFO, TARGET_MODE, IMAGE_TARGETS, formatNumber, type Aspect, type Brief, type StudioMode, type PromptCtx,
 } from "@/lib/imagePrompts";
 import { EMPTY_KIT, kitReferences, loadBrandKit, toWebp, type BrandKit } from "@/lib/brandKit";
@@ -21,6 +21,7 @@ import { BrandKitPanel } from "@/components/image/BrandKitPanel";
 import { ImageSlotCard, type Slot } from "@/components/image/ImageSlotCard";
 import { ReadyToPublish } from "@/components/image/ReadyToPublish";
 import { SavedGallery, type SavedImage } from "@/components/image/SavedGallery";
+import { CarouselStudio } from "@/components/image/CarouselStudio";
 
 /**
  * Estudio de imágenes (03-oct-2026; plan ATLAS 04-oct-2026): Creativos, Carrusel, Miniaturas, Fotos
@@ -59,7 +60,6 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
   const [seed, setSeedState] = useState<CreativeSeed | null>(null);
   const [aspect, setAspect] = useState<Aspect>(() => aiAspect(initialMode).aspect);
   const [headline, setHeadline] = useState("");
-  const [texts, setTexts] = useState<string[]>([]);
   // Creativos: estilos elegidos (hasta 3), otro estilo escrito y los datos reales que piden algunos.
   const [concepts, setConcepts] = useState<string[]>([]);
   const [level, setLevel] = useState<ConceptGroup>(DEFAULT_LEVEL);
@@ -97,7 +97,6 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
   const running = slots.some(s => s.status === "busy");
 
   useEffect(() => { setSlots([]); setHeadline(""); setVarySource(null); setAspect(aiAspect(mode, seed?.aspect).aspect); }, [mode, seed?.aspect]);
-  useEffect(() => { if (ready) setTexts(carruselTexts(brief, seed?.hook)); }, [ready, brief, seed?.hook]);
 
   // Kit de marca del producto activo.
   useEffect(() => {
@@ -115,7 +114,7 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
   };
 
   const ctx: PromptCtx = {
-    brief, aspect, headline, hook: seed?.hook, angle: seed?.angle, texts,
+    brief, aspect, headline, hook: seed?.hook, angle: seed?.angle,
     kit: { colors: kit.colors, style: kit.style }, hasRefs: mode !== "variar" && useRefs && kitRefs.length > 0,
     ...(mode === "creativo" ? { concepts, level, customStyle, realTexts } : {}),
   };
@@ -162,7 +161,8 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
 
   // Semilla con autostart (el botón ya mostraba el costo): 0 toques extra.
   useEffect(() => {
-    if (autoRan.current || !seed?.autostart || !loaded || !kitLoaded || !ready) return;
+    // El carrusel arranca solo dentro de CarouselStudio (escribe el texto; no crea 5 imágenes).
+    if (autoRan.current || !seed?.autostart || !loaded || !kitLoaded || !ready || mode === "carrusel") return;
     // Espera a que el modo y el formato de la semilla ya estén puestos.
     if (TARGET_MODE[seed.target] !== mode || aspect !== aiAspect(mode, seed.aspect).aspect) return;
     autoRan.current = true;
@@ -215,7 +215,7 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
     <div className="max-w-[1180px] mx-auto space-y-6 py-4 min-w-0">
       <div>
         <h1 className="font-display font-bold text-2xl text-foreground">{info.title}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{info.line} {mode === "variar" ? "" : "Salen de tu producto: no tienes que escribir nada."}</p>
+        <p className="text-sm text-muted-foreground mt-1">{info.line} {mode === "variar" || mode === "carrusel" ? "" : "Salen de tu producto: no tienes que escribir nada."}</p>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
@@ -244,6 +244,13 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
 
       {!ready ? (
         <QuickBrief profile={profile} savePatch={savePatch} purpose="hacer tus imágenes" />
+      ) : mode === "carrusel" ? (
+        <>
+          {!seed && <p className="text-[13px] text-muted-foreground truncate -mt-2"><span className="text-foreground">{profile.product}</span> · {profile.who}</p>}
+          <CarouselStudio key={`${productId}-${seed?.title ?? ""}`} brief={brief} uid={uid} productId={productId} folder={folder} kitColors={kit.colors} kitRefs={kitRefs}
+            seed={seed ? { hook: seed.hook, angle: seed.angle, evidence: seed.evidence, title: seed.title, autostart: seed.autostart && !autoRan.current } : null}
+            onAutostart={() => { autoRan.current = true; }} />
+        </>
       ) : (
         <div className="rounded-2xl border border-border p-5 space-y-4">
           {!seed && <p className="text-[13px] text-muted-foreground truncate"><span className="text-foreground">{profile.product}</span> · {profile.who}</p>}
@@ -267,17 +274,7 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
             </p>
           )}
 
-          {mode === "carrusel" ? (
-            <details className="group">
-              <summary className="cursor-pointer list-none text-xs text-muted-foreground hover:text-foreground select-none min-h-[32px] flex items-center">▸ Cambiar el texto de cada lámina (opcional)</summary>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {texts.map((t, i) => (
-                  <input key={i} value={t} maxLength={80} aria-label={`Texto de la lámina ${i + 1}`} onChange={e => setTexts(list => list.map((x, j) => (j === i ? e.target.value : x)))}
-                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary/60" />
-                ))}
-              </div>
-            </details>
-          ) : canText ? (
+          {canText ? (
             <details className="group">
               <summary className="cursor-pointer list-none text-xs text-muted-foreground hover:text-foreground select-none min-h-[32px] flex items-center">
                 ▸ {mode === "variar" ? "Cambiar el texto de la imagen (opcional)" : seed?.hook ? "Poner tu propio texto (opcional: la IA escribe uno nuevo con la idea)" : "Poner un texto en la imagen (opcional)"}

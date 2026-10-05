@@ -18,7 +18,7 @@ describe("SIDE_HUSTLES", () => {
   it("costo de empezar = la primera pieza recomendada", () => {
     expect(startCost("low_ticket").credits).toBe(18);
     expect(startCost("ugc").credits).toBe(165); // anuncio en video mientras UGC con presentador siga cerrado
-    expect(startCost("marca").credits).toBe(30);
+    expect(startCost("marca").credits).toBe(15); // carrusel: texto con IA (ligero)
     expect(startCost("faceless").label).toBe("guion 30");
   });
 });

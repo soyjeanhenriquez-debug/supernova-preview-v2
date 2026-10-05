@@ -35,7 +35,7 @@ function normalizeModel(model?: string): string {
 //    instrucción del servidor al final, para que no sirva de generador gratis.
 const GEN_MEDIUM_IDS = new Set(["landing-copy", "email-launch", "email-sequence", "yt-script", "funnel-strategy", "audience-research", "product-desc", "offer-stack", "yapping-script", "ecosystem", "ascension-offer", "meta-campaign", "creative-brief", "mandala-sequence", "mandala-iterate", "personaje-guiones"]);
 const GEN_HEAVY_IDS = new Set(["vsl-downsell", "vsl-upsell-1", "vsl-upsell-2", "vsl-main"]);
-const GEN_LIGHT_IDS = new Set(["order-bump", "ugc-script", "hooks-meta", "hooks-tiktok", "captions-ig", "reels-script", "yt-titles", "dm-script", "whatsapp-sequence", "etsy-ideas", "market-idea", "mandala-ad", "personaje-ideas"]);
+const GEN_LIGHT_IDS = new Set(["order-bump", "ugc-script", "hooks-meta", "hooks-tiktok", "captions-ig", "reels-script", "yt-titles", "dm-script", "whatsapp-sequence", "etsy-ideas", "market-idea", "mandala-ad", "personaje-ideas", "carrusel-copy"]);
 function generatorAction(id: string): string | null {
   if (GEN_HEAVY_IDS.has(id)) return "gen_heavy";
   if (GEN_MEDIUM_IDS.has(id)) return "gen_medium";

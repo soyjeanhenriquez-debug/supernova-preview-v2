@@ -64,7 +64,7 @@ function userPrompt(o: { brief: Record<string, string>; goal: string; handle: st
     "- solucion: titulo + texto ≤30 palabras + veredicto.",
     "- tarjetas: 4 items (titulo 1-4 palabras + texto ≤10 palabras) + veredicto.",
     "- pasos: 3 items en orden + veredicto.",
-    "- regla: para carruseles de 'reglas' o 'claves': pastilla ('Regla 1', 'Clave 2'…), titulo = 1 o 2 palabras GIGANTES, texto = una frase ≤10 palabras, veredicto ≤14 palabras, escena = foto de ejemplo para esa regla.",
+    "- regla: para carruseles de 'reglas', 'claves' o 'estilos': pastilla ('Regla 1', 'Clave 2'…), titulo = 1 o 2 palabras GIGANTES, texto = una frase ≤10 palabras, veredicto ≤14 palabras (o una acción corta, como 'Busca \"…\"'), escena = foto de ejemplo para esa regla. Opcional: items = 3 líneas muy cortas (qué hace, cuándo usarlo, cuándo no), si el original las tiene.",
     "- giro: la penúltima, 'Para que puedas…', ≤14 palabras.",
     "- llamada: la última. titulo = la creencia nueva; palabra = UNA palabra clave en MAYÚSCULAS conectada con esa creencia; texto = qué recibe al comentarla; items = 1 recordatorio.",
     "Cada lámina (menos llamada y giro) lleva 'puente' (≤7 palabras, abre la siguiente) y 'peso' (corta o densa; nunca dos iguales seguidas). Marca 1 o 2 palabras de cada titular entre *asteriscos*. 'escena' (opcional en todas, obligatoria en regla) = una foto cinematográfica SIN texto que muestre la idea: personas latinas comunes, sin famosos, sin marcas, sin dinero.",

@@ -293,7 +293,7 @@ function firstJson(text: string): unknown {
   return null;
 }
 
-const ITEM_MAX: Partial<Record<SlideKind, number>> = { problema: 3, comparacion: 2, tarjetas: 4, pasos: 4, llamada: 2, regla: 0 };
+const ITEM_MAX: Partial<Record<SlideKind, number>> = { problema: 3, comparacion: 2, tarjetas: 4, pasos: 4, llamada: 2, regla: 3 };
 const upper = (s: string) => s.toLocaleUpperCase("es");
 
 /** Lee la respuesta de la IA. Devuelve null si no sirve (el servidor ya cobró: se avisa y se puede reintentar). */
@@ -419,30 +419,75 @@ const STYLE_TYPE: Record<StyleId, string> = {
  * imagen escribe el texto dentro de la foto: barra superior de 3 columnas, titular con UNA palabra
  * enorme que domina, la escena como metáfora del deseo y máximo 3 colores del sistema.
  */
-export function posterPrompt(o: { cover: Slide; scene?: string; design: CarouselDesign; brief: Brief; aspect: "4:5" | "1:1"; hasRefs?: boolean; rules: string; date?: Date }): string {
-  const runs = accentRuns(o.cover.title);
-  const focal = runs.find(r => r.accent)?.text.trim() ?? "";
+type PosterOpts = { cover: Slide; scene?: string; design: CarouselDesign; brief: Brief; aspect: "4:5" | "1:1"; hasRefs?: boolean; rules: string; date?: Date };
+
+/** Las letras de la portada póster: barra superior de 3 columnas, titular con UNA palabra enorme y abajo. */
+function posterTypeLines(o: PosterOpts): string[] {
+  const focal = accentRuns(o.cover.title).find(r => r.accent)?.text.trim() ?? "";
   const plain = o.cover.title.replace(/\*/g, "").trim();
   const d = o.date ?? new Date();
   const left = `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
   const center = o.design.name || (o.design.handle ? `@${o.design.handle}` : clean(o.brief.product, 30));
   const right = (o.design.role || o.cover.tag || "guía").toLocaleLowerCase("es");
-  const scene = clean(o.scene, 300) || `una metáfora visual cinematográfica de: ${clean(o.brief.promise, 120) || plain}`;
   return [
-    `Portada editorial para un carrusel de Instagram, diseño tipo póster de revista, formato ${o.aspect === "4:5" ? "vertical 4:5" : "cuadrado 1:1"}.`,
     `BARRA SUPERIOR (5 % desde arriba): tres columnas de texto pequeño en sans negrita, minúsculas, bien separadas: izquierda «${left}», centro «${center}», derecha «${right}».`,
     focal
       ? `TITULAR: «${plain}». La palabra «${focal}» va ENORME y dominante, ocupando casi todo el ancho, en ${STYLE_TYPE[o.design.style]}; el resto de las palabras va mucho más pequeño en sans negrita, pegado arriba y abajo de la palabra grande, formando un solo bloque.`
       : `TITULAR: «${plain}», enorme y dominante, en ${STYLE_TYPE[o.design.style]}, formando un solo bloque.`,
-    "El protagonista de la foto puede quedar delante de una parte de las letras grandes para dar profundidad, sin tapar la lectura.",
+    o.cover.body ? `ABAJO, centrado y pequeño, en sans negrita: «${clean(o.cover.body, 90)}».` : "",
+    "Todo el texto en español, escrito EXACTAMENTE como se indica, sin otras palabras, sin logos ni marcas.",
+  ].filter(Boolean);
+}
+
+function posterScene(o: PosterOpts): string[] {
+  const plain = o.cover.title.replace(/\*/g, "").trim();
+  const scene = clean(o.scene, 300) || `una metáfora visual cinematográfica de: ${clean(o.brief.promise, 120) || plain}`;
+  return [
     `ESCENA: ${scene}.`,
     o.design.world ? `La escena ocurre en el mundo fijo de la marca: ${clean(o.design.world, 160)}.` : "",
     o.hasRefs ? "Usa la persona o el producto de la imagen de referencia adjunta como protagonista, igual que en la referencia." : "",
     `FOTO cinematográfica real, grano de película suave, luz dramática. Máximo 3 colores en todo el diseño: ${o.design.brand} como color dominante, crema y negro.`,
-    o.cover.body ? `ABAJO, centrado y pequeño, en sans negrita: «${clean(o.cover.body, 90)}».` : "",
-    "Todo el texto en español, escrito EXACTAMENTE como se indica, sin otras palabras, sin logos ni marcas.",
-    o.rules,
+  ].filter(Boolean);
+}
+
+/**
+ * Prompt de la portada tipo póster editorial en UN paso (la IA de imagen hace foto y letras): barra
+ * superior de 3 columnas, titular con UNA palabra enorme que domina, la escena como metáfora del deseo
+ * y máximo 3 colores del sistema.
+ */
+export function posterPrompt(o: PosterOpts): string {
+  const [bar, title, ...restType] = posterTypeLines(o);
+  return [
+    `Portada editorial para un carrusel de Instagram, diseño tipo póster de revista, formato ${o.aspect === "4:5" ? "vertical 4:5" : "cuadrado 1:1"}.`,
+    bar, title,
+    "El protagonista de la foto puede quedar delante de una parte de las letras grandes para dar profundidad, sin tapar la lectura.",
+    ...posterScene(o), ...restType, o.rules,
   ].filter(Boolean).join(" ");
+}
+
+/**
+ * Portada "como Alex", paso 1: SOLO la foto (con la IA de mejor imagen), sin texto y con aire arriba
+ * para el titular. El paso 2 (posterTextPrompt) le pone las letras con GPT Image 2 sin tocar la escena.
+ */
+export function posterScenePrompt(o: PosterOpts): string {
+  return [
+    `Fotografía cinematográfica real para la portada de un carrusel de Instagram, formato ${o.aspect === "4:5" ? "vertical 4:5" : "cuadrado 1:1"}.`,
+    ...posterScene(o),
+    "Deja el tercio de arriba despejado (cielo, pared o fondo limpio) para poner un titular grande después. El protagonista en el centro o abajo.",
+    "SIN ningún texto, letra, número, logo ni marca en la imagen.",
+    o.rules.replace(/Si hay texto[^.]*\./, "").trim(),
+  ].filter(Boolean).join(" ");
+}
+
+/** Paso 2: GPT Image 2 recibe la foto del paso 1 como referencia y solo le añade la tipografía. */
+export function posterTextPrompt(o: PosterOpts): string {
+  return [
+    "Usa la imagen de referencia adjunta como base y mantenla EXACTAMENTE igual: mismo encuadre, mismas personas, mismos colores, misma luz. No cambies nada de la foto.",
+    "Solo añade la tipografía de una portada editorial tipo póster de revista:",
+    ...posterTypeLines(o),
+    "El titular grande va en la zona despejada de arriba; el protagonista puede quedar delante de una parte de las letras grandes para dar profundidad, sin tapar la lectura.",
+    "Letras blancas o del color que más contraste con la foto, limpias, sin sombras exageradas ni cajas detrás.",
+  ].join(" ");
 }
 
 export type StoryCheck = { id: "apertura" | "agarre" | "columna" | "ritmo" | "giro" | "remate"; label: string; ok: boolean; why: string };
@@ -562,7 +607,7 @@ export function recloneRequest(o: { info: CloneInfo; keep: string[]; brief: Brie
     "",
     "Hazlo MEJOR que el original con la fórmula de 6 posiciones (apertura que crea un deseo, agarre en la lámina 2 que responde solo la portada, columna con puentes, ritmo corta/densa, giro 'Para que puedas…', remate con creencia nueva + UNA palabra clave). En 'mejoras' di 3 cosas concretas que hiciste mejor.",
     o.goal === "ensenar" ? "Objetivo: enseñar algo útil del tema del producto." : "Objetivo: que quieran el producto.",
-    "Tipos de lámina disponibles: respuesta, problema (3 items), comparacion (2 items: NO/SÍ), solucion, tarjetas (4 items), pasos (3 items), regla (pastilla 'Regla N', titulo de 1 o 2 palabras gigantes, texto ≤10 palabras, veredicto, escena), giro (penúltima), llamada (última, con palabra).",
+    "Tipos de lámina disponibles: respuesta, problema (3 items), comparacion (2 items: NO/SÍ), solucion, tarjetas (4 items), pasos (3 items), regla (pastilla 'Regla N', titulo de 1 o 2 palabras gigantes, texto ≤10 palabras, veredicto, escena; opcional items = 3 líneas muy cortas: qué hace, cuándo usarlo, cuándo no), giro (penúltima), llamada (última, con palabra).",
     "Cada lámina (menos giro y llamada) lleva puente (≤7 palabras), peso (corta o densa) y veredicto si aplica. Marca 1 o 2 palabras de cada titular entre *asteriscos*. 'escena' = foto cinematográfica SIN texto, personas latinas comunes, sin famosos, sin marcas, sin dinero.",
     "Prohibido: promesas de ingresos o resultados, plazos, testimonios o cifras inventadas, urgencia falsa, marcas ajenas, emojis. Español neutro latinoamericano, de tú.",
     "",

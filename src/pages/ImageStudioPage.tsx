@@ -247,7 +247,8 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
       ) : mode === "carrusel" ? (
         <>
           {!seed && <p className="text-[13px] text-muted-foreground truncate -mt-2"><span className="text-foreground">{profile.product}</span> · {profile.who}</p>}
-          <CarouselStudio key={`${productId}-${seed?.title ?? ""}`} brief={brief} uid={uid} productId={productId} folder={folder} kitColors={kit.colors} kitRefs={kitRefs}
+          <CarouselStudio key={`${productId}-${seed?.title ?? ""}`} brief={brief} uid={uid} productId={productId} folder={folder} kitColors={kit.colors} kitRefs={kitRefs} useRefs={useRefs}
+            photoPanel={uid && productId ? <BrandKitPanel uid={uid} productId={productId} kit={kit} onChange={setKit} useRefs={useRefs} setUseRefs={setUseRefs} /> : null}
             seed={seed ? { hook: seed.hook, angle: seed.angle, evidence: seed.evidence, title: seed.title, autostart: seed.autostart && !autoRan.current } : null}
             onAutostart={() => { autoRan.current = true; }} />
         </>

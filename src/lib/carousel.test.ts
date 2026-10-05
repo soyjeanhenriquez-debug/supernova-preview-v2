@@ -253,3 +253,27 @@ describe("carrusel: tu firma (lo que no se puede copiar)", () => {
     expect(photoPrompt({ slide: draft.slides[2], design: d, brief, aspect: "4:5", card: false, rules: "R" })).toContain("cocina caribeña");
   });
 });
+
+import { posterScenePrompt, posterTextPrompt, parseCarouselObj } from "./carousel";
+describe("carrusel: portada como Alex en 2 pasos", () => {
+  it("paso 1 pide solo la foto, sin texto y con aire arriba; paso 2 conserva la foto y pone las letras", () => {
+    const { draft } = parseClone(cloneResponse)!;
+    const o = { cover: draft.slides[0], scene: "olla gigante", design: { ...ADMIN_DESIGN, role: "estratega", world: "playas de RD" }, brief, aspect: "4:5" as const, hasRefs: true, rules: "Personas latinas. Si hay texto, que sea exacto." };
+    const a = posterScenePrompt(o);
+    expect(a).toMatch(/SIN ningún texto/);
+    expect(a).toContain("playas de RD");
+    expect(a).toMatch(/imagen de referencia adjunta como protagonista/);
+    expect(a).not.toMatch(/TITULAR/);
+    const b = posterTextPrompt(o);
+    expect(b).toMatch(/mantenla EXACTAMENTE igual/);
+    expect(b).toMatch(/TITULAR: «Cocina sin pensar»/);
+    expect(b).toContain("«estratega»");
+  });
+  it("la regla puede traer 3 líneas al lado de la foto", () => {
+    const r = parseCarouselObj({ portadas: [{ titulo: "x *y*" }], laminas: [
+      { tipo: "respuesta", titulo: "a" }, { tipo: "regla", pastilla: "01", titulo: "INFRARROJO", texto: "foto real, colores falsos", items: [{ titulo: "Lo verde se vuelve rosa" }, { titulo: "Úsalo afuera" }, { titulo: "No en interiores" }, { titulo: "de más" }] },
+      { tipo: "giro", titulo: "g" }, { tipo: "llamada", titulo: "l", palabra: "X" },
+    ] }, 8, "claro", { free: true })!;
+    expect(r.slides[2].items).toHaveLength(3);
+  });
+});

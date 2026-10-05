@@ -10,7 +10,7 @@ import { RULES, type Brief } from "@/lib/imagePrompts";
 import { toWebp } from "@/lib/brandKit";
 import {
   ADMIN_DESIGN, BRAND_COLORS, DEFAULT_DESIGN, DEFAULT_SLIDES, GENERATOR_ID, GOAL_INFO, KIND_LABEL, PUBLISH_STEPS, SLIDE_COUNTS, STYLES,
-  carouselRequest, cleanHandle, coverCheck, draftCarousel, parseCarousel, posterPrompt, retone, slideTwoScore, storyTest, withCover,
+  carouselRequest, cleanHandle, coverCheck, draftCarousel, parseCarousel, posterPrompt, posterScenePrompt, posterTextPrompt, retone, slideTwoScore, storyTest, withCover,
   brandFromClone, parseClone, parseReclone, photoPrompt, recloneRequest, MAX_KEEP,
   type CarouselDesign, type CarouselDraft, type CarouselGoal, type Item, type Slide, type StyleId,
 } from "@/lib/carousel";
@@ -58,10 +58,14 @@ function Scaled({ width, aspect, children }: { width: number; aspect: "4:5" | "1
   );
 }
 
-export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors, kitRefs = [], onAutostart }: {
+export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors, kitRefs = [], useRefs = true, photoPanel, onAutostart }: {
   brief: Brief; seed: Seed; uid: string | null; productId: string | null; folder: string | null; kitColors: string[];
   /** Fotos del producto o logo del kit de marca (rutas propias de "creativos"). */
   kitRefs?: string[];
+  /** ¿Usar esas fotos como referencia? (se decide en el panel de fotos). */
+  useRefs?: boolean;
+  /** Panel para subir tu foto (tu cara), tu logo o tu producto: la protagonista de las fotos IA. */
+  photoPanel?: React.ReactNode;
   /** Avisa que la semilla ya se usó, para no volver a cobrar si la pantalla se vuelve a montar. */
   onAutostart?: () => void;
 }) {
@@ -69,7 +73,6 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
   const { label: creditsLeft, isAdmin } = useCreditsLeft();
   const [posterModel, setPosterModel] = useState<PosterModel["id"]>("gpt-image-2");
   const [posterBusy, setPosterBusy] = useState(false);
-  const [useRefs, setUseRefs] = useState(true);
   const { action, cost } = generatorCost(GENERATOR_ID);
   const [goal, setGoal] = useState<CarouselGoal>("vender");
   const [source, setSource] = useState("");
@@ -221,7 +224,61 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
       toast.error(e instanceof Error && e.message ? e.message : "No se pudo crear la imagen.");
     } finally { setPosterBusy(false); }
   };
-  const makePoster = () => makeImage(0);
+  /**
+   * Portada "como Alex", en 2 pasos: 1) la foto con la IA elegida (Nano Banana Pro da la mejor foto y
+   * te pone a ti con tu foto de referencia), sin texto; 2) GPT Image 2 recibe esa foto y SOLO le pone
+   * las letras, sin tocar la escena. Cada paso lo cobra el servidor; si falla el 2, la foto queda
+   * guardada y se reintentan solo las letras.
+   */
+  const [posterMode, setPosterMode] = useState<"dos" | "uno">("dos");
+  const [scenePath, setScenePath] = useState<string | null>(null);
+  const gen = async (body: Record<string, unknown>, action: PosterModel["action"], label: string): Promise<Blob> => {
+    const { data, error } = await supabase.functions.invoke("generate-ad-creative", { body });
+    if (error || !data?.image) throw new Error(error ? await invokeErrorMessage(error, "No se pudo crear la imagen. No se te cobró.") : (data?.error || "No se pudo crear la imagen. No se te cobró."));
+    if (data.billing) applyServerCharge(action, data.billing, label);
+    return toWebp(data.image as string, 1350);
+  };
+  const save = async (blob: Blob, kind: string): Promise<{ path: string; url: string } | null> => {
+    if (!folder) return null;
+    const p = `${folder}/${Date.now()}-carrusel-${kind}.webp`;
+    const up = await supabase.storage.from("creativos").upload(p, blob, { contentType: "image/webp", upsert: false });
+    if (up.error) return null;
+    const { data } = await supabase.storage.from("creativos").createSignedUrl(p, 3600);
+    return data?.signedUrl ? { path: p, url: data.signedUrl } : null;
+  };
+  const makePosterAlex = async (onlyLetters = false) => {
+    const m = POSTER_MODELS.find(x => x.id === posterModel) ?? POSTER_MODELS[0];
+    const lettersPrice = CREDIT_COSTS.gen_ad_image;
+    const total = (onlyLetters ? 0 : CREDIT_COSTS[m.action]) + lettersPrice;
+    if (posterBusy) return;
+    if (!folder) { toast("Elige tu producto primero: la foto se guarda en tu carpeta para ponerle las letras."); return; }
+    if (balance < total) { toast.error(`Te faltan créditos: esto cuesta ${total}`); return; }
+    const refs = useRefs ? kitRefs : [];
+    const opts = { cover: slides[0], scene: slides[0].scene || preview.scene, design, brief, aspect, hasRefs: refs.length > 0, rules: RULES };
+    setPosterBusy(true);
+    try {
+      let base = onlyLetters ? scenePath : null;
+      if (!base) {
+        const body: Record<string, unknown> = { prompt: posterScenePrompt(opts), aspectRatio: aspect, model: m.id };
+        if (refs.length) body.reference_paths = refs;
+        const scene = await save(await gen(body, m.action, `Carrusel · foto de portada ${m.label}`), "escena");
+        if (!scene) throw new Error("La foto se creó pero no se pudo guardar. Intenta de nuevo.");
+        base = scene.path; setScenePath(scene.path);
+        toast("Paso 1 listo: la foto. Ahora le pongo las letras…");
+      }
+      try {
+        const blob = await gen({ prompt: posterTextPrompt(opts), aspectRatio: aspect, model: "gpt-image-2", reference_paths: [base] }, "gen_ad_image", "Carrusel · letras de la portada GPT Image 2");
+        const done = await save(blob, "poster");
+        editSlide(0, done ? { image: done.url, imagePath: done.path } : { image: URL.createObjectURL(blob), imagePath: undefined });
+        toast.success("Portada lista, como Alex", { description: "Revisa que el titular diga exactamente lo mismo. Si no, toca \"Otra vez solo las letras\"." });
+      } catch (e) {
+        toast.error("La foto quedó lista, pero faltan las letras", { description: `${e instanceof Error ? e.message : ""} Toca "Poner solo las letras" (${lettersPrice} créditos): no vuelves a pagar la foto.` });
+      }
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : "No se pudo crear la portada.");
+    } finally { setPosterBusy(false); }
+  };
+  const makePoster = () => (posterMode === "dos" ? makePosterAlex() : makeImage(0));
 
   const cloneInfo = draft?.clone;
   useEffect(() => { setKeep(cloneInfo?.keep ?? []); }, [cloneInfo]);
@@ -261,12 +318,21 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     } finally { setWriting(false); }
   };
 
+  const [styleChoice, setStyleChoice] = useState<"mio" | "original">("mio");
+  const myDesign = useRef<CarouselDesign | null>(null);
+  useEffect(() => { setStyleChoice("mio"); myDesign.current = null; }, [cloneInfo]);
+  const useMyStyle = () => {
+    if (myDesign.current) { const d = myDesign.current; setDesign(d); setDraft(x => (x ? { ...x, slides: retone(x.slides, d.start) } : x)); }
+    myDesign.current = null; setStyleChoice("mio");
+  };
   const useCloneStyle = () => {
-    if (!cloneInfo) return;
+    if (!cloneInfo || styleChoice === "original") return;
+    myDesign.current = design;
+    setStyleChoice("original");
     const brand = brandFromClone(cloneInfo.style.colors);
     setDesign(d => ({ ...d, style: cloneInfo.style.style, start: cloneInfo.style.start, ...(brand ? { brand } : {}) }));
     setDraft(d => (d ? { ...d, slides: retone(d.slides, cloneInfo.style.start) } : d));
-    toast.success("Estilo parecido aplicado", { description: "Colores y tipo de letra cercanos al original. Lo demás es tuyo." });
+    toast.success("Estilo parecido al original", { description: "Colores y tipo de letra cercanos. Toca \"Mi estilo\" para volver al tuyo." });
   };
 
   const downloadAll = async () => {
@@ -325,11 +391,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                     </button>
                   ))}
                 </div>
-                {kitRefs.length > 0 && (
-                  <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
-                    <input type="checkbox" checked={useRefs} onChange={e => setUseRefs(e.target.checked)} /> Usar mis fotos del kit de marca como protagonista
-                  </label>
-                )}
+                <p className="text-[11px] text-muted-foreground">{kitRefs.length && useRefs ? "Sales tú: se usa tu foto de \"Tu foto\" como protagonista." : "¿Quieres salir tú? Sube tu foto en \"Tu foto\" (en Tu sistema de diseño)."}</p>
     </>
   );
   const imgPrice = CREDIT_COSTS[(POSTER_MODELS.find(m => m.id === posterModel) ?? POSTER_MODELS[0]).action];
@@ -470,7 +532,10 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                 <input value={design.line ?? ""} maxLength={80} onChange={e => setDesign(d => ({ ...d, line: e.target.value }))} placeholder="Ej.: Cocina una vez, come toda la semana." aria-label="Tu frase" className={input} />
               </label>
             </div>
-            <p className="text-[11px] text-muted-foreground">Tu cara también es tu firma: sube tu foto en "Tu marca y tu producto" y las fotos IA te usan como protagonista.</p>
+            <div className="space-y-1.5 pt-1">
+              <p className="text-[12px] text-foreground">Tu foto <span className="text-muted-foreground">(tu cara también es tu firma: las fotos IA te ponen como protagonista; también sirve tu logo o tu producto)</span></p>
+              {photoPanel ?? <p className="text-[11px] text-muted-foreground">Elige tu producto para subir tu foto.</p>}
+            </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 max-w-xl">
@@ -507,14 +572,14 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
           )}
           {cloneInfo.why && <p className="text-[13px] text-foreground"><span className="text-muted-foreground">Por qué funciona: </span>{cloneInfo.why}</p>}
           <div className="space-y-2">
-            <p className="text-[13px] text-foreground font-medium">Sus partes <span className="text-muted-foreground font-normal">— mantén 3, cambia el resto. Si mantienes todo, es una copia.</span></p>
+            <p className="text-[13px] text-foreground font-medium">Sus partes <span className="text-muted-foreground font-normal">— la IA marcó las 3 que lo hicieron funcionar. Toca cualquiera para cambiarla (con 3 marcadas, la nueva reemplaza a la primera). Si mantienes todo, es una copia.</span></p>
             <div className="grid gap-2 sm:grid-cols-2">
               {cloneInfo.dna.map(d => {
                 const on = keep.includes(d.id);
-                const full = !on && keep.length >= MAX_KEEP;
                 return (
-                  <button key={d.id} type="button" disabled={full || writing} aria-pressed={on}
-                    onClick={() => setKeep(k => (on ? k.filter(x => x !== d.id) : [...k, d.id]))}
+                  <button key={d.id} type="button" disabled={writing} aria-pressed={on}
+                    // Con 3 elegidas, tocar otra la cambia por la que elegiste primero.
+                    onClick={() => setKeep(k => (on ? k.filter(x => x !== d.id) : [...(k.length >= MAX_KEEP ? k.slice(1) : k), d.id]))}
                     className={`rounded-xl border p-3 text-left disabled:opacity-50 ${on ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
                     <span className="flex items-center gap-2 text-[13px] text-foreground">
                       <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${on ? "bg-primary border-primary" : "border-border"}`}>{on && <Check className="w-3 h-3 text-primary-foreground" />}</span>
@@ -543,9 +608,13 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
           {cloneInfo.style.colors.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
               <span className="flex -space-x-1">{cloneInfo.style.colors.map((c, i) => <span key={i} className="w-6 h-6 rounded-full border border-border" style={{ background: c }} />)}</span>
-              <span className="text-[12px] text-muted-foreground">Su estilo: {STYLES[cloneInfo.style.style].name.toLowerCase()}, empieza en {cloneInfo.style.start}.</span>
-              <button type="button" onClick={useCloneStyle} className="min-h-[36px] rounded-lg border border-border px-3 text-[12px] text-foreground hover:border-foreground/40">Usar un estilo parecido</button>
-              <span className="text-[11px] text-muted-foreground">o sigue con el tuyo.</span>
+              <span className="text-[12px] text-muted-foreground">El original: estilo {STYLES[cloneInfo.style.style].name.toLowerCase()}, empieza en {cloneInfo.style.start}.</span>
+              <div className="inline-flex rounded-full border border-border p-0.5" role="radiogroup" aria-label="Estilo del carrusel">
+                <button type="button" role="radio" aria-checked={styleChoice === "mio"} onClick={useMyStyle}
+                  className={`min-h-[34px] px-3 rounded-full text-[12px] ${styleChoice === "mio" ? "bg-card text-foreground border border-foreground/30" : "text-muted-foreground"}`}>Mi estilo</button>
+                <button type="button" role="radio" aria-checked={styleChoice === "original"} onClick={useCloneStyle}
+                  className={`min-h-[34px] px-3 rounded-full text-[12px] ${styleChoice === "original" ? "bg-card text-foreground border border-foreground/30" : "text-muted-foreground"}`}>Parecido al original</button>
+              </div>
             </div>
           )}
         </section>
@@ -664,9 +733,9 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                 <input value={current.verdict ?? ""} maxLength={90} onChange={e => editSlide(sel, { verdict: e.target.value })} aria-label="Veredicto de la lámina" className={input} />
               </label>
             )}
-            {(current.kind === "problema" || current.kind === "comparacion" || current.kind === "tarjetas" || current.kind === "pasos" || current.kind === "llamada") && (
+            {(current.kind === "problema" || current.kind === "comparacion" || current.kind === "tarjetas" || current.kind === "pasos" || current.kind === "llamada" || current.kind === "regla") && (
               <div className="space-y-2">
-                <span className="text-[12px] text-foreground">{current.kind === "llamada" ? "Recordatorios" : current.kind === "comparacion" ? "Las dos cajas (etiqueta y texto)" : "Puntos"}</span>
+                <span className="text-[12px] text-foreground">{current.kind === "llamada" ? "Recordatorios" : current.kind === "comparacion" ? "Las dos cajas (etiqueta y texto)" : current.kind === "regla" ? "3 líneas al lado de la foto (opcional: qué hace, cuándo sí, cuándo no)" : "Puntos"}</span>
                 {current.items.map((it, k) => (
                   <div key={k} className="flex gap-2 items-start">
                     <div className="flex-1 grid gap-2 sm:grid-cols-2">
@@ -692,13 +761,33 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                   <p className="text-[13px] text-foreground font-medium">Portada póster con IA de imagen <span className="text-muted-foreground font-normal">(opcional)</span></p>
                   <p className="text-[12px] text-muted-foreground">Una foto de cine con tu titular escrito dentro, como las portadas de revista que más se guardan. Las demás láminas siguen con tu diseño.</p>
                 </div>
+                <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Cómo se hace la portada">
+                  <button type="button" role="radio" aria-checked={posterMode === "dos"} disabled={posterBusy}
+                    onClick={() => { setPosterMode("dos"); if (posterModel === "gpt-image-2") setPosterModel("nano-banana-pro"); }}
+                    className={`rounded-lg border px-3 py-2 text-left ${posterMode === "dos" ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
+                    <span className="block text-[13px] text-foreground">Como Alex · 2 pasos <span className="text-primary text-[11px]">Recomendado</span></span>
+                    <span className="block text-[11px] text-muted-foreground">1) La foto con la IA que elijas abajo (sales tú si subiste tu foto). 2) GPT Image 2 le pone las letras sin tocar la foto.</span>
+                  </button>
+                  <button type="button" role="radio" aria-checked={posterMode === "uno"} disabled={posterBusy} onClick={() => setPosterMode("uno")}
+                    className={`rounded-lg border px-3 py-2 text-left ${posterMode === "uno" ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
+                    <span className="block text-[13px] text-foreground">Rápida · 1 paso</span>
+                    <span className="block text-[11px] text-muted-foreground">Una sola IA hace la foto y las letras a la vez. Más barata, menos control.</span>
+                  </button>
+                </div>
+                <p className="text-[12px] text-muted-foreground">{posterMode === "dos" ? "Paso 1 · la foto con:" : "La hace:"}</p>
                 {modelPicker}
                 <div className="flex flex-wrap gap-2">
                   <button type="button" onClick={() => void makePoster()} disabled={posterBusy}
                     className="min-h-[40px] inline-flex items-center gap-2 rounded-lg border border-border px-3 text-[12px] text-foreground hover:border-foreground/40 disabled:opacity-60">
                     {posterBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
-                    {posterBusy ? "Creando tu portada…" : `${current.image ? "Crear otra portada" : "Crear portada póster"} · ${imgPrice} créditos`}
+                    {posterBusy ? "Creando tu portada…" : `${current.image ? "Crear otra portada" : "Crear portada póster"} · ${posterMode === "dos" ? imgPrice + CREDIT_COSTS.gen_ad_image : imgPrice} créditos`}
                   </button>
+                  {posterMode === "dos" && scenePath && (
+                    <button type="button" onClick={() => void makePosterAlex(true)} disabled={posterBusy}
+                      className="min-h-[40px] inline-flex items-center gap-2 rounded-lg border border-border px-3 text-[12px] text-foreground hover:border-foreground/40 disabled:opacity-60">
+                      {current.image ? "Otra vez solo las letras" : "Poner solo las letras"} · {CREDIT_COSTS.gen_ad_image} créditos
+                    </button>
+                  )}
                   {current.image && (
                     <button type="button" onClick={() => editSlide(0, { image: undefined, imagePath: undefined })}
                       className="min-h-[40px] inline-flex items-center gap-1.5 rounded-lg px-3 text-[12px] text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /> Volver a la portada diseñada</button>

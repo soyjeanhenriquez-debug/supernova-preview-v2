@@ -83,7 +83,7 @@ export function BrandKitPanel({ uid, productId, kit, onChange, useRefs, setUseRe
       {open && (
         <div className="px-4 pb-4 space-y-4">
           <div className="space-y-2">
-            <p className="text-[12px] text-muted-foreground">Sube la foto de tu producto o tu logo. La IA lo usa como referencia para que se vea igual en cada imagen.</p>
+            <p className="text-[12px] text-muted-foreground">Sube tu foto (tu cara), tu logo o la de tu producto. La IA la usa como referencia para que se vea igual en cada imagen.</p>
             <div className="flex flex-wrap gap-2">
               {refs.map(p => (
                 <div key={p} className="relative w-16 h-16 rounded-lg overflow-hidden border border-border bg-secondary/30">

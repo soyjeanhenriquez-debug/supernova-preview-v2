@@ -212,6 +212,38 @@ export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ 
       );
       break;
     case "regla":
+      // Con 3 líneas (qué hace / cuándo sí / cuándo no): número en círculo, palabra gigante, foto en
+      // tarjeta a la izquierda, líneas a la derecha y el veredicto como barra de acción abajo.
+      if (slide.items.length >= 2) {
+        const num = slide.tag?.match(/\d+/)?.[0]?.padStart(2, "0") ?? String(index - 1).padStart(2, "0");
+        body = (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 30 }}>
+              <div style={{ width: 170 * k, height: 170 * k, borderRadius: 999, background: c.accent, color: flat ? "#0b0b0b" : c.onAccent, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: `"${f.display}", sans-serif`, fontWeight: f.displayWeight, fontSize: 84 * k, flexShrink: 0 }}>{num}</div>
+              <div style={{ minWidth: 0 }}>
+                {/* Que la palabra quepa en una línea al lado del círculo (~640 px; letras anchas en mayúscula). */}
+                <Title text={slide.title.replace(/\*/g, "").toLocaleUpperCase("es")} size={Math.min(fitSize(slide.title, 130 * k, 60 * k, 8), Math.floor(640 / (Math.max(1, slide.title.replace(/\*/g, "").length) * 0.74)))} c={c} f={f} style={{ lineHeight: 0.95, letterSpacing: "-0.03em", whiteSpace: "nowrap" }} />
+                {slide.body && <p style={{ margin: `${8 * k}px 0 0`, fontSize: 44 * k, fontWeight: 700, color: c.text, letterSpacing: "-0.02em" }}>{slide.body}</p>}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 34, marginTop: 50 * k, alignItems: "center" }}>
+              {slide.photo && <img src={slide.photo} alt="" crossOrigin="anonymous" style={{ width: 470, height: 590 * k, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />}
+              <div style={{ display: "flex", flexDirection: "column", gap: 0, minWidth: 0 }}>
+                {slide.items.slice(0, 3).map((it, i) => (
+                  <div key={i} style={{ padding: `${24 * k}px 0`, borderTop: i ? `5px solid ${c.text}` : "none" }}>
+                    <div style={{ fontSize: 40 * k, fontWeight: 800, color: c.text, lineHeight: 1.1, letterSpacing: "-0.02em" }}>{it.title}</div>
+                    {it.text && <div style={{ fontSize: 30 * k, color: c.muted, lineHeight: 1.25, marginTop: 6 }}>{it.text}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+            {slide.verdict && (
+              <div style={{ marginTop: 48 * k, background: c.accent, color: flat ? "#0b0b0b" : c.onAccent, padding: `${22 * k}px 40px`, fontSize: 44 * k, fontWeight: 800, letterSpacing: "-0.02em" }}>{slide.verdict}</div>
+            )}
+          </div>
+        );
+        break;
+      }
       body = (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
           {slide.tag && (

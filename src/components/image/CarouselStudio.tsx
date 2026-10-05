@@ -11,6 +11,7 @@ import { toWebp } from "@/lib/brandKit";
 import {
   ADMIN_DESIGN, BRAND_COLORS, DEFAULT_DESIGN, DEFAULT_SLIDES, GENERATOR_ID, GOAL_INFO, KIND_LABEL, PUBLISH_STEPS, SLIDE_COUNTS, STYLES,
   carouselRequest, cleanHandle, coverCheck, draftCarousel, parseCarousel, posterPrompt, retone, slideTwoScore, storyTest, withCover,
+  brandFromClone, parseClone, parseReclone, photoPrompt, recloneRequest, MAX_KEEP,
   type CarouselDesign, type CarouselDraft, type CarouselGoal, type Item, type Slide, type StyleId,
 } from "@/lib/carousel";
 import { FONTS, fontEmbedCss, loadStyleFonts, slideToBlob } from "@/lib/carouselTheme";
@@ -83,6 +84,11 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [likes, setLikes] = useState({ cover: "", two: "" });
+  // Clonar con ADN ganador.
+  const [cloneMode, setCloneMode] = useState(false);
+  const [cloneUrl, setCloneUrl] = useState("");
+  const [cloning, setCloning] = useState(false);
+  const [keep, setKeep] = useState<string[]>([]);
   const [past, setPast] = useState<string[]>([]);
   const nodes = useRef<(HTMLDivElement | null)[]>([]);
   const autoRan = useRef(false);
@@ -105,11 +111,13 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     });
     const saved = loadDraft(uid, productId);
     if (saved && saved.slides.every(s => typeof s.kind === "string" && s.kind !== ("frase" as string))) {
-      const cover = saved.slides[0];
-      // La URL de la portada póster vence: se vuelve a firmar desde su ruta.
-      if (cover?.imagePath) {
-        void supabase.storage.from("creativos").createSignedUrl(cover.imagePath, 3600).then(({ data }) => {
-          if (alive) setDraft({ ...saved, slides: [{ ...cover, image: data?.signedUrl }, ...saved.slides.slice(1)] });
+      // Las URLs de la portada póster y de las fotos vencen: se vuelven a firmar desde su ruta.
+      const paths = saved.slides.flatMap(x => [x.imagePath, x.photoPath]).filter((p): p is string => !!p);
+      if (paths.length) {
+        void supabase.storage.from("creativos").createSignedUrls(paths, 3600).then(({ data }) => {
+          if (!alive) return;
+          const url = new Map((data ?? []).map(d => [d.path, d.signedUrl]));
+          setDraft(d => (d ? { ...d, slides: d.slides.map(x => ({ ...x, image: x.imagePath ? url.get(x.imagePath) ?? undefined : x.image, photo: x.photoPath ? url.get(x.photoPath) ?? undefined : x.photo })) } : d));
         });
       }
       setDraft(saved); setCount(saved.slides.length);
@@ -147,7 +155,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     try {
       const text = await runGenerator({
         id: GENERATOR_ID, title: label, system: SYSTEM,
-        prompt: carouselRequest({ goal, brief, slides: count, source: goal === "texto" ? source : undefined, hook: seed?.hook, angle: seed?.angle, evidence: seed?.evidence, handle: design.handle }),
+        prompt: carouselRequest({ goal, brief, slides: count, source: goal === "texto" ? source : undefined, hook: seed?.hook, angle: seed?.angle, evidence: seed?.evidence, handle: design.handle, world: design.world, line: design.line }),
         onCharge: b => applyServerCharge(action, b, label),
       });
       const parsed = parseCarousel(text, count, design.start);
@@ -167,43 +175,98 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seed, uid, productId]);
 
-  const setSlides = (fn: (s: Slide[]) => Slide[]) => { const base = draft ?? preview; setDraft({ ...base, slides: fn(base.slides) }); };
+  // Siempre sobre el último estado (las imágenes llegan después de esperar a la IA).
+  const previewRef = useRef(preview);
+  previewRef.current = preview;
+  const setSlides = (fn: (s: Slide[]) => Slide[]) => setDraft(d => { const base = d ?? previewRef.current; return { ...base, slides: fn(base.slides) }; });
   const editSlide = (i: number, patch: Partial<Slide>) => setSlides(list => list.map((s, j) => (j === i ? { ...s, ...patch } : s)));
   const editItem = (i: number, k: number, patch: Partial<Item>) => setSlides(list => list.map((s, j) => (j === i ? { ...s, items: s.items.map((it, m) => (m === k ? { ...it, ...patch } : it)) } : s)));
   const setStart = (start: "claro" | "oscuro") => { setDesign(d => ({ ...d, start })); if (draft) setDraft({ ...draft, slides: retone(draft.slides, start) }); };
 
-  const makePoster = async () => {
+  /** Portada póster (con el titular escrito por la IA) o foto de una lámina (sin texto). */
+  const makeImage = async (index: number) => {
     const m = POSTER_MODELS.find(x => x.id === posterModel) ?? POSTER_MODELS[0];
     const price = CREDIT_COSTS[m.action];
     if (posterBusy) return;
     if (balance < price) { toast.error(`Te faltan créditos: esto cuesta ${price}`); return; }
+    const target = slides[index];
+    if (!target) return;
+    const isPoster = index === 0;
     const refs = useRefs ? kitRefs : [];
-    const prompt = posterPrompt({ cover: slides[0], scene: preview.scene, design, brief, aspect, hasRefs: refs.length > 0, rules: RULES });
+    const prompt = isPoster
+      ? posterPrompt({ cover: target, scene: target.scene || preview.scene, design, brief, aspect, hasRefs: refs.length > 0, rules: RULES })
+      : photoPrompt({ slide: target, design, brief, aspect, card: target.kind === "regla", hasRefs: refs.length > 0, rules: RULES });
     setPosterBusy(true);
     try {
       const body: Record<string, unknown> = { prompt, aspectRatio: aspect, model: m.id };
       if (refs.length) body.reference_paths = refs;
       const { data, error } = await supabase.functions.invoke("generate-ad-creative", { body });
-      if (error || !data?.image) throw new Error(error ? await invokeErrorMessage(error, "No se pudo crear la portada. No se te cobró.") : (data?.error || "No se pudo crear la portada. No se te cobró."));
-      if (data.billing) applyServerCharge(m.action, data.billing, `Carrusel · portada ${m.label}`);
+      if (error || !data?.image) throw new Error(error ? await invokeErrorMessage(error, "No se pudo crear la imagen. No se te cobró.") : (data?.error || "No se pudo crear la imagen. No se te cobró."));
+      if (data.billing) applyServerCharge(m.action, data.billing, `Carrusel · ${isPoster ? "portada" : `foto lámina ${index + 1}`} ${m.label}`);
       const blob = await toWebp(data.image as string, 1350);
-      let image = URL.createObjectURL(blob);
-      let imagePath: string | undefined;
+      let url = URL.createObjectURL(blob);
+      let path: string | undefined;
       if (folder) {
-        const p = `${folder}/${Date.now()}-carrusel-poster.webp`;
+        const p = `${folder}/${Date.now()}-carrusel-${isPoster ? "poster" : "foto"}.webp`;
         const up = await supabase.storage.from("creativos").upload(p, blob, { contentType: "image/webp", upsert: false });
         if (!up.error) {
-          imagePath = p;
+          path = p;
           const { data: s2 } = await supabase.storage.from("creativos").createSignedUrl(p, 3600);
-          if (s2?.signedUrl) { URL.revokeObjectURL(image); image = s2.signedUrl; }
+          if (s2?.signedUrl) { URL.revokeObjectURL(url); url = s2.signedUrl; }
         }
       }
-      editSlide(0, { image, imagePath });
-      setSel(0);
-      toast.success("Portada póster lista", { description: "Revisa que el titular diga exactamente lo mismo. Si no te convence, crea otra o vuelve a la portada diseñada." });
+      editSlide(index, isPoster ? { image: url, imagePath: path } : { photo: url, photoPath: path });
+      toast.success(isPoster ? "Portada póster lista" : "Foto lista", { description: isPoster ? "Revisa que el titular diga exactamente lo mismo." : "El texto lo pone tu diseño, con letras perfectas." });
     } catch (e) {
-      toast.error(e instanceof Error && e.message ? e.message : "No se pudo crear la portada.");
+      toast.error(e instanceof Error && e.message ? e.message : "No se pudo crear la imagen.");
     } finally { setPosterBusy(false); }
+  };
+  const makePoster = () => makeImage(0);
+
+  const cloneInfo = draft?.clone;
+  useEffect(() => { setKeep(cloneInfo?.keep ?? []); }, [cloneInfo]);
+  const cloneCost = CREDIT_COSTS.clone_carousel;
+
+  const cloneCarousel = async () => {
+    if (cloning) return;
+    if (!/instagram\.com\/(?:[A-Za-z0-9._]+\/)?p\/[A-Za-z0-9_-]{5,}/.test(cloneUrl)) { toast("Pega el enlace de un carrusel de Instagram (instagram.com/p/…)."); return; }
+    if (balance < cloneCost) { toast.error(`Te faltan créditos: esto cuesta ${cloneCost}`); return; }
+    setCloning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("carousel-clone", { body: { url: cloneUrl.trim(), brief, goal: goal === "ensenar" ? "ensenar" : "vender", handle: design.handle, world: design.world ?? "", line: design.line ?? "" } });
+      if (error || !data?.carrusel) throw new Error(error ? await invokeErrorMessage(error, "No se pudo clonar el carrusel. No se te cobró.") : (data?.error || "No se pudo clonar el carrusel. No se te cobró."));
+      if (data.billing) applyServerCharge("clone_carousel", data.billing, "Clonar carrusel viral");
+      const parsed = parseClone(data, design.start);
+      if (!parsed) throw new Error("La IA respondió en un formato raro. Escríbenos y te devolvemos los créditos.");
+      setDraft({ ...parsed.draft, clone: parsed.info }); setSel(0); setCount(parsed.draft.slides.length);
+      toast.success("Carrusel clonado con su ADN", { description: "Mira abajo qué 3 partes se mantuvieron y cómo lo mejoramos." });
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : "No se pudo clonar el carrusel.");
+    } finally { setCloning(false); }
+  };
+
+  const reclone = async () => {
+    if (!cloneInfo || writing || !keep.length) return;
+    if (balance < cost) { toast.error(`Te faltan créditos: esto cuesta ${cost}`); return; }
+    setWriting(true);
+    const label = "Carrusel · clonar con otro ADN";
+    try {
+      const text = await runGenerator({ id: GENERATOR_ID, title: label, system: SYSTEM, prompt: recloneRequest({ info: cloneInfo, keep, brief, goal: goal === "ensenar" ? "ensenar" : "vender", handle: design.handle, world: design.world, line: design.line }), onCharge: b => applyServerCharge(action, b, label) });
+      const parsed = parseReclone(text, design.start);
+      if (!parsed) throw new Error("La IA respondió en un formato raro. Toca de nuevo: si vuelve a pasar, escríbenos y te devolvemos los créditos.");
+      setDraft({ ...parsed.draft, clone: { ...cloneInfo, keep, improvements: parsed.improvements.length ? parsed.improvements : cloneInfo.improvements } }); setSel(0);
+      toast.success("Listo: clonado con las 3 partes que elegiste");
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : "No se pudo volver a clonar.");
+    } finally { setWriting(false); }
+  };
+
+  const useCloneStyle = () => {
+    if (!cloneInfo) return;
+    const brand = brandFromClone(cloneInfo.style.colors);
+    setDesign(d => ({ ...d, style: cloneInfo.style.style, start: cloneInfo.style.start, ...(brand ? { brand } : {}) }));
+    setDraft(d => (d ? { ...d, slides: retone(d.slides, cloneInfo.style.start) } : d));
+    toast.success("Estilo parecido aplicado", { description: "Colores y tipo de letra cercanos al original. Lo demás es tuyo." });
   };
 
   const downloadAll = async () => {
@@ -248,8 +311,52 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
   const storyScore = story.filter(x => x.ok).length;
   const s2 = slideTwoScore(Number(likes.cover), Number(likes.two));
 
+  const modelPicker = (
+    <>
+                <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="IA de imagen">
+                  {POSTER_MODELS.map(m => (
+                    <button key={m.id} type="button" role="radio" aria-checked={posterModel === m.id} disabled={posterBusy} onClick={() => setPosterModel(m.id)}
+                      className={`rounded-lg border px-3 py-2 text-left disabled:opacity-55 ${posterModel === m.id ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
+                      <span className="flex items-center justify-between gap-2 text-[13px] text-foreground">
+                        <span>{m.label}</span>
+                        <span className="text-muted-foreground text-[12px] shrink-0">{CREDIT_COSTS[m.action]} créditos</span>
+                      </span>
+                      <span className="block text-[11px] text-muted-foreground">{m.note}</span>
+                    </button>
+                  ))}
+                </div>
+                {kitRefs.length > 0 && (
+                  <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                    <input type="checkbox" checked={useRefs} onChange={e => setUseRefs(e.target.checked)} /> Usar mis fotos del kit de marca como protagonista
+                  </label>
+                )}
+    </>
+  );
+  const imgPrice = CREDIT_COSTS[(POSTER_MODELS.find(m => m.id === posterModel) ?? POSTER_MODELS[0]).action];
+
   return (
     <div className="space-y-6">
+      {/* 0. Clonar uno que ya funciona */}
+      <div className="rounded-2xl border border-border p-5 space-y-3">
+        <button type="button" onClick={() => setCloneMode(v => !v)} className="w-full text-left flex items-center justify-between gap-3 min-h-[32px]">
+          <span>
+            <span className="block font-display font-semibold text-[15px] text-foreground">¿Viste un carrusel que ya funciona? Clónalo con su ADN</span>
+            <span className="block text-[12px] text-muted-foreground">Pega el enlace. La IA lo descompone en 9 partes, mantiene las 3 que lo hicieron funcionar y cambia todo lo demás para tu producto. Nunca copia sus palabras, fotos ni marca.</span>
+          </span>
+          <span className="text-xs text-muted-foreground shrink-0">{cloneMode ? "Cerrar" : "Abrir"}</span>
+        </button>
+        {cloneMode && (
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input value={cloneUrl} onChange={e => setCloneUrl(e.target.value.slice(0, 300))} placeholder="https://www.instagram.com/p/…" aria-label="Enlace del carrusel de Instagram" className={input} />
+            <button type="button" onClick={() => void cloneCarousel()} disabled={cloning}
+              className="btn-primary-nova shrink-0 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl px-4 text-[13px] font-semibold disabled:opacity-60">
+              {cloning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {cloning ? "Analizando el carrusel…" : `Clonar con su ADN · ${cloneCost} créditos`}
+            </button>
+          </div>
+        )}
+        {cloneMode && <p className="text-[11px] text-muted-foreground">Solo publicaciones públicas de Instagram con varias láminas. Tarda cerca de un minuto. Si falla, no se te cobra.</p>}
+      </div>
       {/* 1. Qué carrusel */}
       <div className="rounded-2xl border border-border p-5 space-y-4">
         <div className="space-y-2">
@@ -343,6 +450,29 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
             <p className="text-[11px] text-muted-foreground">Las láminas alternan claro y oscuro; la solución y la llamada van con el degradado de tu marca.</p>
           </div>
 
+          <div className="space-y-2">
+            <p className="text-[13px] text-foreground font-medium">Tu firma <span className="text-muted-foreground font-normal">— colores y letras se copian en 5 minutos; esto no. Repítelo en cada post.</span></p>
+            <div className="grid gap-3 sm:grid-cols-2 max-w-2xl">
+              <label className="block space-y-1">
+                <span className="text-[12px] text-foreground">Tu papel <span className="text-muted-foreground">(arriba en cada lámina)</span></span>
+                <input value={design.role ?? ""} maxLength={32} onChange={e => setDesign(d => ({ ...d, role: e.target.value }))} placeholder="Ej.: estratega de negocios digitales" aria-label="Tu papel" className={input} />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[12px] text-foreground">Tu dato real <span className="text-muted-foreground">(solo si es cierto)</span></span>
+                <input value={design.receipt ?? ""} maxLength={40} onChange={e => setDesign(d => ({ ...d, receipt: e.target.value }))} placeholder="Ej.: 12.000 seguidores" aria-label="Tu dato real" className={input} />
+              </label>
+              <label className="block space-y-1 sm:col-span-2">
+                <span className="text-[12px] text-foreground">Tu mundo <span className="text-muted-foreground">(el lugar que se repite en todas tus fotos IA)</span></span>
+                <input value={design.world ?? ""} maxLength={160} onChange={e => setDesign(d => ({ ...d, world: e.target.value }))} placeholder="Ej.: una cocina caribeña con azulejos verdes y luz de tarde" aria-label="Tu mundo visual" className={input} />
+              </label>
+              <label className="block space-y-1 sm:col-span-2">
+                <span className="text-[12px] text-foreground">Tu frase <span className="text-muted-foreground">(la que la gente reconoce como tuya; sale en el remate)</span></span>
+                <input value={design.line ?? ""} maxLength={80} onChange={e => setDesign(d => ({ ...d, line: e.target.value }))} placeholder="Ej.: Cocina una vez, come toda la semana." aria-label="Tu frase" className={input} />
+              </label>
+            </div>
+            <p className="text-[11px] text-muted-foreground">Tu cara también es tu firma: sube tu foto en "Tu marca y tu producto" y las fotos IA te usan como protagonista.</p>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2 max-w-xl">
             <label className="block space-y-1.5">
               <span className="text-[13px] text-foreground font-medium">Nombre de tu marca</span>
@@ -359,6 +489,67 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
           </div>
         </div>
       </details>
+
+      {/* ADN del carrusel clonado */}
+      {cloneInfo && (
+        <section className="rounded-2xl border border-border p-5 space-y-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-display font-semibold text-[15px] text-foreground">El ADN ganador{cloneInfo.source.owner ? ` de @${cloneInfo.source.owner}` : ""}</h2>
+            {cloneInfo.source.likes != null && <span className="text-[12px] text-muted-foreground">{cloneInfo.source.likes.toLocaleString("es")} me gusta · {(cloneInfo.source.comments ?? 0).toLocaleString("es")} comentarios</span>}
+          </div>
+          {cloneInfo.source.images.length > 0 && (
+            <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin]">
+              {cloneInfo.source.images.map((u, i) => (
+                <img key={i} src={u} alt={`Lámina ${i + 1} del original`} referrerPolicy="no-referrer" loading="lazy"
+                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} className="h-28 w-auto rounded-md border border-border shrink-0" />
+              ))}
+            </div>
+          )}
+          {cloneInfo.why && <p className="text-[13px] text-foreground"><span className="text-muted-foreground">Por qué funciona: </span>{cloneInfo.why}</p>}
+          <div className="space-y-2">
+            <p className="text-[13px] text-foreground font-medium">Sus partes <span className="text-muted-foreground font-normal">— mantén 3, cambia el resto. Si mantienes todo, es una copia.</span></p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {cloneInfo.dna.map(d => {
+                const on = keep.includes(d.id);
+                const full = !on && keep.length >= MAX_KEEP;
+                return (
+                  <button key={d.id} type="button" disabled={full || writing} aria-pressed={on}
+                    onClick={() => setKeep(k => (on ? k.filter(x => x !== d.id) : [...k, d.id]))}
+                    className={`rounded-xl border p-3 text-left disabled:opacity-50 ${on ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
+                    <span className="flex items-center gap-2 text-[13px] text-foreground">
+                      <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${on ? "bg-primary border-primary" : "border-border"}`}>{on && <Check className="w-3 h-3 text-primary-foreground" />}</span>
+                      {d.part}
+                    </span>
+                    {d.what && <span className="block text-[11px] text-muted-foreground mt-1">{d.what}</span>}
+                    {on && d.why && <span className="block text-[11px] text-foreground/80 mt-1">{d.why}</span>}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={() => void reclone()} disabled={writing || !keep.length || keep.join() === cloneInfo.keep.join()}
+                className="min-h-[40px] inline-flex items-center gap-2 rounded-lg border border-border px-3 text-[12px] text-foreground hover:border-foreground/40 disabled:opacity-50">
+                {writing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Clonar de nuevo con estas {keep.length} · {cost} créditos
+              </button>
+              <span className="text-[11px] text-muted-foreground">{keep.length}/{MAX_KEEP} elegidas</span>
+            </div>
+          </div>
+          {cloneInfo.improvements.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[13px] text-foreground font-medium">Cómo lo mejoramos</p>
+              <ul className="space-y-1">{cloneInfo.improvements.map((m, i) => <li key={i} className="flex gap-2 text-[12px] text-muted-foreground"><Star className="w-3.5 h-3.5 mt-0.5 text-primary shrink-0" />{m}</li>)}</ul>
+            </div>
+          )}
+          {cloneInfo.style.colors.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="flex -space-x-1">{cloneInfo.style.colors.map((c, i) => <span key={i} className="w-6 h-6 rounded-full border border-border" style={{ background: c }} />)}</span>
+              <span className="text-[12px] text-muted-foreground">Su estilo: {STYLES[cloneInfo.style.style].name.toLowerCase()}, empieza en {cloneInfo.style.start}.</span>
+              <button type="button" onClick={useCloneStyle} className="min-h-[36px] rounded-lg border border-border px-3 text-[12px] text-foreground hover:border-foreground/40">Usar un estilo parecido</button>
+              <span className="text-[11px] text-muted-foreground">o sigue con el tuyo.</span>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* 3. Portadas */}
       {draft && draft.covers.length > 1 && (
@@ -425,6 +616,30 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                 <input value={current.bridge ?? ""} maxLength={60} onChange={e => editSlide(sel, { bridge: e.target.value })} aria-label="Tirón hacia la siguiente lámina" className={input} />
               </label>
             )}
+            {sel > 0 && (
+              <div className="rounded-xl border border-border p-3.5 space-y-3">
+                <div>
+                  <p className="text-[13px] text-foreground font-medium">Foto con IA para esta lámina <span className="text-muted-foreground font-normal">(opcional)</span></p>
+                  <p className="text-[12px] text-muted-foreground">{current.kind === "regla" ? "Va en una tarjeta debajo de la palabra grande, como ejemplo de la regla." : "Va de fondo, detrás del texto."} La IA hace solo la foto; las letras las pone tu diseño.</p>
+                </div>
+                <label className="block space-y-1">
+                  <span className="text-[12px] text-foreground">Escena</span>
+                  <input value={current.scene ?? ""} maxLength={300} onChange={e => editSlide(sel, { scene: e.target.value })} placeholder="Ej.: una mujer cocinando de noche en una cocina pequeña, luz cálida" aria-label="Escena de la foto" className={input} />
+                </label>
+                {modelPicker}
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => void makeImage(sel)} disabled={posterBusy}
+                    className="min-h-[40px] inline-flex items-center gap-2 rounded-lg border border-border px-3 text-[12px] text-foreground hover:border-foreground/40 disabled:opacity-60">
+                    {posterBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+                    {posterBusy ? "Creando la foto…" : `${current.photo ? "Otra foto" : "Crear foto"} · ${imgPrice} créditos`}
+                  </button>
+                  {current.photo && (
+                    <button type="button" onClick={() => editSlide(sel, { photo: undefined, photoPath: undefined })}
+                      className="min-h-[40px] inline-flex items-center gap-1.5 rounded-lg px-3 text-[12px] text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /> Quitar foto</button>
+                  )}
+                </div>
+              </div>
+            )}
             {current.kind === "portada" && (
               <label className="block space-y-1 max-w-xs">
                 <span className="text-[12px] text-foreground">Pastilla</span>
@@ -437,7 +652,13 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                 <input value={current.cta ?? ""} maxLength={20} onChange={e => editSlide(sel, { cta: e.target.value.toLocaleUpperCase("es") })} aria-label="Palabra clave" className={input} />
               </label>
             )}
-            {["problema", "comparacion", "solucion", "tarjetas", "pasos"].includes(current.kind) && (
+            {current.kind === "regla" && (
+              <label className="block space-y-1 max-w-xs">
+                <span className="text-[12px] text-foreground">Pastilla</span>
+                <input value={current.tag ?? ""} maxLength={20} onChange={e => editSlide(sel, { tag: e.target.value })} aria-label="Pastilla de la regla" className={input} />
+              </label>
+            )}
+            {["problema", "comparacion", "solucion", "tarjetas", "pasos", "regla"].includes(current.kind) && (
               <label className="block space-y-1">
                 <span className="text-[12px] text-foreground">Veredicto <span className="text-muted-foreground">(una línea al pie que remata el punto)</span></span>
                 <input value={current.verdict ?? ""} maxLength={90} onChange={e => editSlide(sel, { verdict: e.target.value })} aria-label="Veredicto de la lámina" className={input} />
@@ -471,28 +692,12 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                   <p className="text-[13px] text-foreground font-medium">Portada póster con IA de imagen <span className="text-muted-foreground font-normal">(opcional)</span></p>
                   <p className="text-[12px] text-muted-foreground">Una foto de cine con tu titular escrito dentro, como las portadas de revista que más se guardan. Las demás láminas siguen con tu diseño.</p>
                 </div>
-                <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="IA de imagen">
-                  {POSTER_MODELS.map(m => (
-                    <button key={m.id} type="button" role="radio" aria-checked={posterModel === m.id} disabled={posterBusy} onClick={() => setPosterModel(m.id)}
-                      className={`rounded-lg border px-3 py-2 text-left disabled:opacity-55 ${posterModel === m.id ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
-                      <span className="flex items-center justify-between gap-2 text-[13px] text-foreground">
-                        <span>{m.label}</span>
-                        <span className="text-muted-foreground text-[12px] shrink-0">{CREDIT_COSTS[m.action]} créditos</span>
-                      </span>
-                      <span className="block text-[11px] text-muted-foreground">{m.note}</span>
-                    </button>
-                  ))}
-                </div>
-                {kitRefs.length > 0 && (
-                  <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
-                    <input type="checkbox" checked={useRefs} onChange={e => setUseRefs(e.target.checked)} /> Usar mis fotos del kit de marca como protagonista
-                  </label>
-                )}
+                {modelPicker}
                 <div className="flex flex-wrap gap-2">
                   <button type="button" onClick={() => void makePoster()} disabled={posterBusy}
                     className="min-h-[40px] inline-flex items-center gap-2 rounded-lg border border-border px-3 text-[12px] text-foreground hover:border-foreground/40 disabled:opacity-60">
                     {posterBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
-                    {posterBusy ? "Creando tu portada…" : `${current.image ? "Crear otra portada" : "Crear portada póster"} · ${CREDIT_COSTS[(POSTER_MODELS.find(m => m.id === posterModel) ?? POSTER_MODELS[0]).action]} créditos`}
+                    {posterBusy ? "Creando tu portada…" : `${current.image ? "Crear otra portada" : "Crear portada póster"} · ${imgPrice} créditos`}
                   </button>
                   {current.image && (
                     <button type="button" onClick={() => editSlide(0, { image: undefined, imagePath: undefined })}

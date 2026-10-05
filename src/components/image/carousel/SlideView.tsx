@@ -9,6 +9,7 @@ import { FONTS, palette, rgba, toneColors, type ToneColors } from "@/lib/carouse
  * lámina (portada, problema, solución, tarjetas, pasos, frase, llamada) tiene su composición.
  */
 export const SLIDE_W = 1080;
+const MONTHS = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
 export const slideH = (aspect: "4:5" | "1:1") => (aspect === "4:5" ? 1350 : 1080);
 
 type Props = { slide: Slide; index: number; total: number; design: CarouselDesign; aspect: "4:5" | "1:1" };
@@ -210,6 +211,21 @@ export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ 
         </div>
       );
       break;
+    case "regla":
+      body = (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+          {slide.tag && (
+            <div style={{ fontSize: 44 * k, fontWeight: 800, color: c.text, border: `5px solid ${c.text}`, borderRadius: 22, padding: `${8 * k}px 34px`, marginBottom: 18 * k, letterSpacing: "-0.02em" }}>{slide.tag}</div>
+          )}
+          <Title text={slide.title.replace(/\*/g, "")} size={fitSize(slide.title, (slide.photo ? 210 : 250) * k, 120 * k, 7)} c={c} f={f} style={{ lineHeight: 0.95, letterSpacing: "-0.045em", textAlign: "center" }} />
+          {slide.body && <p style={{ margin: `${18 * k}px 0 0`, fontSize: 48 * k, fontWeight: 700, color: c.text, lineHeight: 1.15, letterSpacing: "-0.02em", maxWidth: 880 }}>{slide.body}</p>}
+          {slide.photo && (
+            <img src={slide.photo} alt="" crossOrigin="anonymous" style={{ width: 760, height: 470 * k, objectFit: "cover", borderRadius: 34, marginTop: 40 * k, boxShadow: flat ? `10px 10px 0 ${slide.tone === "degradado" ? "#0b0b0b" : brand}` : "0 30px 60px rgba(0,0,0,0.35)" }} />
+          )}
+          {slide.verdict && <p style={{ margin: `${36 * k}px 0 0`, fontSize: 40 * k, fontWeight: 700, color: c.text, lineHeight: 1.2, maxWidth: 820, letterSpacing: "-0.015em" }}>{slide.verdict}</p>}
+        </div>
+      );
+      break;
     case "giro":
       body = (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
@@ -241,6 +257,9 @@ export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ 
               ))}
             </div>
           )}
+          {design.line && (
+            <p style={{ margin: `${40 * k}px 0 0`, fontFamily: f.accent ? `"${f.accent.family}", Georgia, serif` : undefined, fontStyle: f.accent?.italic ? "italic" : "normal", fontSize: 44 * k, color: c.text, lineHeight: 1.15 }}>{design.line}</p>
+          )}
           {design.handle && (
             <div style={{ alignSelf: "flex-start", marginTop: 46 * k, display: "inline-flex", alignItems: "center", gap: 16, background: c.accent, color: c.onAccent, borderRadius: 999, padding: "22px 36px", fontSize: 32, fontWeight: 700 }}>
               @{design.handle} {Icon.arrow(c.onAccent, 30)}
@@ -269,19 +288,33 @@ export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ 
       position: "relative", width: SLIDE_W, height: H, overflow: "hidden", boxSizing: "border-box", background: c.bg, color: c.text,
       fontFamily: `"${f.body}", system-ui, sans-serif`, padding: `${76 * k}px 88px ${176 * k}px`, display: "flex", flexDirection: "column",
     }}>
-      {slide.tone !== "degradado" && !flat && <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 88% 6%, ${c.glow} 0%, transparent 52%)` }} />}
+      {slide.photo && slide.kind !== "regla" && (
+        <>
+          <img src={slide.photo} alt="" crossOrigin="anonymous" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+          <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, ${rgba(slide.tone === "claro" ? "#f4efe6" : "#0b0b0b", 0.55)} 0%, ${rgba(slide.tone === "claro" ? "#f4efe6" : "#0b0b0b", 0.35)} 45%, ${rgba(slide.tone === "claro" ? "#f4efe6" : "#0b0b0b", 0.85)} 100%)` }} />
+        </>
+      )}
+      {slide.tone !== "degradado" && !flat && !slide.photo && <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 88% 6%, ${c.glow} 0%, transparent 52%)` }} />}
       {/* Número gigante de fondo */}
       {!flat && <div style={{ position: "absolute", right: -10, bottom: 40 * k, fontFamily: `"${f.display}", Georgia, serif`, fontWeight: f.displayWeight, fontSize: 600 * k, lineHeight: 0.8, color: rgba(c.text, slide.tone === "claro" ? 0.035 : 0.05), pointerEvents: "none" }}>{big}</div>}
 
-      {/* Arriba: marca y etiqueta */}
-      <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 24, marginBottom: 40 * k }}>
-        <div style={{ ...mono, display: "flex", alignItems: "center", gap: 14, fontSize: 24, letterSpacing: "0.2em", color: c.muted, fontWeight: 700 }}>
-          <span style={{ width: 14, height: 14, borderRadius: 99, background: c.accent }} />{brandLabel}
+      {/* Arriba: con "tu papel", barra de 3 columnas (fecha · marca · papel); si no, marca y etiqueta */}
+      {design.role ? (
+        <div style={{ position: "relative", display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 20, marginBottom: 40 * k, fontSize: 24, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: c.text, fontFamily: `"${f.body}", system-ui, sans-serif` }}>
+          <span>{MONTHS[new Date().getMonth()]} ©{new Date().getFullYear()}</span>
+          <span style={{ textAlign: "center" }}>{brandLabel}{design.receipt ? <span style={{ color: c.accent }}> · {design.receipt}</span> : null}</span>
+          <span style={{ textAlign: "right" }}>{design.role}</span>
         </div>
-        {flat
-          ? <div style={{ ...mono, fontSize: 22, letterSpacing: "0.14em", color: slide.tone === "degradado" ? "#ffffff" : c.onAccent, background: slide.tone === "degradado" ? "#0b0b0b" : c.accent, padding: "8px 16px", borderRadius: 6 }}>{slide.kicker}</div>
-          : <div style={{ ...mono, fontSize: 22, letterSpacing: "0.28em", color: c.muted }}>{slide.kicker}</div>}
-      </div>
+      ) : (
+        <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 24, marginBottom: 40 * k }}>
+          <div style={{ ...mono, display: "flex", alignItems: "center", gap: 14, fontSize: 24, letterSpacing: "0.2em", color: c.muted, fontWeight: 700 }}>
+            <span style={{ width: 14, height: 14, borderRadius: 99, background: c.accent }} />{brandLabel}{design.receipt ? ` · ${design.receipt}` : ""}
+          </div>
+          {flat
+            ? <div style={{ ...mono, fontSize: 22, letterSpacing: "0.14em", color: slide.tone === "degradado" ? "#ffffff" : c.onAccent, background: slide.tone === "degradado" ? "#0b0b0b" : c.accent, padding: "8px 16px", borderRadius: 6 }}>{slide.kicker}</div>
+            : <div style={{ ...mono, fontSize: 22, letterSpacing: "0.28em", color: c.muted }}>{slide.kicker}</div>}
+        </div>
+      )}
 
       <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column", minHeight: 0, paddingRight: isLast ? 0 : 34 }}>{body}</div>
 

@@ -22,7 +22,7 @@ import type { Brief } from "@/lib/imagePrompts";
 
 export type CarouselGoal = "vender" | "ensenar" | "texto";
 /** Tipos de lámina (cada uno tiene su diseño en SlideView). */
-export type SlideKind = "portada" | "respuesta" | "problema" | "comparacion" | "solucion" | "tarjetas" | "pasos" | "giro" | "llamada";
+export type SlideKind = "portada" | "respuesta" | "problema" | "comparacion" | "solucion" | "tarjetas" | "pasos" | "regla" | "giro" | "llamada";
 export type Tone = "claro" | "oscuro" | "degradado";
 export type Item = { title: string; text: string };
 export type Slide = {
@@ -50,13 +50,32 @@ export type Slide = {
   image?: string;
   /** Dónde quedó guardada esa portada (para volver a firmar la URL al recargar). */
   imagePath?: string;
+  /** Foto IA de la lámina (sin texto): de fondo, o en tarjeta en las de tipo regla. */
+  photo?: string;
+  photoPath?: string;
+  /** Escena sugerida para esa foto. */
+  scene?: string;
 };
 export type Cover = { title: string; subtitle: string; tag: string; why: string };
 /** `rec` = la portada que recomendó la IA; `pick` = la que eligió la persona. */
 /** `idea` = la frase que todo el carrusel defiende. */
-export type CarouselDraft = { covers: Cover[]; pick: number; rec?: number; slides: Slide[]; caption: string; scene?: string; idea?: string };
+export type CarouselDraft = { covers: Cover[]; pick: number; rec?: number; slides: Slide[]; caption: string; scene?: string; idea?: string; clone?: CloneInfo };
 export type StyleId = "poster" | "editorial" | "moderno" | "impacto" | "elegante";
-export type CarouselDesign = { brand: string; name: string; handle: string; style: StyleId; start: "claro" | "oscuro" };
+/**
+ * Sistema de diseño + la "firma" que no se puede copiar (carrusel "Uncopyable" de Grow with Alex): los
+ * colores y letras se roban en 5 minutos; lo que no se roba es tu papel, tu mundo, tu frase y tus datos.
+ */
+export type CarouselDesign = {
+  brand: string; name: string; handle: string; style: StyleId; start: "claro" | "oscuro";
+  /** Tu papel, para la barra superior (fecha · marca · rol). */
+  role?: string;
+  /** Tu mundo: el escenario que se repite en todas tus fotos hasta que se vuelve tuyo. */
+  world?: string;
+  /** Tu frase: la línea que la gente reconoce como tuya. */
+  line?: string;
+  /** Tu dato real (tus "recibos"): solo datos reales, nunca inventados. */
+  receipt?: string;
+};
 
 export const SLIDE_COUNTS = [6, 8, 10] as const;
 export const DEFAULT_SLIDES = 8;
@@ -69,7 +88,7 @@ export const GOAL_INFO: Record<CarouselGoal, { label: string; line: string }> = 
 };
 
 export const KIND_LABEL: Record<SlideKind, string> = {
-  portada: "Portada", respuesta: "Responde la portada", problema: "Problema", comparacion: "Comparación", solucion: "Solución", tarjetas: "Tarjetas", pasos: "Pasos", giro: "El giro", llamada: "Remate",
+  portada: "Portada", respuesta: "Responde la portada", problema: "Problema", comparacion: "Comparación", regla: "Regla", solucion: "Solución", tarjetas: "Tarjetas", pasos: "Pasos", giro: "El giro", llamada: "Remate",
 };
 
 /** Colores de marca sugeridos (de cada uno salen todos sus tonos). */
@@ -111,7 +130,19 @@ export function sanitizeDesign(x: unknown): CarouselDesign {
     handle: cleanHandle(d.handle),
     style: d.style && d.style in STYLES ? d.style : DEFAULT_DESIGN.style,
     start: d.start === "claro" ? "claro" : "oscuro",
+    role: clean(d.role, 32) || undefined,
+    world: clean(d.world, 160) || undefined,
+    line: clean(d.line, 80) || undefined,
+    receipt: clean(d.receipt, 40) || undefined,
   };
+}
+
+/** Lo que la IA debe respetar de la firma de la marca (va en todos los pedidos de texto). */
+export function signatureLines(d: Pick<CarouselDesign, "world" | "line">): string[] {
+  return [
+    d.line ? `FRASE DE LA MARCA (úsala tal cual en el remate, es su firma): «${clean(d.line, 80)}».` : "",
+    d.world ? `MUNDO DE LA MARCA (todas las escenas ocurren aquí, para que el perfil se reconozca): ${clean(d.world, 160)}.` : "",
+  ].filter(Boolean);
 }
 
 // ── Plan de láminas ──────────────────────────────────────────────────────────────────────────────
@@ -139,7 +170,7 @@ export function toneFor(kind: SlideKind, i: number, start: "claro" | "oscuro"): 
 export const retone = (slides: Slide[], start: "claro" | "oscuro"): Slide[] => slides.map((s, i) => ({ ...s, tone: toneFor(s.kind, i, start) }));
 
 const KICKER: Record<SlideKind, string> = {
-  portada: "GUÍA", respuesta: "LA RESPUESTA", problema: "EL PROBLEMA", comparacion: "NO / SÍ", solucion: "LA SOLUCIÓN", tarjetas: "LO QUE NECESITAS", pasos: "PASO A PASO", giro: "EL GIRO", llamada: "TU SIGUIENTE PASO",
+  portada: "GUÍA", respuesta: "LA RESPUESTA", problema: "EL PROBLEMA", comparacion: "NO / SÍ", regla: "LA REGLA", solucion: "LA SOLUCIÓN", tarjetas: "LO QUE NECESITAS", pasos: "PASO A PASO", giro: "EL GIRO", llamada: "TU SIGUIENTE PASO",
 };
 
 /** Borrador gratis (sin IA) para ver el diseño antes de pagar. Se marca como ejemplo en pantalla. */
@@ -158,6 +189,7 @@ export function draftCarousel(b: Brief, n = DEFAULT_SLIDES, hook?: string, start
       case "comparacion": return { ...base, title: "La diferencia está *aquí*", items: [{ title: "NO", text: "Probar cosas sueltas cuando tienes tiempo." }, { title: "SÍ", text: "Un orden fijo que repites cada semana." }], verdict: "El orden gana a la motivación.", bridge: "¿Cómo se ve ese orden?" };
       case "solucion": return { ...base, title: "Un *método* simple", body: `${product}: lo esencial, en orden, para ${promise}.`, bridge: "Y no necesitas mucho" };
       case "tarjetas": return { ...base, title: "Lo que *necesitas*", items: [1, 2, 3, 4].map(k => ({ title: `Idea ${k}`, text: "Una frase corta y concreta." })), bridge: "Ahora, el orden" };
+      case "regla": return { ...base, tag: "Regla 1", title: "*orden*", body: "Lo mismo, cada semana.", verdict: "Lo que se repite se vuelve fácil." };
       case "pasos": return { ...base, title: "Hazlo en *3 pasos*", items: [1, 2, 3].map(k => ({ title: `Paso ${k}`, text: "Qué hacer, en una línea." })), bridge: "Y aquí está lo que nadie dice" };
       case "giro": return { ...base, title: "Para que puedas hacerlo *sin pensar* cada semana.", weight: "corta" };
       case "llamada": return { ...base, title: "Ahora sabes que es *orden*, no suerte", body: `Comenta la palabra y te mando ${product}.`, cta: "ORDEN", items: [{ title: "Guárdalo para hacerlo hoy", text: "" }] };
@@ -168,7 +200,7 @@ export function draftCarousel(b: Brief, n = DEFAULT_SLIDES, hook?: string, start
 }
 
 /** Pedido a la IA (generador carrusel-copy de ai-chat; el servidor cobra antes y devuelve si falla). */
-export function carouselRequest(opts: { goal: CarouselGoal; brief: Brief; slides: number; source?: string; hook?: string; angle?: string; evidence?: string; handle?: string }): string {
+export function carouselRequest(opts: { goal: CarouselGoal; brief: Brief; slides: number; source?: string; hook?: string; angle?: string; evidence?: string; handle?: string; world?: string; line?: string }): string {
   const plan = kindPlan(opts.slides);
   const b = opts.brief;
   const goalLine = opts.goal === "vender"
@@ -186,6 +218,7 @@ export function carouselRequest(opts: { goal: CarouselGoal; brief: Brief; slides
     tarjetas: `{"tipo":"tarjetas","peso":"","etiqueta":"","titulo":"","items":[${item},${item},${item},${item}],"veredicto":"","puente":""}`,
     pasos: `{"tipo":"pasos","peso":"","etiqueta":"","titulo":"","items":[${item},${item},${item}],"veredicto":"","puente":""}`,
     giro: '{"tipo":"giro","peso":"corta","etiqueta":"","titulo":""}',
+    regla: '{"tipo":"regla","peso":"","pastilla":"","titulo":"","texto":"","veredicto":"","escena":"","puente":""}',
     llamada: '{"tipo":"llamada","etiqueta":"","titulo":"","texto":"","palabra":"","items":[{"titulo":""}]}',
   };
   const lines: (string | null)[] = [
@@ -232,6 +265,7 @@ export function carouselRequest(opts: { goal: CarouselGoal; brief: Brief; slides
     clean(b.price, 30) ? `PRECIO REAL: ${clean(b.price, 30)} (úsalo solo si ayuda; no inventes descuentos).` : null,
     opts.evidence ? `PRUEBA REAL DE QUE ESTO VENDE (para ti, no la pongas como testimonio): ${clean(opts.evidence, 120)}.` : null,
     opts.handle ? `CUENTA: @${cleanHandle(opts.handle)}.` : null,
+    ...signatureLines(opts),
     opts.source ? `\nTEXTO DE ORIGEN:\n"""\n${(opts.source ?? "").slice(0, 6000)}\n"""` : null,
     "",
     "RESPONDE SOLO con JSON válido, sin texto antes ni después, con esta forma exacta:",
@@ -259,20 +293,30 @@ function firstJson(text: string): unknown {
   return null;
 }
 
-const ITEM_MAX: Partial<Record<SlideKind, number>> = { problema: 3, comparacion: 2, tarjetas: 4, pasos: 4, llamada: 2 };
+const ITEM_MAX: Partial<Record<SlideKind, number>> = { problema: 3, comparacion: 2, tarjetas: 4, pasos: 4, llamada: 2, regla: 0 };
 const upper = (s: string) => s.toLocaleUpperCase("es");
 
 /** Lee la respuesta de la IA. Devuelve null si no sirve (el servidor ya cobró: se avisa y se puede reintentar). */
-export function parseCarousel(text: string, n: number, start: "claro" | "oscuro" = "oscuro"): CarouselDraft | null {
-  const j = firstJson(text) as Record<string, unknown> | null;
+export function parseCarousel(text: string, n: number, start: "claro" | "oscuro" = "oscuro", opts: { free?: boolean } = {}): CarouselDraft | null {
+  return parseCarouselObj(firstJson(text) as Record<string, unknown> | null, n, start, opts);
+}
+
+/** Igual que parseCarousel pero con el objeto ya leído. `free`: largo y tipos los decide la IA (clonar). */
+export function parseCarouselObj(j: Record<string, unknown> | null, n: number, start: "claro" | "oscuro" = "oscuro", opts: { free?: boolean } = {}): CarouselDraft | null {
   if (!j) return null;
   const covers: Cover[] = (Array.isArray(j.portadas) ? j.portadas : []).slice(0, 3)
     .map((c: Record<string, unknown>) => ({ title: txt(c?.titulo, 90), subtitle: txt(c?.subtitulo, 110), tag: upper(txt(c?.pastilla, 24)), why: clean(c?.por_que, 200) }))
     .filter(c => c.title);
   if (!covers.length) return null;
   const chips = (Array.isArray(j.etiquetas) ? j.etiquetas : []).map(x => txt(x, 22)).filter(Boolean).slice(0, 3);
-  const plan = kindPlan(n);
   const raw = (Array.isArray(j.laminas) ? j.laminas : []) as Record<string, unknown>[];
+  const plan: SlideKind[] = opts.free
+    ? ["portada", ...raw.slice(0, 9).map((l, i, a) => {
+      const t = String(l?.tipo ?? "") as SlideKind;
+      if (i === a.length - 1) return "llamada";
+      return t in KICKER && t !== "portada" ? t : "tarjetas";
+    })]
+    : kindPlan(n);
   const rest: Slide[] = raw.slice(0, plan.length - 1).map((l, i) => {
     const asked = String(l?.tipo ?? "") as SlideKind;
     const kind: SlideKind = asked in KICKER && asked !== "portada" ? asked : plan[i + 1];
@@ -288,7 +332,11 @@ export function parseCarousel(text: string, n: number, start: "claro" | "oscuro"
     if (bridge && kind !== "llamada" && kind !== "giro") slide.bridge = bridge;
     const verdict = txt(l?.veredicto, 90);
     if (verdict && kind !== "llamada" && kind !== "giro" && kind !== "respuesta") slide.verdict = verdict;
+    if (kind === "regla" && !slide.title && slide.body) slide.title = slide.body;
     if (l?.peso === "corta" || l?.peso === "densa") slide.weight = l.peso;
+    const scene = txt(l?.escena, 300);
+    if (scene) slide.scene = scene;
+    if (kind === "regla") slide.tag = txt(l?.pastilla, 20) || `Regla ${i}`;
     if (kind === "comparacion") slide.items = slide.items.map((it, k) => ({ ...it, title: upper(it.title).slice(0, 14) || (k ? "SÍ" : "NO") }));
     return slide;
   }).filter(s => s.title || s.items.length);
@@ -300,7 +348,7 @@ export function parseCarousel(text: string, n: number, start: "claro" | "oscuro"
   const pick = Number.isInteger(rec) && rec >= 0 && rec < covers.length ? rec : 0;
   const c = covers[pick];
   const reveal = (Array.isArray(j.revelar) ? j.revelar : []).map(x => txt(x, 40)).filter(Boolean).slice(0, 6);
-  const cover: Slide = { kind: "portada", tone: "oscuro", kicker: KICKER.portada, title: c.title, body: c.subtitle, items: [], tag: c.tag, chips };
+  const cover: Slide = { kind: "portada", tone: "oscuro", kicker: KICKER.portada, title: c.title, body: c.subtitle, items: [], tag: c.tag, chips, scene: txt(j.escena, 300) || undefined };
   if (reveal.length >= 3) {
     cover.reveal = reveal;
     const second = rest.find(r => r.kind === "respuesta");
@@ -378,7 +426,7 @@ export function posterPrompt(o: { cover: Slide; scene?: string; design: Carousel
   const d = o.date ?? new Date();
   const left = `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
   const center = o.design.name || (o.design.handle ? `@${o.design.handle}` : clean(o.brief.product, 30));
-  const right = (o.cover.tag || "guía").toLocaleLowerCase("es");
+  const right = (o.design.role || o.cover.tag || "guía").toLocaleLowerCase("es");
   const scene = clean(o.scene, 300) || `una metáfora visual cinematográfica de: ${clean(o.brief.promise, 120) || plain}`;
   return [
     `Portada editorial para un carrusel de Instagram, diseño tipo póster de revista, formato ${o.aspect === "4:5" ? "vertical 4:5" : "cuadrado 1:1"}.`,
@@ -388,6 +436,7 @@ export function posterPrompt(o: { cover: Slide; scene?: string; design: Carousel
       : `TITULAR: «${plain}», enorme y dominante, en ${STYLE_TYPE[o.design.style]}, formando un solo bloque.`,
     "El protagonista de la foto puede quedar delante de una parte de las letras grandes para dar profundidad, sin tapar la lectura.",
     `ESCENA: ${scene}.`,
+    o.design.world ? `La escena ocurre en el mundo fijo de la marca: ${clean(o.design.world, 160)}.` : "",
     o.hasRefs ? "Usa la persona o el producto de la imagen de referencia adjunta como protagonista, igual que en la referencia." : "",
     `FOTO cinematográfica real, grano de película suave, luz dramática. Máximo 3 colores en todo el diseño: ${o.design.brand} como color dominante, crema y negro.`,
     o.cover.body ? `ABAJO, centrado y pequeño, en sans negrita: «${clean(o.cover.body, 90)}».` : "",
@@ -434,4 +483,121 @@ export function slideTwoScore(coverLikes: number, slide2Likes: number): { pct: n
   if (pct > 50) return { pct, level: "fuerte", text: "Carrusel fuerte: la lámina 2 sostuvo lo que abrió la portada." };
   if (pct >= 30) return { pct, level: "normal", text: "Normal. La meta es 50 %: haz que la lámina 2 responda solo a la portada." };
   return { pct, level: "debil", text: "La lámina 2 no hizo su trabajo: no respondió lo que abrió la portada." };
+}
+
+// ── Clonar con ADN ganador ───────────────────────────────────────────────────────────────────────
+/**
+ * Un carrusel que ya funciona se descompone en ~9 partes. Se mantienen 3 (las que explican por qué
+ * funcionó) y se cambia todo lo demás: si se mantiene todo, es una copia; si se mantienen 3, es ADN
+ * ganador. Nunca se mantienen sus palabras, fotos, cara, nombre, marca ni números.
+ */
+export type DnaPart = { id: string; part: string; what: string; matters: boolean; why: string };
+export type CloneInfo = {
+  summary: string; why: string;
+  slides: { n: number; position: string; composition: string; artifact: string; idea: string }[];
+  style: { colors: string[]; font: string; style: StyleId; start: "claro" | "oscuro"; photos: string };
+  dna: DnaPart[]; keep: string[]; improvements: string[];
+  source: { url: string; images: string[]; owner: string; likes: number | null; comments: number | null };
+};
+export const MAX_KEEP = 3;
+
+/** Lee la respuesta de carousel-clone: el análisis (CloneInfo) y el borrador ya armado. */
+export function parseClone(r: Record<string, unknown>, start: "claro" | "oscuro" = "oscuro"): { info: CloneInfo; draft: CarouselDraft } | null {
+  const a = (r.analisis ?? {}) as Record<string, unknown>;
+  const st = (a.estilo ?? {}) as Record<string, unknown>;
+  const src = (r.source ?? {}) as Record<string, unknown>;
+  const dna: DnaPart[] = (Array.isArray(r.adn) ? r.adn : []).slice(0, 12).map((d: Record<string, unknown>, i: number) => ({
+    id: clean(d?.id, 8) || `a${i + 1}`, part: txt(d?.parte, 80), what: txt(d?.que_es, 200), matters: d?.importa === true, why: txt(d?.por_que, 200),
+  })).filter(d => d.part);
+  const ids = new Set(dna.map(d => d.id));
+  let keep = (Array.isArray(r.mantener) ? r.mantener : []).map(x => clean(x, 8)).filter(id => ids.has(id)).slice(0, MAX_KEEP);
+  if (!keep.length) keep = dna.filter(d => d.matters).map(d => d.id).slice(0, MAX_KEEP);
+  const sty = String(st.estilo_cercano ?? "");
+  const info: CloneInfo = {
+    summary: txt(a.resumen, 240), why: txt(a.por_que_funciona, 500),
+    slides: (Array.isArray(a.laminas) ? a.laminas : []).slice(0, 10).map((l: Record<string, unknown>, i: number) => ({
+      n: Number(l?.n) || i + 1, position: txt(l?.posicion, 30), composition: txt(l?.composicion, 200), artifact: txt(l?.artefacto, 120), idea: txt(l?.idea, 200),
+    })),
+    style: {
+      colors: (Array.isArray(st.colores) ? st.colores : []).filter((c): c is string => typeof c === "string" && HEX.test(c)).map(c => c.toLowerCase()).slice(0, 3),
+      font: txt(st.letra, 160), style: (sty in STYLES ? sty : "poster") as StyleId, start: st.empieza === "oscuro" ? "oscuro" : "claro", photos: txt(st.fotos, 200),
+    },
+    dna, keep, improvements: (Array.isArray(r.mejoras) ? r.mejoras : []).map(x => txt(x, 200)).filter(Boolean).slice(0, 5),
+    source: {
+      url: clean(src.url, 200), images: (Array.isArray(src.images) ? src.images : []).filter((u): u is string => typeof u === "string" && u.startsWith("https://")).slice(0, 10),
+      owner: clean(src.owner, 40), likes: typeof src.likes === "number" ? src.likes : null, comments: typeof src.comments === "number" ? src.comments : null,
+    },
+  };
+  const c = (r.carrusel ?? null) as Record<string, unknown> | null;
+  const draft = parseCarouselObj(c, 8, start, { free: true });
+  if (!draft) return null;
+  return { info, draft: { ...draft, idea: draft.idea ?? txt(c?.idea, 200) } };
+}
+
+/** El color de marca del original: el más vivo de sus 3 colores. */
+export function brandFromClone(colors: string[]): string | null {
+  const sat = (h: string) => { const n = parseInt(h.slice(1), 16); const v = [(n >> 16) & 255, (n >> 8) & 255, n & 255]; const mx = Math.max(...v), mn = Math.min(...v); return mx ? (mx - mn) / mx : 0; };
+  return [...colors].sort((a, b) => sat(b) - sat(a))[0] ?? null;
+}
+
+/**
+ * Re-clonar con otras 3 partes (generador carrusel-copy de ai-chat, sin volver a bajar el carrusel):
+ * va solo el análisis en texto, nunca las imágenes ni el texto original.
+ */
+export function recloneRequest(o: { info: CloneInfo; keep: string[]; brief: Brief; goal: CarouselGoal; handle?: string; world?: string; line?: string }): string {
+  const keep = o.info.dna.filter(d => o.keep.includes(d.id));
+  const change = o.info.dna.filter(d => !o.keep.includes(d.id));
+  const n = Math.min(9, Math.max(4, o.info.slides.length - 1));
+  return [
+    "Vas a escribir un carrusel NUEVO con el ADN ganador de otro que ya funcionó. Mantienes SOLO estas 3 partes y cambias todo lo demás. Nunca copies palabras, fotos, nombres, marcas ni números del original.",
+    `Resumen del original: ${o.info.summary}`,
+    `Por qué funcionó: ${o.info.why}`,
+    "Sus láminas, en orden (posición · composición · idea):",
+    ...o.info.slides.map(x => `${x.n}. ${x.position} · ${x.composition} · ${x.idea}`),
+    "",
+    "MANTIENES (patrones, no contenido):",
+    ...keep.map(d => `- ${d.part}: ${d.what}`),
+    "CAMBIAS por completo:",
+    ...change.map(d => `- ${d.part}`),
+    "",
+    "Hazlo MEJOR que el original con la fórmula de 6 posiciones (apertura que crea un deseo, agarre en la lámina 2 que responde solo la portada, columna con puentes, ritmo corta/densa, giro 'Para que puedas…', remate con creencia nueva + UNA palabra clave). En 'mejoras' di 3 cosas concretas que hiciste mejor.",
+    o.goal === "ensenar" ? "Objetivo: enseñar algo útil del tema del producto." : "Objetivo: que quieran el producto.",
+    "Tipos de lámina disponibles: respuesta, problema (3 items), comparacion (2 items: NO/SÍ), solucion, tarjetas (4 items), pasos (3 items), regla (pastilla 'Regla N', titulo de 1 o 2 palabras gigantes, texto ≤10 palabras, veredicto, escena), giro (penúltima), llamada (última, con palabra).",
+    "Cada lámina (menos giro y llamada) lleva puente (≤7 palabras), peso (corta o densa) y veredicto si aplica. Marca 1 o 2 palabras de cada titular entre *asteriscos*. 'escena' = foto cinematográfica SIN texto, personas latinas comunes, sin famosos, sin marcas, sin dinero.",
+    "Prohibido: promesas de ingresos o resultados, plazos, testimonios o cifras inventadas, urgencia falsa, marcas ajenas, emojis. Español neutro latinoamericano, de tú.",
+    "",
+    `PRODUCTO: ${clean(o.brief.product, 200)}.`,
+    clean(o.brief.who, 200) ? `PÚBLICO: ${clean(o.brief.who, 200)}.` : "",
+    clean(o.brief.promise, 200) ? `LO QUE LOGRA: ${clean(o.brief.promise, 200)}.` : "",
+    o.handle ? `CUENTA: @${cleanHandle(o.handle)}.` : "",
+    ...signatureLines(o),
+    "",
+    "RESPONDE SOLO con JSON válido:",
+    `{"mejoras":["","",""],"carrusel":{"idea":"","portadas":[{"titulo":"","subtitulo":"","pastilla":"","por_que":""},{"titulo":"","subtitulo":"","pastilla":"","por_que":""},{"titulo":"","subtitulo":"","pastilla":"","por_que":""}],"recomendada":0,"revelar":[],"etiquetas":["","",""],"escena":"","laminas":[{"tipo":"","peso":"","etiqueta":"","titulo":"","texto":"","items":[],"veredicto":"","puente":"","palabra":"","pastilla":"","escena":""}],"pie":""}}`,
+    `"carrusel.laminas" trae ${n} elementos: la primera respuesta, la penúltima giro y la última llamada.`,
+  ].filter(Boolean).join("\n");
+}
+
+/** Lee la respuesta de un re-clonado (texto del generador). */
+export function parseReclone(text: string, start: "claro" | "oscuro" = "oscuro"): { draft: CarouselDraft; improvements: string[] } | null {
+  const j = firstJson(text) as Record<string, unknown> | null;
+  if (!j) return null;
+  const draft = parseCarouselObj((j.carrusel ?? null) as Record<string, unknown> | null, 8, start, { free: true });
+  if (!draft) return null;
+  return { draft, improvements: (Array.isArray(j.mejoras) ? j.mejoras : []).map(x => txt(x, 200)).filter(Boolean).slice(0, 5) };
+}
+
+/** Foto IA de una lámina, SIN texto (el texto lo pone el diseño, con fuentes reales). */
+export function photoPrompt(o: { slide: Slide; design: CarouselDesign; brief: Brief; aspect: "4:5" | "1:1"; card: boolean; hasRefs?: boolean; rules: string }): string {
+  const scene = clean(o.slide.scene, 300) || `una escena cinematográfica que muestre: ${o.slide.title.replace(/\*/g, "")}`;
+  return [
+    `Fotografía cinematográfica real para ${o.card ? "una tarjeta dentro de" : "el fondo de"} una lámina de carrusel de Instagram, formato ${o.aspect === "4:5" ? "vertical 4:5" : "cuadrado 1:1"}.`,
+    `ESCENA: ${scene}.`,
+    o.design.world ? `Ocurre en el mundo fijo de la marca: ${clean(o.design.world, 160)}.` : "",
+    o.card ? "Encuadre limpio, un solo sujeto claro." : "Deja espacio despejado y con poco detalle en la mitad de arriba para poner un titular encima.",
+    o.hasRefs ? "Usa la persona o el producto de la imagen de referencia adjunta como protagonista." : "",
+    `Luz dramática, grano de película suave, color con ${o.design.brand} como tono dominante.`,
+    "SIN ningún texto, letra, número, logo ni marca en la imagen.",
+    o.rules.replace(/Si hay texto[^.]*\./, "").trim(),
+  ].filter(Boolean).join(" ");
 }

@@ -178,3 +178,78 @@ describe("carrusel: la prueba de la historia", () => {
     expect(slideTwoScore(0, 10)).toBeNull();
   });
 });
+
+import { parseClone, parseReclone, recloneRequest, photoPrompt, brandFromClone } from "./carousel";
+
+const cloneResponse = {
+  analisis: {
+    resumen: "Cinco reglas para una marca que no se puede copiar", por_que_funciona: "Toma partido y entrega un sistema.",
+    laminas: [{ n: 1, posicion: "apertura", composicion: "palabra gigante sobre foto", artefacto: "", idea: "fórmula de marca" }, { n: 2, posicion: "agarre", composicion: "dos columnas", artefacto: "", idea: "lo visible se copia" }],
+    estilo: { colores: ["#f26b1d", "#0b0b0b", "#f4efe6"], letra: "sans negra + serifa cursiva", estilo_cercano: "poster", empieza: "claro", fotos: "escenas de cine" },
+  },
+  adn: [
+    { id: "a1", parte: "Portada que toma partido", que_es: "x", importa: true, por_que: "crea deseo" },
+    { id: "a2", parte: "Formato Regla N + palabra gigante", que_es: "x", importa: true, por_que: "fácil de seguir" },
+    { id: "a3", parte: "Remate con palabra clave", que_es: "x", importa: true, por_que: "conversación" },
+    { id: "a4", parte: "Paleta naranja", que_es: "x", importa: false, por_que: "" },
+  ],
+  mantener: ["a1", "a2", "zz"],
+  mejoras: ["Añadimos veredicto en cada regla"],
+  carrusel: {
+    idea: "El orden gana", portadas: [{ titulo: "Cocina *sin pensar*", subtitulo: "", pastilla: "5 reglas", por_que: "x" }], recomendada: 0, etiquetas: [], escena: "olla gigante en el desierto",
+    laminas: [
+      { tipo: "respuesta", titulo: "Lo visible se *copia*", texto: "Lo tuyo no.", puente: "Estas son las reglas" },
+      { tipo: "regla", pastilla: "Regla 1", titulo: "*lote*", texto: "Cocina una vez.", veredicto: "Una olla, cuatro cenas.", escena: "cocina con ollas", puente: "La segunda" },
+      { tipo: "regla", pastilla: "Regla 2", titulo: "*lista*", texto: "Compra con plan.", veredicto: "Sin lista no hay plan.", puente: "Y la clave" },
+      { tipo: "giro", titulo: "Para que puedas cenar *sin decidir*" },
+      { tipo: "llamada", titulo: "Cenar bien es *orden*", texto: "Te mando los menús.", palabra: "LOTE", items: [{ titulo: "Guárdalo" }] },
+    ],
+    pie: "x",
+  },
+  source: { url: "https://www.instagram.com/p/X/", images: ["https://a/1.jpg", "nope"], owner: "growithalex", likes: 270, comments: 207 },
+};
+
+describe("carrusel: clonar con ADN ganador", () => {
+  it("lee el ADN, mantiene solo ids válidos y arma el borrador con su largo y tipos", () => {
+    const r = parseClone(cloneResponse)!;
+    expect(r.info.keep).toEqual(["a1", "a2"]);
+    expect(r.info.style).toMatchObject({ style: "poster", start: "claro" });
+    expect(r.info.source.images).toEqual(["https://a/1.jpg"]);
+    expect(r.draft.slides.map(s => s.kind)).toEqual(["portada", "respuesta", "regla", "regla", "giro", "llamada"]);
+    expect(r.draft.slides[2]).toMatchObject({ tag: "Regla 1", verdict: "Una olla, cuatro cenas.", scene: "cocina con ollas" });
+    expect(r.draft.slides[0].scene).toMatch(/olla gigante/);
+    expect(r.draft.slides[5].cta).toBe("LOTE");
+  });
+  it("re-clonar manda solo el análisis: nada del texto original y las 3 partes elegidas", () => {
+    const { info } = parseClone(cloneResponse)!;
+    const p = recloneRequest({ info, keep: ["a2", "a3"], brief, goal: "vender" });
+    expect(p).toMatch(/MANTIENES[\s\S]*Formato Regla N[\s\S]*Remate con palabra clave[\s\S]*CAMBIAS/);
+    expect(p).toMatch(/Nunca copies palabras, fotos, nombres, marcas ni números/);
+    expect(p).not.toContain("instagram.com");
+    const back = parseReclone(JSON.stringify({ mejoras: ["m"], carrusel: cloneResponse.carrusel }))!;
+    expect(back.improvements).toEqual(["m"]);
+    expect(back.draft.slides).toHaveLength(6);
+  });
+  it("la foto de una lámina se pide sin texto y con la escena", () => {
+    const { draft } = parseClone(cloneResponse)!;
+    const p = photoPrompt({ slide: draft.slides[2], design: ADMIN_DESIGN, brief, aspect: "4:5", card: true, rules: "Personas latinas. Si hay texto, que sea exacto." });
+    expect(p).toContain("cocina con ollas");
+    expect(p).toMatch(/SIN ningún texto/);
+    expect(p).not.toMatch(/Si hay texto/);
+  });
+  it("el color de marca del original es el más vivo", () => {
+    expect(brandFromClone(["#0b0b0b", "#f26b1d", "#f4efe6"])).toBe("#f26b1d");
+  });
+});
+
+import { sanitizeDesign as sanitize2, signatureLines } from "./carousel";
+describe("carrusel: tu firma (lo que no se puede copiar)", () => {
+  it("se guarda limpia y llega a la IA y a las fotos", () => {
+    const d = sanitize2({ brand: "#e8502e", style: "poster", role: "estratega", world: "una cocina caribeña", line: "Cocina una vez.", receipt: "12.000 seguidores" });
+    expect(d).toMatchObject({ role: "estratega", world: "una cocina caribeña", line: "Cocina una vez.", receipt: "12.000 seguidores" });
+    expect(signatureLines(d).join(" ")).toMatch(/Cocina una vez[\s\S]*cocina caribeña/);
+    expect(carouselRequest({ goal: "vender", brief, slides: 8, ...d })).toContain("MUNDO DE LA MARCA");
+    const { draft } = parseClone(cloneResponse)!;
+    expect(photoPrompt({ slide: draft.slides[2], design: d, brief, aspect: "4:5", card: false, rules: "R" })).toContain("cocina caribeña");
+  });
+});

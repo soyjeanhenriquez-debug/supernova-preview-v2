@@ -14,7 +14,7 @@ export type CreditAction =
   | "blueprint" | "adaptar" | "pain_discovery" | "chat_message" | "ai_intel"
   | "gen_landing" | "gen_ad_copies" | "gen_avatar" | "gen_funnel"
   | "gen_master_prompt" | "pillar_assist" | "gen_light" | "gen_medium" | "gen_heavy" | "gen_media"
-  | "gen_ad_image" | "gen_ad_image_nb2" | "gen_ad_image_nbpro" | "follow_offer" | "unlock_kit"
+  | "gen_ad_image" | "gen_ad_image_nb2" | "gen_ad_image_nbpro" | "clone_carousel" | "follow_offer" | "unlock_kit"
   | "build_piece_std" | "build_piece_sonnet" | "build_piece_opus" | "build_piece_fable" | "build_piece_gpt" | "build_piece_astra"
   | "business_map"
   | "vid_mini_5" | "vid_mini_10" | "yt_voice_scene" | "yt_scene_image";
@@ -34,6 +34,7 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   gen_ad_image: 6, // APIMart GPT Image 2 (~US$0,0081): 6 créditos ≈ 5,9× costo (03-oct-2026, decisión de Jean)
   gen_ad_image_nb2: 10, // APIMart Nano Banana 2 (~US$0,0143) ≈ 5,6× (05-oct-2026, aprobado por Jean)
   gen_ad_image_nbpro: 20, // APIMart Nano Banana Pro (~US$0,0285) ≈ 5,6× (05-oct-2026, aprobado por Jean)
+  clone_carousel: 15, // carousel-clone: Apify + Gemini con imágenes (~US$0,02) ≈ 6× (05-oct-2026, aprobado por Jean)
   follow_offer: 5, // se cobra server-side en la RPC follow_offer (Cazador de ROI)
   unlock_kit: 150, // se cobra server-side en la RPC unlock_kit (Mini Apps Rentables)
   // Crear producto: por capítulo, lección o bono, según la IA (edge function product-builder).
@@ -61,6 +62,7 @@ export const ACTION_LABEL: Record<CreditAction, string> = {
   gen_ad_image: "Imagen para tu anuncio con IA",
   gen_ad_image_nb2: "Imagen con IA · Nano Banana 2",
   gen_ad_image_nbpro: "Imagen con IA · Nano Banana Pro",
+  clone_carousel: "Clonar un carrusel viral",
   follow_offer: "Seguir una oferta",
   unlock_kit: "Desbloquear una Mini App",
   build_piece_std: "Capítulo o lección · Estándar",
@@ -90,7 +92,7 @@ export const ACTION_HOURS: Record<CreditAction, number> = {
   search_ads: 0.5, analyze_url: 0.5, ai_intel: 1, chat_message: 0.25, adaptar: 1,
   pillar_assist: 1, sofisticar: 2, gen_ad_copies: 2, gen_avatar: 2, pain_discovery: 2,
   blueprint: 4, gen_landing: 4, landing_intelligence: 4, gen_funnel: 8,
-  gen_master_prompt: 6, gen_light: 1, gen_medium: 3, gen_heavy: 6, gen_ad_image: 1, gen_ad_image_nb2: 1, gen_ad_image_nbpro: 1, gen_media: 2,
+  gen_master_prompt: 6, gen_light: 1, gen_medium: 3, gen_heavy: 6, gen_ad_image: 1, gen_ad_image_nb2: 1, gen_ad_image_nbpro: 1, clone_carousel: 2, gen_media: 2,
   follow_offer: 0.5, unlock_kit: 12,
   build_piece_std: 3, build_piece_sonnet: 3, build_piece_opus: 3, build_piece_fable: 3, build_piece_gpt: 3, build_piece_astra: 3,
   business_map: 3,

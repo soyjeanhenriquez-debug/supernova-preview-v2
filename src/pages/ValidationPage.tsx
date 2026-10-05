@@ -426,14 +426,16 @@ export function ValidationPage({ onNavigate }: { onNavigate?: (page: string) => 
       );
     }
     const vd = verdict(score, answers);
-    const color = vd.tone === "good" ? "text-emerald-400" : vd.tone === "mid" ? "text-amber-400" : vd.tone === "bad" ? "text-red-400" : "text-foreground";
+    // Sin terminar no hay veredicto: con 3 de 14 un "100/100 · Adelante" engaña (05-oct-2026).
+    const color = !complete ? "text-foreground" : vd.tone === "good" ? "text-emerald-400" : vd.tone === "mid" ? "text-amber-400" : vd.tone === "bad" ? "text-red-400" : "text-foreground";
+    const left = TOTAL - answered;
     return (
       <div className="card-surface rounded-2xl p-5 space-y-2">
         <p className="text-xs uppercase tracking-wider text-muted-foreground">
           {complete ? "Resultado" : `Resultado parcial · ${answered} de ${TOTAL}`}
         </p>
         <p className={`font-display font-bold text-4xl tabular-nums ${color}`}>{score}<span className="text-lg text-muted-foreground font-medium"> / 100</span></p>
-        <p className="font-semibold text-foreground">{vd.title}</p>
+        <p className="font-semibold text-foreground">{complete ? vd.title : `Te ${left === 1 ? "falta 1 pregunta" : `faltan ${left} preguntas`} para el veredicto`}</p>
         <p className="text-sm text-muted-foreground">{complete ? vd.text : "El resultado puede cambiar: termina todas las preguntas para verlo completo."}</p>
         <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
           <div className="rounded-lg border border-border px-3 py-2">

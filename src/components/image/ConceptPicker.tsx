@@ -23,7 +23,15 @@ function Preview({ c }: { c: AdConcept }) {
       </div>
     );
   }
-  return <img src={exampleSrc(c.id)} alt={`Ejemplo de ${c.name}`} loading="lazy" onError={() => setBroken(true)} className="w-full h-full object-cover" />;
+  // Ejemplo, no resultado: la imagen va un poco apagada y con una sombra profunda desde abajo y un
+  // filo de luz interior; al pasar el cursor recupera el color. Sin texto encima.
+  return (
+    <div className="relative w-full h-full">
+      <img src={exampleSrc(c.id)} alt={`Ejemplo de ${c.name}`} loading="lazy" onError={() => setBroken(true)}
+        className="w-full h-full object-cover opacity-[0.88] saturate-[0.85] transition duration-300 group-hover:opacity-100 group-hover:saturate-100" />
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-black/5 shadow-[inset_0_0_40px_rgba(0,0,0,0.55)] ring-1 ring-inset ring-white/10" />
+    </div>
+  );
 }
 
 export function ConceptPicker({ level, onLevel, value, onChange, custom, onCustom, realTexts, onRealText, disabled }: {

@@ -6,8 +6,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
 // eslint-disable @typescript-eslint/no-explicit-any
 
-/** Días mínimos pagándose para guardar un anuncio nuevo (04-oct-2026). */
-const MIN_DAYS = 3;
+/** Días mínimos pagándose para guardar un anuncio nuevo. 04-oct-2026: 3. 05-oct-2026 (Jean): 15, para
+ *  que la base del plan Free quede bajo 450 MB hasta tener 10 usuarios; solo entran ganadores. */
+const MIN_DAYS = 15;
 
 const FB_FIELDS = [
   "id", "ad_creation_time", "ad_delivery_start_time", "ad_delivery_stop_time",
@@ -246,7 +247,7 @@ Deno.serve(async (req) => {
 
           const start = it.ad_delivery_start_time ? new Date(it.ad_delivery_start_time) : null;
           const days = start ? Math.max(1, Math.floor((Date.now() - start.getTime()) / 86400000)) : 1;
-          // Solo entran anuncios con 3 días o más pagándose y con fecha real de Meta (decisión de
+          // Solo entran anuncios con MIN_DAYS o más pagándose y con fecha real de Meta (decisión de
           // Jean, 04-oct-2026: la base crecía ~32 MB al día). Los de 1-2 días aún no prueban que
           // vendan; si siguen activos, vuelven a entrar en una rotación posterior.
           if (!start || days < MIN_DAYS) { skippedYoung++; continue; }

@@ -41,18 +41,19 @@ async function fetchPost(url: string, token: string): Promise<any | null> {
 
 const SYSTEM = `Eres el director creativo de SUPERNOVA. Analizas carruseles de Instagram que ya funcionan y creas versiones nuevas para emprendedores latinos que empiezan de cero, con el método "Roba como un artista" y el "ADN ganador":
 - Todo carrusel se descompone en unas 9 partes. Si se mantienen todas, es una copia. Según el modo que se te pida: en "mismo tema" se conservan el tema, las ideas y la estructura (reescritos con tus palabras); en "producto" se mantienen SOLO las 3 partes que explican por qué funcionó y se cambia todo lo demás.
-- Lo que se mantiene son PATRONES (estructura, tipo de gancho, composición, formato de láminas, tipo de mundo visual, ritmo, mecanismo del remate). NUNCA se mantienen sus palabras literales, sus fotos, su cara, su nombre, su marca, sus números ni sus recursos.
+- Clonar lo que funciona es la base (no se reinventa la rueda). Lo único que no se hace es copiar y pegar en el mismo idioma, traducir palabra por palabra, ni usar sus fotos, su cara, su nombre, su marca, sus números ni sus recursos.
 - La versión nueva debe ser MEJOR que el original: aplica la fórmula de 6 posiciones (apertura que crea un deseo, agarre en la lámina 2 que responde solo la portada, columna donde cada lámina abre la siguiente, ritmo corta/densa, giro "Para que puedas…", remate con creencia nueva + UNA acción) y que cada lámina lleve algo real (ejemplo, comparación, regla con veredicto).
 Español neutro latinoamericano, de tú, frases cortas, sin jerga, sin emojis. Prohibido: promesas de ingresos o de resultados, plazos, testimonios, cifras o estudios inventados, urgencia falsa, marcas ajenas, personas famosas.
 Respondes SOLO con el JSON pedido.`;
 
 // Dos formas de clonar (06-oct-2026, Jean: "la referencia tiene que servir"):
-//  · "tema": el MISMO tema y las mismas ideas, en el mismo orden y con la misma estructura, escrito en
-//    español con nuestras palabras (nunca traducción frase por frase: el manual prohíbe copiar textos).
+//  · "tema": transcreación fiel: el mismo tema, las mismas ideas y el mismo remate de cada lámina, en el
+//    mismo orden y estructura, adaptado al español latino ("Clonar con arte" del manual: de otro idioma
+//    se sigue de cerca; no se copia y pega en el mismo idioma ni se traduce palabra por palabra).
 //  · "producto": su ADN (3 partes) aplicado al producto de la persona; todo lo demás cambia.
 const TEMA_STEP = (n: number) => [
   `PASO 3 · TU VERSIÓN EN ESPAÑOL, MISMO TEMA. Escribe un carrusel de ${n + 1} láminas sobre el MISMO tema del original, con sus MISMAS ideas principales, en el MISMO orden y con la MISMA estructura (mismo tipo de portada, mismo número de reglas o puntos, mismo tipo de remate), para que produzca el mismo efecto en un público latino.`,
-  "Escríbelo con TUS palabras: no traduzcas frase por frase ni copies sus oraciones. Los nombres de los conceptos pueden ser su equivalente natural en español (ej. 'Lead' → 'Protagonista', 'Receipts' → 'Pruebas'). Cambia todos los ejemplos por ejemplos de emprendedores latinos.",
+  "Es una TRANSCREACIÓN fiel: sigue de cerca cada lámina del original (la misma idea, el mismo giro y el mismo remate de cada una) y adáptala al español latino con algunos cambios para que suene propia y natural, no como traducción. Si el original está en español, reescríbelo con otras palabras (nunca copiar y pegar). Nunca palabra por palabra. Los conceptos llevan su equivalente natural en español (ej. 'Lead' → 'Protagonista', 'Receipts' → 'Pruebas'). Cambia los ejemplos que dependan de su persona por ejemplos de emprendedores latinos.",
   "Nunca uses su nombre, su cuenta, su marca, sus números ni sus recursos: si el original ofrece algo en el remate (una guía, un workbook), el remate ofrece algo del producto de la persona.",
   "Hazlo MEJOR que el original con la fórmula de 6 posiciones. En 'mejoras' explica 3 cosas concretas que hiciste mejor. En 'mantener' marca las 3 partes del ADN más importantes (igual se conservan el tema y las ideas).",
 ].join("\n");

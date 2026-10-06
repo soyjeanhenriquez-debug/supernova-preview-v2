@@ -16,10 +16,12 @@ su moneda.
   eso (longevidad + escala del anunciante).
 - **El catálogo de anuncios y ofertas ES el producto.** Los ~71.000 anuncios reales de la
   Biblioteca de Meta sembrados en julio de 2026 son el activo principal de la app.
-- **Método "Roba como un artista":** el usuario elige UNA oferta validada y la copia casi
-  idéntica (mismo producto, estructura, mecanismo, precio y embudo), con mejoras puntuales
-  (español LATAM, pagos locales, entrega por WhatsApp). Nunca mezclas de varias referencias ni
-  precios inventados.
+- **Método "Roba como un artista": clonar lo que ya funciona es la esencia de la app.** No se
+  reinventa la rueda: se le da al usuario lo que ya está probado. El usuario elige UNA referencia
+  validada (oferta, anuncio, carrusel, video) y la clona casi idéntica (mismo producto, tema,
+  ideas, estructura, mecanismo, precio, embudo y estilo), con mejoras puntuales (español LATAM,
+  pagos locales, entrega por WhatsApp, la fórmula de las 6 posiciones). Nunca mezclas de varias
+  referencias ni precios inventados. Ver "Clonar con arte" en la sección 2.
 - **El recorrido "Mi negocio" (6 etapas, en orden):** 1 Elegir (Ofertas, Radar, Mini Apps) →
   2 Validar → 3 Precio → 4 Construir → 5 Vender (Mándala, Ganchos, Contenido, Generadores) →
   6 Medir y recuperar. **Navegación por intención (decisión de Jean, 03-oct-2026, por lo que
@@ -86,7 +88,13 @@ su moneda.
 - NUNCA inventar testimonios, cifras, ventas "en vivo", clientes, estudios ni urgencia falsa.
   (Jean pidió un ticker de ventas inventadas y se rechazó: se muestran solo datos reales.)
 - Garantías solo si existen de verdad, como reembolso y con esas palabras.
-- Copiar estructura, mecanismo, precio y embudo; NUNCA textos, imágenes ni marcas literales.
+- **Clonar con arte (decisión de Jean, 06-oct-2026).** Todo lo que funciona se puede tomar:
+  tema, ideas, orden, estructura, ganchos, mecanismo, precio, embudo, composición y estilo visual.
+  De **otro idioma al español** se puede seguir muy de cerca el original (transcreación: cada
+  pieza con la misma idea y el mismo remate, adaptada al español latino con algunos cambios para
+  que suene propia). Lo único que no se hace es publicar como propio lo que es de otro sin
+  transformarlo: copiar y pegar en el mismo idioma, traducir palabra por palabra, usar sus fotos,
+  su cara, su nombre o su marca, o presentar sus números y resultados como si fueran nuestros.
 - Los embudos de los usuarios se publican en un dominio aparte, nunca en el de la app.
 - NUNCA inflar cifras para parecer más grandes que la competencia. Cada número que ve el
   cliente es real y dice qué cuenta ("más de 7.500 ofertas analizadas", no "+7.500" suelto).

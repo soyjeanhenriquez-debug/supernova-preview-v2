@@ -407,7 +407,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
         <button type="button" onClick={() => setCloneMode(v => !v)} className="w-full text-left flex items-center justify-between gap-3 min-h-[32px]">
           <span>
             <span className="block font-display font-semibold text-[15px] text-foreground">¿Viste un carrusel que ya funciona? Clónalo con su ADN</span>
-            <span className="block text-[12px] text-muted-foreground">Pega el enlace. La IA lo lee lámina por lámina, descubre por qué funcionó y te lo entrega en español: con el mismo tema o aplicado a tu producto. Lo escribe con tus palabras: nunca copia sus frases, fotos ni marca.</span>
+            <span className="block text-[12px] text-muted-foreground">Pega el enlace. La IA lo lee lámina por lámina, descubre por qué funcionó y te lo clona en español: igual, adaptado a tu público, o con su ADN aplicado a tu producto. Sin traducir palabra por palabra y sin usar sus fotos, su cara ni su marca.</span>
           </span>
           <span className="text-xs text-muted-foreground shrink-0">{cloneMode ? "Cerrar" : "Abrir"}</span>
         </button>

@@ -681,7 +681,7 @@ export type CloneInfo = {
 export const MAX_KEEP = 3;
 export type CloneMode = "tema" | "producto";
 export const CLONE_MODES: Record<CloneMode, { label: string; line: string }> = {
-  tema: { label: "Mismo tema, en español", line: "Las mismas ideas, en el mismo orden y con la misma estructura, escritas con tus palabras y ejemplos para tu público. Tu producto va en el remate." },
+  tema: { label: "Clonarlo en español", line: "Lámina por lámina: misma idea, mismo orden y mismo remate, adaptado al español latino (no palabra por palabra). Tu producto va en el remate." },
   producto: { label: "Su ADN en mi producto", line: "Mantiene las 3 partes que lo hicieron funcionar y cambia el tema por tu producto." },
 };
 
@@ -735,7 +735,7 @@ export function recloneRequest(o: { info: CloneInfo; keep: string[]; brief: Brie
   return [
     o.info.mode === "producto"
       ? "Vas a escribir un carrusel NUEVO con el ADN ganador de otro que ya funcionó. Mantienes SOLO estas 3 partes y cambias todo lo demás. Nunca copies palabras, fotos, nombres, marcas ni números del original."
-      : "Vas a escribir en español un carrusel sobre el MISMO tema de otro que ya funcionó, con sus mismas ideas principales, en el mismo orden y con la misma estructura, cuidando sobre todo estas 3 partes. Escríbelo con TUS palabras: no traduzcas frase por frase ni copies sus oraciones; cambia los ejemplos por ejemplos de emprendedores latinos. Nunca uses su nombre, marca, números ni recursos; tu producto va en el remate.",
+      : "Vas a clonar en español un carrusel que ya funcionó: transcreación fiel, con el MISMO tema, la misma idea y el mismo remate de cada lámina, en el mismo orden y con la misma estructura, cuidando sobre todo estas 3 partes. Adáptalo al español latino con algunos cambios para que suene propio; nunca palabra por palabra ni copiar y pegar. Cambia los ejemplos que dependan de su persona por ejemplos de emprendedores latinos. Nunca uses su nombre, marca, números ni recursos; tu producto va en el remate.",
     `Resumen del original: ${o.info.summary}`,
     `Por qué funcionó: ${o.info.why}`,
     "Sus láminas, en orden (posición · composición · idea):",

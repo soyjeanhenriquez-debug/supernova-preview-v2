@@ -318,7 +318,8 @@ describe("carrusel: clonar con el mismo tema", () => {
     expect(info.mode).toBe("tema");
     const p = recloneRequest({ info, keep: ["a1", "a2"], brief, goal: "vender" });
     expect(p).toMatch(/MISMO tema/);
-    expect(p).toMatch(/no traduzcas frase por frase/);
+    expect(p).toMatch(/transcreación fiel/);
+    expect(p).toMatch(/nunca palabra por palabra/);
     expect(p).toMatch(/tu producto va en el remate/);
     expect(p).not.toMatch(/CAMBIAS por completo/);
   });

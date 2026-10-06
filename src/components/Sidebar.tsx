@@ -46,8 +46,8 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
     { title: "2 · Crear", items: visible([...STUDIO_TOOLS, ...STUDIO_MORE_TOOLS]) },
     { title: `3 · Publicar y medir · ${modelInfo.short}`, items: visible(modelInfo.tools) },
     { title: "Biblioteca", items: [
-      // Aprende: enseñanzas de la comunidad (siempre) y videos de cada herramienta (cuando haya).
-      { icon: GraduationCap, key: "Aprende", label: "Aprende", hint: TUTORIALS.length ? "Casos reales de otros miembros y un video corto por herramienta." : "Casos reales de otros miembros, paso a paso. Comparte el tuyo." },
+      // Aprende: guías de Jean (siempre) y videos de cada herramienta (cuando haya).
+      { icon: GraduationCap, key: "Aprende", label: "Aprende", hint: TUTORIALS.length ? "Guías paso a paso de Jean y un video corto por herramienta." : "Guías paso a paso de Jean, con las herramientas para hacerlo." },
       { icon: LayoutGrid, key: "Productos", label: "Mis productos", hint: "Todos tus productos y cuánto avanzó cada uno." },
       { icon: FolderKanban, key: "Proyectos", label: t("nav.projects"), hint: t("nav.hint.projects") },
     ] },

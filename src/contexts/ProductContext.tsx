@@ -126,6 +126,11 @@ export function ProductProvider({ children }: { children: ReactNode }) {
   return <ProductContext.Provider value={value}>{children}</ProductContext.Provider>;
 }
 
+/** Igual que useProducts, pero sin fallar fuera del proveedor (botones que viven en varias pantallas). */
+export function useOptionalProducts() {
+  return useContext(ProductContext);
+}
+
 export function useProducts() {
   const ctx = useContext(ProductContext);
   if (!ctx) throw new Error("useProducts debe usarse dentro de ProductProvider");

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Download, Play, Send } from "lucide-react";
 import { toast } from "sonner";
 import { PUBLISH_STEPS } from "@/lib/videoTemplates";
+import { AddToTracker } from "@/components/AddToTracker";
 import { downloadVideo } from "./videoApi";
 
 /**
@@ -46,6 +47,7 @@ export function ReadyToPublish({ clips, text, name }: { clips: { url: string; la
       )}
 
       <div className="flex flex-wrap gap-2">
+        <AddToTracker kind="corto" title={text.split("\n").find(l => l.trim())?.replace(/^#+\s*/, "").slice(0, 120) || `Video ${name}`} source={`video-${name}`.slice(0, 30)} className="h-9 min-h-0 rounded-full px-3 text-[12px]" />
         {clips.map((c, i) => (
           <button key={c.url} onClick={() => void downloadVideo(c.url, `supernova-${slug}-${i + 1}.mp4`)}
             className="inline-flex items-center gap-1.5 h-10 px-3.5 rounded-full border border-border text-[12px] text-foreground hover:border-foreground/30">

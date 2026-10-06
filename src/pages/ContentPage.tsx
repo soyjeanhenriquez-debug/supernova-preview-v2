@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, List, Loader2, PenLine, Plus, Search, Sparkles, Trash2 } from "lucide-react";
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Link2, List, Loader2, Minus, PenLine, Plus, Search, Sparkles, Target, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProducts } from "@/contexts/ProductContext";
 import { useBusinessProfile } from "@/lib/businessProfile";
 import { PageHeader } from "@/components/PageHeader";
+import {
+  DEFAULT_GOALS, EXTRA_NETWORKS, KINDS, NETWORK_LABEL, cleanChannels, freshChannels, kindFromPlatform, loadGoals, progressOf, saveGoals, statusFromChannels, weekSummary,
+  type Channels, type Goals, type Kind, type Network,
+} from "@/lib/contentTracker";
 
 /**
  * Etapa 5 del recorrido "Mi negocio": calendario de contenido orgánico.
@@ -13,15 +17,22 @@ import { PageHeader } from "@/components/PageHeader";
  * (autocompletado de Google y YouTube, edge function content-ideas, gratis con tope por usuario),
  * cada pieza conectada a una etapa de la Mándala (Atraer / Conectar / Convertir), con plataforma,
  * fecha y estado. Las piezas se guardan en content_items (RLS: cada quien sus filas).
+ *
+ * Tracker de publicaciones (06-oct-2026): cada pieza tiene su tipo (video corto, largo, texto o
+ * carrusel) y se publica en varias redes con un check y su enlace; guarda la palabra clave y los
+ * leads y ventas que la persona anota. Arriba, "Tu semana" contra su meta. Todo gratis.
  */
 
 type Stage = "atraer" | "conectar" | "convertir";
-type Platform = "reels" | "tiktok" | "youtube" | "blog" | "whatsapp";
+type Platform = "reels" | "tiktok" | "youtube" | "blog" | "whatsapp" | "shorts" | "threads" | "x" | "instagram";
 type Status = "idea" | "guion" | "grabado" | "publicado";
 type Item = {
   id: string; topic: string; title: string | null; stage: Stage; platform: Platform; status: Status;
   due: string | null; source: string | null; created_at: string;
+  kind: Kind | null; channels: Channels; keyword: string | null; leads: number; sales: number;
 };
+const COLS = "id,topic,title,stage,platform,status,due,source,created_at,kind,channels,keyword,leads,sales";
+const normalize = (r: Record<string, unknown>): Item => ({ ...(r as unknown as Item), kind: (r.kind as Kind) ?? kindFromPlatform(r.platform as string), channels: cleanChannels(r.channels), leads: Number(r.leads) || 0, sales: Number(r.sales) || 0 });
 type Idea = { topic: string; title: string; stage: Stage; platform: Platform; why: string; source: string };
 type SearchHit = { q: string; source: "google" | "youtube" };
 
@@ -35,6 +46,7 @@ const PLATFORMS: { id: Platform; label: string }[] = [
   { id: "reels", label: "Reels" }, { id: "tiktok", label: "TikTok" }, { id: "youtube", label: "YouTube" },
   { id: "blog", label: "Blog" }, { id: "whatsapp", label: "WhatsApp" },
 ];
+const KIND_IDS = Object.keys(KINDS) as Kind[];
 const STATUSES: { id: Status; label: string }[] = [
   { id: "idea", label: "Idea" }, { id: "guion", label: "Guion" }, { id: "grabado", label: "Grabado" }, { id: "publicado", label: "Publicado" },
 ];
@@ -74,6 +86,10 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const [searches, setSearches] = useState<SearchHit[]>([]);
   const [added, setAdded] = useState<Set<number>>(new Set());
   const [manualTitle, setManualTitle] = useState("");
+  const [manualKind, setManualKind] = useState<Kind>("corto");
+  const [goals, setGoals] = useState<Goals>(DEFAULT_GOALS);
+  const [editGoals, setEditGoals] = useState(false);
+  const [linksOpen, setLinksOpen] = useState<string | null>(null);
 
   useEffect(() => {
     if (loaded && !seedTouched && !seed) setSeed(defaultSeed(profile.product, profile.who));
@@ -81,20 +97,20 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
 
   const load = useCallback(async () => {
     if (!user || !activeId) return;
-    const { data, error } = await table().select("id,topic,title,stage,platform,status,due,source,created_at")
+    const { data, error } = await table().select(COLS)
       .eq("user_id", user.id).eq("product_id", activeId).order("due", { ascending: true, nullsFirst: false }).order("created_at", { ascending: true }).limit(500);
     if (error) toast.error("No se pudo cargar tu calendario");
-    setItems((data ?? []) as Item[]);
+    setItems(((data ?? []) as Record<string, unknown>[]).map(normalize));
     setItemsLoaded(true);
   }, [user, activeId]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (user && activeId) void loadGoals(user.id, activeId).then(setGoals); }, [user, activeId]);
 
   const today = useMemo(() => new Date(), []);
   const monday = useMemo(() => addDays(mondayOf(today), weekOffset * 7), [today, weekOffset]);
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => ymd(addDays(monday, i))), [monday]);
   const thisWeek = useMemo(() => { const m = mondayOf(today); return [ymd(m), ymd(addDays(m, 6))]; }, [today]);
-  const publishedThisWeek = items.filter(i => i.status === "publicado" && i.due && i.due >= thisWeek[0] && i.due <= thisWeek[1]).length;
-  const plannedThisWeek = items.filter(i => i.due && i.due >= thisWeek[0] && i.due <= thisWeek[1]).length;
+  const week = weekSummary(items, thisWeek[0], thisWeek[1], goals);
 
   /** Próximos días libres desde hoy (1 pieza por día). */
   const nextFreeDays = (n: number, extraTaken: string[] = []) => {
@@ -130,11 +146,13 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
     }
   };
 
-  const insertItems = async (rows: Omit<Item, "id" | "created_at">[]) => {
+  type NewRow = Omit<Item, "id" | "created_at" | "kind" | "channels" | "keyword" | "leads" | "sales"> & { kind?: Kind };
+  const insertItems = async (rows: NewRow[]) => {
     if (!user || !activeId || !rows.length) return false;
-    const { data, error } = await table().insert(rows.map(r => ({ ...r, user_id: user.id, product_id: activeId }))).select("id,topic,title,stage,platform,status,due,source,created_at");
+    const full = rows.map(r => { const k = r.kind ?? kindFromPlatform(r.platform); return { ...r, kind: k, channels: freshChannels(k), user_id: user.id, product_id: activeId }; });
+    const { data, error } = await table().insert(full).select(COLS);
     if (error) { toast.error("No se pudo guardar en tu calendario"); return false; }
-    setItems(prev => [...prev, ...((data ?? []) as Item[])].sort((a, b) => (a.due ?? "9999").localeCompare(b.due ?? "9999")));
+    setItems(prev => [...prev, ...((data ?? []) as Record<string, unknown>[]).map(normalize)].sort((a, b) => (a.due ?? "9999").localeCompare(b.due ?? "9999")));
     return true;
   };
 
@@ -165,7 +183,7 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
     const t = manualTitle.trim().slice(0, 200);
     if (!t) return;
     const [due] = nextFreeDays(1);
-    if (await insertItems([{ topic: t, title: t, stage: "atraer", platform: platform || "reels", status: "idea", due, source: "manual" }])) setManualTitle("");
+    if (await insertItems([{ topic: t, title: t, stage: "atraer", platform: KINDS[manualKind].networks[0], kind: manualKind, status: "idea", due, source: "manual" }])) setManualTitle("");
   };
 
   const update = async (id: string, patch: Partial<Item>) => {
@@ -173,6 +191,30 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
     const { error } = await table().update({ ...patch, updated_at: new Date().toISOString() }).eq("id", id);
     if (error) { toast.error("No se pudo guardar el cambio"); load(); }
   };
+
+  // ── Tracker: checks por red, enlaces, leads y ventas ──
+  const today0 = ymd(new Date());
+  const setChannels = (it: Item, ch: Channels) => update(it.id, { channels: ch, status: statusFromChannels(ch, it.status) as Status });
+  const toggleNet = (it: Item, n: Network) => {
+    const cur = it.channels[n] ?? {};
+    const ch = { ...it.channels, [n]: { ...cur, done: !cur.done, ...(!cur.done ? { at: today0 } : {}) } };
+    void setChannels(it, ch);
+    if (!cur.done && progressOf(ch).done === progressOf(ch).total) toast.success("Publicada en todas sus redes", { description: "Cuando te escriban con tu palabra clave, súmalos aquí." });
+  };
+  const addNet = (it: Item, n: Network) => void setChannels(it, { ...it.channels, [n]: { done: false } });
+  const removeNet = (it: Item, n: Network) => { const ch = { ...it.channels }; delete ch[n]; void setChannels(it, ch); };
+  const setUrl = (it: Item, n: Network, url: string) => {
+    const u = url.trim();
+    if (u && !/^https:\/\/\S{4,300}$/.test(u)) { toast("Pega el enlace completo de la publicación (empieza con https://)."); return; }
+    void setChannels(it, { ...it.channels, [n]: { ...(it.channels[n] ?? {}), ...(u ? { url: u, done: true, at: it.channels[n]?.at ?? today0 } : { url: undefined }) } });
+  };
+  const changeKind = (it: Item, k: Kind) => {
+    // Al cambiar de tipo se conservan las redes ya marcadas y se agregan las de fábrica del tipo nuevo.
+    const kept = Object.fromEntries(Object.entries(it.channels).filter(([, c]) => c?.done)) as Channels;
+    void update(it.id, { kind: k, platform: KINDS[k].networks[0] as Platform, channels: { ...freshChannels(k), ...kept } });
+  };
+  const bump = (it: Item, field: "leads" | "sales", d: number) => void update(it.id, { [field]: Math.max(0, Math.min(100000, (it[field] || 0) + d)) } as Partial<Item>);
+  const persistGoals = async (g: Goals) => { setGoals(g); if (user && activeId && !(await saveGoals(user.id, activeId, g))) toast.error("No se pudo guardar tu meta"); };
 
   const remove = async (id: string) => {
     const before = items;
@@ -213,14 +255,62 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
           style={{ color: stageOf(it.stage).color, borderColor: `${stageOf(it.stage).color}66` }}>
           {STAGES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
-        <select value={it.platform} onChange={e => update(it.id, { platform: e.target.value as Platform })} aria-label="Plataforma"
+        <select value={it.kind ?? "corto"} onChange={e => changeKind(it, e.target.value as Kind)} aria-label="Tipo de pieza"
           className="rounded-md border border-border bg-background px-1.5 py-1 text-[11px] text-muted-foreground">
-          {PLATFORMS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+          {KIND_IDS.map(k => <option key={k} value={k}>{KINDS[k].label}</option>)}
         </select>
         <select value={it.status} onChange={e => update(it.id, { status: e.target.value as Status })} aria-label="Estado"
           className={`rounded-md border px-1.5 py-1 text-[11px] bg-background ${it.status === "publicado" ? "border-emerald-500/50 text-emerald-400" : "border-border text-foreground"}`}>
           {STATUSES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
+      </div>
+      {/* Dónde se publica: un check por red */}
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap items-center gap-1">
+          {(Object.keys(it.channels) as Network[]).map(n => {
+            const c = it.channels[n] ?? {};
+            return (
+              <button key={n} type="button" onClick={() => toggleNet(it, n)} aria-pressed={!!c.done} title={c.done ? "Publicado. Toca para desmarcar." : "Toca cuando lo publiques"}
+                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${c.done ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400" : "border-border text-muted-foreground hover:text-foreground"}`}>
+                {c.done ? <Check className="w-3 h-3" /> : <span className="w-2.5 h-2.5 rounded-full border border-current" />}{NETWORK_LABEL[n]}
+              </button>
+            );
+          })}
+          {EXTRA_NETWORKS[it.kind ?? "corto"].filter(n => !it.channels[n]).map(n => (
+            <button key={n} type="button" onClick={() => addNet(it, n)} className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-border px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground">
+              <Plus className="w-2.5 h-2.5" />{NETWORK_LABEL[n]}
+            </button>
+          ))}
+          <button type="button" onClick={() => setLinksOpen(v => (v === it.id ? null : it.id))} aria-label="Enlaces de las publicaciones"
+            className="ml-auto p-1 text-muted-foreground hover:text-foreground"><Link2 className="w-3.5 h-3.5" /></button>
+        </div>
+        {(() => { const p = progressOf(it.channels); return p.total > 0 && <p className="text-[10px] text-muted-foreground">{p.done} de {p.total} redes publicadas</p>; })()}
+        {linksOpen === it.id && (
+          <div className="space-y-1">
+            {(Object.keys(it.channels) as Network[]).map(n => (
+              <div key={n} className="flex items-center gap-1.5">
+                <span className="w-16 shrink-0 text-[10px] text-muted-foreground">{NETWORK_LABEL[n]}</span>
+                <input key={`u-${it.id}-${n}`} defaultValue={it.channels[n]?.url ?? ""} placeholder="https://…" aria-label={`Enlace en ${NETWORK_LABEL[n]}`}
+                  onBlur={e => { if (e.target.value.trim() !== (it.channels[n]?.url ?? "")) setUrl(it, n, e.target.value); }}
+                  className="flex-1 min-w-0 rounded-md border border-border bg-background px-1.5 py-1 text-[11px] text-foreground focus:outline-none focus:border-primary/60" />
+                <button type="button" onClick={() => removeNet(it, n)} aria-label={`Quitar ${NETWORK_LABEL[n]}`} className="p-0.5 text-muted-foreground hover:text-red-400"><Trash2 className="w-3 h-3" /></button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {/* Lo que trae: palabra clave, leads y ventas (solo lo que anotes) */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <input key={`k-${it.id}`} defaultValue={it.keyword ?? ""} maxLength={30} placeholder="Palabra clave" aria-label="Palabra clave"
+          onBlur={e => { const v = e.target.value.replace(/[^\p{L}\p{N} ]/gu, "").toLocaleUpperCase("es").trim().slice(0, 30); if (v !== (it.keyword ?? "")) update(it.id, { keyword: v || null }); }}
+          className="w-28 rounded-md border border-border bg-background px-1.5 py-1 text-[11px] text-foreground uppercase focus:outline-none focus:border-primary/60" />
+        {(["leads", "sales"] as const).map(f => (
+          <span key={f} className="inline-flex items-center gap-1 rounded-md border border-border px-1 py-0.5 text-[11px] text-muted-foreground" title={f === "leads" ? "Personas que te escribieron por esta pieza" : "Ventas que salieron de esta pieza"}>
+            <button type="button" onClick={() => bump(it, f, -1)} aria-label={`Restar ${f === "leads" ? "lead" : "venta"}`} className="p-0.5 hover:text-foreground"><Minus className="w-3 h-3" /></button>
+            <span className="tabular-nums text-foreground">{it[f]}</span> {f === "leads" ? "te escribieron" : "compraron"}
+            <button type="button" onClick={() => bump(it, f, 1)} aria-label={`Sumar ${f === "leads" ? "lead" : "venta"}`} className="p-0.5 hover:text-foreground"><Plus className="w-3 h-3" /></button>
+          </span>
+        ))}
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         <input type="date" value={it.due ?? ""} onChange={e => update(it.id, { due: e.target.value || null })} aria-label="Fecha"
@@ -301,14 +391,42 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageHeader stage="Mi negocio · Etapa 5" title="Calendario de contenido"
           icon={<CalendarDays className="w-5 h-5 text-primary" />}
-          line="Ideas con búsquedas reales para publicar gratis. Agrégalas a tu semana."
+          line="Ideas con búsquedas reales, publícalas en todas tus redes con un check y anota quién te escribe."
           details={STAGES.map(s => `${s.label}: ${s.desc}.`)} />
-        {itemsLoaded && items.length > 0 && (
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5 text-right">
-            <p className="font-display font-bold text-2xl text-emerald-400 tabular-nums">{publishedThisWeek}</p>
-            <p className="text-[11px] text-muted-foreground">publicadas esta semana{plannedThisWeek ? ` de ${plannedThisWeek}` : ""}</p>
-          </div>
-        )}
+      </div>
+
+      {/* Tu semana: lo publicado contra tu meta, y lo que te trae clientes */}
+      <div className="card-surface rounded-2xl p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="font-semibold text-foreground flex items-center gap-2"><Target className="w-4 h-4 text-primary" /> Tu semana</p>
+          <button type="button" onClick={() => setEditGoals(v => !v)} className="text-xs text-muted-foreground hover:text-foreground">{editGoals ? "Listo" : "Cambiar mi meta"}</button>
+        </div>
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+          {week.byKind.map(b => {
+            const pct = b.goal ? Math.min(100, Math.round((b.published / b.goal) * 100)) : 0;
+            return (
+              <div key={b.kind} className="rounded-xl border border-border p-3 space-y-1.5">
+                <p className="text-[12px] text-foreground">{KINDS[b.kind].label} <span className="text-muted-foreground">· {KINDS[b.kind].line}</span></p>
+                {editGoals ? (
+                  <label className="flex items-center gap-2 text-[11px] text-muted-foreground">Meta por semana
+                    <input type="number" min={0} max={50} value={goals[b.kind]} onChange={e => void persistGoals({ ...goals, [b.kind]: Math.max(0, Math.min(50, Number(e.target.value) || 0)) })}
+                      aria-label={`Meta de ${KINDS[b.kind].label}`} className="w-14 rounded-md border border-border bg-background px-1.5 py-1 text-[12px] text-foreground" />
+                  </label>
+                ) : (
+                  <p className="font-display font-bold text-xl text-foreground tabular-nums">{b.published}<span className="text-muted-foreground text-sm font-normal"> / {b.goal}</span></p>
+                )}
+                <div className="h-1.5 rounded-full bg-border overflow-hidden"><div className={`h-full rounded-full ${pct >= 100 ? "bg-emerald-500" : "bg-primary"}`} style={{ width: `${pct}%` }} /></div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-muted-foreground">
+          <span><span className="text-foreground font-semibold tabular-nums">{week.posts}</span> publicaciones esta semana (contando cada red)</span>
+          <span><span className="text-foreground font-semibold tabular-nums">{week.leads}</span> te escribieron</span>
+          <span><span className="text-foreground font-semibold tabular-nums">{week.sales}</span> compraron</span>
+          {week.best && <span>Lo que más te trae clientes: <span className="text-foreground">{KINDS[week.best.kind].label.toLowerCase()}</span> ({week.best.leads} en total)</span>}
+        </div>
+        <p className="text-[11px] text-muted-foreground/80">Una pieza cuenta como publicada cuando tiene el check en todas sus redes. Los leads y las ventas los anotas tú en cada pieza: solo números reales.</p>
       </div>
 
       {/* Buscar ideas con demanda real */}
@@ -389,6 +507,10 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
             </button>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
+            <select value={manualKind} onChange={e => setManualKind(e.target.value as Kind)} aria-label="Tipo de pieza"
+              className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-muted-foreground">
+              {KIND_IDS.map(k => <option key={k} value={k}>{KINDS[k].label}</option>)}
+            </select>
             <input value={manualTitle} maxLength={200} onChange={e => setManualTitle(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addManual(); }}
               placeholder="Una idea tuya…" className="flex-1 sm:w-64 rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary/60" />
             <button onClick={addManual} disabled={!manualTitle.trim()}

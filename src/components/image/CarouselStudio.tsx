@@ -18,6 +18,7 @@ import {
 import { FONTS, fontEmbedCss, loadStyleFonts, slideToBlob } from "@/lib/carouselTheme";
 import { SLIDE_W, SlideView, slideH } from "@/components/image/carousel/SlideView";
 import { loadDesign, loadDraft, saveDesign, saveDraft } from "@/lib/carouselStore";
+import { AddToTracker } from "@/components/AddToTracker";
 
 /**
  * Carrusel (05-oct-2026, v2): la IA escribe el texto con los 5 tiempos (Gancho → Promesa → Tirón →
@@ -876,6 +877,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
           className="min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 text-[13px] text-foreground hover:border-foreground/40 disabled:opacity-60">
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Descargar las {slides.length} láminas
         </button>
+        {!isSample && <AddToTracker kind="carrusel" title={slides[0]?.title ?? brief.product} keyword={slides[slides.length - 1]?.cta} source="carrusel" className="sm:ml-2" />}
 
         {preview.caption && (
           <div className="rounded-xl border border-border bg-background/40 p-4 space-y-3">

@@ -19,6 +19,7 @@ import {
   type MediaKind, type PieceStatus, type ProductionMeta, type SceneState,
 } from "@/lib/productionStore";
 import { audioSeconds, canRecord, compressImage, decodeAudio, renderMontage, type Format, type MontageResult } from "@/lib/montage";
+import { AddToTracker } from "@/components/AddToTracker";
 
 /**
  * "Producir video" del Creador de YouTube (04-oct-2026): del guion por escenas a un video
@@ -683,6 +684,7 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
               <div className="flex items-center justify-between gap-2"><span className="text-[13px] text-foreground font-medium">Etiquetas</span><button onClick={() => copy(publish.tags.join(", "), "Etiquetas")} className="inline-flex items-center gap-1 h-10 px-3 text-[12px] text-muted-foreground hover:text-foreground"><Copy className="w-3.5 h-3.5" /> Copiar</button></div>
               <div className="flex flex-wrap gap-1.5">{publish.tags.map(t => <span key={t} className="h-7 px-2.5 rounded-full border border-border text-[12px] text-foreground inline-flex items-center">{t}</span>)}</div>
             </div>
+            <AddToTracker kind={meta.format === "16:9" ? "largo" : "corto"} title={title} source="youtube" />
             <button onClick={makeThumbnail} className="inline-flex items-center gap-2 h-11 px-4 rounded-xl border border-border text-[13px] text-foreground hover:border-foreground/30"><ImageIcon className="w-4 h-4" /> Hacer la miniatura · {PRICES.image * 2} créditos</button>
             <div className="space-y-2 pt-2 border-t border-border/60">
               <p className="text-[13px] text-foreground font-medium inline-flex items-center gap-2"><Upload className="w-4 h-4" /> Súbelo a YouTube en 3 pasos</p>

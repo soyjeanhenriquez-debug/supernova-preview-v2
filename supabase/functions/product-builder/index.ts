@@ -17,9 +17,10 @@
 //
 // Ruta interna de prueba: con x-cron-secret válido + test_user_id de un ADMIN, actúa como ese
 // usuario (cobrando igual). Así se puede probar desde SQL (net.http_post) sin sesión de navegador.
-import { corsHeaders as baseCors } from "npm:@supabase/supabase-js@2/cors";
-import { createClient } from "npm:@supabase/supabase-js@2";
-import Anthropic from "npm:@anthropic-ai/sdk@0.128";
+import { corsHeaders as baseCors } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
+import Anthropic from "npm:@anthropic-ai/sdk@0.128.0";
+import { safeRefund } from "../_shared/refund.ts";
 
 const FN = "product-builder";            // p_fn de log_ai_usage: "product-builder:outline" | ":piece" (panel de margen)
 const FN_OUTLINE = "product-builder-outline"; // topes en edge_limits
@@ -125,8 +126,7 @@ function billingHeaders(gate: Gate): Record<string, string> {
 
 async function refundCharge(admin: Admin, gate: Gate, reason: string): Promise<void> {
   if (!gate.txId) return;
-  try { await admin.rpc("refund_charge", { p_tx_id: gate.txId, p_reason: reason.slice(0, 200) }); }
-  catch (e) { console.error("refund_charge falló:", e); }
+  await safeRefund(admin, gate.txId, reason, "product-builder");
 }
 
 // ── Producto sobre el que se trabaja ────────────────────────────────────

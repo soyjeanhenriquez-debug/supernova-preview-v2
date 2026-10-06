@@ -1,7 +1,9 @@
 // SUPERNOVA — Facebook Ad Library proxy
 // Usa FACEBOOK_ACCESS_TOKEN (server-side) para consultar la Ad Library API.
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2.117.1";
+import { safeRefund } from "../_shared/refund.ts";
+import { redact } from "../_shared/redact.ts";
 
 // ── Compuerta de usuario + cobro en el servidor ─────────────────────────
 // verify_jwt del gateway NO basta: la llave pública (anon) que viaja en el
@@ -50,8 +52,7 @@ async function requireUser(req: Request, fn: string, maxHour: number, maxDay: nu
 // Meta falló después de cobrar: se devuelve el crédito (idempotente en la base).
 async function refundCharge(gate: Gate, reason: string): Promise<void> {
   if (!gate.txId) return;
-  try { await guardClient().rpc("refund_charge", { p_tx_id: gate.txId, p_reason: reason.slice(0, 200) }); }
-  catch (e) { console.error("refund_charge falló:", e); }
+  await safeRefund(guardClient(), gate.txId, reason, "facebook-ads");
 }
 
 // El token vigente vive en Vault: lo renueva fb-token-keeper antes de que venza.
@@ -193,7 +194,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("facebook-ads:", e instanceof Error ? e.message : e);
+    console.error("facebook-ads:", redact(e));
     await refundCharge(gate, "excepción");
     return unavailable("fb_error");
   }

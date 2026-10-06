@@ -9,8 +9,9 @@
 //
 // Ruta interna de prueba: con x-cron-secret válido + test_user_id de un ADMIN, actúa como ese
 // usuario (cobrando igual). Así se puede probar desde SQL (net.http_post) sin sesión de navegador.
-import { corsHeaders as baseCors } from "npm:@supabase/supabase-js@2/cors";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders as baseCors } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
+import { safeRefund } from "../_shared/refund.ts";
 
 const MODEL = "gemini-3-flash-preview";
 const FN = "business-map";
@@ -85,8 +86,7 @@ function billingHeaders(gate: Gate): Record<string, string> {
 
 async function refundCharge(admin: Admin, gate: Gate, reason: string): Promise<void> {
   if (!gate.txId) return;
-  try { await admin.rpc("refund_charge", { p_tx_id: gate.txId, p_reason: reason.slice(0, 200) }); }
-  catch (e) { console.error("refund_charge falló:", e); }
+  await safeRefund(admin, gate.txId, reason, "business-map");
 }
 
 // ── Prompt ──────────────────────────────────────────────────────────────

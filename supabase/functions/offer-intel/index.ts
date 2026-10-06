@@ -12,9 +12,10 @@
 //
 // verify_jwt = false porque también la invoca pg_cron (precalienta las ganadoras).
 // Compuerta propia: usuario real con acceso + tope de uso, o secreto de cron.
-import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 import { CHECKOUT_PARSERS, type CheckoutData } from "./checkout_parse.ts";
+import { redact } from "../_shared/redact.ts";
 
 const FRESH_DAYS = 30;          // una ficha lista vale este tiempo
 const RETRY_AFTER_H = 12;       // una ficha fallida no se reintenta antes
@@ -329,7 +330,7 @@ async function fetchLanding(rawUrl: string): Promise<Landing | null> {
     if (!html) return null;
     return analyzeLanding(html, target);
   } catch (e) {
-    console.error("offer-intel: página de ventas:", e instanceof Error ? e.message : e);
+    console.error("offer-intel: página de ventas:", redact(e));
     return null;
   } finally {
     clearTimeout(timer);
@@ -532,7 +533,7 @@ async function fetchCheckoutPage(rawUrl: string, platform: string): Promise<{ ht
     if (checkoutPlatform(target.toString()) !== platform) { await res.body?.cancel(); return null; }
     return { html: await readCapped(res, 2_000_000), url: cleanUrl(target.toString()) ?? target.toString() };
   } catch (e) {
-    console.error("offer-intel: checkout:", platform, e instanceof Error ? e.message : e);
+    console.error("offer-intel: checkout:", platform, redact(e));
     return null;
   } finally {
     clearTimeout(timer);
@@ -566,7 +567,7 @@ async function readHotmartCheckout(rawUrl: string): Promise<CheckoutData | null>
       source_url: page.url,
     };
   } catch (e) {
-    console.error("offer-intel: checkout:", e instanceof Error ? e.message : e);
+    console.error("offer-intel: checkout:", redact(e));
     return null;
   }
 }
@@ -599,7 +600,7 @@ async function readCheckout(url: string | null, platform: string | null): Promis
   try {
     return parse(page.html, page.url);
   } catch (e) {
-    console.error("offer-intel: checkout:", platform, e instanceof Error ? e.message : e);
+    console.error("offer-intel: checkout:", platform, redact(e));
     return null;
   }
 }
@@ -622,7 +623,7 @@ async function logAiUsage(fn: string, model: string, usage: unknown): Promise<vo
     });
     const { error } = await admin.rpc("log_ai_usage", { p_user_id: null, p_fn: fn, p_model: model, p_input: input, p_output: output, p_images: 0 });
     if (error) console.error("log_ai_usage:", error.message);
-  } catch (e) { console.error("log_ai_usage:", e instanceof Error ? e.message : e); }
+  } catch (e) { console.error("log_ai_usage:", redact(e)); }
 }
 
 const SYSTEM = `Eres el director comercial de SUPERNOVA: formas a los mejores vendedores online de Latinoamérica. Tu lector quiere VENDER una oferta digital parecida a esta, en español, empezando esta semana. Tu trabajo es decirle con datos si esta oferta VENDE y cómo venderla él mejor. No opinas sobre si el producto te gusta ni das lecciones de moral: juzgas ventas.
@@ -1045,7 +1046,7 @@ Deno.serve(async (req) => {
     const out = await processOffer(admin, offerId, force);
     return json(out.http, out.body);
   } catch (e) {
-    console.error("offer-intel:", e instanceof Error ? e.message : e);
+    console.error("offer-intel:", redact(e));
     return json(500, { error: "No se pudo analizar la oferta. Intenta de nuevo en un momento." });
   }
 });

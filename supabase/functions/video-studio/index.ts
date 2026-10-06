@@ -23,8 +23,10 @@
 // config → gratis: si UGC está abierto para este usuario.
 // Reglas del manual en cada clip: nada sexual, sin marcas ni famosos, sin dinero ni promesas; anuncio
 // y UGC: nunca testimonio, habla en español latino, aviso de personaje IA.
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
+import { ownStoragePath } from "../_shared/paths.ts";
+import { safeRefund } from "../_shared/refund.ts";
 
 const FN = "video-studio";
 const APIMART = "https://api.apimart.ai/v1";
@@ -94,10 +96,7 @@ async function charge(uid: string, action: string, label: string): Promise<Gate 
 /** Devuelve los créditos de un cobro (idempotente, vale 1 hora). true si quedaron devueltos. */
 async function refund(txId: string | null, reason: string): Promise<boolean> {
   if (!txId) return false;
-  try {
-    const { data } = await admin().rpc("refund_charge", { p_tx_id: txId, p_reason: reason.slice(0, 200) });
-    return data?.ok === true;
-  } catch (e) { console.error("refund_charge:", e); return false; }
+  return await safeRefund(admin(), txId, reason, FN);
 }
 
 const billingHeaders = (g: Gate): Record<string, string> => ({
@@ -138,8 +137,8 @@ async function startImage(uid: string, body: Record<string, unknown>): Promise<s
   }
   if (typeof body.image_path === "string") {
     const bucket = body.image_bucket === "personajes" ? "personajes" : "creativos";
-    const p = body.image_path;
-    if (!p.startsWith(`${uid}/`) || p.includes("..")) return undefined;
+    const p = ownStoragePath(uid, body.image_path);
+    if (!p) return undefined;
     const { data } = await db.storage.from(bucket).createSignedUrl(p, 60 * 60);
     return data?.signedUrl ?? undefined;
   }

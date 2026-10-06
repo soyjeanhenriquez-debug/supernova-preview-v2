@@ -8,8 +8,8 @@
 // encendidos en todos los modelos (nada NSFW, manual de SUPERNOVA).
 //   create → valida → modelo/plan → cobro → cola de fal → video_jobs
 //   status → consulta fal; terminado: guarda la URL; fallido: reembolsa.
-//   ?ping=1 → prueba la llave de fal sin gastar (solo mientras ningún modelo de video esté 'live').
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+//   ?ping=1 → prueba la llave de fal sin gastar (solo admins con sesión).
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 import {
   FAL_KEY, admin, appOf, billingHeaders, caller, charge, fal, json, logCost, pickModel, refund, signedPhoto,
 } from "../_shared/media.ts";
@@ -20,17 +20,18 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   let txId: string | null = null;
   try {
+    const who = await caller(req);
+    if (!who) return json({ error: "Inicia sesión para usar esta función." }, 401);
+
+    // Diagnóstico de la llave de fal: SOLO admins (antes respondía a cualquiera, sin sesión:
+    // chequeo de seguridad 06-oct-2026, hallazgo M5).
     if (new URL(req.url).searchParams.get("ping") === "1") {
-      const { count } = await admin().from("media_models").select("id", { count: "exact", head: true }).eq("kind", "video").eq("status", "live");
-      if ((count ?? 0) > 0) return json({ error: "No disponible." }, 404);
+      if (!who.isAdmin) return json({ error: "No disponible." }, 404);
       if (!FAL_KEY) return json({ fal_key: false });
       const r = await fal("https://queue.fal.run/fal-ai/kling-video/requests/00000000-0000-0000-0000-000000000000/status");
       await r.body?.cancel();
       return json({ fal_key: true, fal_auth_ok: r.status !== 401 && r.status !== 403, fal_status: r.status });
     }
-
-    const who = await caller(req);
-    if (!who) return json({ error: "Inicia sesión para usar esta función." }, 401);
 
     const raw = await req.text();
     if (raw.length > 6000) return json({ error: "La solicitud es demasiado grande." }, 413);

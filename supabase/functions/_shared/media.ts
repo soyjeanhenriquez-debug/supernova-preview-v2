@@ -1,7 +1,9 @@
 // SUPERNOVA — Lo común de video-generate e image-generate (fal.ai): usuario, plan, catálogo y cobro.
 // Reglas: el servidor decide TODO (modelo, plan, precio); el navegador solo manda el id del modelo.
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
+import { ownStoragePath } from "./paths.ts";
+import { safeRefund } from "./refund.ts";
 
 export const FAL_KEY = Deno.env.get("FAL_KEY");
 
@@ -89,9 +91,7 @@ export async function charge(fn: string, userId: string, action: string, label: 
 }
 
 export async function refund(txId: string | null, reason: string) {
-  if (!txId) return;
-  try { await admin().rpc("refund_charge", { p_tx_id: txId, p_reason: reason.slice(0, 200) }); }
-  catch (e) { console.error("refund_charge:", e); }
+  await safeRefund(admin(), txId, reason, "media");
 }
 
 export const billingHeaders = (g: Gate): Record<string, string> => ({
@@ -109,7 +109,8 @@ export const appOf = (endpoint: string) => endpoint.split("/").slice(0, 2).join(
 
 /** Foto del personaje: solo de la carpeta del propio usuario; URL firmada temporal para fal. */
 export async function signedPhoto(userId: string, path: unknown): Promise<string | null> {
-  if (typeof path !== "string" || !path.startsWith(`${userId}/`) || path.includes("..")) return null;
-  const { data } = await admin().storage.from("personajes").createSignedUrl(path, 60 * 30);
+  const p = ownStoragePath(userId, path);
+  if (!p) return null;
+  const { data } = await admin().storage.from("personajes").createSignedUrl(p, 60 * 30);
   return data?.signedUrl ?? null;
 }

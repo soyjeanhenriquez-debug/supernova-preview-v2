@@ -4,7 +4,7 @@ import { toast } from "sonner";
 
 const HIST_KEY = "supernova_credits_history_v1";
 /** Cada pantalla tiene su propia instancia del hook: este evento las mantiene con el mismo saldo. */
-const SYNC_EVENT = "supernova_credits_sync";
+export const SYNC_EVENT = "supernova_credits_sync";
 const MILESTONES_KEY = "supernova_milestones_v1";
 const DEFAULT_BALANCE = 2000;
 const DEFAULT_LIMIT = 2000;
@@ -122,9 +122,8 @@ function checkMilestones(prevBalance: number, nextBalance: number, limit: number
     seen.add(key);
     toast(title, { description, duration: 6000 });
   };
-  const spentBefore = limit - prevBalance, spentAfter = limit - nextBalance;
-  if (spentBefore < 500 && spentAfter >= 500) fire("spent_500", "⚡ 500 créditos bien invertidos");
-  if (spentBefore < 1500 && spentAfter >= 1500) fire("spent_1500", "🔥 Has usado la mitad de tus créditos");
+  // Sin avisos por cada gasto: la ruedita de la barra superior lo muestra. Solo saldo bajo.
+  void limit;
   if (prevBalance > 500 && nextBalance <= 500) fire("left_500", "⚡ Te quedan 500 créditos");
   if (prevBalance > 100 && nextBalance <= 100) fire("left_100", "🚨 Últimos 100 créditos");
   localStorage.setItem(MILESTONES_KEY, JSON.stringify(Array.from(seen)));
@@ -251,7 +250,6 @@ export function useCredits() {
       date: new Date().toISOString(), action, label: ACTION_LABEL[action], cost: billing.charged, meta,
     };
     setHistory(h => [entry, ...h].slice(0, 200));
-    toast(`-${billing.charged} ⚡`, { description: ACTION_LABEL[action], duration: 1800 });
     window.dispatchEvent(new CustomEvent("supernova_credit_spent", { detail: { cost: billing.charged, action, label: ACTION_LABEL[action] } }));
     if (typeof billing.balance === "number") checkMilestones(billing.balance + billing.charged, billing.balance, DEFAULT_LIMIT);
   }, []);
@@ -268,7 +266,6 @@ export function useCredits() {
       date: new Date().toISOString(), action, label: ACTION_LABEL[action], cost, meta,
     };
     setHistory(h => [entry, ...h].slice(0, 200));
-    toast(`-${cost} ⚡`, { description: ACTION_LABEL[action], duration: 1800 });
     window.dispatchEvent(new CustomEvent("supernova_credit_spent", { detail: { cost, action, label: ACTION_LABEL[action] } }));
     checkMilestones(prev, next, DEFAULT_LIMIT);
 

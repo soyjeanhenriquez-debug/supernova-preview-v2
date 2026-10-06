@@ -1,8 +1,7 @@
-import { Coins, Menu, Search } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useCredits } from "@/hooks/useCredits";
-import { CountUp } from "@/components/CountUp";
+import { CreditRing } from "@/components/CreditRing";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useFeatureAccess, MULTI_LANGUAGE_FOR_CLIENTS } from "@/lib/features";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,7 +25,6 @@ const EXTRA_TITLES: Record<string, string> = {
 };
 
 export function TopBar({ activePage, onOpenMobileNav, onSearch }: TopBarProps) {
-  const { balance, limit } = useCredits();
   const { t, i18n } = useTranslation();
   // Inglés y portugués en pausa para clientes (src/lib/features.ts): la app va en español.
   const { isAdmin, loading: accessLoading } = useFeatureAccess();
@@ -34,7 +32,6 @@ export function TopBar({ activePage, onOpenMobileNav, onSearch }: TopBarProps) {
   useEffect(() => {
     if (!accessLoading && !multiLang && i18n.resolvedLanguage !== "es") i18n.changeLanguage("es");
   }, [accessLoading, multiLang, i18n]);
-  const low = !isAdmin && balance < 100; // los admin no gastan de un saldo: se muestra "Ilimitado"
   // Mismo nombre que en el menú (la clave interna de la página no es para mostrarla).
   const NAV_KEY: Record<string, string> = {
     "Dashboard": "nav.dashboard", "Ofertas": "nav.offers", "Mini Apps": "nav.kits",
@@ -103,20 +100,7 @@ export function TopBar({ activePage, onOpenMobileNav, onSearch }: TopBarProps) {
             <Search className="w-[14px] h-[14px]" strokeWidth={1.8} />
           </button>
         )}
-        <div
-          className={`flex items-center gap-2 h-8 px-3 rounded-full border text-[11px] font-medium transition-colors ${
-            low
-              ? "border-destructive/40 bg-destructive/10 text-destructive"
-              : "border-border bg-card/60 text-foreground hover:border-foreground/30"
-          }`}
-          title={isAdmin ? "Créditos ilimitados (admin)" : `${balance} / ${limit} ${t("common.credits")}`}
-        >
-          <Coins className={`w-[13px] h-[13px] ${low ? "text-destructive" : "text-primary"}`} strokeWidth={1.8} />
-          {isAdmin ? <span className="font-semibold">Ilimitado</span> : (<>
-            <span className="tabular-nums font-semibold"><CountUp value={balance} /></span>
-            <span className="text-muted-foreground/70 hidden sm:inline">/ {limit.toLocaleString()}</span>
-          </>)}
-        </div>
+        <CreditRing isAdmin={isAdmin} />
 
         {multiLang && <LanguageSwitcher />}
 

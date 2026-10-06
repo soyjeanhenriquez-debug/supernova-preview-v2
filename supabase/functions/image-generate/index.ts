@@ -4,7 +4,7 @@
 // descarga la imagen y la guarda en el bucket privado "personajes/{user_id}/{product_id}/…" →
 // devuelve la ruta. Si algo falla después de cobrar, devuelve el crédito. Filtros de contenido de
 // fal encendidos (nada NSFW).
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 import { FAL_KEY, admin, billingHeaders, caller, charge, fal, json, logCost, pickModel, refund } from "../_shared/media.ts";
 
 const FN = "image-generate";

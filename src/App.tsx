@@ -35,6 +35,7 @@ const AdminNegocio = lazy(() => import("@/pages/admin/AdminNegocio"));
 const AdminModelos = lazy(() => import("@/pages/admin/AdminModelos"));
 const AdminMensajes = lazy(() => import("@/pages/admin/AdminMensajes"));
 const AdminEnsenanzas = lazy(() => import("@/pages/admin/AdminEnsenanzas"));
+const AdminMisiones = lazy(() => import("@/pages/admin/AdminMisiones"));
 const SetPasswordDialog = lazy(() => import("@/components/SetPasswordDialog"));
 
 /** "Crea tu contraseña nueva": la ventana se descarga solo si se abre (tras login con código o desde el menú). */
@@ -177,6 +178,7 @@ function AppRoutes() {
             <Route path="config" element={<AdminConfig />} />
             <Route path="mensajes" element={<AdminMensajes />} />
             <Route path="ensenanzas" element={<AdminEnsenanzas />} />
+            <Route path="misiones" element={<AdminMisiones />} />
             <Route path="negocio" element={<AdminNegocio />} />
             <Route path="modelos" element={<AdminModelos />} />
             <Route path="creditos" element={<Navigate to="/admin/modelos" replace />} />

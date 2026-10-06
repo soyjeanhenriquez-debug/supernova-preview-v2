@@ -1,9 +1,10 @@
 // SUPERNOVA — Bulk seeder for winning_ads using Facebook Ad Library API.
 // Recorre N keywords maestras × M países, llama a /ads_archive con limit alto y
 // guarda todo en winning_ads. Pensado para inflar el catálogo a miles de anuncios.
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.1";
+import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2.117.1";
+import { redact } from "../_shared/redact.ts";
 // eslint-disable @typescript-eslint/no-explicit-any
 
 /** Días mínimos pagándose para guardar un anuncio nuevo. 04-oct-2026: 3. 05-oct-2026 (Jean): 15, para
@@ -225,7 +226,7 @@ Deno.serve(async (req) => {
           if (!r.ok) return { kw, country, items: [], err: data?.error?.message ?? r.statusText };
           return { kw, country, items: data?.data ?? [] };
         } catch (e) {
-          return { kw, country, items: [], err: e instanceof Error ? e.message : "fetch_err" };
+          return { kw, country, items: [], err: redact(e, 200) };
         }
       }));
 
@@ -311,7 +312,7 @@ Deno.serve(async (req) => {
       errors: totalErrors,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), {
+    return new Response(JSON.stringify({ error: redact(e, 300) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

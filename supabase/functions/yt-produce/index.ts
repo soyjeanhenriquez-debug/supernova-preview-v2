@@ -18,9 +18,10 @@
 //           (US$0,04 al crédito más barato: ~3,9× en el peor caso; ~3,5× si la voz va a 13 car/s;
 //           ~5× en una escena normal de 30 s). Por eso speed < 1 no se acepta.
 //   imagen  gpt-image-2 1k ≈ US$0,0081 → 6 créditos (5,9×).
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 import { apimartImage, apimartSpeech, encodeBase64, hasApimart, APIMART_IMAGE_MODEL as IMAGE_MODEL, TTS_MODEL } from "../_shared/apimart.ts";
+import { safeRefund } from "../_shared/refund.ts";
 
 const FN = "yt-produce";
 const MAX_TEXT = 600; // contraparte: MAX_NARRATION en src/lib/ytScenes.ts
@@ -79,8 +80,7 @@ async function charge(uid: string, action: string, label: string): Promise<Gate 
 
 async function refund(txId: string | null, reason: string) {
   if (!txId) return;
-  try { await admin().rpc("refund_charge", { p_tx_id: txId, p_reason: reason.slice(0, 200) }); }
-  catch (e) { console.error("refund_charge:", e); }
+  await safeRefund(admin(), txId, reason, "yt-produce");
 }
 
 async function logCost(uid: string, model: string, cost: number, images: number) {

@@ -6,8 +6,10 @@
 //            referencia) y TU VERSIÓN: guion ORIGINAL con el mismo tema y tipo de estructura, nunca su
 //            texto (YouTube no paga lo copiado). Cobra yt_reference ANTES y devuelve si falla.
 // translate→ traduce el guion conservando el formato de escenas. Cobra yt_translate.
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
+import { safeRefund } from "../_shared/refund.ts";
+import { redact } from "../_shared/redact.ts";
 
 const FN = "yt-reference";
 const MODEL = "gemini-3.8-flash"; // gemini-2.5-flash ya no está disponible para cuentas nuevas
@@ -43,7 +45,7 @@ async function charge(uid: string, action: string, label: string): Promise<Gate 
 
 async function refund(txId: string | null, reason: string) {
   if (!txId) return;
-  try { await admin().rpc("refund_charge", { p_tx_id: txId, p_reason: reason.slice(0, 200) }); } catch (e) { console.error("refund_charge:", e); }
+  await safeRefund(admin(), txId, reason, "yt-reference");
 }
 
 const billingHeaders = (g: Gate): Record<string, string> => ({
@@ -69,8 +71,8 @@ Narración: (lo que dice la voz en esa escena)`;
 async function gemini(parts: unknown[], maxTokens: number) {
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) throw new Error("sin GEMINI_API_KEY");
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`, {
-    method: "POST", headers: { "Content-Type": "application/json" },
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
+    method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": key },
     body: JSON.stringify({
       contents: [{ role: "user", parts }],
       generationConfig: { responseMimeType: "application/json", maxOutputTokens: maxTokens, temperature: 0.8, mediaResolution: "MEDIA_RESOLUTION_LOW" },
@@ -173,7 +175,7 @@ Devuelve SOLO JSON con estas claves:
       billing: { charged: g.charged, balance: g.balance },
     }, 200, billingHeaders(g));
   } catch (e) {
-    console.error("yt-reference:", e instanceof Error ? e.message : e);
+    console.error("yt-reference:", redact(e));
     await refund(txId, "excepción");
     return json({ error: "No se pudo completar. Si se cobró, te devolvimos los créditos." }, 500);
   }

@@ -9,7 +9,7 @@
 // "Roba como un artista" (manual, sección 2): se copia estructura y mecanismo, NUNCA textos, fotos,
 // caras, nombres ni marcas. Las imágenes del original solo se usan para el análisis: no se guardan.
 // La llave de Apify va en la cabecera (nunca en la URL, para que no quede en logs).
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 import { admin, billingHeaders, caller, charge, json, refund } from "../_shared/media.ts";
 
 const FN = "carousel-clone";

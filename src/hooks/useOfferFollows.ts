@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Offer } from "@/lib/offers";
-import { CREDIT_COSTS } from "@/hooks/useCredits";
+import { SYNC_EVENT, CREDIT_COSTS } from "@/hooks/useCredits";
 
 /**
  * Cazador de ROI — seguimiento privado de ofertas.
@@ -23,7 +23,7 @@ export function useOfferFollows() {
 
   const follow = useCallback(async (offer: Offer): Promise<boolean> => {
     const { data, error } = await supabase.rpc("follow_offer", { p_offer_id: offer.id });
-    const res = (data ?? {}) as { success?: boolean; error?: string; already?: boolean };
+    const res = (data ?? {}) as { success?: boolean; error?: string; already?: boolean; balance?: number };
     if (error || !res.success) {
       toast.error(res.error || error?.message || "No se pudo seguir la oferta");
       return false;
@@ -31,7 +31,8 @@ export function useOfferFollows() {
     setIds((prev) => new Set(prev).add(offer.id));
     if (!res.already) {
       const cost = CREDIT_COSTS.follow_offer;
-      toast(`-${cost} ⚡`, { description: `Siguiendo: ${offer.product_name || offer.page_name}`, duration: 2200 });
+      // La ruedita de créditos se mueve con el saldo real que devolvió el servidor.
+      if (typeof res.balance === "number") window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { balance: res.balance } }));
       window.dispatchEvent(new CustomEvent("supernova_credit_spent", { detail: { cost, action: "follow_offer", label: "Seguir oferta" } }));
     }
     return true;

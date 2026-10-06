@@ -1,5 +1,6 @@
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2.117.1";
+import { safeRefund } from "../_shared/refund.ts";
 
 // Tope de tamaño del cuerpo: este texto acaba en un modelo que cobra por token.
 // deno-lint-ignore no-explicit-any
@@ -71,8 +72,7 @@ function billingHeaders(gate: Gate): Record<string, string> {
 // La IA falló después de cobrar: se devuelve el crédito (idempotente en la base).
 async function refundCharge(gate: Gate | null, reason: string): Promise<void> {
   if (!gate?.txId) return;
-  try { await guardClient().rpc("refund_charge", { p_tx_id: gate.txId, p_reason: reason.slice(0, 200) }); }
-  catch (e) { console.error("refund_charge falló:", e); }
+  await safeRefund(guardClient(), gate.txId, reason, "pain-discovery");
 }
 
 // ── Costo real (tabla ai_usage) ─────────────────────────────────────────

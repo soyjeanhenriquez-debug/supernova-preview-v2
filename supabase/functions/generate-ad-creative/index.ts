@@ -1,10 +1,11 @@
 // SUPERNOVA — Generador de creativo de anuncio (imagen estática). Principal: APIMart (GPT Image 2,
 // asíncrono, se consulta hasta que termina). Respaldo: Gemini "Nano Banana" directo con el mismo
 // GEMINI_API_KEY/LOVABLE_API_KEY del texto. La imagen vuelve en la misma respuesta.
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2.117.1";
 import { apimartImage, IMAGE_MODELS, isImageModel, type ImageModelId } from "../_shared/apimart.ts";
 import { checkReferencePaths } from "./refs.ts";
+import { safeRefund } from "../_shared/refund.ts";
 
 interface Body {
   prompt: string;
@@ -120,8 +121,7 @@ function billingHeaders(gate: Gate): Record<string, string> {
 // La IA falló después de cobrar: se devuelve el crédito (idempotente en la base).
 async function refundCharge(gate: Gate | null, reason: string): Promise<void> {
   if (!gate?.txId) return;
-  try { await guardClient().rpc("refund_charge", { p_tx_id: gate.txId, p_reason: reason.slice(0, 200) }); }
-  catch (e) { console.error("refund_charge falló:", e); }
+  await safeRefund(guardClient(), gate.txId, reason, "generate-ad-creative");
 }
 
 Deno.serve(async (req) => {

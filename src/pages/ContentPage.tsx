@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProducts } from "@/contexts/ProductContext";
 import { useBusinessProfile } from "@/lib/businessProfile";
 import { PageHeader } from "@/components/PageHeader";
+import { ClaimBonusButton, PublishBonusCard } from "@/components/PublishBonus";
 import {
   DEFAULT_GOALS, EXTRA_NETWORKS, KINDS, NETWORK_LABEL, cleanChannels, freshChannels, kindFromPlatform, loadGoals, progressOf, saveGoals, statusFromChannels, weekSummary,
   type Channels, type Goals, type Kind, type Network,
@@ -285,6 +286,7 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
             className="ml-auto p-1 text-muted-foreground hover:text-foreground"><Link2 className="w-3.5 h-3.5" /></button>
         </div>
         {(() => { const p = progressOf(it.channels); return p.total > 0 && <p className="text-[10px] text-muted-foreground">{p.done} de {p.total} redes publicadas</p>; })()}
+        <ClaimBonusButton item={it} />
         {linksOpen === it.id && (
           <div className="space-y-1">
             {(Object.keys(it.channels) as Network[]).map(n => (
@@ -394,6 +396,9 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
           line="Ideas con búsquedas reales, publícalas en todas tus redes con un check y anota quién te escribe."
           details={STAGES.map(s => `${s.label}: ${s.desc}.`)} />
       </div>
+
+      {/* Bono por publicar lo que se hizo con una herramienta (50 créditos, 1 al día, 1.000 al mes) */}
+      <PublishBonusCard />
 
       {/* Tu semana: lo publicado contra tu meta, y lo que te trae clientes */}
       <div className="card-surface rounded-2xl p-5 space-y-4">

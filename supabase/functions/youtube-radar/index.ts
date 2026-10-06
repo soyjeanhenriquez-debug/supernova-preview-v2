@@ -3,8 +3,9 @@
 // suscriptores del canal, "veces sus suscriptores" (señal de que el nicho empuja) y un ingreso
 // ESTIMADO con rangos aproximados de RPM por idioma (siempre como rango y con la palabra estimado).
 // Gratis para el usuario (mirar no cuesta): solo tope de uso. Cada búsqueda se guarda 6 h.
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
+import { redact } from "../_shared/redact.ts";
 
 const FN = "youtube-radar";
 const YT = "https://www.googleapis.com/youtube/v3";
@@ -160,7 +161,7 @@ Deno.serve(async (req) => {
     await db.from("youtube_radar_cache").upsert({ key, payload, fetched_at: new Date().toISOString() });
     return json(payload);
   } catch (e) {
-    console.error("youtube-radar:", e instanceof Error ? e.message : e);
+    console.error("youtube-radar:", redact(e));
     return json({ error: "No se pudo consultar YouTube ahora. Intenta en un momento." }, 502);
   }
 });

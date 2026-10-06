@@ -3,13 +3,20 @@ import { GraduationCap, PlayCircle } from "lucide-react";
 import { TUTORIALS, youtubeId, type Tutorial } from "@/lib/tutorials";
 import { TOOLS, ADMIN_EXTRA_TOOLS } from "@/lib/tools";
 import { TutorialDialog } from "@/components/TutorialButton";
+import { CommunityGuides } from "@/components/aprende/CommunityGuides";
+import { JeanGuides } from "@/components/aprende/JeanGuides";
 
 /**
  * Aprende: un video corto por herramienta (src/lib/tutorials.ts), abierto también en la vitrina.
  * Cada tarjeta dice qué herramienta enseña y lleva a ella después de verlo.
+ * "De la comunidad" (05-oct-2026): enseñanzas paso a paso escritas por miembros y revisadas por un admin.
+ * "Guías de Jean" (06-oct-2026): enlaces a las guías de su web (src/lib/jeanGuides.ts).
  */
+type AprendeTab = "jean" | "comunidad" | "videos";
+
 export function AprendePage({ onNavigate }: { onNavigate: (p: string) => void }) {
   const [playing, setPlaying] = useState<Tutorial | null>(null);
+  const [tab, setTab] = useState<AprendeTab>("jean");
   const toolOf = (page: string) => [...TOOLS, ...ADMIN_EXTRA_TOOLS].find(t => t.key === page);
 
   return (
@@ -18,11 +25,19 @@ export function AprendePage({ onNavigate }: { onNavigate: (p: string) => void })
         <h1 className="font-display font-bold text-2xl text-foreground flex items-center gap-2">
           <GraduationCap className="w-6 h-6 text-primary" /> Aprende
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">Un video corto por herramienta: mira cómo se usa con un caso real y hazlo tú.</p>
+        <p className="text-sm text-muted-foreground mt-1">Guías de Jean, casos reales de otros miembros y videos de cada herramienta: mira cómo se hace y hazlo tú.</p>
       </div>
 
-      {TUTORIALS.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border px-4 py-5 text-[13px] text-muted-foreground">Pronto verás aquí los videos de cada herramienta.</p>
+      <div className="inline-flex flex-wrap rounded-xl border border-border p-1 gap-1">
+        {([["jean", "Guías de Jean"], ["comunidad", "De la comunidad"], ...(TUTORIALS.length ? [["videos", "Videos de las herramientas"]] : [])] as [AprendeTab, string][]).map(([id, label]) => (
+          <button key={id} onClick={() => setTab(id)} className={`h-8 px-3.5 rounded-lg text-[13px] font-medium ${tab === id ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
+        ))}
+      </div>
+
+      {tab === "jean" ? (
+        <JeanGuides onNavigate={onNavigate} />
+      ) : tab === "comunidad" || TUTORIALS.length === 0 ? (
+        <CommunityGuides onNavigate={onNavigate} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {TUTORIALS.map(t => {

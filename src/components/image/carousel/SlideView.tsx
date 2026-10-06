@@ -1,5 +1,5 @@
 import { forwardRef, type CSSProperties, type ReactNode } from "react";
-import { accentRuns, type CarouselDesign, type Slide } from "@/lib/carousel";
+import { accentRuns, galleryCols, type CarouselDesign, type Slide } from "@/lib/carousel";
 import { FONTS, palette, rgba, toneColors, type ToneColors } from "@/lib/carouselTheme";
 
 /**
@@ -215,6 +215,33 @@ export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ 
         </div>
       );
       break;
+    case "galeria": {
+      // Cuadrícula de fotos con etiqueta (ej. un comando por toma). Con foto IA: la imagen ES la
+      // cuadrícula y las etiquetas van encima de cada celda; sin foto, celdas de muestra con su texto.
+      const cells = slide.items.slice(0, 9);
+      const cols = galleryCols(cells.length);
+      const rows = Math.max(1, Math.ceil(cells.length / cols));
+      const pill: CSSProperties = { alignSelf: "center", maxWidth: "92%", padding: `${10 * k}px 22px`, borderRadius: 999, background: "#0e1530", color: "#ffffff", fontSize: (cols === 2 ? 34 : 27) * k, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 16 * k };
+      body = (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+          {slide.title && <Title text={slide.title} size={fitSize(slide.title, 76 * k, 52 * k, 22)} c={c} f={f} style={{ marginBottom: 28 * k }} />}
+          <div style={{ position: "relative", flex: 1, minHeight: 0, borderRadius: 22, overflow: "hidden", background: slide.photo ? "#000" : "transparent" }}>
+            {slide.photo && <img src={slide.photo} alt="" crossOrigin="anonymous" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "fill" }} />}
+            <div style={{ position: "absolute", inset: 0, display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)`, gap: slide.photo ? 0 : 14 }}>
+              {cells.map((it, i) => (
+                <div key={i} style={slide.photo
+                  ? { display: "flex", flexDirection: "column", justifyContent: "flex-end" }
+                  : { ...card, borderRadius: 18, display: "flex", flexDirection: "column", justifyContent: "space-between", padding: 18, minWidth: 0 }}>
+                  {!slide.photo && <span style={{ fontSize: (cols === 2 ? 30 : 24) * k, color: c.muted, lineHeight: 1.3, overflow: "hidden" }}>{it.text}</span>}
+                  {it.title && <span style={pill}>{it.title}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+      break;
+    }
     case "regla":
       // Con 3 líneas (qué hace / cuándo sí / cuándo no): número en círculo, palabra gigante, foto en
       // tarjeta a la izquierda, líneas a la derecha y el veredicto como barra de acción abajo.
@@ -344,13 +371,13 @@ export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ 
       position: "relative", width: SLIDE_W, height: H, overflow: "hidden", boxSizing: "border-box", background: c.bg, color: c.text,
       fontFamily: `"${f.body}", system-ui, sans-serif`, padding: `${76 * k}px 88px ${176 * k}px`, display: "flex", flexDirection: "column",
     }}>
-      {slide.photo && slide.kind !== "regla" && (
+      {slide.photo && slide.kind !== "regla" && slide.kind !== "galeria" && (
         <>
           <img src={slide.photo} alt="" crossOrigin="anonymous" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
           <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, ${rgba(veil, 0.55)} 0%, ${rgba(veil, 0.35)} 45%, ${rgba(veil, 0.85)} 100%)` }} />
         </>
       )}
-      {slide.tone !== "degradado" && !flat && !slide.photo && <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 88% 6%, ${c.glow} 0%, transparent 52%)` }} />}
+      {slide.tone !== "degradado" && !flat && (!slide.photo || slide.kind === "galeria") && <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 88% 6%, ${c.glow} 0%, transparent 52%)` }} />}
       {/* Número gigante de fondo */}
       {!flat && <div style={{ position: "absolute", right: -10, bottom: 40 * k, fontFamily: `"${f.display}", Georgia, serif`, fontWeight: f.displayWeight, fontSize: 600 * k, lineHeight: 0.8, color: rgba(c.text, slide.tone === "claro" ? 0.035 : 0.05), pointerEvents: "none" }}>{big}</div>}
 

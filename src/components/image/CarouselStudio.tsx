@@ -380,7 +380,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
   const brandOptions = Array.from(new Set([...kitColors, ...BRAND_COLORS.map(b => b.hex)])).slice(0, 10);
   const chip = (on: boolean) => `shrink-0 min-h-[40px] px-3.5 rounded-full border text-[13px] transition-colors disabled:opacity-60 ${on ? "border-foreground/40 text-foreground bg-card" : "border-border text-muted-foreground hover:text-foreground"}`;
   const input = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary/60";
-  const itemMax = current?.kind === "tarjetas" || current?.kind === "pasos" ? 4 : current?.kind === "comparacion" ? 2 : 3;
+  const itemMax = current?.kind === "galeria" ? 9 : current?.kind === "tarjetas" || current?.kind === "pasos" ? 4 : current?.kind === "comparacion" ? 2 : 3;
   const story = storyTest(slides);
   const storyScore = story.filter(x => x.ok).length;
   const s2 = slideTwoScore(Number(likes.cover), Number(likes.two));
@@ -602,6 +602,15 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
             </div>
           )}
           {cloneInfo.why && <p className="text-[13px] text-foreground"><span className="text-muted-foreground">Por qué funciona: </span>{cloneInfo.why}</p>}
+          {!!cloneInfo.needs?.length && (
+            <div className="rounded-xl border border-primary/40 p-3.5 space-y-1.5">
+              <p className="text-[13px] text-foreground font-medium">Para que el tuyo se vea igual, necesitas</p>
+              <ul className="space-y-1">{cloneInfo.needs.map((n, i) => <li key={i} className="flex gap-2 text-[12px] text-muted-foreground"><Check className="w-3.5 h-3.5 mt-0.5 text-primary shrink-0" />{n}</li>)}</ul>
+              <p className="text-[12px] text-foreground">{kitRefs.length && useRefs
+                ? "Tu foto ya está lista: toca cada lámina y \"Crear foto\" para que salgas tú."
+                : "Sube tu foto en \"Tu foto\" (Tu sistema de diseño, arriba) y después toca cada lámina → \"Crear foto\"."}</p>
+            </div>
+          )}
           <div className="space-y-2">
             <p className="text-[13px] text-foreground font-medium">Sus partes <span className="text-muted-foreground font-normal">— la IA marcó las 3 que lo hicieron funcionar. Toca cualquiera para cambiarla (con 3 marcadas, la nueva reemplaza a la primera). Si mantienes todo, es una copia.</span></p>
             <div className="grid gap-2 sm:grid-cols-2">
@@ -656,6 +665,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
         <section className="space-y-2">
           <h2 className="font-display font-semibold text-[15px] text-foreground">Elige tu portada</h2>
           <p className="text-[12px] text-muted-foreground -mt-1">Es lo más importante del carrusel: si no detiene el scroll, nadie ve el resto.</p>
+          {cloneInfo?.hook && <p className="text-[12px] text-muted-foreground">Gancho del original: <span className="text-foreground">«{cloneInfo.hook}»</span>{cloneInfo.mode !== "producto" ? " · tus 3 portadas son versiones de ese mismo gancho." : ""}</p>}
           <div className="grid gap-2 sm:grid-cols-3">
             {draft.covers.map((c, i) => (
               <button key={i} type="button" onClick={() => setDraft(withCover(draft, i))}
@@ -704,7 +714,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                 <input value={current.kicker} maxLength={26} onChange={e => editSlide(sel, { kicker: e.target.value.toLocaleUpperCase("es") })} aria-label="Etiqueta de la lámina" className={input} />
               </label>
             </div>
-            {current.kind !== "problema" && current.kind !== "tarjetas" && current.kind !== "pasos" && current.kind !== "comparacion" && (
+            {current.kind !== "problema" && current.kind !== "tarjetas" && current.kind !== "pasos" && current.kind !== "comparacion" && current.kind !== "galeria" && (
               <label className="block space-y-1">
                 <span className="text-[12px] text-foreground">{sel === 0 ? "Subtítulo" : "Texto"}</span>
                 <textarea value={current.body} maxLength={260} rows={2} onChange={e => editSlide(sel, { body: e.target.value })} aria-label="Texto de la lámina" className={input} />
@@ -719,11 +729,11 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
             {sel > 0 && (
               <div className="rounded-xl border border-border p-3.5 space-y-3">
                 <div>
-                  <p className="text-[13px] text-foreground font-medium">Foto con IA para esta lámina <span className="text-muted-foreground font-normal">(opcional)</span></p>
-                  <p className="text-[12px] text-muted-foreground">{current.kind === "regla" ? "Va en una tarjeta debajo de la palabra grande, como ejemplo de la regla." : current.kind === "llamada" ? "Plantilla CTA: acción de fondo y una tarjeta de cristal con tu palabra clave." : "Va de fondo, detrás del texto."} La IA hace solo la foto; las letras las pone tu diseño.</p>
+                  <p className="text-[13px] text-foreground font-medium">{current.kind === "galeria" ? "Las fotos de la cuadrícula, con IA" : "Foto con IA para esta lámina"} <span className="text-muted-foreground font-normal">(opcional)</span></p>
+                  <p className="text-[12px] text-muted-foreground">{current.kind === "galeria" ? `Toda la cuadrícula en una sola imagen (${current.items.length} tomas) ${kitRefs.length && useRefs ? "contigo en cada una: se usa tu foto de \"Tu foto\"" : "— para salir tú, sube tu foto en \"Tu foto\" (Tu sistema de diseño)"}. Nano Banana Pro es la que mejor mantiene tu cara.` : current.kind === "regla" ? "Va en una tarjeta debajo de la palabra grande, como ejemplo de la regla." : current.kind === "llamada" ? "Plantilla CTA: acción de fondo y una tarjeta de cristal con tu palabra clave." : "Va de fondo, detrás del texto."} La IA hace solo la foto; las letras las pone tu diseño.</p>
                 </div>
                 <label className="block space-y-1">
-                  <span className="text-[12px] text-foreground">Escena</span>
+                  <span className="text-[12px] text-foreground">{current.kind === "galeria" ? "Lo que tienen en común todas las fotos" : "Escena"}</span>
                   <input value={current.scene ?? ""} maxLength={300} onChange={e => editSlide(sel, { scene: e.target.value })} placeholder="Ej.: una mujer cocinando de noche en una cocina pequeña, luz cálida" aria-label="Escena de la foto" className={input} />
                 </label>
                 {modelPicker}
@@ -764,9 +774,9 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                 <input value={current.verdict ?? ""} maxLength={90} onChange={e => editSlide(sel, { verdict: e.target.value })} aria-label="Veredicto de la lámina" className={input} />
               </label>
             )}
-            {(current.kind === "problema" || current.kind === "comparacion" || current.kind === "tarjetas" || current.kind === "pasos" || current.kind === "llamada" || current.kind === "regla") && (
+            {(current.kind === "problema" || current.kind === "comparacion" || current.kind === "tarjetas" || current.kind === "pasos" || current.kind === "llamada" || current.kind === "regla" || current.kind === "galeria") && (
               <div className="space-y-2">
-                <span className="text-[12px] text-foreground">{current.kind === "llamada" ? "Recordatorios" : current.kind === "comparacion" ? "Las dos cajas (etiqueta y texto)" : current.kind === "regla" ? "3 líneas al lado de la foto (opcional: qué hace, cuándo sí, cuándo no)" : "Puntos"}</span>
+                <span className="text-[12px] text-foreground">{current.kind === "llamada" ? "Recordatorios" : current.kind === "comparacion" ? "Las dos cajas (etiqueta y texto)" : current.kind === "regla" ? "3 líneas al lado de la foto (opcional: qué hace, cuándo sí, cuándo no)" : current.kind === "galeria" ? "Celdas: la etiqueta que se ve y qué muestra su foto" : "Puntos"}</span>
                 {current.items.map((it, k) => (
                   <div key={k} className="flex gap-2 items-start">
                     <div className="flex-1 grid gap-2 sm:grid-cols-2">
@@ -778,8 +788,8 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                   </div>
                 ))}
                 {current.items.length < itemMax && (
-                  <button type="button" onClick={() => editSlide(sel, { items: [...current.items, { title: "Nuevo punto", text: "" }] })}
-                    className="min-h-[36px] inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground"><Plus className="w-3.5 h-3.5" /> Añadir punto</button>
+                  <button type="button" onClick={() => editSlide(sel, { items: [...current.items, { title: current.kind === "galeria" ? "/nueva" : "Nuevo punto", text: "" }] })}
+                    className="min-h-[36px] inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground"><Plus className="w-3.5 h-3.5" /> {current.kind === "galeria" ? "Añadir celda" : "Añadir punto"}</button>
                 )}
               </div>
             )}

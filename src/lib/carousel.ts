@@ -22,7 +22,7 @@ import type { Brief } from "@/lib/imagePrompts";
 
 export type CarouselGoal = "vender" | "ensenar" | "texto";
 /** Tipos de lámina (cada uno tiene su diseño en SlideView). */
-export type SlideKind = "portada" | "respuesta" | "problema" | "comparacion" | "solucion" | "tarjetas" | "pasos" | "regla" | "giro" | "llamada";
+export type SlideKind = "portada" | "respuesta" | "problema" | "comparacion" | "solucion" | "tarjetas" | "pasos" | "regla" | "galeria" | "giro" | "llamada";
 export type Tone = "claro" | "oscuro" | "degradado";
 export type Item = { title: string; text: string };
 export type Slide = {
@@ -92,7 +92,7 @@ export const GOAL_INFO: Record<CarouselGoal, { label: string; line: string }> = 
 };
 
 export const KIND_LABEL: Record<SlideKind, string> = {
-  portada: "Portada", respuesta: "Responde la portada", problema: "Problema", comparacion: "Comparación", regla: "Regla", solucion: "Solución", tarjetas: "Tarjetas", pasos: "Pasos", giro: "El giro", llamada: "Remate",
+  portada: "Portada", respuesta: "Responde la portada", problema: "Problema", comparacion: "Comparación", regla: "Regla", solucion: "Solución", tarjetas: "Tarjetas", pasos: "Pasos", galeria: "Galería", giro: "El giro", llamada: "Remate",
 };
 
 /** Colores de marca sugeridos (de cada uno salen todos sus tonos). */
@@ -204,7 +204,7 @@ export function toneFor(kind: SlideKind, i: number, start: "claro" | "oscuro"): 
 export const retone = (slides: Slide[], start: "claro" | "oscuro"): Slide[] => slides.map((s, i) => ({ ...s, tone: toneFor(s.kind, i, start) }));
 
 const KICKER: Record<SlideKind, string> = {
-  portada: "GUÍA", respuesta: "LA RESPUESTA", problema: "EL PROBLEMA", comparacion: "NO / SÍ", regla: "LA REGLA", solucion: "LA SOLUCIÓN", tarjetas: "LO QUE NECESITAS", pasos: "PASO A PASO", giro: "EL GIRO", llamada: "TU SIGUIENTE PASO",
+  portada: "GUÍA", respuesta: "LA RESPUESTA", problema: "EL PROBLEMA", comparacion: "NO / SÍ", regla: "LA REGLA", galeria: "MÍRALO", solucion: "LA SOLUCIÓN", tarjetas: "LO QUE NECESITAS", pasos: "PASO A PASO", giro: "EL GIRO", llamada: "TU SIGUIENTE PASO",
 };
 
 /** Borrador gratis (sin IA) para ver el diseño antes de pagar. Se marca como ejemplo en pantalla. */
@@ -258,6 +258,7 @@ export function carouselRequest(opts: { goal: CarouselGoal; brief: Brief; slides
     pasos: `{"tipo":"pasos","peso":"","etiqueta":"","titulo":"","items":[${item},${item},${item}],"veredicto":"","puente":""}`,
     giro: '{"tipo":"giro","peso":"corta","etiqueta":"","titulo":""}',
     regla: '{"tipo":"regla","peso":"","pastilla":"","titulo":"","texto":"","veredicto":"","escena":"","puente":""}',
+    galeria: `{"tipo":"galeria","etiqueta":"","titulo":"","items":[${item},${item},${item},${item}],"escena":"","puente":""}`,
     llamada: '{"tipo":"llamada","etiqueta":"","titulo":"","texto":"","palabra":"","items":[{"titulo":""}]}',
   };
   const lines: (string | null)[] = [
@@ -334,7 +335,7 @@ function firstJson(text: string): unknown {
   return null;
 }
 
-const ITEM_MAX: Partial<Record<SlideKind, number>> = { problema: 3, comparacion: 2, tarjetas: 4, pasos: 4, llamada: 2, regla: 3 };
+const ITEM_MAX: Partial<Record<SlideKind, number>> = { problema: 3, comparacion: 2, tarjetas: 4, pasos: 4, llamada: 2, regla: 3, galeria: 9 };
 const upper = (s: string) => s.toLocaleUpperCase("es");
 
 /** Lee la respuesta de la IA. Devuelve null si no sirve (el servidor ya cobró: se avisa y se puede reintentar). */
@@ -374,13 +375,15 @@ export function parseCarouselObj(j: Record<string, unknown> | null, n: number, s
     const verdict = txt(l?.veredicto, 90);
     if (verdict && kind !== "llamada" && kind !== "giro" && kind !== "respuesta") slide.verdict = verdict;
     if (kind === "regla" && !slide.title && slide.body) slide.title = slide.body;
+    // En la galería la etiqueta de cada celda es la utilidad (ej. "/droneview"): se deja tal cual, corta.
+    if (kind === "galeria") slide.items = slide.items.map(it => ({ title: it.title.slice(0, 22), text: it.text }));
     if (l?.peso === "corta" || l?.peso === "densa") slide.weight = l.peso;
     const scene = txt(l?.escena, 300);
     if (scene) slide.scene = scene;
     if (kind === "regla") slide.tag = txt(l?.pastilla, 20) || `Regla ${i}`;
     if (kind === "comparacion") slide.items = slide.items.map((it, k) => ({ ...it, title: upper(it.title).slice(0, 14) || (k ? "SÍ" : "NO") }));
     return slide;
-  }).filter(s => s.title || s.items.length);
+  }).filter(s => s.title || s.body || s.items.length);
   if (rest.length < 3) return null;
   // La última siempre es la llamada.
   const last = rest[rest.length - 1];
@@ -709,6 +712,8 @@ export type CloneInfo = {
   slides: { n: number; position: string; composition: string; artifact: string; idea: string }[];
   style: { colors: string[]; font: string; style: StyleId; start: "claro" | "oscuro"; photos: string };
   dna: DnaPart[]; keep: string[]; improvements: string[];
+  /** El gancho de la portada original (para ponerlo al lado del clon) y lo que la persona debe poner (su foto…). */
+  hook?: string; needs?: string[];
   /** "tema" = mismo tema e ideas en español con nuestras palabras; "producto" = su ADN en tu producto. */
   mode?: CloneMode;
   source: { url: string; images: string[]; owner: string; likes: number | null; comments: number | null };
@@ -716,7 +721,7 @@ export type CloneInfo = {
 export const MAX_KEEP = 3;
 export type CloneMode = "tema" | "producto";
 export const CLONE_MODES: Record<CloneMode, { label: string; line: string }> = {
-  tema: { label: "Clonarlo en español", line: "Lámina por lámina: misma idea, mismo orden y mismo remate, adaptado al español latino (no palabra por palabra). Tu producto va en el remate." },
+  tema: { label: "Clonarlo casi igual", line: "Su espejo: el mismo gancho, las mismas láminas, el mismo pie y el mismo remate, en español latino con tus toques (nunca copiar y pegar)." },
   producto: { label: "Su ADN en mi producto", line: "Mantiene las 3 partes que lo hicieron funcionar y cambia el tema por tu producto." },
 };
 
@@ -742,6 +747,8 @@ export function parseClone(r: Record<string, unknown>, start: "claro" | "oscuro"
       font: txt(st.letra, 160), style: (sty in STYLES ? sty : "poster") as StyleId, start: st.empieza === "oscuro" ? "oscuro" : "claro", photos: txt(st.fotos, 200),
     },
     dna, keep, mode, improvements: (Array.isArray(r.mejoras) ? r.mejoras : []).map(x => txt(x, 200)).filter(Boolean).slice(0, 5),
+    hook: txt(a.gancho_original, 160) || undefined,
+    needs: (Array.isArray(r.necesitas) ? r.necesitas : []).map(x => txt(x, 220)).filter(Boolean).slice(0, 4),
     source: {
       url: clean(src.url, 200), images: (Array.isArray(src.images) ? src.images : []).filter((u): u is string => typeof u === "string" && u.startsWith("https://")).slice(0, 10),
       owner: clean(src.owner, 40), likes: typeof src.likes === "number" ? src.likes : null, comments: typeof src.comments === "number" ? src.comments : null,
@@ -770,8 +777,9 @@ export function recloneRequest(o: { info: CloneInfo; keep: string[]; brief: Brie
   return [
     o.info.mode === "producto"
       ? "Vas a escribir un carrusel NUEVO con el ADN ganador de otro que ya funcionó. Mantienes SOLO estas 3 partes y cambias todo lo demás. Nunca copies palabras, fotos, nombres, marcas ni números del original."
-      : "Vas a clonar en español un carrusel que ya funcionó: transcreación fiel, con el MISMO tema, la misma idea y el mismo remate de cada lámina, en el mismo orden y con la misma estructura, cuidando sobre todo estas 3 partes. Adáptalo al español latino con algunos cambios para que suene propio; nunca palabra por palabra ni copiar y pegar. Cambia los ejemplos que dependan de su persona por ejemplos de emprendedores latinos. Nunca uses su nombre, marca, números ni recursos; tu producto va en el remate.",
+      : "Vas a clonar en español un carrusel que ya funcionó, como su ESPEJO: el MISMO gancho en la portada (las 3 portadas son versiones del mismo gancho, nunca otro tema ni el producto), el mismo número de láminas, la misma idea y la misma composición de cada lámina en el mismo orden, el mismo pie y el mismo remate, cuidando sobre todo estas 3 partes. Adáptalo al español latino con un toque propio; nunca palabra por palabra ni copiar y pegar. Nunca uses su nombre, marca, números ni recursos.",
     `Resumen del original: ${o.info.summary}`,
+    o.info.hook ? `Gancho de su portada: «${o.info.hook}»` : "",
     `Por qué funcionó: ${o.info.why}`,
     "Sus láminas, en orden (posición · composición · idea):",
     ...o.info.slides.map(x => `${x.n}. ${x.position} · ${x.composition} · ${x.idea}`),
@@ -780,9 +788,11 @@ export function recloneRequest(o: { info: CloneInfo; keep: string[]; brief: Brie
     ...keep.map(d => `- ${d.part}: ${d.what}`),
     ...(o.info.mode === "producto" ? ["CAMBIAS por completo:", ...change.map(d => `- ${d.part}`)] : []),
     "",
-    "Hazlo MEJOR que el original con la fórmula de 6 posiciones (apertura que crea un deseo, agarre en la lámina 2 que responde solo la portada, columna con puentes, ritmo corta/densa, giro 'Para que puedas…', remate con creencia nueva + UNA palabra clave). En 'mejoras' di 3 cosas concretas que hiciste mejor.",
-    o.goal === "ensenar" ? "Objetivo: enseñar algo útil del tema del producto." : "Objetivo: que quieran el producto.",
-    "Tipos de lámina disponibles: respuesta, problema (3 items), comparacion (2 items: NO/SÍ), solucion, tarjetas (4 items), pasos (3 items), regla (pastilla 'Regla N', titulo de 1 o 2 palabras gigantes, texto ≤10 palabras, veredicto, escena; opcional items = 3 líneas muy cortas: qué hace, cuándo usarlo, cuándo no), giro (penúltima), llamada (última, con palabra).",
+    o.info.mode === "producto"
+      ? "Hazlo MEJOR que el original con la fórmula de 6 posiciones (apertura que crea un deseo, agarre en la lámina 2 que responde solo la portada, columna con puentes, ritmo corta/densa, giro 'Para que puedas…', remate con creencia nueva + UNA palabra clave). En 'mejoras' di 3 cosas concretas que hiciste mejor."
+      : "Mejóralo solo donde suma (legibilidad, orden, una palabra más clara). En 'mejoras' di 3 cosas concretas.",
+    o.info.mode !== "producto" ? null : o.goal === "ensenar" ? "Objetivo: enseñar algo útil del tema del producto." : "Objetivo: que quieran el producto.",
+    "Tipos de lámina disponibles: respuesta, problema (3 items), comparacion (2 items: NO/SÍ), solucion, tarjetas (4 items), pasos (3 items), regla (pastilla 'Regla N', titulo de 1 o 2 palabras gigantes, texto ≤10 palabras, veredicto, escena; opcional items = 3 líneas muy cortas: qué hace, cuándo usarlo, cuándo no), galeria (cuadrícula de 4 a 9 fotos con etiqueta: items = etiqueta tal cual + qué muestra la foto; escena = lo común a todas), giro (penúltima), llamada (última, con palabra).",
     "'objeto' = un objeto de la historia que invade el primer plano de la portada en 3D; 'plantilla' = hero, editorial o cinematica.",
     "Cada lámina (menos giro y llamada) lleva puente (≤7 palabras), peso (corta o densa) y veredicto si aplica. Marca 1 o 2 palabras de cada titular entre *asteriscos*. 'escena' = foto cinematográfica SIN texto, personas latinas comunes, sin famosos, sin marcas, sin dinero.",
     "Prohibido: promesas de ingresos o resultados, plazos, testimonios o cifras inventadas, urgencia falsa, marcas ajenas, emojis. Español neutro latinoamericano, de tú.",
@@ -795,7 +805,9 @@ export function recloneRequest(o: { info: CloneInfo; keep: string[]; brief: Brie
     "",
     "RESPONDE SOLO con JSON válido:",
     `{"mejoras":["","",""],"carrusel":{"idea":"","objeto":"","plantilla":"editorial","portadas":[{"titulo":"","subtitulo":"","pastilla":"","por_que":""},{"titulo":"","subtitulo":"","pastilla":"","por_que":""},{"titulo":"","subtitulo":"","pastilla":"","por_que":""}],"recomendada":0,"revelar":[],"etiquetas":["","",""],"escena":"","laminas":[{"tipo":"","peso":"","etiqueta":"","titulo":"","texto":"","items":[],"veredicto":"","puente":"","palabra":"","pastilla":"","escena":""}],"pie":""}}`,
-    `"carrusel.laminas" trae ${n} elementos: la primera respuesta, la penúltima giro y la última llamada.`,
+    o.info.mode === "producto"
+      ? `"carrusel.laminas" trae ${n} elementos: la primera respuesta, la penúltima giro y la última llamada.`
+      : `"carrusel.laminas" trae ${n} elementos, uno por cada lámina del original después de la portada, en el mismo orden; la última es llamada.`,
   ].filter(Boolean).join("\n");
 }
 
@@ -812,6 +824,7 @@ export function parseReclone(text: string, start: "claro" | "oscuro" = "oscuro")
 export function photoPrompt(o: { slide: Slide; design: CarouselDesign; brief: Brief; aspect: "4:5" | "1:1"; card: boolean; hasRefs?: boolean; rules: string }): string {
   // La última lámina usa la plantilla CTA: acción de fondo y el centro libre para la tarjeta de cristal.
   if (o.slide.kind === "llamada") return JSON.stringify(coverSpec({ cover: o.slide, design: o.design, brief: o.brief, aspect: o.aspect, hasRefs: o.hasRefs, rules: o.rules, template: "cta" }, "scene"));
+  if (o.slide.kind === "galeria") return galleryPrompt(o);
   const scene = clean(o.slide.scene, 300) || `una escena cinematográfica que muestre: ${o.slide.title.replace(/\*/g, "")}`;
   return [
     `Fotografía cinematográfica real para ${o.card ? "una tarjeta dentro de" : "el fondo de"} una lámina de carrusel de Instagram, formato ${o.aspect === "4:5" ? "vertical 4:5" : "cuadrado 1:1"}.`,
@@ -823,4 +836,29 @@ export function photoPrompt(o: { slide: Slide; design: CarouselDesign; brief: Br
     "SIN ningún texto, letra, número, logo ni marca en la imagen.",
     o.rules.replace(/Si hay texto[^.]*\./, "").trim(),
   ].filter(Boolean).join(" ");
+}
+
+/** Columnas de la cuadrícula de una galería: 4 → 2×2, 6 → 3×2, 9 → 3×3. */
+export const galleryCols = (n: number) => (n <= 4 ? 2 : 3);
+
+/**
+ * La galería en UNA sola imagen (más barato que una por celda): una cuadrícula exacta, celdas iguales,
+ * sin texto (las etiquetas las pone el diseño encima, con letras perfectas). Con foto de referencia, la
+ * misma persona en todas las celdas.
+ */
+export function galleryPrompt(o: { slide: Slide; design: CarouselDesign; aspect: "4:5" | "1:1"; hasRefs?: boolean; rules: string }): string {
+  const items = o.slide.items.filter(it => it.title || it.text).slice(0, 9);
+  const cols = galleryCols(items.length);
+  const rows = Math.ceil(items.length / cols);
+  return [
+    `Una sola imagen que es una cuadrícula EXACTA de ${cols} columnas por ${rows} filas (${cols * rows} celdas del mismo tamaño, separadas por una línea blanca fina), formato ${o.aspect === "4:5" ? "vertical 4:5" : "cuadrado 1:1"}, fotografía real y nítida.`,
+    clean(o.slide.scene, 300) ? `En todas las celdas: ${clean(o.slide.scene, 300)}.` : "",
+    o.hasRefs ? "La MISMA persona de la imagen de referencia en todas las celdas (misma cara, mismo pelo, misma ropa), muy fiel a ella." : "La misma persona latina común en todas las celdas, misma ropa.",
+    "Celdas, de izquierda a derecha y de arriba abajo:",
+    ...items.map((it, i) => `${i + 1}) ${clean(it.text, 160) || clean(it.title, 40)}`),
+    cols * rows > items.length ? "Las celdas sobrantes: la misma persona en una toma simple." : "",
+    "Deja libre de detalles importantes la franja de abajo de cada celda (ahí va una etiqueta).",
+    "SIN ningún texto, letra, número, logo ni marca en la imagen.",
+    o.rules.replace(/Si hay texto[^.]*\./, "").trim(),
+  ].filter(Boolean).join("\n");
 }

@@ -312,16 +312,51 @@ describe("carrusel: plantillas de portada (gramática visual)", () => {
   });
 });
 
-describe("carrusel: clonar con el mismo tema", () => {
-  it("mantiene tema e ideas, sin traducir frase por frase, y el producto va en el remate", () => {
-    const { info } = parseClone(cloneResponse)!;
+describe("carrusel: clonar como espejo (casi igual)", () => {
+  it("sigue el gancho, las láminas y el pie del original, sin copiar y pegar", () => {
+    const { info } = parseClone({ ...cloneResponse, analisis: { ...cloneResponse.analisis, gancho_original: "Cambia el ángulo de tus fotos con una sola palabra" } })!;
     expect(info.mode).toBe("tema");
+    expect(info.hook).toBe("Cambia el ángulo de tus fotos con una sola palabra");
     const p = recloneRequest({ info, keep: ["a1", "a2"], brief, goal: "vender" });
-    expect(p).toMatch(/MISMO tema/);
-    expect(p).toMatch(/transcreación fiel/);
-    expect(p).toMatch(/nunca palabra por palabra/);
-    expect(p).toMatch(/tu producto va en el remate/);
+    expect(p).toMatch(/ESPEJO/);
+    expect(p).toMatch(/MISMO gancho/);
+    expect(p).toMatch(/Cambia el ángulo de tus fotos/);
+    expect(p).toMatch(/nunca palabra por palabra ni copiar y pegar/);
+    expect(p).toMatch(/uno por cada lámina del original/);
     expect(p).not.toMatch(/CAMBIAS por completo/);
+    expect(p).not.toMatch(/Objetivo: que quieran el producto/);
+  });
+
+  it("lee lo que la persona necesita poner (su foto) y las láminas de galería", () => {
+    const r = parseClone({
+      ...cloneResponse,
+      necesitas: ["Una foto tuya de cuerpo entero, de frente"],
+      carrusel: {
+        ...cloneResponse.carrusel,
+        laminas: [
+          { tipo: "galeria", titulo: "", items: Array.from({ length: 10 }, (_, i) => ({ titulo: `/toma${i}-con-nombre-muy-largo`, texto: "vista desde un dron" })), escena: "la misma mujer, camiseta blanca" },
+          { tipo: "galeria", titulo: "Más ángulos", items: [{ titulo: "/wormview", texto: "desde el suelo" }] },
+          { tipo: "llamada", titulo: "Comenta *ATAJO*", texto: "Te mando el listado.", palabra: "ATAJO" },
+        ],
+      },
+    })!;
+    expect(r.info.needs).toEqual(["Una foto tuya de cuerpo entero, de frente"]);
+    const g = r.draft.slides[1];
+    expect(g.kind).toBe("galeria");
+    expect(g.items).toHaveLength(9);
+    expect(g.items[0].title.length).toBeLessThanOrEqual(22);
+    expect(r.draft.slides[2].kind).toBe("galeria");
+    expect(r.draft.slides.at(-1)!.kind).toBe("llamada");
+  });
+
+  it("la foto de una galería es una sola cuadrícula sin texto, con tu cara en cada toma", () => {
+    const slide = { kind: "galeria" as const, tone: "claro" as const, kicker: "", title: "", body: "", scene: "camiseta blanca y jeans",
+      items: ["/droneview", "/birdsview", "/wormview", "/highangle", "/lowangle", "/topleft"].map(t => ({ title: t, text: `toma ${t}` })) };
+    const p = photoPrompt({ slide, design: { brand: "#f5b301", name: "", handle: "", style: "poster", start: "claro" }, brief, aspect: "4:5", card: false, hasRefs: true, rules: "" });
+    expect(p).toMatch(/3 columnas por 2 filas/);
+    expect(p).toMatch(/MISMA persona de la imagen de referencia/);
+    expect(p).toMatch(/6\) toma \/topleft/);
+    expect(p).toMatch(/SIN ningún texto/);
   });
 });
 

@@ -19,6 +19,7 @@ import { FONTS, fontEmbedCss, loadStyleFonts, slideToBlob } from "@/lib/carousel
 import { SLIDE_W, SlideView, slideH } from "@/components/image/carousel/SlideView";
 import { loadDesign, loadDraft, saveDesign, saveDraft } from "@/lib/carouselStore";
 import { AddToTracker } from "@/components/AddToTracker";
+import { ToolFeedback } from "@/components/ToolFeedback";
 
 /**
  * Carrusel (05-oct-2026, v2): la IA escribe el texto con los 5 tiempos (Gancho → Promesa → Tirón →
@@ -888,6 +889,11 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Descargar las {slides.length} láminas
         </button>
         {!isSample && <AddToTracker kind="carrusel" title={slides[0]?.title ?? brief.product} keyword={slides[slides.length - 1]?.cta} source="carrusel" className="sm:ml-2" />}
+        {!isSample && (
+          <ToolFeedback tool={cloneInfo ? "carrusel-clon" : "carrusel"} refId={cloneInfo?.id ?? null}
+            question={cloneInfo ? "¿Tu clon se parece a lo que ya funcionaba?" : "¿Te sirvió este carrusel?"}
+            context={{ formato: cloneInfo ? "clonar" : fmt, laminas: slides.length, original: cloneInfo?.source.url ?? null }} />
+        )}
 
         {preview.caption && (
           <div className="rounded-xl border border-border bg-background/40 p-4 space-y-3">

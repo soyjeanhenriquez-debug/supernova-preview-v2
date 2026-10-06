@@ -714,6 +714,8 @@ export type CloneInfo = {
   dna: DnaPart[]; keep: string[]; improvements: string[];
   /** El gancho de la portada original (para ponerlo al lado del clon) y lo que la persona debe poner (su foto…). */
   hook?: string; needs?: string[];
+  /** Id en carousel_clones (para "¿Te sirvió?" y Admin → Aprendizaje). */
+  id?: string;
   /** "tema" = mismo tema e ideas en español con nuestras palabras; "producto" = su ADN en tu producto. */
   mode?: CloneMode;
   source: { url: string; images: string[]; owner: string; likes: number | null; comments: number | null };
@@ -748,6 +750,7 @@ export function parseClone(r: Record<string, unknown>, start: "claro" | "oscuro"
     },
     dna, keep, mode, improvements: (Array.isArray(r.mejoras) ? r.mejoras : []).map(x => txt(x, 200)).filter(Boolean).slice(0, 5),
     hook: txt(a.gancho_original, 160) || undefined,
+    id: /^[0-9a-f-]{36}$/.test(String(r.clone_id ?? "")) ? String(r.clone_id) : undefined,
     needs: (Array.isArray(r.necesitas) ? r.necesitas : []).map(x => txt(x, 220)).filter(Boolean).slice(0, 4),
     source: {
       url: clean(src.url, 200), images: (Array.isArray(src.images) ? src.images : []).filter((u): u is string => typeof u === "string" && u.startsWith("https://")).slice(0, 10),

@@ -9,7 +9,7 @@
 // "Roba como un artista" (manual, sección 2): se copia estructura y mecanismo, NUNCA textos, fotos,
 // caras, nombres ni marcas. Las imágenes del original solo se usan para el análisis: no se guardan.
 // La llave de Apify va en la cabecera (nunca en la URL, para que no quede en logs).
-import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { admin, billingHeaders, caller, charge, json, refund } from "../_shared/media.ts";
 
 const FN = "carousel-clone";
@@ -43,7 +43,7 @@ const SYSTEM = `Eres el director creativo de SUPERNOVA. Analizas carruseles de I
 - Todo carrusel se descompone en unas 9 partes. Si se mantienen todas, es una copia. Según el modo que se te pida: en "mismo tema" se conservan el tema, las ideas y la estructura (reescritos con tus palabras); en "producto" se mantienen SOLO las 3 partes que explican por qué funcionó y se cambia todo lo demás.
 - Clonar lo que funciona es la base (no se reinventa la rueda). Lo único que no se hace es copiar y pegar en el mismo idioma, traducir palabra por palabra, ni usar sus fotos, su cara, su nombre, su marca, sus números ni sus recursos.
 - La versión nueva debe ser MEJOR que el original: aplica la fórmula de 6 posiciones (apertura que crea un deseo, agarre en la lámina 2 que responde solo la portada, columna donde cada lámina abre la siguiente, ritmo corta/densa, giro "Para que puedas…", remate con creencia nueva + UNA acción) y que cada lámina lleve algo real (ejemplo, comparación, regla con veredicto).
-Español neutro latinoamericano, de tú, frases cortas, sin jerga, sin emojis. Prohibido: promesas de ingresos o de resultados, plazos, testimonios, cifras o estudios inventados, urgencia falsa, marcas ajenas, personas famosas.
+Español neutro latinoamericano, de tú, frases cortas, sin jerga. Sin emojis en las láminas; en el pie, solo si el original los usa (los mismos en el mismo lugar). Prohibido: promesas de ingresos o de resultados, plazos, testimonios, cifras o estudios inventados, urgencia falsa, marcas ajenas, personas famosas.
 Respondes SOLO con el JSON pedido.`;
 
 // Dos formas de clonar (06-oct-2026, Jean: "la referencia tiene que servir"):
@@ -57,7 +57,8 @@ const TEMA_STEP = (n: number) => [
   "LÁMINAS: lámina por lámina, la misma idea y el mismo tipo de contenido que la lámina del original en esa posición. Si el original muestra una cuadrícula de fotos o ejemplos con etiquetas, usa el tipo 'galeria' con los mismos elementos: si las etiquetas son comandos, atajos, nombres de herramientas o términos técnicos que funcionan tal cual (ej. '/droneview'), se conservan iguales porque son la utilidad; si son frases, se transcrean. No fuerces los tipos respuesta o giro si el original no los tiene.",
   "PIE: el ESPEJO del pie original: misma apertura, mismos beneficios, misma mecánica de llamada (si pide comentar una palabra, se pide comentar una palabra equivalente) y hashtags del mismo tema, reescrito con sus propias palabras en español latino (nunca copiar y pegar).",
   "REMATE: la misma mecánica del original (comentar una palabra, guardar, seguir…) y el mismo tipo de regalo (ej. 'el listado completo'), que la persona entrega ella misma. Nunca su nombre, su cuenta, su marca ni sus números.",
-  "NECESITAS: si el original se apoya en fotos de una persona (su cara, su cuerpo, antes/después), capturas o un producto, di en 'necesitas' qué debe poner la persona para que su clon se vea igual (ej. 'Una foto tuya de cuerpo entero, de frente y con buena luz: la IA la usa para crear cada toma'). Nunca se usan las fotos del original.",
+  "SIRVE PARA CUALQUIER CARRUSEL: mira cómo está construido y repite esa construcción. Si cada lámina es una escena (de una película, una serie, un viaje, una historia), cada lámina lleva su 'escena' para que la IA de imagen la cree con la persona o con personajes propios (nunca actores, personajes ni fotogramas reales: se recrea la idea). Si son capturas de una app, frases sobre fondo, antes/después o un producto, usa el tipo de lámina que más se parezca y explica en 'necesitas' qué captura o qué foto debe poner.",
+  "NECESITAS: todo lo que la persona debe tener para que su clon se vea y funcione igual, en frases cortas y concretas, en este orden: 1) las fotos (ej. 'Una foto tuya de cuerpo entero, de frente y con buena luz: la IA la usa para crear cada toma'); 2) capturas o pruebas propias si el original las usa; 3) si el remate promete un regalo (un listado, una guía, una plantilla), 'Prepara <ese regalo> para mandarlo por mensaje a quien comente <PALABRA>'. Nunca se usan las fotos del original.",
   "Mejóralo solo donde suma (legibilidad, orden, una palabra más clara); en 'mejoras' explica 3 cosas concretas. En 'mantener' marca las 3 partes del ADN más importantes.",
 ].join("\n");
 
@@ -195,8 +196,40 @@ Deno.serve(async (req) => {
       return json({ error: "La IA respondió en un formato raro. No se te cobró: inténtalo de nuevo." }, 502);
     }
 
+    // 4) Guardarlo para aprender (Admin → Aprendizaje): solo texto, nunca las fotos del original.
+    let cloneId: string | null = null;
+    try {
+      const an = (result.analisis ?? {}) as Record<string, unknown>;
+      const car = (result.carrusel ?? {}) as Record<string, unknown>;
+      const slidesOut = Array.isArray(car.laminas) ? car.laminas as Record<string, unknown>[] : [];
+      const { data: row } = await db.from("carousel_clones").insert({
+        user_id: who.id, url, mode,
+        owner: clean(post.ownerUsername, 40) || null,
+        likes: Number.isFinite(post.likesCount) ? post.likesCount : null,
+        comments: Number.isFinite(post.commentsCount) ? post.commentsCount : null,
+        hook: clean(an.gancho_original, 200) || null,
+        summary: clean(an.resumen, 300) || null,
+        why: clean(an.por_que_funciona, 600) || null,
+        analysis: {
+          laminas: Array.isArray(an.laminas) ? (an.laminas as unknown[]).slice(0, 10) : [],
+          estilo: an.estilo ?? null,
+          adn: Array.isArray(result.adn) ? (result.adn as unknown[]).slice(0, 12) : [],
+          mantener: result.mantener ?? [],
+          necesitas: Array.isArray(result.necesitas) ? (result.necesitas as unknown[]).slice(0, 6) : [],
+          caption: clean(post.caption, 600),
+        },
+        result: {
+          portadas: Array.isArray(car.portadas) ? (car.portadas as Record<string, unknown>[]).slice(0, 3).map(c => clean(c?.titulo, 120)) : [],
+          tipos: slidesOut.map(l => clean(l?.tipo, 20)),
+          palabra: clean(slidesOut.at(-1)?.palabra, 20),
+        },
+      }).select("id").single();
+      cloneId = row?.id ?? null;
+    } catch (e) { console.error(`${FN}: guardar clon`, e); }
+
     return json({
       ...result,
+      clone_id: cloneId,
       source: {
         url, images: urls, owner: clean(post.ownerUsername, 40),
         likes: Number.isFinite(post.likesCount) ? post.likesCount : null,

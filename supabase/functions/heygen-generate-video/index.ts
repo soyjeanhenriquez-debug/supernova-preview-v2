@@ -17,8 +17,8 @@
 //     no existe.
 // Acción "refresh": re-consulta un job propio en HeyGen. Sirve de respaldo si el
 // webhook no llega y para renovar la URL del video (es prefirmada y caduca).
-import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 
 const HEYGEN_API = "https://api.heygen.com";
 const COST_MEDIA_CREDITS = 10; // ≈ 1 min de video

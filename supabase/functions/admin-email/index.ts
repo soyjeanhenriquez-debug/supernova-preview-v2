@@ -8,9 +8,9 @@
 // Los destinatarios los arma el servidor (admin_email_recipients: nunca incluye bajas). Los envíos a
 // grupos llevan enlace de baja de un clic (/unsub?t= o ?tl=). {{nombre}} se reemplaza por persona.
 // Resend: lotes de 100 (API batch), tope 500 por envío para no quemar el plan ni la reputación.
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 import { htmlToText } from "../_shared/mailtext.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 
 const APP_URL = "https://supernova-six-eta.vercel.app";
 const FROM = "SUPERNOVA <hola@supernova.jeanhenriquez.com>";

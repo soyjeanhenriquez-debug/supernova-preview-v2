@@ -7,7 +7,7 @@
 // Los PRECIOS viven aquí (allowlist server-side) — el cliente solo manda ids.
 // La acreditación la hace stripe-webhook al recibir checkout.session.completed
 // con la metadata que esta función escribe (user_id / pool / credits).
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

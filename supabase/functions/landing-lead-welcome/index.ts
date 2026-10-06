@@ -9,7 +9,7 @@
 // verdad — eso lo pone Jean.
 //
 // verify_jwt = false (lo invoca pg_cron). Compuerta: secreto de cron o admin.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.1";
 import { htmlToText } from "../_shared/mailtext.ts";
 // eslint-disable @typescript-eslint/no-explicit-any
 

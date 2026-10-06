@@ -9,8 +9,8 @@
 //
 // Ruta interna de prueba: con x-cron-secret válido y body.test_user_id de un ADMIN, actúa como
 // ese usuario (sirve para probar desde SQL con net.http_post). Por eso verify_jwt = false.
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 
 const MODEL = "gemini-flash-lite-latest";
 const FN = "content-ideas";

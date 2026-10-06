@@ -6,7 +6,7 @@
 // verify_jwt false (la invoca pg_cron) + compuerta interna: secreto de cron o admin con
 // sesión. Las URLs de los feeds llevan la clave del programa de afiliados: viven en
 // market_feeds, tabla sin permisos para la API, y NUNCA se devuelven enteras al cliente.
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",

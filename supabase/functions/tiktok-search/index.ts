@@ -2,8 +2,8 @@
 // Busca anuncios en la TikTok Ads Library usando Firecrawl (scraping público).
 // No requiere API oficial de TikTok.
 
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2.117.1";
 
 interface ScrapedAd {
   advertiserName?: string;

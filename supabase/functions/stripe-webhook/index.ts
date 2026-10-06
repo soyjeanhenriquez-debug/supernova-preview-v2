@@ -10,7 +10,7 @@
 //   URL: https://krfdoofwhtcxbyhkjoik.supabase.co/functions/v1/stripe-webhook
 //   Eventos: checkout.session.completed, customer.subscription.updated,
 //            customer.subscription.deleted, invoice.paid, invoice.payment_failed
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 
 type SubStatus = "active" | "trialing" | "past_due" | "canceled" | "inactive";
 

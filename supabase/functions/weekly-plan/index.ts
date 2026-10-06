@@ -5,8 +5,8 @@
 // herramienta de la app que la resuelve. Es gratis (no cobra créditos): cuesta ~US$0,015 por
 // semana y es lo que hace volver al usuario. Se guarda en weekly_plans; se puede rehacer 2 veces
 // por semana.
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 
 const MODEL = "gemini-3-flash-preview";
 const MAX_REGEN = 2;

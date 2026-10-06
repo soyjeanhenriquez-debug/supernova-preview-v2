@@ -9,8 +9,8 @@
 // Cada look trae su default_voice_id, así el usuario no tiene que elegir voz.
 // Todas las listas van paginadas y con tope: el catálogo público entero nos
 // colgaba la petición en v2.
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2.117.1";
 
 const HEYGEN_API = "https://api.heygen.com";
 const MAX_GROUPS = 10;      // grupos propios que se muestran

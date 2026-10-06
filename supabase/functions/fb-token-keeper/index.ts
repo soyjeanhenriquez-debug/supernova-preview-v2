@@ -13,8 +13,8 @@
 // Jamás devuelve ni registra el token: solo metadatos.
 //
 // verify_jwt = false (la llama pg_cron). Compuerta: secreto de cron o admin con sesión.
-import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 
 const GRAPH = "https://graph.facebook.com/v21.0";
 const RENEW_BELOW_DAYS = 45;

@@ -7,7 +7,7 @@
 // hay RESEND_API_KEY: no envía, solo reporta a quién enviaría.
 // verify_jwt false (la invoca pg_cron) + compuerta interna: secreto de cron o
 // admin con sesión.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.1";
 import { htmlToText } from "../_shared/mailtext.ts";
 // eslint-disable @typescript-eslint/no-explicit-any
 

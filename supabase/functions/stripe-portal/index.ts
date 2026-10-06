@@ -12,7 +12,7 @@
 //  - "portal" → URL de sesión del portal, lista para redirigir
 //
 // Requiere STRIPE_SECRET_KEY en Supabase → Edge Functions → Secrets.
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

@@ -9,8 +9,8 @@
 // Es gratis (no cobra créditos) porque solo sugiere datos de entrada, no
 // entrega el producto final; por eso lleva tope por usuario (edge_guard) y
 // respuestas cortas.
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2.117.1";
 
 const MODELS_TRY = ["gemini-flash-lite-latest", "gemini-3-flash-preview"];
 

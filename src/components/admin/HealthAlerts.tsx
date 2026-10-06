@@ -36,7 +36,7 @@ function reportAlerts(r: Report): Alert[] {
     out.push({
       level: c.fails >= c.runs / 2 ? "bad" : "warn",
       title: `Tarea automática "${c.job}" falló ${c.fails} de ${c.runs} veces`,
-      detail: c.sample.split("\n")[0],
+      detail: (c.sample ?? "").split("\n")[0],
     });
   }
   if (r.media_failures.count > 0) {

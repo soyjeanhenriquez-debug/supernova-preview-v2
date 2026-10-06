@@ -7,8 +7,8 @@
 // sirve aquí: si se filtrara, daría la cuenta de cualquier cliente. Nunca se
 // entrega el enlace de otro admin (sería escalar privilegios) y cada uso queda
 // en audit_log.
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });

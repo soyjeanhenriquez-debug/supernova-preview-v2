@@ -10,9 +10,9 @@
 // alerta aquí, cámbialas también allí).
 //
 // verify_jwt = false (lo invoca pg_cron). Compuerta: secreto de cron o admin.
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 import { htmlToText } from "../_shared/mailtext.ts";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 
 const APP_URL = "https://supernova-six-eta.vercel.app";
 const FROM = "SUPERNOVA <hola@supernova.jeanhenriquez.com>"; // dominio verificado en Resend (25-sep-2026)
@@ -60,7 +60,7 @@ function reportAlerts(r: Report): Alert[] {
   }
   for (const c of r.cron_failures) {
     out.push({ level: c.fails >= c.runs / 2 ? "bad" : "warn", title: `Tarea automática "${c.job}" falló ${c.fails} de ${c.runs} veces`,
-      detail: c.sample.split("\n")[0] });
+      detail: (c.sample ?? "").split("\n")[0] });
   }
   if (r.media_failures.count > 0) {
     out.push({ level: "warn", title: `${r.media_failures.count} videos de Media Studio fallaron`, detail: r.media_failures.sample ?? "" });

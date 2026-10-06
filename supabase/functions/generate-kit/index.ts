@@ -16,7 +16,7 @@
 // verify_jwt false (la invoca pg_cron) + compuerta interna: secreto de cron o
 // admin con sesión. Escribe con service_role.
 // Body opcional: { count?: 1-3, offer_id?: string, niche?: string, group?: "ES"|"BR"|"US"|"RU" }
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

@@ -4,8 +4,8 @@
 //   2) Si no, scrape con Firecrawl (waitFor reducido) y persiste en la tabla.
 // Resultado: el primer usuario que ve un ad lo "calienta", los siguientes
 // reciben el preview instantáneo.
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

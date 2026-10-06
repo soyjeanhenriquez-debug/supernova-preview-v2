@@ -1,6 +1,6 @@
 // SUPERNOVA — Fetch landing page HTML and extract relevant metadata server-side.
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2.117.1";
 
 function pick(html: string, re: RegExp): string {
   const m = html.match(re);

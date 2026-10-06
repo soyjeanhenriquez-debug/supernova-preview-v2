@@ -1,7 +1,7 @@
 // SUPERNOVA — analyze-ad: análisis estratégico de un anuncio de Meta
 // Llama a Lovable AI y devuelve JSON con los 6 campos solicitados.
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2.117.1";
 
 interface Body { copy?: string; title?: string }
 

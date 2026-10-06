@@ -1,9 +1,9 @@
 // SUPERNOVA weekly-learner
 // Analiza la actividad de la semana y genera entradas en system_learnings
 // que el admin debe aprobar o rechazar manualmente.
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.1";
+import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2.117.1";
 // eslint-disable @typescript-eslint/no-explicit-any
 
 // ── Compuerta interna ───────────────────────────────────────────────────

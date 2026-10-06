@@ -11,8 +11,8 @@
 // procesa solo candidatos nuevos.
 // (SHA-256 y no MD5: Web Crypto nativo no soporta MD5, y el import externo
 // jsr:@std/crypto hacía fallar el boot del worker en Supabase.)
-import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 
 // ── Compuerta interna ───────────────────────────────────────────────────
 // Esta función corre sin JWT porque la invoca pg_cron. Solo pasa quien trae el

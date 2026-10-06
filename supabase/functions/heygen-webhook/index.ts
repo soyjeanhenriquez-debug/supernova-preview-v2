@@ -6,8 +6,8 @@
 // mismo patrón que stripe-webhook. Un aviso falso, en el peor caso, provoca una
 // consulta de más: no puede completar un job con un enlace ajeno ni disparar un
 // reembolso de un video que en realidad sí se generó.
-import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 
 const HEYGEN_API = "https://api.heygen.com";
 

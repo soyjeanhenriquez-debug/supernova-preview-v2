@@ -16,7 +16,7 @@
 // Idempotente: procesa solo pendientes.
 // Body opcional: { batches?: 1-4 (default 2), group?: "ES"|"BR"|"US"|"RU", markets?: string[] }
 // Lotes cortos a propósito: 4×25 por invocación excedía el CPU del worker.
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

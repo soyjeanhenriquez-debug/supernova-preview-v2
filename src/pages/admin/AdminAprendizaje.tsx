@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ExternalLink, Loader2, ThumbsDown, ThumbsUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { TOOL_LABEL, feedbackSummary, listClones, listFeedback, type CloneRow, type Feedback } from "@/lib/creationFeedback";
+import { TOOL_LABEL, feedbackLine, feedbackSummary, listClones, listFeedback, type CloneRow, type Feedback } from "@/lib/creationFeedback";
 
 /**
  * Admin → Aprendizaje (06-oct-2026, pedido de Jean: "retroalimentarnos de los usuarios").
@@ -129,7 +129,7 @@ export default function AdminAprendizaje() {
                 <div key={f.id} className="rounded-xl border border-border p-3.5 flex gap-3">
                   {f.helpful ? <ThumbsUp className="w-4 h-4 mt-0.5 text-emerald-400 shrink-0" /> : <ThumbsDown className="w-4 h-4 mt-0.5 text-primary shrink-0" />}
                   <div className="min-w-0">
-                    <p className="text-[13px] text-foreground">{f.note || (f.helpful ? "Le sirvió." : "No le sirvió (sin nota).")}</p>
+                    <p className="text-[13px] text-foreground">{feedbackLine(f)}</p>
                     <p className="text-[12px] text-muted-foreground mt-0.5">{TOOL_LABEL[f.tool] ?? f.tool} · {who(f.user_id)} · {new Date(f.created_at).toLocaleString("es")}
                       {typeof f.context?.original === "string" && <> · <a href={f.context.original} target="_blank" rel="noreferrer" className="underline">original</a></>}</p>
                   </div>

@@ -18,3 +18,11 @@ describe("aprendizaje: ¿les sirvió?", () => {
     expect(parseClone({ ...base, clone_id: "<script>" })!.info.id).toBeUndefined();
   });
 });
+
+import { feedbackLine } from "./creationFeedback";
+describe("aprendizaje: respuestas legibles", () => {
+  it("traduce la respuesta de la pregunta semanal", () => {
+    expect(feedbackLine({ ...f("resultados", true), context: { pieza: "Cambia el ángulo", respuesta: "anotado", leads: 12, ventas: 1 } })).toBe("«Cambia el ángulo»: 12 personas le escribieron, 1 ventas");
+    expect(feedbackLine({ ...f("resultados", false), note: "las fotos no salían igual", context: { pieza: "X", respuesta: "no-sirvio" } })).toBe('«X»: No le sirvió — "las fotos no salían igual"');
+  });
+});

@@ -17,6 +17,7 @@ import { OPEN_TOUR_EVENT } from "@/components/OnboardingTour";
 import { useVitrina } from "@/contexts/VitrinaContext";
 import { useVitrinaSample, SampleOffers } from "@/components/LockedToolPage";
 import { TUTORIALS } from "@/lib/tutorials";
+import { ResultsCheckIn } from "@/components/dashboard/ResultsCheckIn";
 
 /**
  * Inicio = "¿Qué quieres crear hoy?" (navegación por intención, decisión de Jean del 03-oct-2026;
@@ -310,6 +311,9 @@ export function DashboardPage({ onNavigate }: Props) {
               )}
             </div>
           )}
+
+          {/* Una pregunta corta sobre lo que hizo, como mucho una vez por semana (feedback real, sin agobiar). */}
+          {!locked && <ResultsCheckIn />}
 
           {/* Panel de herramientas: buscador, pestañas por lo que quieres hacer y tarjetas con miniatura. */}
           <section className="space-y-4" aria-label="Herramientas">

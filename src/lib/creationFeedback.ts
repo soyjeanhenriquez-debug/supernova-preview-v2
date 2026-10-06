@@ -13,7 +13,22 @@ export type CloneRow = {
   created_at: string;
 };
 
-export const TOOL_LABEL: Record<string, string> = { "carrusel-clon": "Carrusel · clonar", carrusel: "Carrusel" };
+export const TOOL_LABEL: Record<string, string> = { "carrusel-clon": "Carrusel · clonar", carrusel: "Carrusel", resultados: "Resultados (pregunta semanal)" };
+
+const ANSWER: Record<string, string> = {
+  publicado: "Sí, ya lo publicó", todavia: "Todavía no lo publica", "no-sirvio": "No le sirvió",
+  tiempo: "No tuvo tiempo", "no-convencio": "No le convenció cómo quedó", "ya-publicado": "Ya lo publicó",
+  "ninguna-todavia": "Nadie le escribió todavía",
+};
+/** Una línea legible para el admin: qué se preguntó y qué contestó. */
+export function feedbackLine(f: Feedback): string {
+  if (f.tool !== "resultados") return f.note || (f.helpful ? "Le sirvió." : "No le sirvió (sin nota).");
+  const c = f.context ?? {};
+  const pieza = typeof c.pieza === "string" ? `«${c.pieza}»: ` : "";
+  const r = String(c.respuesta ?? "");
+  const nums = r === "anotado" ? `${Number(c.leads) || 0} personas le escribieron, ${Number(c.ventas) || 0} ventas` : ANSWER[r] ?? r;
+  return `${pieza}${nums}${f.note ? ` — "${f.note}"` : ""}`;
+}
 
 // Tablas nuevas, aún fuera de los tipos generados.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

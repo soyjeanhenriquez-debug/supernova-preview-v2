@@ -226,7 +226,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     } finally { setPosterBusy(false); }
   };
   /**
-   * Portada "como Alex", en 2 pasos: 1) la foto con la IA elegida (Nano Banana Pro da la mejor foto y
+   * Portada MVP, en 2 pasos (el método de los mejores carruseles): 1) la foto con la IA elegida (Nano Banana Pro da la mejor foto y
    * te pone a ti con tu foto de referencia), sin texto; 2) GPT Image 2 recibe esa foto y SOLO le pone
    * las letras, sin tocar la escena. Cada paso lo cobra el servidor; si falla el 2, la foto queda
    * guardada y se reintentan solo las letras.
@@ -250,7 +250,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     const { data } = await supabase.storage.from("creativos").createSignedUrl(p, 3600);
     return data?.signedUrl ? { path: p, url: data.signedUrl } : null;
   };
-  const makePosterAlex = async (onlyLetters = false) => {
+  const makePosterMvp = async (onlyLetters = false) => {
     const m = POSTER_MODELS.find(x => x.id === posterModel) ?? POSTER_MODELS[0];
     const lettersPrice = CREDIT_COSTS.gen_ad_image;
     const total = (onlyLetters ? 0 : CREDIT_COSTS[m.action]) + lettersPrice;
@@ -274,7 +274,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
         const blob = await gen({ prompt: posterTextPrompt(opts), aspectRatio: aspect, model: "gpt-image-2", reference_paths: [base] }, "gen_ad_image", "Carrusel · letras de la portada GPT Image 2");
         const done = await save(blob, "poster");
         editSlide(0, done ? { image: done.url, imagePath: done.path } : { image: URL.createObjectURL(blob), imagePath: undefined });
-        toast.success("Portada lista, como Alex", { description: "Revisa que el titular diga exactamente lo mismo. Si no, toca \"Otra vez solo las letras\"." });
+        toast.success("Tu portada MVP está lista", { description: "Revisa que el titular diga exactamente lo mismo. Si no, toca \"Otra vez solo las letras\"." });
       } catch (e) {
         toast.error("La foto quedó lista, pero faltan las letras", { description: `${e instanceof Error ? e.message : ""} Toca "Poner solo las letras" (${lettersPrice} créditos): no vuelves a pagar la foto.` });
       }
@@ -282,7 +282,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
       toast.error(e instanceof Error && e.message ? e.message : "No se pudo crear la portada.");
     } finally { setPosterBusy(false); }
   };
-  const makePoster = () => (posterMode === "dos" ? makePosterAlex() : makeImage(0));
+  const makePoster = () => (posterMode === "dos" ? makePosterMvp() : makeImage(0));
 
   const cloneInfo = draft?.clone;
   useEffect(() => { setKeep(cloneInfo?.keep ?? []); }, [cloneInfo]);
@@ -801,7 +801,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                   <button type="button" role="radio" aria-checked={posterMode === "dos"} disabled={posterBusy}
                     onClick={() => { setPosterMode("dos"); if (posterModel === "gpt-image-2") setPosterModel("nano-banana-pro"); }}
                     className={`rounded-lg border px-3 py-2 text-left ${posterMode === "dos" ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
-                    <span className="block text-[13px] text-foreground">Como Alex · 2 pasos <span className="text-primary text-[11px]">Recomendado</span></span>
+                    <span className="block text-[13px] text-foreground">Portada MVP · 2 pasos <span className="text-primary text-[11px]">Recomendado</span></span>
                     <span className="block text-[11px] text-muted-foreground">1) La foto con la IA que elijas abajo (sales tú si subiste tu foto). 2) GPT Image 2 le pone las letras sin tocar la foto.</span>
                   </button>
                   <button type="button" role="radio" aria-checked={posterMode === "uno"} disabled={posterBusy} onClick={() => setPosterMode("uno")}
@@ -819,7 +819,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                     {posterBusy ? "Creando tu portada…" : `${current.image ? "Crear otra portada" : "Crear portada póster"} · ${posterMode === "dos" ? imgPrice + CREDIT_COSTS.gen_ad_image : imgPrice} créditos`}
                   </button>
                   {posterMode === "dos" && scenePath && (
-                    <button type="button" onClick={() => void makePosterAlex(true)} disabled={posterBusy}
+                    <button type="button" onClick={() => void makePosterMvp(true)} disabled={posterBusy}
                       className="min-h-[40px] inline-flex items-center gap-2 rounded-lg border border-border px-3 text-[12px] text-foreground hover:border-foreground/40 disabled:opacity-60">
                       {current.image ? "Otra vez solo las letras" : "Poner solo las letras"} · {CREDIT_COSTS.gen_ad_image} créditos
                     </button>

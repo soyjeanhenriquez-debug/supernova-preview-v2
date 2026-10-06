@@ -270,8 +270,14 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
       if (!base) {
         const body: Record<string, unknown> = { prompt: posterScenePrompt(opts), aspectRatio: aspect, model: m.id };
         if (refs.length) body.reference_paths = refs;
-        const scene = await save(await gen(body, m.action, `Carrusel · foto de portada ${m.label}`), "escena");
-        if (!scene) throw new Error("La foto se creó pero no se pudo guardar. Intenta de nuevo.");
+        const photo = await gen(body, m.action, `Carrusel · foto de portada ${m.label}`);
+        const scene = await save(photo, "escena");
+        if (!scene) {
+          // La foto ya está pagada: nunca se pierde. Queda de portada aunque no se pueda guardar para ponerle letras.
+          editSlide(0, { image: URL.createObjectURL(photo), imagePath: undefined });
+          toast.error("Tu foto quedó en la portada, pero no se pudo guardar para ponerle las letras", { description: "Descárgala desde \"Listo para publicar\" para no perderla. Si vuelve a pasar, escríbenos." });
+          return;
+        }
         base = scene.path; setScenePath(scene.path);
         toast("Paso 1 listo: la foto. Ahora le pongo las letras…");
       }
@@ -300,14 +306,14 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     setCloning(true);
     try {
       const { data, error } = await supabase.functions.invoke("carousel-clone", { body: { url: cloneUrl.trim(), mode: cloneMode2, brief, goal: goal === "ensenar" ? "ensenar" : "vender", handle: design.handle, world: design.world ?? "", line: design.line ?? "" } });
-      if (error || !data?.carrusel) throw new Error(error ? await invokeErrorMessage(error, "No se pudo clonar el carrusel. No se te cobró.") : (data?.error || "No se pudo clonar el carrusel. No se te cobró."));
-      if (data.billing) applyServerCharge("clone_carousel", data.billing, "Clonar carrusel viral");
+      if (error || !data?.carrusel) throw new Error(error ? await invokeErrorMessage(error, "No se pudo modelar el carrusel. No se te cobró.") : (data?.error || "No se pudo modelar el carrusel. No se te cobró."));
+      if (data.billing) applyServerCharge("clone_carousel", data.billing, "Modelar carrusel viral");
       const parsed = parseClone(data, design.start, cloneMode2);
       if (!parsed) throw new Error("La IA respondió en un formato raro. Escríbenos y te devolvemos los créditos.");
       setDraft({ ...parsed.draft, clone: parsed.info }); setSel(0); setCount(parsed.draft.slides.length);
-      toast.success("Carrusel clonado con su ADN", { description: "Mira abajo qué 3 partes se mantuvieron y cómo lo mejoramos." });
+      toast.success("Carrusel modelado con su ADN", { description: "Mira abajo qué 3 partes se mantuvieron y cómo lo mejoramos." });
     } catch (e) {
-      toast.error(e instanceof Error && e.message ? e.message : "No se pudo clonar el carrusel.");
+      toast.error(e instanceof Error && e.message ? e.message : "No se pudo modelar el carrusel.");
     } finally { setCloning(false); }
   };
 
@@ -315,15 +321,15 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     if (!cloneInfo || writing || !keep.length) return;
     if (balance < cost) { toast.error(`Te faltan créditos: esto cuesta ${cost}`); return; }
     setWriting(true);
-    const label = "Carrusel · clonar con otro ADN";
+    const label = "Carrusel · modelar con otro ADN";
     try {
       const text = await runGenerator({ id: GENERATOR_ID, title: label, system: SYSTEM, prompt: recloneRequest({ info: cloneInfo, keep, brief, goal: goal === "ensenar" ? "ensenar" : "vender", handle: design.handle, world: design.world, line: design.line }), onCharge: b => applyServerCharge(action, b, label) });
       const parsed = parseReclone(text, design.start);
       if (!parsed) throw new Error("La IA respondió en un formato raro. Toca de nuevo: si vuelve a pasar, escríbenos y te devolvemos los créditos.");
       setDraft({ ...parsed.draft, clone: { ...cloneInfo, keep, improvements: parsed.improvements.length ? parsed.improvements : cloneInfo.improvements } }); setSel(0);
-      toast.success("Listo: clonado con las 3 partes que elegiste");
+      toast.success("Listo: modelado con las 3 partes que elegiste");
     } catch (e) {
-      toast.error(e instanceof Error && e.message ? e.message : "No se pudo volver a clonar.");
+      toast.error(e instanceof Error && e.message ? e.message : "No se pudo volver a modelar.");
     } finally { setWriting(false); }
   };
 
@@ -433,10 +439,10 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
               <button type="button" onClick={() => void cloneCarousel()} disabled={cloning}
                 className="btn-primary-nova shrink-0 min-h-[48px] inline-flex items-center justify-center gap-2 rounded-xl px-5 text-[14px] font-semibold disabled:opacity-60">
                 {cloning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                {cloning ? "Analizando el carrusel…" : `Clonar · ${cloneCost} créditos`}
+                {cloning ? "Analizando el carrusel…" : `Modelar · ${cloneCost} créditos`}
               </button>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Cómo clonarlo">
+            <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Cómo modelarlo">
               {(Object.keys(CLONE_MODES) as CloneMode[]).map(m => (
                 <button key={m} type="button" role="radio" aria-checked={cloneMode2 === m} disabled={cloning} onClick={() => setCloneMode2(m)}
                   className={`rounded-lg border px-3 py-2 text-left ${cloneMode2 === m ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
@@ -635,7 +641,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" onClick={() => void reclone()} disabled={writing || !keep.length || keep.join() === cloneInfo.keep.join()}
                 className="min-h-[40px] inline-flex items-center gap-2 rounded-lg border border-border px-3 text-[12px] text-foreground hover:border-foreground/40 disabled:opacity-50">
-                {writing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Clonar de nuevo con estas {keep.length} · {cost} créditos
+                {writing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Modelar de nuevo con estas {keep.length} · {cost} créditos
               </button>
               <span className="text-[11px] text-muted-foreground">{keep.length}/{MAX_KEEP} elegidas</span>
             </div>
@@ -891,7 +897,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
         {!isSample && <AddToTracker kind="carrusel" title={slides[0]?.title ?? brief.product} keyword={slides[slides.length - 1]?.cta} source="carrusel" className="sm:ml-2" />}
         {!isSample && (
           <ToolFeedback tool={cloneInfo ? "carrusel-clon" : "carrusel"} refId={cloneInfo?.id ?? null}
-            question={cloneInfo ? "¿Tu clon se parece a lo que ya funcionaba?" : "¿Te sirvió este carrusel?"}
+            question={cloneInfo ? "¿Tu carrusel modelado se parece a lo que ya funcionaba?" : "¿Te sirvió este carrusel?"}
             context={{ formato: cloneInfo ? "clonar" : fmt, laminas: slides.length, original: cloneInfo?.source.url ?? null }} />
         )}
 

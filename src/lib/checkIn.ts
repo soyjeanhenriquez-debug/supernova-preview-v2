@@ -39,7 +39,7 @@ export function pickCheckIn(o: { items: CheckInItem[]; clones: CheckInClone[]; a
   if (clone) {
     const t = short((clone.hook || clone.summary || "un carrusel viral").replace(/\*/g, ""));
     const d = daysAgo(clone.created_at, now);
-    return { type: "clon", refId: clone.id, title: t, question: `Hace ${d} días clonaste «${t}». ¿Lo publicaste?` };
+    return { type: "clon", refId: clone.id, title: t, question: `Hace ${d} días modelaste «${t}». ¿Lo publicaste?` };
   }
   const stuck = o.items.filter(fresh).find(it => !published(it.channels) && daysAgo(it.created_at, now) >= 4);
   if (stuck) return { type: "frenado", refId: stuck.id, title: name(stuck), question: `«${name(stuck)}» sigue sin publicar. ¿Qué te frenó?` };

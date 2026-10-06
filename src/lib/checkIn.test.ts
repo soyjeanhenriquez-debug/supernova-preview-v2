@@ -25,7 +25,7 @@ describe("pregunta de resultados: de vez en cuando y personalizada", () => {
 
   it("después, por el clon; y por último, qué lo frenó", () => {
     const clon = pickCheckIn({ items: [], clones: [{ id: "c1", hook: "Cambia el ángulo de tus fotos", summary: null, created_at: ago(3) }], asked: new Set(), lastAskedAt: null, now: NOW })!;
-    expect(clon).toMatchObject({ type: "clon", refId: "c1", question: "Hace 3 días clonaste «Cambia el ángulo de tus fotos». ¿Lo publicaste?" });
+    expect(clon).toMatchObject({ type: "clon", refId: "c1", question: "Hace 3 días modelaste «Cambia el ángulo de tus fotos». ¿Lo publicaste?" });
     const stuck = pickCheckIn({ items: [item({ channels: { instagram: { done: false } } })], clones: [], asked: new Set(), lastAskedAt: null, now: NOW })!;
     expect(stuck).toMatchObject({ type: "frenado", question: "«Cambia el ángulo» sigue sin publicar. ¿Qué te frenó?" });
   });

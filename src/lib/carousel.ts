@@ -168,7 +168,7 @@ export function kindPlan(n: number): SlideKind[] {
  */
 export type FormatId = "clonar" | "vender" | "reglas" | "ensenar" | "mitos" | "historia" | "texto";
 export const FORMATS: Record<FormatId, { label: string; line: string; goal: CarouselGoal; template: CoverTemplateId; hint?: string; needs?: "link" | "texto" | "historia" }> = {
-  clonar: { label: "Clonar uno que ya funciona", line: "Pega el enlace de un carrusel viral y te lo damos en español, para ti.", goal: "vender", template: "editorial", needs: "link" },
+  clonar: { label: "Modelar uno que ya funciona", line: "Pega el enlace de un carrusel viral y lo modelamos para ti, en español.", goal: "vender", template: "editorial", needs: "link" },
   vender: { label: "Vender mi producto", line: "El problema, tu método y una palabra clave para que te escriban.", goal: "vender", template: "hero" },
   reglas: { label: "Las reglas de…", line: "Una regla por lámina con una palabra gigante. El que más se guarda.", goal: "ensenar", template: "editorial",
     hint: "FORMATO LISTA DE REGLAS: la portada promete el sistema ('Las 5 reglas de…', 'Las 5 claves para…'). Cada lámina del medio es una 'regla' (pastilla 'Regla 1', 'Regla 2'…): titulo = 1 o 2 palabras GIGANTES, texto = una frase, items = 3 líneas muy cortas (qué hace, cuándo usarlo, cuándo no) y veredicto = una acción corta o la frase que remata." },
@@ -723,7 +723,7 @@ export type CloneInfo = {
 export const MAX_KEEP = 3;
 export type CloneMode = "tema" | "producto";
 export const CLONE_MODES: Record<CloneMode, { label: string; line: string }> = {
-  tema: { label: "Clonarlo casi igual", line: "Su espejo: el mismo gancho, las mismas láminas, el mismo pie y el mismo remate, en español latino con tus toques (nunca copiar y pegar)." },
+  tema: { label: "Modelarlo casi igual", line: "Su espejo: el mismo gancho, las mismas láminas, el mismo pie y el mismo remate, en español latino con tus toques (nunca copiar y pegar)." },
   producto: { label: "Su ADN en mi producto", line: "Mantiene las 3 partes que lo hicieron funcionar y cambia el tema por tu producto." },
 };
 

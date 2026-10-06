@@ -44,6 +44,7 @@ const SYSTEM = `Eres el director creativo de SUPERNOVA. Analizas carruseles de I
 - Clonar lo que funciona es la base (no se reinventa la rueda). Lo único que no se hace es copiar y pegar en el mismo idioma, traducir palabra por palabra, ni usar sus fotos, su cara, su nombre, su marca, sus números ni sus recursos.
 - La versión nueva debe ser MEJOR que el original: aplica la fórmula de 6 posiciones (apertura que crea un deseo, agarre en la lámina 2 que responde solo la portada, columna donde cada lámina abre la siguiente, ritmo corta/densa, giro "Para que puedas…", remate con creencia nueva + UNA acción) y que cada lámina lleve algo real (ejemplo, comparación, regla con veredicto).
 Español neutro latinoamericano, de tú, frases cortas, sin jerga. Sin emojis en las láminas; en el pie, solo si el original los usa (los mismos en el mismo lugar). Prohibido: promesas de ingresos o de resultados, plazos, testimonios, cifras o estudios inventados, urgencia falsa, marcas ajenas, personas famosas.
+En todo lo que lee la persona (mejoras, necesitas, por qué funciona) di "modelar" y "tu versión", nunca "clonar" ni "clon".
 Respondes SOLO con el JSON pedido.`;
 
 // Dos formas de clonar (06-oct-2026, Jean: "la referencia tiene que servir"):
@@ -52,13 +53,13 @@ Respondes SOLO con el JSON pedido.`;
 //    se sigue de cerca; no se copia y pega en el mismo idioma ni se traduce palabra por palabra).
 //  · "producto": su ADN (3 partes) aplicado al producto de la persona; todo lo demás cambia.
 const TEMA_STEP = (n: number) => [
-  `PASO 3 · TU CLON EN ESPAÑOL (ESPEJO, 06-oct-2026, Jean: "el clon debe parecerse al 97 % a lo que ya funcionó"). Escribe un carrusel de ${n + 1} láminas que sea el ESPEJO del original: el MISMO tema, el MISMO gancho, las MISMAS ideas, el MISMO número de láminas, en el MISMO orden, con la MISMA composición de cada lámina y el MISMO remate. No reinventes nada: si el original funciona, se repite su receta.`,
+  `PASO 3 · TU VERSIÓN MODELADA EN ESPAÑOL (ESPEJO, 06-oct-2026, Jean: "debe parecerse al 97 % a lo que ya funcionó"). Escribe un carrusel de ${n + 1} láminas que sea el ESPEJO del original: el MISMO tema, el MISMO gancho, las MISMAS ideas, el MISMO número de láminas, en el MISMO orden, con la MISMA composición de cada lámina y el MISMO remate. No reinventes nada: si el original funciona, se repite su receta.`,
   "PORTADAS: la portada 1 es el gancho del original. Si está en otro idioma, transcréalo fiel (la misma promesa, el mismo remate, en español latino natural). Si ya está en español, conserva su estructura y casi sus mismas palabras con un toque propio (un sinónimo, un orden mejor), nunca idéntico. Las portadas 2 y 3 son variantes del MISMO gancho (otra forma de decir lo mismo), nunca otro tema. 'recomendada' = 0. El producto de la persona NUNCA va en la portada.",
   "LÁMINAS: lámina por lámina, la misma idea y el mismo tipo de contenido que la lámina del original en esa posición. Si el original muestra una cuadrícula de fotos o ejemplos con etiquetas, usa el tipo 'galeria' con los mismos elementos: si las etiquetas son comandos, atajos, nombres de herramientas o términos técnicos que funcionan tal cual (ej. '/droneview'), se conservan iguales porque son la utilidad; si son frases, se transcrean. No fuerces los tipos respuesta o giro si el original no los tiene.",
   "PIE: el ESPEJO del pie original: misma apertura, mismos beneficios, misma mecánica de llamada (si pide comentar una palabra, se pide comentar una palabra equivalente) y hashtags del mismo tema, reescrito con sus propias palabras en español latino (nunca copiar y pegar).",
   "REMATE: la misma mecánica del original (comentar una palabra, guardar, seguir…) y el mismo tipo de regalo (ej. 'el listado completo'), que la persona entrega ella misma. Nunca su nombre, su cuenta, su marca ni sus números.",
   "SIRVE PARA CUALQUIER CARRUSEL: mira cómo está construido y repite esa construcción. Si cada lámina es una escena (de una película, una serie, un viaje, una historia), cada lámina lleva su 'escena' para que la IA de imagen la cree con la persona o con personajes propios (nunca actores, personajes ni fotogramas reales: se recrea la idea). Si son capturas de una app, frases sobre fondo, antes/después o un producto, usa el tipo de lámina que más se parezca y explica en 'necesitas' qué captura o qué foto debe poner.",
-  "NECESITAS: todo lo que la persona debe tener para que su clon se vea y funcione igual, en frases cortas y concretas, en este orden: 1) las fotos (ej. 'Una foto tuya de cuerpo entero, de frente y con buena luz: la IA la usa para crear cada toma'); 2) capturas o pruebas propias si el original las usa; 3) si el remate promete un regalo (un listado, una guía, una plantilla), 'Prepara <ese regalo> para mandarlo por mensaje a quien comente <PALABRA>'. Nunca se usan las fotos del original.",
+  "NECESITAS: todo lo que la persona debe tener para que su versión se vea y funcione igual, en frases cortas y concretas, en este orden: 1) las fotos (ej. 'Una foto tuya de cuerpo entero, de frente y con buena luz: la IA la usa para crear cada toma'); 2) capturas o pruebas propias si el original las usa; 3) si el remate promete un regalo (un listado, una guía, una plantilla), 'Prepara <ese regalo> para mandarlo por mensaje a quien comente <PALABRA>'. Nunca se usan las fotos del original.",
   "Mejóralo solo donde suma (legibilidad, orden, una palabra más clara); en 'mejoras' explica 3 cosas concretas. En 'mantener' marca las 3 partes del ADN más importantes.",
 ].join("\n");
 
@@ -240,6 +241,6 @@ Deno.serve(async (req) => {
   } catch (e) {
     await refund(txId, "excepción");
     console.error(`${FN}:`, e);
-    return json({ error: "No se pudo clonar el carrusel. No se te cobró." }, 500);
+    return json({ error: "No se pudo modelar el carrusel. No se te cobró." }, 500);
   }
 });

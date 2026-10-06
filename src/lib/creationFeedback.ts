@@ -13,7 +13,7 @@ export type CloneRow = {
   created_at: string;
 };
 
-export const TOOL_LABEL: Record<string, string> = { "carrusel-clon": "Carrusel · clonar", carrusel: "Carrusel", resultados: "Resultados (pregunta semanal)" };
+export const TOOL_LABEL: Record<string, string> = { "carrusel-clon": "Carrusel · modelar", carrusel: "Carrusel", resultados: "Resultados (pregunta semanal)" };
 
 const ANSWER: Record<string, string> = {
   publicado: "Sí, ya lo publicó", todavia: "Todavía no lo publica", "no-sirvio": "No le sirvió",

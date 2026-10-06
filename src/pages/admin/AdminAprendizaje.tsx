@@ -41,11 +41,11 @@ export default function AdminAprendizaje() {
     <div className="max-w-5xl space-y-6">
       <div>
         <h1 className="font-display text-2xl font-semibold text-foreground">Aprendizaje</h1>
-        <p className="text-sm text-muted-foreground mt-1">Lo que los usuarios clonan porque funciona y lo que les sirvió o no. Los "no mucho" son los muros que hay que arreglar primero.</p>
+        <p className="text-sm text-muted-foreground mt-1">Lo que los usuarios modelan porque funciona y lo que les sirvió o no. Los "no mucho" son los muros que hay que arreglar primero.</p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex rounded-xl border border-border p-1 gap-1">
-          <button onClick={() => setTab("clones")} className={chip(tab === "clones")}>Carruseles clonados</button>
+          <button onClick={() => setTab("clones")} className={chip(tab === "clones")}>Carruseles modelados</button>
           <button onClick={() => setTab("opiniones")} className={chip(tab === "opiniones")}>¿Les sirvió?</button>
         </div>
         {tab === "clones" ? (
@@ -62,7 +62,7 @@ export default function AdminAprendizaje() {
       </div>
 
       {tab === "clones" && (clones === null ? <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /> : clones.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border px-4 py-5 text-[13px] text-muted-foreground">Todavía nadie ha clonado un carrusel.</p>
+        <p className="rounded-xl border border-dashed border-border px-4 py-5 text-[13px] text-muted-foreground">Todavía nadie ha modelado un carrusel.</p>
       ) : (
         <div className="space-y-3">
           {clones.map(c => (
@@ -73,8 +73,8 @@ export default function AdminAprendizaje() {
                   <p className="text-[12px] text-muted-foreground mt-1">
                     {c.owner ? `@${c.owner}` : "Cuenta desconocida"}
                     {c.likes != null && <> · {c.likes.toLocaleString("es")} me gusta · {(c.comments ?? 0).toLocaleString("es")} comentarios</>}
-                    {" · "}{c.mode === "tema" ? "Clonar casi igual" : "Su ADN en mi producto"}
-                    {" · "}lo clonó {who(c.user_id)} · {new Date(c.created_at).toLocaleString("es")}
+                    {" · "}{c.mode === "tema" ? "Modelar casi igual" : "Su ADN en mi producto"}
+                    {" · "}lo modeló {who(c.user_id)} · {new Date(c.created_at).toLocaleString("es")}
                   </p>
                 </div>
                 <div className="flex gap-1.5 shrink-0">

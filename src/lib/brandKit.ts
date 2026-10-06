@@ -66,7 +66,17 @@ export async function uploadReference(uid: string, productId: string, file: File
   return path;
 }
 
-/** Cualquier imagen (archivo o data URL) → WebP comprimido. */
+/** Lo que acepta la carpeta "creativos" (límite del bucket: 2 MB); se deja margen. */
+const MAX_UPLOAD = 1.9 * 1024 * 1024;
+const encode = (c: HTMLCanvasElement, type: string, q: number) =>
+  new Promise<Blob>((res, rej) => c.toBlob(b => (b ? res(b) : rej(new Error("No se pudo preparar la imagen."))), type, q));
+
+/**
+ * Cualquier imagen (archivo o data URL) → WebP comprimido, de menos de 2 MB.
+ * Safari y Chrome del iPhone (WebKit) no saben crear WebP: devuelven un PNG que, en una foto, pasa de
+ * 2 MB y la carpeta lo rechaza (error del 06-oct-2026 en la portada del carrusel). En ese caso se usa
+ * JPEG y se baja la calidad hasta que quepa. Las imágenes se muestran igual con cualquiera de los dos.
+ */
 export async function toWebp(src: Blob | string, max = 1080, quality = 0.86): Promise<Blob> {
   const url = typeof src === "string" ? src : URL.createObjectURL(src);
   try {
@@ -79,7 +89,13 @@ export async function toWebp(src: Blob | string, max = 1080, quality = 0.86): Pr
     const ctx = c.getContext("2d");
     if (!ctx) throw new Error("No se pudo preparar la imagen.");
     ctx.drawImage(img, 0, 0, c.width, c.height);
-    return await new Promise<Blob>((res, rej) => c.toBlob(b => (b ? res(b) : rej(new Error("No se pudo preparar la imagen."))), "image/webp", quality));
+    let out = await encode(c, "image/webp", quality);
+    if (out.type === "image/webp" && out.size <= MAX_UPLOAD) return out;
+    for (const q of [quality, 0.78, 0.68, 0.56]) {
+      out = await encode(c, "image/jpeg", q);
+      if (out.size <= MAX_UPLOAD) return out;
+    }
+    return out;
   } finally {
     if (typeof src !== "string") URL.revokeObjectURL(url);
   }

@@ -88,7 +88,7 @@ describe("ImageStudioPage", () => {
     runGenerator.mockReset();
     profile = { product: "Ebook de recetas", who: "Mamás que trabajan", promise: "Cocinar rápido", price: "" };
     render(<ImageStudioPage initialMode="carrusel" />);
-    expect(screen.getByText(/Escribir mi carrusel con IA · 15 créditos/)).toBeInTheDocument();
+    expect(screen.getByText(/Escribir mi carrusel · 15 créditos/)).toBeInTheDocument();
     expect(screen.getByText("Así se verá tu carrusel")).toBeInTheDocument();
     await new Promise(r => setTimeout(r, 50));
     expect(runGenerator).not.toHaveBeenCalled();

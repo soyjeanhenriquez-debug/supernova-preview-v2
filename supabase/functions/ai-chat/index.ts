@@ -210,13 +210,15 @@ serve(async (req) => {
     gate = g;
     // El asistente de ayuda es gratis: conversación acotada a los últimos ~20 000 caracteres (se
     // descartan los turnos más viejos), para que no sirva de generador gratis con textos enormes.
-    // Su prompt (~9 300 caracteres) cabe en el tope de 12 000.
+    // Su guía creció (~26 000 caracteres el 06-oct-2026): con el tope viejo de 12 000 el asistente no
+    // veía más de la mitad, incluida la nota de secciones pausadas que va al final. Tope de 32 000 SOLO
+    // para la ayuda (respuesta corta, 900 tokens, 40 por hora): ~US$0,004 de entrada por pregunta.
     if (!generatorId) {
       while (messages.length > 1 && messages.reduce((n, m) => n + m.content.length, 0) > 20_000) messages.shift();
       const last = messages[messages.length - 1];
       if (last) last.content = last.content.slice(0, 4_000);
     }
-    const clientSystem = typeof rawSystem === "string" ? rawSystem.trim().slice(0, 12_000) : "";
+    const clientSystem = typeof rawSystem === "string" ? rawSystem.trim().slice(0, generatorId ? 12_000 : 32_000) : "";
     const systemPrompt = (clientSystem || DEFAULT_SYSTEM) + (generatorId ? GENERATOR_GUARD : HELP_GUARD);
     const LOVABLE_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");

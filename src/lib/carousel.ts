@@ -160,6 +160,35 @@ export function kindPlan(n: number): SlideKind[] {
   return PLANS[n <= 6 ? 6 : n <= 8 ? 8 : 10];
 }
 
+// ── Formatos (lo primero que elige la persona) ───────────────────────────────────────────────────
+/**
+ * Qué carrusel quiere hacer, en sus palabras. Cada formato trae su estructura de láminas, su
+ * plantilla de portada y la instrucción para la IA. Salen de lo que más se guarda y se comparte hoy:
+ * clonar uno viral, vender, la lista de reglas, el paso a paso, mito contra verdad y la historia real.
+ */
+export type FormatId = "clonar" | "vender" | "reglas" | "ensenar" | "mitos" | "historia" | "texto";
+export const FORMATS: Record<FormatId, { label: string; line: string; goal: CarouselGoal; template: CoverTemplateId; hint?: string; needs?: "link" | "texto" | "historia" }> = {
+  clonar: { label: "Clonar uno que ya funciona", line: "Pega el enlace de un carrusel viral y te lo damos en español, para ti.", goal: "vender", template: "editorial", needs: "link" },
+  vender: { label: "Vender mi producto", line: "El problema, tu método y una palabra clave para que te escriban.", goal: "vender", template: "hero" },
+  reglas: { label: "Las reglas de…", line: "Una regla por lámina con una palabra gigante. El que más se guarda.", goal: "ensenar", template: "editorial",
+    hint: "FORMATO LISTA DE REGLAS: la portada promete el sistema ('Las 5 reglas de…', 'Las 5 claves para…'). Cada lámina del medio es una 'regla' (pastilla 'Regla 1', 'Regla 2'…): titulo = 1 o 2 palabras GIGANTES, texto = una frase, items = 3 líneas muy cortas (qué hace, cuándo usarlo, cuándo no) y veredicto = una acción corta o la frase que remata." },
+  ensenar: { label: "Paso a paso", line: "Enseña a hacer algo en pocos pasos. Te da autoridad y seguidores.", goal: "ensenar", template: "editorial" },
+  mitos: { label: "Mito contra verdad", line: "Lo que todos creen contra lo que de verdad funciona.", goal: "ensenar", template: "hero",
+    hint: "FORMATO MITO CONTRA VERDAD: la portada toma partido contra una creencia común. Cada lámina del medio es una 'comparacion': el primer item es el mito (etiqueta MITO) y el segundo lo que funciona (etiqueta VERDAD), con veredicto." },
+  historia: { label: "Mi historia", line: "Lo que te pasó y lo que aprendiste. Conecta y vende sin vender.", goal: "vender", template: "cinematica", needs: "historia",
+    hint: "FORMATO HISTORIA REAL: cuéntala en primera persona usando SOLO lo que la persona escribió en su historia (no inventes hechos, cifras, testimonios ni resultados). Orden: el antes, el problema, el momento que cambió todo, lo que aprendió y qué puede hacer quien lee. El remate conecta con el producto." },
+  texto: { label: "Desde un texto o video mío", line: "Pega tu artículo, tu guion o la transcripción de tu video.", goal: "texto", template: "editorial", needs: "texto" },
+};
+
+/** Estructura de láminas del formato (undefined = la estándar de kindPlan). */
+export function planFor(f: FormatId | undefined, n: number): SlideKind[] | undefined {
+  const mid = Math.max(2, (n <= 6 ? 6 : n <= 8 ? 8 : 10) - 4);
+  if (f === "reglas") return ["portada", "respuesta", ...Array<SlideKind>(mid).fill("regla"), "giro", "llamada"];
+  if (f === "mitos") return ["portada", "respuesta", ...Array<SlideKind>(mid).fill("comparacion"), "giro", "llamada"];
+  if (f === "historia") return ["portada", "respuesta", ...(["problema", "solucion", "comparacion", "pasos", "tarjetas", "solucion"] as SlideKind[]).slice(0, mid), "giro", "llamada"];
+  return undefined;
+}
+
 /**
  * Ritmo de color: la portada y la lámina 2 comparten tono (son una unidad); el medio alterna claro y
  * oscuro; el giro va en el color de marca (se ve distinto a todo) y el remate en el tono contrario.
@@ -179,11 +208,11 @@ const KICKER: Record<SlideKind, string> = {
 };
 
 /** Borrador gratis (sin IA) para ver el diseño antes de pagar. Se marca como ejemplo en pantalla. */
-export function draftCarousel(b: Brief, n = DEFAULT_SLIDES, hook?: string, start: "claro" | "oscuro" = "oscuro"): CarouselDraft {
+export function draftCarousel(b: Brief, n = DEFAULT_SLIDES, hook?: string, start: "claro" | "oscuro" = "oscuro", format?: FormatId): CarouselDraft {
   const who = clean(b.who, 60).toLowerCase() || "ti";
   const product = clean(b.product, 70) || "tu producto";
   const promise = clean(b.promise, 90).toLowerCase() || "lograrlo";
-  const plan = kindPlan(n);
+  const plan = planFor(format, n) ?? kindPlan(n);
   const reveal = ["Empieza por lo simple", "Hazlo una vez a la semana", "Usa lo que ya tienes"];
   const make = (kind: SlideKind, i: number): Slide => {
     const base = { kind, tone: toneFor(kind, i, start), kicker: KICKER[kind], body: "", items: [] as Item[] };
@@ -194,7 +223,11 @@ export function draftCarousel(b: Brief, n = DEFAULT_SLIDES, hook?: string, start
       case "comparacion": return { ...base, title: "La diferencia está *aquí*", items: [{ title: "NO", text: "Probar cosas sueltas cuando tienes tiempo." }, { title: "SÍ", text: "Un orden fijo que repites cada semana." }], verdict: "El orden gana a la motivación.", bridge: "¿Cómo se ve ese orden?" };
       case "solucion": return { ...base, title: "Un *método* simple", body: `${product}: lo esencial, en orden, para ${promise}.`, bridge: "Y no necesitas mucho" };
       case "tarjetas": return { ...base, title: "Lo que *necesitas*", items: [1, 2, 3, 4].map(k => ({ title: `Idea ${k}`, text: "Una frase corta y concreta." })), bridge: "Ahora, el orden" };
-      case "regla": return { ...base, tag: "Regla 1", title: "*orden*", body: "Lo mismo, cada semana.", verdict: "Lo que se repite se vuelve fácil." };
+      case "regla": {
+        const k = plan.slice(0, i + 1).filter(x => x === "regla").length;
+        const words = ["orden", "foco", "ritmo", "prueba", "tiempo", "valor"];
+        return { ...base, tag: `Regla ${k}`, title: `*${words[(k - 1) % words.length]}*`, body: "Una frase corta que la explica.", verdict: "La línea que remata la regla." };
+      }
       case "pasos": return { ...base, title: "Hazlo en *3 pasos*", items: [1, 2, 3].map(k => ({ title: `Paso ${k}`, text: "Qué hacer, en una línea." })), bridge: "Y aquí está lo que nadie dice" };
       case "giro": return { ...base, title: "Para que puedas hacerlo *sin pensar* cada semana.", weight: "corta" };
       case "llamada": return { ...base, title: "Ahora sabes que es *orden*, no suerte", body: `Comenta la palabra y te mando ${product}.`, cta: "ORDEN", items: [{ title: "Guárdalo para hacerlo hoy", text: "" }] };
@@ -205,8 +238,9 @@ export function draftCarousel(b: Brief, n = DEFAULT_SLIDES, hook?: string, start
 }
 
 /** Pedido a la IA (generador carrusel-copy de ai-chat; el servidor cobra antes y devuelve si falla). */
-export function carouselRequest(opts: { goal: CarouselGoal; brief: Brief; slides: number; source?: string; hook?: string; angle?: string; evidence?: string; handle?: string; world?: string; line?: string }): string {
-  const plan = kindPlan(opts.slides);
+export function carouselRequest(opts: { goal: CarouselGoal; brief: Brief; slides: number; source?: string; hook?: string; angle?: string; evidence?: string; handle?: string; world?: string; line?: string; format?: FormatId }): string {
+  const plan = planFor(opts.format, opts.slides) ?? kindPlan(opts.slides);
+  const fmt = opts.format ? FORMATS[opts.format] : undefined;
   const b = opts.brief;
   const goalLine = opts.goal === "vender"
     ? "OBJETIVO: que quieran el producto. El remate conecta la creencia nueva con escribir una palabra clave por mensaje directo."
@@ -229,6 +263,7 @@ export function carouselRequest(opts: { goal: CarouselGoal; brief: Brief; slides
   const lines: (string | null)[] = [
     `Escribe un carrusel de Instagram de ${plan.length} láminas en español neutro latinoamericano, de tú, frases cortas y sin jerga.`,
     goalLine,
+    fmt?.hint ?? null,
     "",
     "UN CARRUSEL ES UNA MÁQUINA DE DESEO, NO UNA LISTA. Antes de escribir, define en una frase la idea que todo el carrusel defiende. Cada lámina da un paso hacia ella; ninguna la repite.",
     "",
@@ -272,7 +307,7 @@ export function carouselRequest(opts: { goal: CarouselGoal; brief: Brief; slides
     opts.evidence ? `PRUEBA REAL DE QUE ESTO VENDE (para ti, no la pongas como testimonio): ${clean(opts.evidence, 120)}.` : null,
     opts.handle ? `CUENTA: @${cleanHandle(opts.handle)}.` : null,
     ...signatureLines(opts),
-    opts.source ? `\nTEXTO DE ORIGEN:\n"""\n${(opts.source ?? "").slice(0, 6000)}\n"""` : null,
+    opts.source ? `\n${opts.format === "historia" ? "LA HISTORIA REAL DE LA PERSONA" : "TEXTO DE ORIGEN"}:\n"""\n${(opts.source ?? "").slice(0, 6000)}\n"""` : null,
     "",
     "RESPONDE SOLO con JSON válido, sin texto antes ni después, con esta forma exacta:",
     `{"idea":"","portadas":[{"titulo":"","subtitulo":"","pastilla":"","por_que":""},{"titulo":"","subtitulo":"","pastilla":"","por_que":""},{"titulo":"","subtitulo":"","pastilla":"","por_que":""}],"recomendada":0,"revelar":[],"etiquetas":["","",""],"escena":"","objeto":"","plantilla":"editorial","laminas":[${plan.slice(1).map(k => shape[k]).join(",")}],"pie":""}`,

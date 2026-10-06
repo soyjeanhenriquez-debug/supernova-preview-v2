@@ -9,8 +9,9 @@ import { runGenerator } from "@/lib/generatorStream";
 import { RULES, type Brief } from "@/lib/imagePrompts";
 import { toWebp } from "@/lib/brandKit";
 import {
-  ADMIN_DESIGN, BRAND_COLORS, DEFAULT_DESIGN, DEFAULT_SLIDES, GENERATOR_ID, GOAL_INFO, KIND_LABEL, PUBLISH_STEPS, SLIDE_COUNTS, STYLES,
+  ADMIN_DESIGN, BRAND_COLORS, DEFAULT_DESIGN, DEFAULT_SLIDES, GENERATOR_ID, KIND_LABEL, PUBLISH_STEPS, SLIDE_COUNTS, STYLES,
   carouselRequest, cleanHandle, coverCheck, draftCarousel, parseCarousel, posterPrompt, posterScenePrompt, posterTextPrompt, retone, slideTwoScore, storyTest, withCover,
+  FORMATS, planFor, type FormatId,
   brandFromClone, parseClone, parseReclone, photoPrompt, recloneRequest, MAX_KEEP, COVER_TEMPLATES, CLONE_MODES, type CoverTemplateId, type CloneMode,
   type CarouselDesign, type CarouselDraft, type CarouselGoal, type Item, type Slide, type StyleId,
 } from "@/lib/carousel";
@@ -74,7 +75,9 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
   const [posterModel, setPosterModel] = useState<PosterModel["id"]>("gpt-image-2");
   const [posterBusy, setPosterBusy] = useState(false);
   const { action, cost } = generatorCost(GENERATOR_ID);
-  const [goal, setGoal] = useState<CarouselGoal>("vender");
+  // Lo primero que elige la persona: qué carrusel quiere hacer. El objetivo sale del formato.
+  const [fmt, setFmt] = useState<FormatId>("vender");
+  const goal: CarouselGoal = FORMATS[fmt].goal;
   const [source, setSource] = useState("");
   const [count, setCount] = useState<number>(DEFAULT_SLIDES);
   const [aspect, setAspect] = useState<"4:5" | "1:1">("4:5");
@@ -88,7 +91,6 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
   const [copied, setCopied] = useState(false);
   const [likes, setLikes] = useState({ cover: "", two: "" });
   // Clonar con ADN ganador.
-  const [cloneMode, setCloneMode] = useState(false);
   const [cloneUrl, setCloneUrl] = useState("");
   const [cloneMode2, setCloneMode2] = useState<CloneMode>("tema");
   const [cloning, setCloning] = useState(false);
@@ -98,7 +100,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
   const autoRan = useRef(false);
   const designLoaded = useRef(false);
 
-  const preview = useMemo(() => draft ?? draftCarousel(brief, count, seed?.hook, design.start), [draft, brief, count, seed?.hook, design.start]);
+  const preview = useMemo(() => draft ?? draftCarousel(brief, count, seed?.hook, design.start, fmt), [draft, brief, count, seed?.hook, design.start, fmt]);
   const isSample = !draft;
   const slides = preview.slides;
 
@@ -152,19 +154,20 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
 
   const write = async () => {
     if (writing) return;
-    if (goal === "texto" && source.trim().length < 80) { toast("Pega tu texto (mínimo unas líneas) para convertirlo en carrusel."); return; }
+    if (fmt === "texto" && source.trim().length < 80) { toast("Pega tu texto (mínimo unas líneas) para convertirlo en carrusel."); return; }
+    if (fmt === "historia" && source.trim().length < 60) { toast("Cuéntame tu historia en unas líneas: qué pasó y qué aprendiste."); return; }
     if (balance < cost) { toast.error(`Te faltan créditos: esto cuesta ${cost}`, { description: "Recarga créditos para escribir tu carrusel." }); return; }
     setWriting(true);
     const label = `Carrusel · ${seed?.title || brief.product}`;
     try {
       const text = await runGenerator({
         id: GENERATOR_ID, title: label, system: SYSTEM,
-        prompt: carouselRequest({ goal, brief, slides: count, source: goal === "texto" ? source : undefined, hook: seed?.hook, angle: seed?.angle, evidence: seed?.evidence, handle: design.handle, world: design.world, line: design.line }),
+        prompt: carouselRequest({ goal, format: fmt, brief, slides: count, source: fmt === "texto" || fmt === "historia" ? source : undefined, hook: seed?.hook, angle: seed?.angle, evidence: seed?.evidence, handle: design.handle, world: design.world, line: design.line }),
         onCharge: b => applyServerCharge(action, b, label),
       });
-      const parsed = parseCarousel(text, count, design.start);
+      const parsed = parseCarousel(text, count, design.start, { free: !!planFor(fmt, count) });
       if (!parsed) throw new Error("La IA respondió en un formato raro. Toca de nuevo: si vuelve a pasar, escríbenos y te devolvemos los créditos.");
-      setDraft(parsed); setSel(0);
+      setDraft({ ...parsed, template: parsed.template ?? FORMATS[fmt].template }); setSel(0);
       toast.success("Tu carrusel está listo", { description: "Elige la portada y toca cualquier lámina para cambiar el texto." });
     } catch (e) {
       toast.error(e instanceof Error && e.message ? e.message : "No se pudo escribir el carrusel.");
@@ -402,76 +405,84 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
 
   return (
     <div className="space-y-6">
-      {/* 0. Clonar uno que ya funciona */}
-      <div className="rounded-2xl border border-border p-5 space-y-3">
-        <button type="button" onClick={() => setCloneMode(v => !v)} className="w-full text-left flex items-center justify-between gap-3 min-h-[32px]">
-          <span>
-            <span className="block font-display font-semibold text-[15px] text-foreground">¿Viste un carrusel que ya funciona? Clónalo con su ADN</span>
-            <span className="block text-[12px] text-muted-foreground">Pega el enlace. La IA lo lee lámina por lámina, descubre por qué funcionó y te lo clona en español: igual, adaptado a tu público, o con su ADN aplicado a tu producto. Sin traducir palabra por palabra y sin usar sus fotos, su cara ni su marca.</span>
-          </span>
-          <span className="text-xs text-muted-foreground shrink-0">{cloneMode ? "Cerrar" : "Abrir"}</span>
-        </button>
-        {cloneMode && (
-          <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Cómo clonarlo">
-            {(Object.keys(CLONE_MODES) as CloneMode[]).map(m => (
-              <button key={m} type="button" role="radio" aria-checked={cloneMode2 === m} disabled={cloning} onClick={() => setCloneMode2(m)}
-                className={`rounded-lg border px-3 py-2 text-left ${cloneMode2 === m ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
-                <span className="block text-[13px] text-foreground">{CLONE_MODES[m].label}{m === "tema" && <span className="text-primary text-[11px]"> · Recomendado</span>}</span>
-                <span className="block text-[11px] text-muted-foreground">{CLONE_MODES[m].line}</span>
-              </button>
-            ))}
-          </div>
-        )}
-        {cloneMode && (
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input value={cloneUrl} onChange={e => setCloneUrl(e.target.value.slice(0, 300))} placeholder="https://www.instagram.com/p/…" aria-label="Enlace del carrusel de Instagram" className={input} />
-            <button type="button" onClick={() => void cloneCarousel()} disabled={cloning}
-              className="btn-primary-nova shrink-0 min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl px-4 text-[13px] font-semibold disabled:opacity-60">
-              {cloning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {cloning ? "Analizando el carrusel…" : `Clonar con su ADN · ${cloneCost} créditos`}
-            </button>
-          </div>
-        )}
-        {cloneMode && <p className="text-[11px] text-muted-foreground">Solo publicaciones públicas de Instagram con varias láminas. Tarda cerca de un minuto. Si falla, no se te cobra.</p>}
-      </div>
-      {/* 1. Qué carrusel */}
+      {/* 1. Qué carrusel quieres hacer */}
       <div className="rounded-2xl border border-border p-5 space-y-4">
-        <div className="space-y-2">
-          <p className="text-[13px] text-foreground font-medium">¿Para qué es este carrusel?</p>
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Objetivo del carrusel">
-            {(Object.keys(GOAL_INFO) as CarouselGoal[]).map(g => (
-              <button key={g} type="button" role="radio" aria-checked={goal === g} onClick={() => setGoal(g)} disabled={writing} className={chip(goal === g)}>{GOAL_INFO[g].label}</button>
-            ))}
-          </div>
-          <p className="text-[12px] text-muted-foreground">{GOAL_INFO[goal].line}</p>
-          {goal === "texto" && (
-            <textarea value={source} onChange={e => setSource(e.target.value.slice(0, 6000))} rows={6} aria-label="Tu texto"
-              placeholder="Pega aquí tu artículo, tu correo, el guion de tu video o tus notas. La IA lo resume en láminas sin inventar nada." className={input} />
-          )}
+        <div>
+          <p className="font-display font-semibold text-[15px] text-foreground">¿Qué carrusel quieres hacer?</p>
+          <p className="text-[12px] text-muted-foreground">Elige uno. La IA lo escribe con la fórmula de los carruseles que más se guardan y tú solo revisas.</p>
+        </div>
+        <div className="grid gap-2 grid-cols-2 lg:grid-cols-4" role="radiogroup" aria-label="Tipo de carrusel">
+          {(Object.keys(FORMATS) as FormatId[]).map(id => (
+            <button key={id} type="button" role="radio" aria-checked={fmt === id} disabled={writing || cloning} onClick={() => setFmt(id)}
+              className={`rounded-xl border p-3 text-left min-h-[86px] disabled:opacity-60 ${fmt === id ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
+              <span className="flex items-center justify-between gap-2 text-[13px] text-foreground font-medium">
+                {FORMATS[id].label}
+                {id === "clonar" && <span className="text-primary text-[10px] font-normal shrink-0">El más rápido</span>}
+              </span>
+              <span className="block text-[11px] text-muted-foreground mt-1 leading-snug">{FORMATS[id].line}</span>
+            </button>
+          ))}
         </div>
 
-        <div className="flex flex-wrap gap-x-6 gap-y-3">
-          <div className="space-y-1.5">
-            <p className="text-[12px] text-muted-foreground">Láminas</p>
-            <div className="flex gap-2">{SLIDE_COUNTS.map(n => <button key={n} type="button" onClick={() => setCount(n)} disabled={writing} className={chip(count === n)}>{n}</button>)}</div>
+        {fmt === "clonar" ? (
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input value={cloneUrl} onChange={e => setCloneUrl(e.target.value.slice(0, 300))} placeholder="Pega el enlace: https://www.instagram.com/p/…" aria-label="Enlace del carrusel de Instagram" className={input} />
+              <button type="button" onClick={() => void cloneCarousel()} disabled={cloning}
+                className="btn-primary-nova shrink-0 min-h-[48px] inline-flex items-center justify-center gap-2 rounded-xl px-5 text-[14px] font-semibold disabled:opacity-60">
+                {cloning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {cloning ? "Analizando el carrusel…" : `Clonar · ${cloneCost} créditos`}
+              </button>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Cómo clonarlo">
+              {(Object.keys(CLONE_MODES) as CloneMode[]).map(m => (
+                <button key={m} type="button" role="radio" aria-checked={cloneMode2 === m} disabled={cloning} onClick={() => setCloneMode2(m)}
+                  className={`rounded-lg border px-3 py-2 text-left ${cloneMode2 === m ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
+                  <span className="block text-[13px] text-foreground">{CLONE_MODES[m].label}{m === "tema" && <span className="text-primary text-[11px]"> · Recomendado</span>}</span>
+                  <span className="block text-[11px] text-muted-foreground">{CLONE_MODES[m].line}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground">Carruseles públicos de Instagram. Tarda cerca de un minuto. La IA lo lee lámina por lámina y te dice por qué funcionó. No traduce palabra por palabra ni usa sus fotos, su cara ni su marca. Si falla, no se te cobra.</p>
           </div>
-          <div className="space-y-1.5">
-            <p className="text-[12px] text-muted-foreground">Formato</p>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setAspect("4:5")} className={chip(aspect === "4:5")}>Vertical 4:5</button>
-              <button type="button" onClick={() => setAspect("1:1")} className={chip(aspect === "1:1")}>Cuadrado 1:1</button>
+        ) : (
+          <>
+            {FORMATS[fmt].needs === "texto" && (
+              <textarea value={source} onChange={e => setSource(e.target.value.slice(0, 6000))} rows={6} aria-label="Tu texto"
+                placeholder="Pega aquí tu artículo, tu correo, el guion o la transcripción de tu video. La IA lo convierte en láminas sin inventar nada." className={input} />
+            )}
+            {FORMATS[fmt].needs === "historia" && (
+              <textarea value={source} onChange={e => setSource(e.target.value.slice(0, 3000))} rows={5} aria-label="Tu historia"
+                placeholder="Cuéntala en pocas líneas, como se la contarías a un amigo: cómo estabas antes, qué pasó, qué cambió y qué aprendiste. Solo lo que pasó de verdad." className={input} />
+            )}
+            {!FORMATS[fmt].needs && <p className="text-[12px] text-muted-foreground">Sale de tu producto{brief.product ? <>: <span className="text-foreground">{brief.product}</span></> : ""}. No tienes que escribir nada.</p>}
+            <div className="space-y-1.5">
+              <button onClick={() => void write()} disabled={writing}
+                className="btn-primary-nova w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold disabled:opacity-60">
+                {writing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {writing ? "Escribiendo tu carrusel…" : `${draft ? "Escribir otro" : "Escribir mi carrusel"} · ${cost} créditos`}
+              </button>
+              <p className="text-[11px] text-muted-foreground">{creditsLeft}. Incluye 3 portadas para elegir y el pie de publicación. Cambiar textos o diseño y descargar es gratis. Si falla, no se te cobra.</p>
+            </div>
+          </>
+        )}
+
+        <details className="group">
+          <summary className="cursor-pointer list-none text-xs text-muted-foreground hover:text-foreground select-none min-h-[32px] flex items-center">▸ Opciones: {count} láminas · {aspect === "4:5" ? "vertical 4:5" : "cuadrado 1:1"}</summary>
+          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-3">
+            <div className="space-y-1.5">
+              <p className="text-[12px] text-muted-foreground">Láminas</p>
+              <div className="flex gap-2">{SLIDE_COUNTS.map(n => <button key={n} type="button" onClick={() => setCount(n)} disabled={writing} className={chip(count === n)}>{n}</button>)}</div>
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-[12px] text-muted-foreground">Formato</p>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setAspect("4:5")} className={chip(aspect === "4:5")}>Vertical 4:5</button>
+                <button type="button" onClick={() => setAspect("1:1")} className={chip(aspect === "1:1")}>Cuadrado 1:1</button>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <button onClick={() => void write()} disabled={writing}
-            className="btn-primary-nova w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold disabled:opacity-60">
-            {writing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {writing ? "Escribiendo tu carrusel…" : `${draft ? "Escribir otro" : "Escribir mi carrusel"} con IA · ${cost} créditos`}
-          </button>
-          <p className="text-[11px] text-muted-foreground">{creditsLeft}. Incluye 3 portadas para elegir y el pie de publicación. Cambiar textos o diseño y descargar es gratis. Si falla, no se te cobra.</p>
-        </div>
+        </details>
       </div>
 
       {/* 2. Sistema de diseño */}

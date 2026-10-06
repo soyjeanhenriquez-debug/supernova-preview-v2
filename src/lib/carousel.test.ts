@@ -324,3 +324,23 @@ describe("carrusel: clonar con el mismo tema", () => {
     expect(p).not.toMatch(/CAMBIAS por completo/);
   });
 });
+
+import { FORMATS, planFor } from "./carousel";
+describe("carrusel: formatos", () => {
+  it("reglas y mito contra verdad traen su estructura; los demás usan la estándar", () => {
+    expect(planFor("reglas", 8)).toEqual(["portada", "respuesta", "regla", "regla", "regla", "regla", "giro", "llamada"]);
+    expect(planFor("mitos", 6)).toEqual(["portada", "respuesta", "comparacion", "comparacion", "giro", "llamada"]);
+    expect(planFor("historia", 10)).toHaveLength(10);
+    expect(planFor("vender", 8)).toBeUndefined();
+  });
+  it("el pedido lleva la instrucción del formato y la historia real sin inventar", () => {
+    const p = carouselRequest({ goal: FORMATS.historia.goal, format: "historia", brief, slides: 8, source: "Perdí mi trabajo y empecé a vender por WhatsApp." });
+    expect(p).toMatch(/FORMATO HISTORIA REAL/);
+    expect(p).toMatch(/no inventes hechos/);
+    expect(p).toContain("LA HISTORIA REAL DE LA PERSONA");
+    expect((p.match(/"tipo"/g) ?? []).length).toBe(7);
+    const r = carouselRequest({ goal: "ensenar", format: "reglas", brief, slides: 8 });
+    expect(r).toMatch(/FORMATO LISTA DE REGLAS/);
+    expect((r.match(/"tipo":"regla"/g) ?? []).length).toBe(4);
+  });
+});

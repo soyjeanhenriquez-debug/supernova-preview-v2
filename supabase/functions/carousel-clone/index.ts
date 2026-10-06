@@ -40,13 +40,24 @@ async function fetchPost(url: string, token: string): Promise<any | null> {
 }
 
 const SYSTEM = `Eres el director creativo de SUPERNOVA. Analizas carruseles de Instagram que ya funcionan y creas versiones nuevas para emprendedores latinos que empiezan de cero, con el método "Roba como un artista" y el "ADN ganador":
-- Todo carrusel se descompone en unas 9 partes. Si se mantienen todas, es una copia. Se mantienen SOLO las 3 partes que explican por qué funcionó y se cambia todo lo demás.
+- Todo carrusel se descompone en unas 9 partes. Si se mantienen todas, es una copia. Según el modo que se te pida: en "mismo tema" se conservan el tema, las ideas y la estructura (reescritos con tus palabras); en "producto" se mantienen SOLO las 3 partes que explican por qué funcionó y se cambia todo lo demás.
 - Lo que se mantiene son PATRONES (estructura, tipo de gancho, composición, formato de láminas, tipo de mundo visual, ritmo, mecanismo del remate). NUNCA se mantienen sus palabras literales, sus fotos, su cara, su nombre, su marca, sus números ni sus recursos.
 - La versión nueva debe ser MEJOR que el original: aplica la fórmula de 6 posiciones (apertura que crea un deseo, agarre en la lámina 2 que responde solo la portada, columna donde cada lámina abre la siguiente, ritmo corta/densa, giro "Para que puedas…", remate con creencia nueva + UNA acción) y que cada lámina lleve algo real (ejemplo, comparación, regla con veredicto).
 Español neutro latinoamericano, de tú, frases cortas, sin jerga, sin emojis. Prohibido: promesas de ingresos o de resultados, plazos, testimonios, cifras o estudios inventados, urgencia falsa, marcas ajenas, personas famosas.
 Respondes SOLO con el JSON pedido.`;
 
-function userPrompt(o: { brief: Record<string, string>; goal: string; handle: string; world: string; line: string; caption: string; owner: string; likes: number | null; comments: number | null; n: number }): string {
+// Dos formas de clonar (06-oct-2026, Jean: "la referencia tiene que servir"):
+//  · "tema": el MISMO tema y las mismas ideas, en el mismo orden y con la misma estructura, escrito en
+//    español con nuestras palabras (nunca traducción frase por frase: el manual prohíbe copiar textos).
+//  · "producto": su ADN (3 partes) aplicado al producto de la persona; todo lo demás cambia.
+const TEMA_STEP = (n: number) => [
+  `PASO 3 · TU VERSIÓN EN ESPAÑOL, MISMO TEMA. Escribe un carrusel de ${n + 1} láminas sobre el MISMO tema del original, con sus MISMAS ideas principales, en el MISMO orden y con la MISMA estructura (mismo tipo de portada, mismo número de reglas o puntos, mismo tipo de remate), para que produzca el mismo efecto en un público latino.`,
+  "Escríbelo con TUS palabras: no traduzcas frase por frase ni copies sus oraciones. Los nombres de los conceptos pueden ser su equivalente natural en español (ej. 'Lead' → 'Protagonista', 'Receipts' → 'Pruebas'). Cambia todos los ejemplos por ejemplos de emprendedores latinos.",
+  "Nunca uses su nombre, su cuenta, su marca, sus números ni sus recursos: si el original ofrece algo en el remate (una guía, un workbook), el remate ofrece algo del producto de la persona.",
+  "Hazlo MEJOR que el original con la fórmula de 6 posiciones. En 'mejoras' explica 3 cosas concretas que hiciste mejor. En 'mantener' marca las 3 partes del ADN más importantes (igual se conservan el tema y las ideas).",
+].join("\n");
+
+function userPrompt(o: { mode: "tema" | "producto"; brief: Record<string, string>; goal: string; handle: string; world: string; line: string; caption: string; owner: string; likes: number | null; comments: number | null; n: number }): string {
   const slides = Math.min(9, Math.max(4, o.n - 1));
   return [
     `Te paso, en orden, las ${o.n} láminas de un carrusel de Instagram${o.owner ? ` de @${o.owner}` : ""}${o.likes != null ? ` (${o.likes} me gusta, ${o.comments ?? 0} comentarios)` : ""}.`,
@@ -54,8 +65,8 @@ function userPrompt(o: { brief: Record<string, string>; goal: string; handle: st
     "",
     "PASO 1 · RADIOGRAFÍA. Para cada lámina: su posición en la historia (apertura, agarre, columna, giro o remate), su composición (cómo está armada: dónde va el texto grande, si hay foto, tarjetas, etc.), su artefacto (ejemplo, comparación, regla…) y su idea con TUS palabras (no copies el texto). Luego por qué funciona en 2 o 3 frases, y su estilo: 3 colores en hex, cómo es la letra, cuál de estos estilos se le parece más (poster = sans negra gruesa + serifa en cursiva; editorial = serifa de revista; moderno = sans geométrica; impacto = condensada en mayúsculas; elegante = serifa fina) y si empieza claro u oscuro.",
     "PASO 2 · ADN. Descompón el carrusel en 9 partes (id a1 a a9). Marca con importa=true y pon en 'mantener' EXACTAMENTE las 3 que más explican por qué funcionó. Solo patrones, nunca contenido literal.",
-    `PASO 3 · TU VERSIÓN. Escribe un carrusel NUEVO de ${slides + 1} láminas para este producto, que mantiene esas 3 partes y cambia todo lo demás. Debe ser mejor que el original: en 'mejoras' explica 3 cosas concretas que hiciste mejor.`,
-    o.goal === "ensenar" ? "Objetivo: enseñar algo útil del tema del producto para que lo guarden y lo compartan." : "Objetivo: que quieran el producto; el remate conecta la creencia nueva con escribir una palabra clave.",
+    o.mode === "tema" ? TEMA_STEP(slides) : `PASO 3 · TU VERSIÓN. Escribe un carrusel NUEVO de ${slides + 1} láminas para este producto, que mantiene esas 3 partes y cambia todo lo demás. Debe ser mejor que el original: en 'mejoras' explica 3 cosas concretas que hiciste mejor.`,
+    o.mode === "tema" ? "El producto de la persona solo aparece en el remate (qué recibe quien comenta la palabra clave) y, si encaja, en una línea; el resto del carrusel es el tema del original." : o.goal === "ensenar" ? "Objetivo: enseñar algo útil del tema del producto para que lo guarden y lo compartan." : "Objetivo: que quieran el producto; el remate conecta la creencia nueva con escribir una palabra clave.",
     "",
     "TIPOS DE LÁMINA (el diseño ya existe; tú solo llenas el texto):",
     "- respuesta: la lámina 2, responde SOLO la portada. titulo + texto.",
@@ -101,6 +112,7 @@ Deno.serve(async (req) => {
     const brief = { product: clean(b.product, 200), who: clean(b.who, 200), promise: clean(b.promise, 200), price: clean(b.price, 30) };
     if (brief.product.length < 3) return json({ error: "Falta tu producto." }, 400);
     const goal = body.goal === "ensenar" ? "ensenar" : "vender";
+    const mode: "tema" | "producto" = body.mode === "producto" ? "producto" : "tema";
     const handle = clean(body.handle, 30).replace(/[^A-Za-z0-9._]/g, "");
     const world = clean(body.world, 160);
     const line = clean(body.line, 80);
@@ -152,7 +164,7 @@ Deno.serve(async (req) => {
         model: MODEL, max_tokens: 12_000, response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM },
-          { role: "user", content: [{ type: "text", text: userPrompt({ brief, goal, handle, world, line, caption: clean(post.caption, 1500), owner: clean(post.ownerUsername, 40), likes: Number.isFinite(post.likesCount) ? post.likesCount : null, comments: Number.isFinite(post.commentsCount) ? post.commentsCount : null, n: parts.length }) }, ...parts] },
+          { role: "user", content: [{ type: "text", text: userPrompt({ mode, brief, goal, handle, world, line, caption: clean(post.caption, 1500), owner: clean(post.ownerUsername, 40), likes: Number.isFinite(post.likesCount) ? post.likesCount : null, comments: Number.isFinite(post.commentsCount) ? post.commentsCount : null, n: parts.length }) }, ...parts] },
         ],
       }),
       signal: AbortSignal.timeout(85_000),

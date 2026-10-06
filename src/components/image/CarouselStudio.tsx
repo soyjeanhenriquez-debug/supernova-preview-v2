@@ -11,7 +11,7 @@ import { toWebp } from "@/lib/brandKit";
 import {
   ADMIN_DESIGN, BRAND_COLORS, DEFAULT_DESIGN, DEFAULT_SLIDES, GENERATOR_ID, GOAL_INFO, KIND_LABEL, PUBLISH_STEPS, SLIDE_COUNTS, STYLES,
   carouselRequest, cleanHandle, coverCheck, draftCarousel, parseCarousel, posterPrompt, posterScenePrompt, posterTextPrompt, retone, slideTwoScore, storyTest, withCover,
-  brandFromClone, parseClone, parseReclone, photoPrompt, recloneRequest, MAX_KEEP, COVER_TEMPLATES, type CoverTemplateId,
+  brandFromClone, parseClone, parseReclone, photoPrompt, recloneRequest, MAX_KEEP, COVER_TEMPLATES, CLONE_MODES, type CoverTemplateId, type CloneMode,
   type CarouselDesign, type CarouselDraft, type CarouselGoal, type Item, type Slide, type StyleId,
 } from "@/lib/carousel";
 import { FONTS, fontEmbedCss, loadStyleFonts, slideToBlob } from "@/lib/carouselTheme";
@@ -90,6 +90,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
   // Clonar con ADN ganador.
   const [cloneMode, setCloneMode] = useState(false);
   const [cloneUrl, setCloneUrl] = useState("");
+  const [cloneMode2, setCloneMode2] = useState<CloneMode>("tema");
   const [cloning, setCloning] = useState(false);
   const [keep, setKeep] = useState<string[]>([]);
   const [past, setPast] = useState<string[]>([]);
@@ -293,10 +294,10 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     if (balance < cloneCost) { toast.error(`Te faltan créditos: esto cuesta ${cloneCost}`); return; }
     setCloning(true);
     try {
-      const { data, error } = await supabase.functions.invoke("carousel-clone", { body: { url: cloneUrl.trim(), brief, goal: goal === "ensenar" ? "ensenar" : "vender", handle: design.handle, world: design.world ?? "", line: design.line ?? "" } });
+      const { data, error } = await supabase.functions.invoke("carousel-clone", { body: { url: cloneUrl.trim(), mode: cloneMode2, brief, goal: goal === "ensenar" ? "ensenar" : "vender", handle: design.handle, world: design.world ?? "", line: design.line ?? "" } });
       if (error || !data?.carrusel) throw new Error(error ? await invokeErrorMessage(error, "No se pudo clonar el carrusel. No se te cobró.") : (data?.error || "No se pudo clonar el carrusel. No se te cobró."));
       if (data.billing) applyServerCharge("clone_carousel", data.billing, "Clonar carrusel viral");
-      const parsed = parseClone(data, design.start);
+      const parsed = parseClone(data, design.start, cloneMode2);
       if (!parsed) throw new Error("La IA respondió en un formato raro. Escríbenos y te devolvemos los créditos.");
       setDraft({ ...parsed.draft, clone: parsed.info }); setSel(0); setCount(parsed.draft.slides.length);
       toast.success("Carrusel clonado con su ADN", { description: "Mira abajo qué 3 partes se mantuvieron y cómo lo mejoramos." });
@@ -406,10 +407,21 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
         <button type="button" onClick={() => setCloneMode(v => !v)} className="w-full text-left flex items-center justify-between gap-3 min-h-[32px]">
           <span>
             <span className="block font-display font-semibold text-[15px] text-foreground">¿Viste un carrusel que ya funciona? Clónalo con su ADN</span>
-            <span className="block text-[12px] text-muted-foreground">Pega el enlace. La IA lo descompone en 9 partes, mantiene las 3 que lo hicieron funcionar y cambia todo lo demás para tu producto. Nunca copia sus palabras, fotos ni marca.</span>
+            <span className="block text-[12px] text-muted-foreground">Pega el enlace. La IA lo lee lámina por lámina, descubre por qué funcionó y te lo entrega en español: con el mismo tema o aplicado a tu producto. Lo escribe con tus palabras: nunca copia sus frases, fotos ni marca.</span>
           </span>
           <span className="text-xs text-muted-foreground shrink-0">{cloneMode ? "Cerrar" : "Abrir"}</span>
         </button>
+        {cloneMode && (
+          <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Cómo clonarlo">
+            {(Object.keys(CLONE_MODES) as CloneMode[]).map(m => (
+              <button key={m} type="button" role="radio" aria-checked={cloneMode2 === m} disabled={cloning} onClick={() => setCloneMode2(m)}
+                className={`rounded-lg border px-3 py-2 text-left ${cloneMode2 === m ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
+                <span className="block text-[13px] text-foreground">{CLONE_MODES[m].label}{m === "tema" && <span className="text-primary text-[11px]"> · Recomendado</span>}</span>
+                <span className="block text-[11px] text-muted-foreground">{CLONE_MODES[m].line}</span>
+              </button>
+            ))}
+          </div>
+        )}
         {cloneMode && (
           <div className="flex flex-col sm:flex-row gap-2">
             <input value={cloneUrl} onChange={e => setCloneUrl(e.target.value.slice(0, 300))} placeholder="https://www.instagram.com/p/…" aria-label="Enlace del carrusel de Instagram" className={input} />

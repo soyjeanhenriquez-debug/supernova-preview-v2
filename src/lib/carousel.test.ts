@@ -221,7 +221,7 @@ describe("carrusel: clonar con ADN ganador", () => {
     expect(r.draft.slides[5].cta).toBe("LOTE");
   });
   it("re-clonar manda solo el análisis: nada del texto original y las 3 partes elegidas", () => {
-    const { info } = parseClone(cloneResponse)!;
+    const { info } = parseClone(cloneResponse, "oscuro", "producto")!;
     const p = recloneRequest({ info, keep: ["a2", "a3"], brief, goal: "vender" });
     expect(p).toMatch(/MANTIENES[\s\S]*Formato Regla N[\s\S]*Remate con palabra clave[\s\S]*CAMBIAS/);
     expect(p).toMatch(/Nunca copies palabras, fotos, nombres, marcas ni números/);
@@ -309,5 +309,17 @@ describe("carrusel: plantillas de portada (gramática visual)", () => {
     const d = parseCarouselObj({ portadas: [{ titulo: "a *b*" }], objeto: "una libreta", plantilla: "hero", laminas: [{ tipo: "respuesta", titulo: "r" }, { tipo: "pasos", titulo: "p", items: [{ titulo: "1" }] }, { tipo: "giro", titulo: "g" }, { tipo: "llamada", titulo: "l", palabra: "X" }] }, 8, "claro", { free: true })!;
     expect(d.template).toBe("hero");
     expect(d.slides[0].prop).toBe("una libreta");
+  });
+});
+
+describe("carrusel: clonar con el mismo tema", () => {
+  it("mantiene tema e ideas, sin traducir frase por frase, y el producto va en el remate", () => {
+    const { info } = parseClone(cloneResponse)!;
+    expect(info.mode).toBe("tema");
+    const p = recloneRequest({ info, keep: ["a1", "a2"], brief, goal: "vender" });
+    expect(p).toMatch(/MISMO tema/);
+    expect(p).toMatch(/no traduzcas frase por frase/);
+    expect(p).toMatch(/tu producto va en el remate/);
+    expect(p).not.toMatch(/CAMBIAS por completo/);
   });
 });

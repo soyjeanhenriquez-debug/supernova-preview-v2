@@ -674,12 +674,19 @@ export type CloneInfo = {
   slides: { n: number; position: string; composition: string; artifact: string; idea: string }[];
   style: { colors: string[]; font: string; style: StyleId; start: "claro" | "oscuro"; photos: string };
   dna: DnaPart[]; keep: string[]; improvements: string[];
+  /** "tema" = mismo tema e ideas en español con nuestras palabras; "producto" = su ADN en tu producto. */
+  mode?: CloneMode;
   source: { url: string; images: string[]; owner: string; likes: number | null; comments: number | null };
 };
 export const MAX_KEEP = 3;
+export type CloneMode = "tema" | "producto";
+export const CLONE_MODES: Record<CloneMode, { label: string; line: string }> = {
+  tema: { label: "Mismo tema, en español", line: "Las mismas ideas, en el mismo orden y con la misma estructura, escritas con tus palabras y ejemplos para tu público. Tu producto va en el remate." },
+  producto: { label: "Su ADN en mi producto", line: "Mantiene las 3 partes que lo hicieron funcionar y cambia el tema por tu producto." },
+};
 
 /** Lee la respuesta de carousel-clone: el análisis (CloneInfo) y el borrador ya armado. */
-export function parseClone(r: Record<string, unknown>, start: "claro" | "oscuro" = "oscuro"): { info: CloneInfo; draft: CarouselDraft } | null {
+export function parseClone(r: Record<string, unknown>, start: "claro" | "oscuro" = "oscuro", mode: CloneMode = "tema"): { info: CloneInfo; draft: CarouselDraft } | null {
   const a = (r.analisis ?? {}) as Record<string, unknown>;
   const st = (a.estilo ?? {}) as Record<string, unknown>;
   const src = (r.source ?? {}) as Record<string, unknown>;
@@ -699,7 +706,7 @@ export function parseClone(r: Record<string, unknown>, start: "claro" | "oscuro"
       colors: (Array.isArray(st.colores) ? st.colores : []).filter((c): c is string => typeof c === "string" && HEX.test(c)).map(c => c.toLowerCase()).slice(0, 3),
       font: txt(st.letra, 160), style: (sty in STYLES ? sty : "poster") as StyleId, start: st.empieza === "oscuro" ? "oscuro" : "claro", photos: txt(st.fotos, 200),
     },
-    dna, keep, improvements: (Array.isArray(r.mejoras) ? r.mejoras : []).map(x => txt(x, 200)).filter(Boolean).slice(0, 5),
+    dna, keep, mode, improvements: (Array.isArray(r.mejoras) ? r.mejoras : []).map(x => txt(x, 200)).filter(Boolean).slice(0, 5),
     source: {
       url: clean(src.url, 200), images: (Array.isArray(src.images) ? src.images : []).filter((u): u is string => typeof u === "string" && u.startsWith("https://")).slice(0, 10),
       owner: clean(src.owner, 40), likes: typeof src.likes === "number" ? src.likes : null, comments: typeof src.comments === "number" ? src.comments : null,
@@ -726,16 +733,17 @@ export function recloneRequest(o: { info: CloneInfo; keep: string[]; brief: Brie
   const change = o.info.dna.filter(d => !o.keep.includes(d.id));
   const n = Math.min(9, Math.max(4, o.info.slides.length - 1));
   return [
-    "Vas a escribir un carrusel NUEVO con el ADN ganador de otro que ya funcionó. Mantienes SOLO estas 3 partes y cambias todo lo demás. Nunca copies palabras, fotos, nombres, marcas ni números del original.",
+    o.info.mode === "producto"
+      ? "Vas a escribir un carrusel NUEVO con el ADN ganador de otro que ya funcionó. Mantienes SOLO estas 3 partes y cambias todo lo demás. Nunca copies palabras, fotos, nombres, marcas ni números del original."
+      : "Vas a escribir en español un carrusel sobre el MISMO tema de otro que ya funcionó, con sus mismas ideas principales, en el mismo orden y con la misma estructura, cuidando sobre todo estas 3 partes. Escríbelo con TUS palabras: no traduzcas frase por frase ni copies sus oraciones; cambia los ejemplos por ejemplos de emprendedores latinos. Nunca uses su nombre, marca, números ni recursos; tu producto va en el remate.",
     `Resumen del original: ${o.info.summary}`,
     `Por qué funcionó: ${o.info.why}`,
     "Sus láminas, en orden (posición · composición · idea):",
     ...o.info.slides.map(x => `${x.n}. ${x.position} · ${x.composition} · ${x.idea}`),
     "",
-    "MANTIENES (patrones, no contenido):",
+    o.info.mode === "producto" ? "MANTIENES (patrones, no contenido):" : "CUIDAS ESPECIALMENTE (además del tema y las ideas):",
     ...keep.map(d => `- ${d.part}: ${d.what}`),
-    "CAMBIAS por completo:",
-    ...change.map(d => `- ${d.part}`),
+    ...(o.info.mode === "producto" ? ["CAMBIAS por completo:", ...change.map(d => `- ${d.part}`)] : []),
     "",
     "Hazlo MEJOR que el original con la fórmula de 6 posiciones (apertura que crea un deseo, agarre en la lámina 2 que responde solo la portada, columna con puentes, ritmo corta/densa, giro 'Para que puedas…', remate con creencia nueva + UNA palabra clave). En 'mejoras' di 3 cosas concretas que hiciste mejor.",
     o.goal === "ensenar" ? "Objetivo: enseñar algo útil del tema del producto." : "Objetivo: que quieran el producto.",

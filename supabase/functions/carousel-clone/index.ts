@@ -68,6 +68,7 @@ function userPrompt(o: { brief: Record<string, string>; goal: string; handle: st
     "- giro: la penúltima, 'Para que puedas…', ≤14 palabras.",
     "- llamada: la última. titulo = la creencia nueva; palabra = UNA palabra clave en MAYÚSCULAS conectada con esa creencia; texto = qué recibe al comentarla; items = 1 recordatorio.",
     "Cada lámina (menos llamada y giro) lleva 'puente' (≤7 palabras, abre la siguiente) y 'peso' (corta o densa; nunca dos iguales seguidas). Marca 1 o 2 palabras de cada titular entre *asteriscos*. 'escena' (opcional en todas, obligatoria en regla) = una foto cinematográfica SIN texto que muestre la idea: personas latinas comunes, sin famosos, sin marcas, sin dinero.",
+    "'objeto' = un objeto de la historia que invade el primer plano de la portada en perspectiva 3D (mano, teléfono, libreta…), enorme hacia la cámara. 'plantilla' = hero (agresiva, frases fuertes), editorial (crema y negro, marca personal premium) o cinematica (historias, con aire). Copia la GRAMÁTICA visual del original, nunca sus fotos.",
     "PORTADAS: 3 distintas (titulo 3 a 5 palabras, subtitulo ≤12, pastilla en MAYÚSCULAS, por_que = qué desea quien la lee). 'escena' de portada = metáfora visual del deseo. 'revelar' = lista oculta de 3 a 6 elementos solo si la respuesta es una lista; si no, vacío.",
     "",
     `PRODUCTO: ${clean(o.brief.product, 200)}.`,
@@ -79,7 +80,7 @@ function userPrompt(o: { brief: Record<string, string>; goal: string; handle: st
     o.world ? `MUNDO DE LA MARCA (todas las escenas ocurren aquí): ${o.world}.` : "",
     "",
     "RESPONDE SOLO con JSON válido con esta forma:",
-    `{"analisis":{"resumen":"","por_que_funciona":"","laminas":[{"n":1,"posicion":"","composicion":"","artefacto":"","idea":""}],"estilo":{"colores":["#000000","#000000","#000000"],"letra":"","estilo_cercano":"poster","empieza":"claro","fotos":""}},"adn":[{"id":"a1","parte":"","que_es":"","importa":false,"por_que":""}],"mantener":["a1","a2","a3"],"mejoras":["","",""],"carrusel":{"idea":"","portadas":[{"titulo":"","subtitulo":"","pastilla":"","por_que":""}],"recomendada":0,"revelar":[],"etiquetas":["","",""],"escena":"","laminas":[{"tipo":"respuesta","peso":"","etiqueta":"","titulo":"","texto":"","items":[],"veredicto":"","puente":"","palabra":"","pastilla":"","escena":""}],"pie":""}}`,
+    `{"analisis":{"resumen":"","por_que_funciona":"","laminas":[{"n":1,"posicion":"","composicion":"","artefacto":"","idea":""}],"estilo":{"colores":["#000000","#000000","#000000"],"letra":"","estilo_cercano":"poster","empieza":"claro","fotos":""}},"adn":[{"id":"a1","parte":"","que_es":"","importa":false,"por_que":""}],"mantener":["a1","a2","a3"],"mejoras":["","",""],"carrusel":{"idea":"","portadas":[{"titulo":"","subtitulo":"","pastilla":"","por_que":""}],"recomendada":0,"revelar":[],"etiquetas":["","",""],"escena":"","objeto":"","plantilla":"editorial","laminas":[{"tipo":"respuesta","peso":"","etiqueta":"","titulo":"","texto":"","items":[],"veredicto":"","puente":"","palabra":"","pastilla":"","escena":""}],"pie":""}}`,
     `"carrusel.laminas" trae ${slides} elementos (la portada va aparte), con la primera de tipo respuesta, la penúltima giro y la última llamada.`,
   ].filter(Boolean).join("\n");
 }

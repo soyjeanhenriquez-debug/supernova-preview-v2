@@ -55,11 +55,13 @@ export type Slide = {
   photoPath?: string;
   /** Escena sugerida para esa foto. */
   scene?: string;
+  /** Objeto que invade el primer plano en 3D (mano, teléfono, libreta…), ligado a la historia. */
+  prop?: string;
 };
 export type Cover = { title: string; subtitle: string; tag: string; why: string };
 /** `rec` = la portada que recomendó la IA; `pick` = la que eligió la persona. */
 /** `idea` = la frase que todo el carrusel defiende. */
-export type CarouselDraft = { covers: Cover[]; pick: number; rec?: number; slides: Slide[]; caption: string; scene?: string; idea?: string; clone?: CloneInfo };
+export type CarouselDraft = { covers: Cover[]; pick: number; rec?: number; slides: Slide[]; caption: string; scene?: string; idea?: string; clone?: CloneInfo; template?: CoverTemplateId };
 export type StyleId = "poster" | "editorial" | "moderno" | "impacto" | "elegante";
 /**
  * Sistema de diseño + la "firma" que no se puede copiar (carrusel "Uncopyable" de Grow with Alex): los
@@ -75,6 +77,8 @@ export type CarouselDesign = {
   line?: string;
   /** Tu dato real (tus "recibos"): solo datos reales, nunca inventados. */
   receipt?: string;
+  /** Tu objeto firma: lo que invade el primer plano en 3D cuando la historia no pide otro. */
+  prop?: string;
 };
 
 export const SLIDE_COUNTS = [6, 8, 10] as const;
@@ -134,6 +138,7 @@ export function sanitizeDesign(x: unknown): CarouselDesign {
     world: clean(d.world, 160) || undefined,
     line: clean(d.line, 80) || undefined,
     receipt: clean(d.receipt, 40) || undefined,
+    prop: clean(d.prop, 80) || undefined,
   };
 }
 
@@ -257,6 +262,7 @@ export function carouselRequest(opts: { goal: CarouselGoal; brief: Brief; slides
     "PORTADAS: las 3 mejores de tus 8 opciones, DISTINTAS entre sí. Cada una con titulo (3 a 5 palabras), subtitulo (máximo 12 palabras), pastilla (2 a 3 palabras en MAYÚSCULAS, ej. '3 PASOS') y por_que (qué desea la persona después de leerla que antes no). 'recomendada' = la que más ganas da de deslizar.",
     "ETIQUETAS: 3 palabras muy cortas (máximo 2 palabras cada una) sobre el tema, para decorar la portada.",
     "ESCENA: una escena fotográfica cinematográfica para la portada tipo póster, en una frase: una METÁFORA visual del deseo (ej. una persona diminuta caminando hacia una puerta gigante en el desierto). Personas latinas comunes, sin famosos, sin marcas, sin dinero ni billetes.",
+    "OBJETO: un objeto de la historia que invade el primer plano en perspectiva 3D, enorme y hacia la cámara (una mano, un teléfono, una libreta, una taza, una llave…). PLANTILLA de portada: 'hero' (agresiva, para frases fuertes), 'editorial' (crema y negro, marca personal premium) o 'cinematica' (historias, reflexiones, con aire).",
     "PIE DE PUBLICACIÓN: 2 a 4 frases + la misma palabra clave del remate + 3 a 5 hashtags en español del nicho.",
     "",
     `PRODUCTO: ${clean(b.product, 200)}.`,
@@ -269,7 +275,7 @@ export function carouselRequest(opts: { goal: CarouselGoal; brief: Brief; slides
     opts.source ? `\nTEXTO DE ORIGEN:\n"""\n${(opts.source ?? "").slice(0, 6000)}\n"""` : null,
     "",
     "RESPONDE SOLO con JSON válido, sin texto antes ni después, con esta forma exacta:",
-    `{"idea":"","portadas":[{"titulo":"","subtitulo":"","pastilla":"","por_que":""},{"titulo":"","subtitulo":"","pastilla":"","por_que":""},{"titulo":"","subtitulo":"","pastilla":"","por_que":""}],"recomendada":0,"revelar":[],"etiquetas":["","",""],"escena":"","laminas":[${plan.slice(1).map(k => shape[k]).join(",")}],"pie":""}`,
+    `{"idea":"","portadas":[{"titulo":"","subtitulo":"","pastilla":"","por_que":""},{"titulo":"","subtitulo":"","pastilla":"","por_que":""},{"titulo":"","subtitulo":"","pastilla":"","por_que":""}],"recomendada":0,"revelar":[],"etiquetas":["","",""],"escena":"","objeto":"","plantilla":"editorial","laminas":[${plan.slice(1).map(k => shape[k]).join(",")}],"pie":""}`,
     `"laminas" trae ${plan.length - 1} elementos, en ese orden (la portada va aparte).`,
   ];
   return lines.filter((l): l is string => l !== null).join("\n").replace(/\n{3,}/g, "\n\n");
@@ -348,13 +354,17 @@ export function parseCarouselObj(j: Record<string, unknown> | null, n: number, s
   const pick = Number.isInteger(rec) && rec >= 0 && rec < covers.length ? rec : 0;
   const c = covers[pick];
   const reveal = (Array.isArray(j.revelar) ? j.revelar : []).map(x => txt(x, 40)).filter(Boolean).slice(0, 6);
-  const cover: Slide = { kind: "portada", tone: "oscuro", kicker: KICKER.portada, title: c.title, body: c.subtitle, items: [], tag: c.tag, chips, scene: txt(j.escena, 300) || undefined };
+  const cover: Slide = { kind: "portada", tone: "oscuro", kicker: KICKER.portada, title: c.title, body: c.subtitle, items: [], tag: c.tag, chips, scene: txt(j.escena, 300) || undefined, prop: txt(j.objeto, 80) || undefined };
   if (reveal.length >= 3) {
     cover.reveal = reveal;
     const second = rest.find(r => r.kind === "respuesta");
     if (second) second.reveal = reveal;
   }
-  return { covers, pick, rec: pick, slides: retone([cover, ...rest], start), caption: clean(j.pie, 1200), scene: txt(j.escena, 300) || undefined, idea: txt(j.idea, 200) || undefined };
+  const tpl = String(j.plantilla ?? "");
+  return {
+    covers, pick, rec: pick, slides: retone([cover, ...rest], start), caption: clean(j.pie, 1200), scene: txt(j.escena, 300) || undefined, idea: txt(j.idea, 200) || undefined,
+    template: tpl in COVER_TEMPLATES && tpl !== "cta" ? (tpl as CoverTemplateId) : undefined,
+  };
 }
 
 /** Cambia la portada por otra de las propuestas (gratis). */
@@ -419,7 +429,126 @@ const STYLE_TYPE: Record<StyleId, string> = {
  * imagen escribe el texto dentro de la foto: barra superior de 3 columnas, titular con UNA palabra
  * enorme que domina, la escena como metáfora del deseo y máximo 3 colores del sistema.
  */
-type PosterOpts = { cover: Slide; scene?: string; design: CarouselDesign; brief: Brief; aspect: "4:5" | "1:1"; hasRefs?: boolean; rules: string; date?: Date };
+// ── Plantillas de portada (gramática visual, 05-oct-2026) ────────────────────────────────────────
+/**
+ * Se copia la GRAMÁTICA visual de los pósters deportivos premium, no los deportes: perspectiva 3D real
+ * (un objeto de la historia invade el primer plano), la persona en segundo plano y una palabra gigante
+ * que vive DETRÁS de ella. Cada plantilla separa escena, cámara, composición, tipografía, luz,
+ * profundidad, textura y zonas seguras, y se manda como especificación estructurada (JSON) a la IA de
+ * imagen. Nada de marcas, famosos ni dinero (manual).
+ */
+export type CoverTemplateId = "hero" | "editorial" | "cinematica" | "cta";
+type Tpl = {
+  name: string; line: string; uses: string;
+  direction: { style: string; mood: string; visual_language: string; realism: string };
+  camera: Record<string, string>; composition: Record<string, unknown>;
+  type: { font_style: string; color: string; placement: string; texture: string; extra?: Record<string, string> };
+  lighting: Record<string, string>; effects: string[]; texture: Record<string, string>; palette: string[]; negative: string[];
+};
+export const COVER_TEMPLATES: Record<CoverTemplateId, Tpl> = {
+  hero: {
+    name: "Hero", line: "Un objeto hacia la cámara, tu cara y una palabra gigante detrás.", uses: "La que más detiene el scroll: «DEJA DE ESPERAR», «DISCIPLINA», «90 DÍAS».",
+    direction: { style: "high-energy cinematic advertising poster", mood: "explosive, confident, premium, kinetic", visual_language: "3D perspective advertising poster", realism: "hyper-real photographic" },
+    camera: { angle: "slightly low frontal angle", lens: "16-20mm ultra-wide", perspective: "extreme forced perspective", foreground_scale: "2-3x natural size, entering the viewer's space", depth: "strong 3D pop toward the viewer" },
+    composition: { subject_position: "center", title_behind_subject: true, foreground_overlap: "extreme", energy_direction: "diagonal toward camera", background_simplicity: "high" },
+    type: { font_style: "ultra-bold condensed sans serif, uppercase", color: "warm off-white", placement: "upper background, slight dynamic tilt, massive", texture: "clean", extra: { secondary_style: "extra bold condensed display, very large, deep black dimensional extrusion shadow, lower center" } },
+    lighting: { type: "hard daylight", contrast: "high", skin_highlights: "strong", sky: "rich natural blue" },
+    effects: ["frozen particles around the foreground object", "high microcontrast", "maximum 3D pop"],
+    texture: { image: "crisp, high clarity" }, palette: ["sky blue", "black", "off-white"],
+    negative: ["small foreground object", "sideways pose", "motion blurred face", "deformed hands", "extra limbs", "flat perspective", "cartoon effect", "low contrast", "weak typography", "generic stock photo"],
+  },
+  editorial: {
+    name: "Editorial", line: "Crema y negro, textura, foto real y una sola palabra enorme.", uses: "Marca personal premium: se ve menos «miniatura de IA».",
+    direction: { style: "raw premium editorial poster", mood: "dominant, grounded, powerful", visual_language: "premium campaign meets independent editorial poster", realism: "hyper-real commercial photography" },
+    camera: { angle: "extreme ground-level low angle", lens: "14-20mm ultra-wide", perspective: "aggressive forced perspective", foreground_scale: "the foreground object occupies roughly the lower 30% of the canvas", focus: "transition from foreground object to face" },
+    composition: { layout: "centered heroic composition", title_behind_subject: true, subject_breaks_title: true, foreground_breaks_bottom_frame: true, visual_flow: "foreground object to face to title" },
+    type: { font_style: "massive ultra-condensed grotesk sans serif, black weight, uppercase, very tight tracking", color: "black", placement: "upper two-thirds, monumental, letters may approach the canvas edges", texture: "heavy distressed ink grain" },
+    lighting: { key: "warm low-angle sunlight", contrast: "high", rim_light: "warm sunset edge", shadow_style: "deep and editorial" },
+    effects: ["3D pop-out"], texture: { poster: "aged editorial paper grain", type: "rough distressed ink", image: "high clarity with analog grain" },
+    palette: ["cream", "black", "warm amber"],
+    negative: ["small foreground object", "normal eye-level camera", "flat commercial portrait", "weak perspective", "deformed hands", "extra fingers", "plastic skin", "studio background", "clean corporate typography"],
+  },
+  cinematica: {
+    name: "Cinemática", line: "Con aire y elegancia, luz dorada, la palabra detrás de ti.", uses: "Historias, viajes, reflexiones y contenido más humano.",
+    direction: { style: "premium editorial poster", mood: "confident, aspirational, cinematic", visual_language: "magazine campaign mixed with contemporary social media graphic design", realism: "high-end commercial photography" },
+    camera: { angle: "extreme low angle near ground level", lens: "18-24mm ultra-wide", perspective: "strong forced perspective", foreground_scale: "massively oversized, breaking the frame" },
+    composition: { layout: "vertical asymmetric editorial composition", subject_position: "slightly left of center, looking upward and away", title_behind_subject: true, foreground_breaks_frame: true, negative_space: "upper and lateral areas reserved for typography" },
+    type: { font_style: "ultra-condensed bold sans serif, uppercase, tight tracking", color: "distressed black", placement: "full upper and middle background, nearly full canvas width", texture: "subtle worn ink and grain", extra: { secondary: "small clean modern sans serif, bottom left", page_number: "minimal, bottom right" } },
+    lighting: { key: "warm golden hour backlight", rim_light: "golden edge light around the subject", contrast: "medium-high", skin: "warm natural", shadows: "cinematic and controlled" },
+    effects: ["foreground scale exaggeration", "high subject separation"], texture: { global: "subtle printed poster grain", background: "soft analog editorial texture" },
+    palette: ["warm cream", "distressed black", "sunset gold"],
+    negative: ["distorted anatomy", "extra fingers", "warped foreground object", "tiny foreground object", "flat perspective", "generic stock photography", "cartoon look", "oversaturated skin", "busy background", "illegible typography"],
+  },
+  cta: {
+    name: "CTA", line: "Para la última lámina: acción de fondo y una tarjeta de cristal con tu palabra clave.", uses: "Comentar, guardar, escribir por DM, entrar a la comunidad.",
+    direction: { style: "futuristic editorial mixed with glassmorphism", mood: "fast, cinematic, premium", visual_language: "action campaign plus modern UI overlay", realism: "cinematic photography" },
+    camera: { angle: "low dynamic action angle", lens: "wide-angle", perspective: "strong", motion: "directional motion blur on the background action" },
+    composition: { title_position: "top", center: "large clean area reserved for a glass UI card", subject_position: "right background, partially behind the card area", depth_layers: ["glass interface area", "action subject", "background"] },
+    type: { font_style: "massive italic condensed sans serif, uppercase, forward leaning", color: "white", placement: "top, oversized", texture: "clean" },
+    lighting: { environment: "cold dramatic lighting", highlights: "bright whites", contrast: "very high", background: "deep navy and black" },
+    effects: ["directional motion blur", "controlled bloom", "strong depth blur behind the center"], texture: { image: "crisp" },
+    palette: ["deep navy", "black", "pure white"],
+    negative: ["flat composition", "cheap glass effect", "low contrast", "static subject", "tiny headline", "cluttered interface", "excessive neon"],
+  },
+};
+
+type PosterOpts = { cover: Slide; scene?: string; design: CarouselDesign; brief: Brief; aspect: "4:5" | "1:1"; hasRefs?: boolean; rules: string; date?: Date; template?: CoverTemplateId };
+
+const NO_BRANDS = ["logos", "brand names", "celebrities", "copyrighted characters", "money or banknotes", "text other than the requested", "sexual content"];
+
+/**
+ * Especificación estructurada de la plantilla. part: "full" = foto + letras (1 paso), "scene" = solo la
+ * foto con el espacio reservado (paso 1), "text" = solo las letras sobre la foto de referencia (paso 2).
+ */
+export function coverSpec(o: PosterOpts & { template: CoverTemplateId }, part: "full" | "scene" | "text"): Record<string, unknown> {
+  const t = COVER_TEMPLATES[o.template];
+  const plain = o.cover.title.replace(/\*/g, "").trim();
+  const focal = (accentRuns(o.cover.title).find(r => r.accent)?.text.trim() || plain.split(/\s+/).sort((a, b) => b.length - a.length)[0] || plain).toLocaleUpperCase("es");
+  const rest = plain.replace(new RegExp(focal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), "").replace(/\s+/g, " ").trim();
+  const prop = clean(o.cover.prop, 80) || clean(o.design.prop, 80) || "an everyday object from the story (a phone, a notebook, a hand, a mug)";
+  const d = o.date ?? new Date();
+  const subject = o.hasRefs ? "the person in the attached reference image: same face and identity, as the protagonist" : "a common Latin American person from the target audience, natural and believable";
+  const typography: Record<string, unknown> = o.template === "cta"
+    ? {
+      background_title: { text: focal, font_style: t.type.font_style, color: t.type.color, placement: t.type.placement },
+      cta_card: { note: "rendered later by the design system; keep the center clean" },
+    }
+    : {
+      primary_text: focal, font_style: t.type.font_style, color: t.type.color, placement: t.type.placement, texture: t.type.texture, layering: "BEHIND the subject: the person overlaps the letters",
+      secondary_text: rest ? { text: rest, style: "small clean bold sans serif, close to the giant word" } : undefined,
+      subtitle: o.cover.body ? { text: clean(o.cover.body, 90), placement: "bottom", size: "small" } : undefined,
+      header_bar: { left: `${MONTHS[d.getMonth()]} ${d.getFullYear()}`, center: o.design.name || (o.design.handle ? `@${o.design.handle}` : ""), right: o.design.role || o.cover.tag || "", style: "small bold sans serif, three evenly spaced columns, 5% from top" },
+      ...t.type.extra,
+      language: "Spanish. Write every text EXACTLY as given, no other words.",
+    };
+  const base: Record<string, unknown> = {
+    format: { platform: "Instagram Carousel", aspect_ratio: o.aspect, resolution: o.aspect === "4:5" ? "1080x1350" : "1080x1080", purpose: o.template === "cta" ? "carousel CTA slide" : "carousel cover" },
+    creative_direction: t.direction,
+    scene: { idea: clean(o.scene || o.cover.scene, 300) || `a cinematic visual metaphor of: ${clean(o.brief.promise, 120) || plain}`, location: clean(o.design.world, 160) || undefined },
+    subject: { type: subject, expression: "focused and composed" },
+    camera: { ...t.camera, foreground_object: prop },
+    composition: t.composition,
+    lighting: t.lighting,
+    color_palette: [o.design.brand, ...t.palette].slice(0, 4),
+    texture: t.texture, effects: t.effects,
+    depth: { intensity: "extreme", technique: "foreground object scale exaggeration: real 3D perspective is the visual signature" },
+    safe_zones: { top: "5%", bottom: "6%", left: "5%", right: "5%" },
+    rules: o.rules,
+  };
+  if (part === "scene") return {
+    ...base,
+    composition: { ...t.composition, negative_space: "keep the areas where the giant word will go clean and simple (it will be added later behind the subject)" },
+    typography: "NONE. No text, letters, numbers or logos anywhere in the image.",
+    negative_prompt: [...t.negative.filter(n => !/typography/.test(n)), ...NO_BRANDS, "any text"],
+  };
+  if (part === "text") return {
+    instruction: "Use the attached image as the base and keep it EXACTLY the same: same framing, same people, same colors, same light. Do not change the photo. Only add the typography below, with the giant word placed BEHIND the person so the person overlaps the letters.",
+    format: base.format, typography, safe_zones: base.safe_zones,
+    negative_prompt: ["illegible typography", "misspelled words", "extra words", "changing the photo", ...NO_BRANDS.filter(n => n !== "text other than the requested")],
+  };
+  return { ...base, typography, negative_prompt: [...t.negative, ...NO_BRANDS] };
+}
+const specText = (x: Record<string, unknown>) => JSON.stringify(x);
 
 /** Las letras de la portada póster: barra superior de 3 columnas, titular con UNA palabra enorme y abajo. */
 function posterTypeLines(o: PosterOpts): string[] {
@@ -456,6 +585,7 @@ function posterScene(o: PosterOpts): string[] {
  * y máximo 3 colores del sistema.
  */
 export function posterPrompt(o: PosterOpts): string {
+  if (o.template) return specText(coverSpec({ ...o, template: o.template }, "full"));
   const [bar, title, ...restType] = posterTypeLines(o);
   return [
     `Portada editorial para un carrusel de Instagram, diseño tipo póster de revista, formato ${o.aspect === "4:5" ? "vertical 4:5" : "cuadrado 1:1"}.`,
@@ -470,6 +600,7 @@ export function posterPrompt(o: PosterOpts): string {
  * para el titular. El paso 2 (posterTextPrompt) le pone las letras con GPT Image 2 sin tocar la escena.
  */
 export function posterScenePrompt(o: PosterOpts): string {
+  if (o.template) return specText(coverSpec({ ...o, template: o.template }, "scene"));
   return [
     `Fotografía cinematográfica real para la portada de un carrusel de Instagram, formato ${o.aspect === "4:5" ? "vertical 4:5" : "cuadrado 1:1"}.`,
     ...posterScene(o),
@@ -481,6 +612,7 @@ export function posterScenePrompt(o: PosterOpts): string {
 
 /** Paso 2: GPT Image 2 recibe la foto del paso 1 como referencia y solo le añade la tipografía. */
 export function posterTextPrompt(o: PosterOpts): string {
+  if (o.template) return specText(coverSpec({ ...o, template: o.template }, "text"));
   return [
     "Usa la imagen de referencia adjunta como base y mantenla EXACTAMENTE igual: mismo encuadre, mismas personas, mismos colores, misma luz. No cambies nada de la foto.",
     "Solo añade la tipografía de una portada editorial tipo póster de revista:",
@@ -608,6 +740,7 @@ export function recloneRequest(o: { info: CloneInfo; keep: string[]; brief: Brie
     "Hazlo MEJOR que el original con la fórmula de 6 posiciones (apertura que crea un deseo, agarre en la lámina 2 que responde solo la portada, columna con puentes, ritmo corta/densa, giro 'Para que puedas…', remate con creencia nueva + UNA palabra clave). En 'mejoras' di 3 cosas concretas que hiciste mejor.",
     o.goal === "ensenar" ? "Objetivo: enseñar algo útil del tema del producto." : "Objetivo: que quieran el producto.",
     "Tipos de lámina disponibles: respuesta, problema (3 items), comparacion (2 items: NO/SÍ), solucion, tarjetas (4 items), pasos (3 items), regla (pastilla 'Regla N', titulo de 1 o 2 palabras gigantes, texto ≤10 palabras, veredicto, escena; opcional items = 3 líneas muy cortas: qué hace, cuándo usarlo, cuándo no), giro (penúltima), llamada (última, con palabra).",
+    "'objeto' = un objeto de la historia que invade el primer plano de la portada en 3D; 'plantilla' = hero, editorial o cinematica.",
     "Cada lámina (menos giro y llamada) lleva puente (≤7 palabras), peso (corta o densa) y veredicto si aplica. Marca 1 o 2 palabras de cada titular entre *asteriscos*. 'escena' = foto cinematográfica SIN texto, personas latinas comunes, sin famosos, sin marcas, sin dinero.",
     "Prohibido: promesas de ingresos o resultados, plazos, testimonios o cifras inventadas, urgencia falsa, marcas ajenas, emojis. Español neutro latinoamericano, de tú.",
     "",
@@ -618,7 +751,7 @@ export function recloneRequest(o: { info: CloneInfo; keep: string[]; brief: Brie
     ...signatureLines(o),
     "",
     "RESPONDE SOLO con JSON válido:",
-    `{"mejoras":["","",""],"carrusel":{"idea":"","portadas":[{"titulo":"","subtitulo":"","pastilla":"","por_que":""},{"titulo":"","subtitulo":"","pastilla":"","por_que":""},{"titulo":"","subtitulo":"","pastilla":"","por_que":""}],"recomendada":0,"revelar":[],"etiquetas":["","",""],"escena":"","laminas":[{"tipo":"","peso":"","etiqueta":"","titulo":"","texto":"","items":[],"veredicto":"","puente":"","palabra":"","pastilla":"","escena":""}],"pie":""}}`,
+    `{"mejoras":["","",""],"carrusel":{"idea":"","objeto":"","plantilla":"editorial","portadas":[{"titulo":"","subtitulo":"","pastilla":"","por_que":""},{"titulo":"","subtitulo":"","pastilla":"","por_que":""},{"titulo":"","subtitulo":"","pastilla":"","por_que":""}],"recomendada":0,"revelar":[],"etiquetas":["","",""],"escena":"","laminas":[{"tipo":"","peso":"","etiqueta":"","titulo":"","texto":"","items":[],"veredicto":"","puente":"","palabra":"","pastilla":"","escena":""}],"pie":""}}`,
     `"carrusel.laminas" trae ${n} elementos: la primera respuesta, la penúltima giro y la última llamada.`,
   ].filter(Boolean).join("\n");
 }
@@ -634,6 +767,8 @@ export function parseReclone(text: string, start: "claro" | "oscuro" = "oscuro")
 
 /** Foto IA de una lámina, SIN texto (el texto lo pone el diseño, con fuentes reales). */
 export function photoPrompt(o: { slide: Slide; design: CarouselDesign; brief: Brief; aspect: "4:5" | "1:1"; card: boolean; hasRefs?: boolean; rules: string }): string {
+  // La última lámina usa la plantilla CTA: acción de fondo y el centro libre para la tarjeta de cristal.
+  if (o.slide.kind === "llamada") return JSON.stringify(coverSpec({ cover: o.slide, design: o.design, brief: o.brief, aspect: o.aspect, hasRefs: o.hasRefs, rules: o.rules, template: "cta" }, "scene"));
   const scene = clean(o.slide.scene, 300) || `una escena cinematográfica que muestre: ${o.slide.title.replace(/\*/g, "")}`;
   return [
     `Fotografía cinematográfica real para ${o.card ? "una tarjeta dentro de" : "el fondo de"} una lámina de carrusel de Instagram, formato ${o.aspect === "4:5" ? "vertical 4:5" : "cuadrado 1:1"}.`,

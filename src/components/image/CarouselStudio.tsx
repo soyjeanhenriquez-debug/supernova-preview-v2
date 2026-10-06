@@ -11,7 +11,7 @@ import { toWebp } from "@/lib/brandKit";
 import {
   ADMIN_DESIGN, BRAND_COLORS, DEFAULT_DESIGN, DEFAULT_SLIDES, GENERATOR_ID, GOAL_INFO, KIND_LABEL, PUBLISH_STEPS, SLIDE_COUNTS, STYLES,
   carouselRequest, cleanHandle, coverCheck, draftCarousel, parseCarousel, posterPrompt, posterScenePrompt, posterTextPrompt, retone, slideTwoScore, storyTest, withCover,
-  brandFromClone, parseClone, parseReclone, photoPrompt, recloneRequest, MAX_KEEP,
+  brandFromClone, parseClone, parseReclone, photoPrompt, recloneRequest, MAX_KEEP, COVER_TEMPLATES, type CoverTemplateId,
   type CarouselDesign, type CarouselDraft, type CarouselGoal, type Item, type Slide, type StyleId,
 } from "@/lib/carousel";
 import { FONTS, fontEmbedCss, loadStyleFonts, slideToBlob } from "@/lib/carouselTheme";
@@ -197,7 +197,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     const isPoster = index === 0;
     const refs = useRefs ? kitRefs : [];
     const prompt = isPoster
-      ? posterPrompt({ cover: target, scene: target.scene || preview.scene, design, brief, aspect, hasRefs: refs.length > 0, rules: RULES })
+      ? posterPrompt({ cover: target, scene: target.scene || preview.scene, design, brief, aspect, hasRefs: refs.length > 0, rules: RULES, template })
       : photoPrompt({ slide: target, design, brief, aspect, card: target.kind === "regla", hasRefs: refs.length > 0, rules: RULES });
     setPosterBusy(true);
     try {
@@ -231,6 +231,9 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
    * guardada y se reintentan solo las letras.
    */
   const [posterMode, setPosterMode] = useState<"dos" | "uno">("dos");
+  // Plantilla de portada (gramática visual): la sugiere la IA y la persona la puede cambiar.
+  const [template, setTemplate] = useState<CoverTemplateId>("editorial");
+  useEffect(() => { if (draft?.template) setTemplate(draft.template); }, [draft?.template]);
   const [scenePath, setScenePath] = useState<string | null>(null);
   const gen = async (body: Record<string, unknown>, action: PosterModel["action"], label: string): Promise<Blob> => {
     const { data, error } = await supabase.functions.invoke("generate-ad-creative", { body });
@@ -254,7 +257,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     if (!folder) { toast("Elige tu producto primero: la foto se guarda en tu carpeta para ponerle las letras."); return; }
     if (balance < total) { toast.error(`Te faltan créditos: esto cuesta ${total}`); return; }
     const refs = useRefs ? kitRefs : [];
-    const opts = { cover: slides[0], scene: slides[0].scene || preview.scene, design, brief, aspect, hasRefs: refs.length > 0, rules: RULES };
+    const opts = { cover: slides[0], scene: slides[0].scene || preview.scene, design, brief, aspect, hasRefs: refs.length > 0, rules: RULES, template };
     setPosterBusy(true);
     try {
       let base = onlyLetters ? scenePath : null;
@@ -528,6 +531,10 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                 <input value={design.world ?? ""} maxLength={160} onChange={e => setDesign(d => ({ ...d, world: e.target.value }))} placeholder="Ej.: una cocina caribeña con azulejos verdes y luz de tarde" aria-label="Tu mundo visual" className={input} />
               </label>
               <label className="block space-y-1 sm:col-span-2">
+                <span className="text-[12px] text-foreground">Tu objeto firma <span className="text-muted-foreground">(lo que invade el primer plano en 3D en tus portadas: tu laptop, tu micrófono, tu cámara…)</span></span>
+                <input value={design.prop ?? ""} maxLength={80} onChange={e => setDesign(d => ({ ...d, prop: e.target.value }))} placeholder="Ej.: mi laptop abierta" aria-label="Tu objeto firma" className={input} />
+              </label>
+              <label className="block space-y-1 sm:col-span-2">
                 <span className="text-[12px] text-foreground">Tu frase <span className="text-muted-foreground">(la que la gente reconoce como tuya; sale en el remate)</span></span>
                 <input value={design.line ?? ""} maxLength={80} onChange={e => setDesign(d => ({ ...d, line: e.target.value }))} placeholder="Ej.: Cocina una vez, come toda la semana." aria-label="Tu frase" className={input} />
               </label>
@@ -689,7 +696,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
               <div className="rounded-xl border border-border p-3.5 space-y-3">
                 <div>
                   <p className="text-[13px] text-foreground font-medium">Foto con IA para esta lámina <span className="text-muted-foreground font-normal">(opcional)</span></p>
-                  <p className="text-[12px] text-muted-foreground">{current.kind === "regla" ? "Va en una tarjeta debajo de la palabra grande, como ejemplo de la regla." : "Va de fondo, detrás del texto."} La IA hace solo la foto; las letras las pone tu diseño.</p>
+                  <p className="text-[12px] text-muted-foreground">{current.kind === "regla" ? "Va en una tarjeta debajo de la palabra grande, como ejemplo de la regla." : current.kind === "llamada" ? "Plantilla CTA: acción de fondo y una tarjeta de cristal con tu palabra clave." : "Va de fondo, detrás del texto."} La IA hace solo la foto; las letras las pone tu diseño.</p>
                 </div>
                 <label className="block space-y-1">
                   <span className="text-[12px] text-foreground">Escena</span>
@@ -761,6 +768,23 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                   <p className="text-[13px] text-foreground font-medium">Portada póster con IA de imagen <span className="text-muted-foreground font-normal">(opcional)</span></p>
                   <p className="text-[12px] text-muted-foreground">Una foto de cine con tu titular escrito dentro, como las portadas de revista que más se guardan. Las demás láminas siguen con tu diseño.</p>
                 </div>
+                <div className="space-y-1.5">
+                  <p className="text-[12px] text-foreground">Plantilla <span className="text-muted-foreground">— perspectiva 3D real: un objeto invade el primer plano, tú en segundo plano y la palabra gigante detrás de ti.</span></p>
+                  <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Plantilla de portada">
+                    {(["hero", "editorial", "cinematica"] as CoverTemplateId[]).map(id => (
+                      <button key={id} type="button" role="radio" aria-checked={template === id} disabled={posterBusy} onClick={() => setTemplate(id)}
+                        className={`rounded-lg border px-3 py-2 text-left ${template === id ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
+                        <span className="flex items-center justify-between gap-2 text-[13px] text-foreground">{COVER_TEMPLATES[id].name}{draft?.template === id && <span className="text-primary text-[10px]">Sugerida</span>}</span>
+                        <span className="block text-[11px] text-muted-foreground">{COVER_TEMPLATES[id].line}</span>
+                        <span className="block text-[10px] text-muted-foreground/80 mt-0.5">{COVER_TEMPLATES[id].uses}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <label className="block space-y-1">
+                  <span className="text-[12px] text-foreground">Objeto en primer plano <span className="text-muted-foreground">(lo que sale enorme hacia la cámara)</span></span>
+                  <input value={current.prop ?? ""} maxLength={80} onChange={e => editSlide(0, { prop: e.target.value })} placeholder={design.prop || "Ej.: mi mano sosteniendo el teléfono"} aria-label="Objeto en primer plano" className={input} />
+                </label>
                 <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Cómo se hace la portada">
                   <button type="button" role="radio" aria-checked={posterMode === "dos"} disabled={posterBusy}
                     onClick={() => { setPosterMode("dos"); if (posterModel === "gpt-image-2") setPosterModel("nano-banana-pro"); }}

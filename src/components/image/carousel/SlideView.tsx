@@ -45,7 +45,9 @@ const Icon = {
 export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ slide, index, total, design, aspect }, ref) {
   const H = slideH(aspect);
   const k = H / 1350; // 1:1 comprime un poco todo
-  const c = toneColors(design.brand, slide.tone, design.style);
+  // La lámina CTA con foto siempre va con texto claro sobre un velo oscuro.
+  const tone = slide.photo && slide.kind === "llamada" ? "oscuro" : slide.tone;
+  const c = toneColors(design.brand, tone, design.style);
   const f = FONTS[design.style];
   const flat = !!f.flat;
   const brand = palette(design.brand, design.style).primary;
@@ -54,6 +56,8 @@ export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ 
   const isLast = index === total - 1;
   const brandLabel = design.name || (design.handle ? `@${design.handle}` : "");
   const big = isCover ? (slide.tag?.match(/\d+/)?.[0] ?? String(total)) : String(index).padStart(2, "0");
+  // Velo sobre la foto de fondo: oscuro si el texto va en blanco (siempre en la lámina CTA).
+  const veil = tone === "claro" ? "#f4efe6" : "#0b0b0b";
   const card: CSSProperties = flat
     ? { background: c.card, border: `4px solid ${c.border}`, borderRadius: 20, boxShadow: `10px 10px 0 ${slide.tone === "degradado" ? "#0b0b0b" : brand}` }
     : { background: c.card, border: `2px solid ${c.border}`, borderRadius: 26 };
@@ -269,6 +273,26 @@ export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ 
       );
       break;
     case "llamada":
+      // Con foto: plantilla CTA (palabra gigante en cursiva arriba + tarjeta de cristal al centro).
+      if (slide.photo) {
+        const big = (accentRuns(slide.title).find(r => r.accent)?.text || slide.cta || slide.title).replace(/\*/g, "").toLocaleUpperCase("es");
+        body = (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div style={{ fontFamily: `"${f.display}", sans-serif`, fontWeight: f.displayWeight, fontStyle: "italic", fontSize: Math.min(220 * k, Math.floor(900 / (Math.max(1, big.length) * 0.68))), lineHeight: 0.9, letterSpacing: "-0.03em", color: "#ffffff", transform: "skewX(-8deg)", textShadow: "0 10px 40px rgba(0,0,0,0.35)", whiteSpace: "nowrap" }}>{big}</div>
+            <div style={{ marginTop: 50 * k, width: 820, borderRadius: 48, padding: `${46 * k}px 56px`, background: "rgba(255,255,255,0.16)", border: "2px solid rgba(255,255,255,0.65)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", boxShadow: "0 30px 80px rgba(0,0,0,0.35)", textAlign: "center", color: "#ffffff" }}>
+              <div style={{ fontSize: 44 * k, fontWeight: 600, opacity: 0.9 }}>comenta</div>
+              <div style={{ fontFamily: f.accent ? `"${f.accent.family}", Georgia, serif` : `"${f.display}", serif`, fontStyle: "italic", fontWeight: f.accent?.weight ?? f.displayWeight, fontSize: 150 * k, lineHeight: 1, margin: `${6 * k}px 0 ${12 * k}px`, letterSpacing: "-0.01em" }}>{(slide.cta || "QUIERO").toLocaleLowerCase("es")}</div>
+              {slide.body && <div style={{ fontSize: 38 * k, fontWeight: 600, lineHeight: 1.3 }}>{slide.body}</div>}
+              <div style={{ marginTop: 34 * k, fontSize: 30 * k, opacity: 0.85 }}>{slide.items[0]?.title || "Guárdalo para después"}</div>
+            </div>
+            <div style={{ marginTop: "auto", textAlign: "center", color: "#ffffff" }}>
+              <Title text={slide.title} size={fitSize(slide.title, 64 * k, 44 * k, 30)} c={{ ...c, text: "#ffffff" }} f={f} style={{ textAlign: "center", lineHeight: 1.1 }} />
+              {design.line && <p style={{ margin: `${14 * k}px 0 0`, fontFamily: f.accent ? `"${f.accent.family}", Georgia, serif` : undefined, fontStyle: "italic", fontSize: 36 * k, opacity: 0.9 }}>{design.line}</p>}
+            </div>
+          </div>
+        );
+        break;
+      }
       body = (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <Title text={slide.title} size={fitSize(slide.title, 124 * k, 80 * k, 18)} c={c} f={f} />
@@ -323,7 +347,7 @@ export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ 
       {slide.photo && slide.kind !== "regla" && (
         <>
           <img src={slide.photo} alt="" crossOrigin="anonymous" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-          <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, ${rgba(slide.tone === "claro" ? "#f4efe6" : "#0b0b0b", 0.55)} 0%, ${rgba(slide.tone === "claro" ? "#f4efe6" : "#0b0b0b", 0.35)} 45%, ${rgba(slide.tone === "claro" ? "#f4efe6" : "#0b0b0b", 0.85)} 100%)` }} />
+          <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, ${rgba(veil, 0.55)} 0%, ${rgba(veil, 0.35)} 45%, ${rgba(veil, 0.85)} 100%)` }} />
         </>
       )}
       {slide.tone !== "degradado" && !flat && !slide.photo && <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 88% 6%, ${c.glow} 0%, transparent 52%)` }} />}

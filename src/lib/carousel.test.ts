@@ -277,3 +277,37 @@ describe("carrusel: portada como Alex en 2 pasos", () => {
     expect(r.slides[2].items).toHaveLength(3);
   });
 });
+
+import { coverSpec, COVER_TEMPLATES } from "./carousel";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type J = any;
+describe("carrusel: plantillas de portada (gramática visual)", () => {
+  const cover = { kind: "portada" as const, tone: "claro" as const, kicker: "", title: "Deja de *esperar*", body: "Lo que nadie te dice", items: [], prop: "mi mano con el teléfono" };
+  const base = { cover, design: { ...ADMIN_DESIGN, world: "playas de RD", role: "AI" }, brief, aspect: "4:5" as const, hasRefs: true, rules: "REGLAS" };
+  it("hero: objeto en primer plano, palabra gigante detrás de la persona y tu cara de referencia", () => {
+    const x = coverSpec({ ...base, template: "hero" }, "full") as J;
+    expect(x.camera.foreground_object).toBe("mi mano con el teléfono");
+    expect(x.typography.primary_text).toBe("ESPERAR");
+    expect(x.typography.layering).toMatch(/BEHIND/);
+    expect(x.subject.type).toMatch(/reference image/);
+    expect(x.scene.location).toBe("playas de RD");
+    expect(x.negative_prompt).toContain("logos");
+  });
+  it("paso 1 sin letras y paso 2 solo letras sobre la foto", () => {
+    const a = coverSpec({ ...base, template: "editorial" }, "scene") as J;
+    expect(a.typography).toMatch(/NONE/);
+    const b = coverSpec({ ...base, template: "editorial" }, "text") as J;
+    expect(b.instruction).toMatch(/keep it EXACTLY the same/);
+    expect(b.typography.header_bar.right).toBe("AI");
+  });
+  it("la última lámina con foto usa la plantilla CTA", () => {
+    const p = photoPrompt({ slide: { kind: "llamada", tone: "oscuro", kicker: "", title: "x", body: "", items: [], cta: "LOTE" }, design: ADMIN_DESIGN, brief, aspect: "4:5", card: false, rules: "R" });
+    expect(p).toContain("glassmorphism");
+    expect(Object.keys(COVER_TEMPLATES)).toEqual(["hero", "editorial", "cinematica", "cta"]);
+  });
+  it("la IA sugiere plantilla y objeto", () => {
+    const d = parseCarouselObj({ portadas: [{ titulo: "a *b*" }], objeto: "una libreta", plantilla: "hero", laminas: [{ tipo: "respuesta", titulo: "r" }, { tipo: "pasos", titulo: "p", items: [{ titulo: "1" }] }, { tipo: "giro", titulo: "g" }, { tipo: "llamada", titulo: "l", palabra: "X" }] }, 8, "claro", { free: true })!;
+    expect(d.template).toBe("hero");
+    expect(d.slides[0].prop).toBe("una libreta");
+  });
+});

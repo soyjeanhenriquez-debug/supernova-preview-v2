@@ -192,18 +192,20 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
   const editItem = (i: number, k: number, patch: Partial<Item>) => setSlides(list => list.map((s, j) => (j === i ? { ...s, items: s.items.map((it, m) => (m === k ? { ...it, ...patch } : it)) } : s)));
   const setStart = (start: "claro" | "oscuro") => { setDesign(d => ({ ...d, start })); if (draft) setDraft({ ...draft, slides: retone(draft.slides, start) }); };
 
-  /** Portada póster (con el titular escrito por la IA) o foto de una lámina (sin texto). */
-  const makeImage = async (index: number) => {
+  /** La plantilla de cada lámina: el remate usa siempre la CTA; las demás, la elegida. */
+  const tplFor = (i: number): CoverTemplateId => (slides[i]?.kind === "llamada" ? "cta" : template);
+  /** Lámina póster (con su texto escrito por la IA, 1 paso) o solo la foto de fondo (el texto lo pone el diseño). */
+  const makeImage = async (index: number, poster = index === 0) => {
     const m = POSTER_MODELS.find(x => x.id === posterModel) ?? POSTER_MODELS[0];
     const price = CREDIT_COSTS[m.action];
     if (posterBusy) return;
     if (balance < price) { toast.error(`Te faltan créditos: esto cuesta ${price}`); return; }
     const target = slides[index];
     if (!target) return;
-    const isPoster = index === 0;
+    const isPoster = poster;
     const refs = useRefs ? kitRefs : [];
     const prompt = isPoster
-      ? posterPrompt({ cover: target, scene: target.scene || preview.scene, design, brief, aspect, hasRefs: refs.length > 0, rules: RULES, template })
+      ? posterPrompt({ cover: target, scene: target.scene || (index === 0 ? preview.scene : undefined), design, brief, aspect, hasRefs: refs.length > 0, rules: RULES, template: tplFor(index) })
       : photoPrompt({ slide: target, design, brief, aspect, card: target.kind === "regla", hasRefs: refs.length > 0, rules: RULES });
     setPosterBusy(true);
     try {
@@ -211,7 +213,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
       if (refs.length) body.reference_paths = refs;
       const { data, error } = await supabase.functions.invoke("generate-ad-creative", { body });
       if (error || !data?.image) throw new Error(error ? await invokeErrorMessage(error, "No se pudo crear la imagen. No se te cobró.") : (data?.error || "No se pudo crear la imagen. No se te cobró."));
-      if (data.billing) applyServerCharge(m.action, data.billing, `Carrusel · ${isPoster ? "portada" : `foto lámina ${index + 1}`} ${m.label}`);
+      if (data.billing) applyServerCharge(m.action, data.billing, `Carrusel · ${isPoster ? `lámina póster ${index + 1}` : `foto lámina ${index + 1}`} ${m.label}`);
       const blob = await toWebp(data.image as string, 1350);
       let url = URL.createObjectURL(blob);
       let path: string | undefined;
@@ -225,7 +227,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
         }
       }
       editSlide(index, isPoster ? { image: url, imagePath: path } : { photo: url, photoPath: path });
-      toast.success(isPoster ? "Portada póster lista" : "Foto lista", { description: isPoster ? "Revisa que el titular diga exactamente lo mismo." : "El texto lo pone tu diseño, con letras perfectas." });
+      toast.success(isPoster ? "Lámina póster lista" : "Foto lista", { description: isPoster ? "Revisa que el texto diga exactamente lo mismo." : "El texto lo pone tu diseño, con letras perfectas." });
     } catch (e) {
       toast.error(e instanceof Error && e.message ? e.message : "No se pudo crear la imagen.");
     } finally { setPosterBusy(false); }
@@ -236,11 +238,15 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
    * las letras, sin tocar la escena. Cada paso lo cobra el servidor; si falla el 2, la foto queda
    * guardada y se reintentan solo las letras.
    */
-  const [posterMode, setPosterMode] = useState<"dos" | "uno">("dos");
+  // "foto" = solo la foto de fondo (el texto lo pone el diseño); no aplica a la portada.
+  const [posterMode, setPosterMode] = useState<"dos" | "uno" | "foto">("dos");
+  // La portada no tiene "solo la foto": al volver a ella, se vuelve al modo recomendado.
+  useEffect(() => { if (sel === 0) setPosterMode(m => (m === "foto" ? "dos" : m)); }, [sel]);
   // Plantilla de portada (gramática visual): la sugiere la IA y la persona la puede cambiar.
   const [template, setTemplate] = useState<CoverTemplateId>("editorial");
   useEffect(() => { if (draft?.template) setTemplate(draft.template); }, [draft?.template]);
-  const [scenePath, setScenePath] = useState<string | null>(null);
+  // La foto del paso 1 de cada lámina, para poner solo las letras sin volver a pagarla.
+  const [scenePaths, setScenePaths] = useState<Record<number, string>>({});
   const gen = async (body: Record<string, unknown>, action: PosterModel["action"], label: string): Promise<Blob> => {
     const { data, error } = await supabase.functions.invoke("generate-ad-creative", { body });
     if (error || !data?.image) throw new Error(error ? await invokeErrorMessage(error, "No se pudo crear la imagen. No se te cobró.") : (data?.error || "No se pudo crear la imagen. No se te cobró."));
@@ -255,7 +261,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     const { data } = await supabase.storage.from("creativos").createSignedUrl(p, 3600);
     return data?.signedUrl ? { path: p, url: data.signedUrl } : null;
   };
-  const makePosterMvp = async (onlyLetters = false) => {
+  const makePosterMvp = async (index: number, onlyLetters = false) => {
     const m = POSTER_MODELS.find(x => x.id === posterModel) ?? POSTER_MODELS[0];
     const lettersPrice = CREDIT_COSTS.gen_ad_image;
     const total = (onlyLetters ? 0 : CREDIT_COSTS[m.action]) + lettersPrice;
@@ -263,29 +269,32 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     if (!folder) { toast("Elige tu producto primero: la foto se guarda en tu carpeta para ponerle las letras."); return; }
     if (balance < total) { toast.error(`Te faltan créditos: esto cuesta ${total}`); return; }
     const refs = useRefs ? kitRefs : [];
-    const opts = { cover: slides[0], scene: slides[0].scene || preview.scene, design, brief, aspect, hasRefs: refs.length > 0, rules: RULES, template };
+    const target = slides[index];
+    if (!target) return;
+    const opts = { cover: target, scene: target.scene || (index === 0 ? preview.scene : undefined), design, brief, aspect, hasRefs: refs.length > 0, rules: RULES, template: tplFor(index) };
+    const what = index === 0 ? "portada" : `lámina ${index + 1}`;
     setPosterBusy(true);
     try {
-      let base = onlyLetters ? scenePath : null;
+      let base = onlyLetters ? scenePaths[index] ?? null : null;
       if (!base) {
         const body: Record<string, unknown> = { prompt: posterScenePrompt(opts), aspectRatio: aspect, model: m.id };
         if (refs.length) body.reference_paths = refs;
-        const photo = await gen(body, m.action, `Carrusel · foto de portada ${m.label}`);
+        const photo = await gen(body, m.action, `Carrusel · foto de ${what} ${m.label}`);
         const scene = await save(photo, "escena");
         if (!scene) {
           // La foto ya está pagada: nunca se pierde. Queda de portada aunque no se pueda guardar para ponerle letras.
-          editSlide(0, { image: URL.createObjectURL(photo), imagePath: undefined });
-          toast.error("Tu foto quedó en la portada, pero no se pudo guardar para ponerle las letras", { description: "Descárgala desde \"Listo para publicar\" para no perderla. Si vuelve a pasar, escríbenos." });
+          editSlide(index, { image: URL.createObjectURL(photo), imagePath: undefined });
+          toast.error(`Tu foto quedó en la ${what}, pero no se pudo guardar para ponerle las letras`, { description: "Descárgala desde \"Listo para publicar\" para no perderla. Si vuelve a pasar, escríbenos." });
           return;
         }
-        base = scene.path; setScenePath(scene.path);
+        base = scene.path; setScenePaths(x => ({ ...x, [index]: scene.path }));
         toast("Paso 1 listo: la foto. Ahora le pongo las letras…");
       }
       try {
-        const blob = await gen({ prompt: posterTextPrompt(opts), aspectRatio: aspect, model: "gpt-image-2", reference_paths: [base] }, "gen_ad_image", "Carrusel · letras de la portada GPT Image 2");
+        const blob = await gen({ prompt: posterTextPrompt(opts), aspectRatio: aspect, model: "gpt-image-2", reference_paths: [base] }, "gen_ad_image", `Carrusel · letras de la ${what} GPT Image 2`);
         const done = await save(blob, "poster");
-        editSlide(0, done ? { image: done.url, imagePath: done.path } : { image: URL.createObjectURL(blob), imagePath: undefined });
-        toast.success("Tu portada MVP está lista", { description: "Revisa que el titular diga exactamente lo mismo. Si no, toca \"Otra vez solo las letras\"." });
+        editSlide(index, done ? { image: done.url, imagePath: done.path } : { image: URL.createObjectURL(blob), imagePath: undefined });
+        toast.success(index === 0 ? "Tu portada MVP está lista" : `Tu lámina ${index + 1} MVP está lista`, { description: "Revisa que el titular diga exactamente lo mismo. Si no, toca \"Otra vez solo las letras\"." });
       } catch (e) {
         toast.error("La foto quedó lista, pero faltan las letras", { description: `${e instanceof Error ? e.message : ""} Toca "Poner solo las letras" (${lettersPrice} créditos): no vuelves a pagar la foto.` });
       }
@@ -293,7 +302,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
       toast.error(e instanceof Error && e.message ? e.message : "No se pudo crear la portada.");
     } finally { setPosterBusy(false); }
   };
-  const makePoster = () => (posterMode === "dos" ? makePosterMvp() : makeImage(0));
+  const makePoster = (i: number) => (posterMode === "dos" ? makePosterMvp(i) : makeImage(i, posterMode === "uno"));
 
   const cloneInfo = draft?.clone;
   useEffect(() => { setKeep(cloneInfo?.keep ?? []); }, [cloneInfo]);
@@ -733,30 +742,6 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                 <input value={current.bridge ?? ""} maxLength={60} onChange={e => editSlide(sel, { bridge: e.target.value })} aria-label="Tirón hacia la siguiente lámina" className={input} />
               </label>
             )}
-            {sel > 0 && (
-              <div className="rounded-xl border border-border p-3.5 space-y-3">
-                <div>
-                  <p className="text-[13px] text-foreground font-medium">{current.kind === "galeria" ? "Las fotos de la cuadrícula, con IA" : "Foto con IA para esta lámina"} <span className="text-muted-foreground font-normal">(opcional)</span></p>
-                  <p className="text-[12px] text-muted-foreground">{current.kind === "galeria" ? `Toda la cuadrícula en una sola imagen (${current.items.length} tomas) ${kitRefs.length && useRefs ? "contigo en cada una: se usa tu foto de \"Tu foto\"" : "— para salir tú, sube tu foto en \"Tu foto\" (Tu sistema de diseño)"}. Nano Banana Pro es la que mejor mantiene tu cara.` : current.kind === "regla" ? "Va en una tarjeta debajo de la palabra grande, como ejemplo de la regla." : current.kind === "llamada" ? "Plantilla CTA: acción de fondo y una tarjeta de cristal con tu palabra clave." : "Va de fondo, detrás del texto."} La IA hace solo la foto; las letras las pone tu diseño.</p>
-                </div>
-                <label className="block space-y-1">
-                  <span className="text-[12px] text-foreground">{current.kind === "galeria" ? "Lo que tienen en común todas las fotos" : "Escena"}</span>
-                  <input value={current.scene ?? ""} maxLength={300} onChange={e => editSlide(sel, { scene: e.target.value })} placeholder="Ej.: una mujer cocinando de noche en una cocina pequeña, luz cálida" aria-label="Escena de la foto" className={input} />
-                </label>
-                {modelPicker}
-                <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => void makeImage(sel)} disabled={posterBusy}
-                    className="min-h-[40px] inline-flex items-center gap-2 rounded-lg border border-border px-3 text-[12px] text-foreground hover:border-foreground/40 disabled:opacity-60">
-                    {posterBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
-                    {posterBusy ? "Creando la foto…" : `${current.photo ? "Otra foto" : "Crear foto"} · ${imgPrice} créditos`}
-                  </button>
-                  {current.photo && (
-                    <button type="button" onClick={() => editSlide(sel, { photo: undefined, photoPath: undefined })}
-                      className="min-h-[40px] inline-flex items-center gap-1.5 rounded-lg px-3 text-[12px] text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /> Quitar foto</button>
-                  )}
-                </div>
-              </div>
-            )}
             {current.kind === "portada" && (
               <label className="block space-y-1 max-w-xs">
                 <span className="text-[12px] text-foreground">Pastilla</span>
@@ -803,15 +788,21 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
             {sel === 0 && (check.ok
               ? <p className="text-[12px] text-foreground flex gap-1.5"><Star className="w-3.5 h-3.5 mt-0.5 text-primary shrink-0" /> Portada lista: corta, con una palabra que resalta y sin promesas.</p>
               : check.notes.map((n, k) => <p key={k} className="text-[12px] text-muted-foreground flex gap-1.5"><AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" /> {n}</p>))}
-            {sel === 0 && (
-              <div className="rounded-xl border border-border p-3.5 space-y-3">
-                <div>
-                  <p className="text-[13px] text-foreground font-medium">Portada póster con IA de imagen <span className="text-muted-foreground font-normal">(opcional)</span></p>
-                  <p className="text-[12px] text-muted-foreground">Una foto de cine con tu titular escrito dentro, como las portadas de revista que más se guardan. Las demás láminas siguen con tu diseño.</p>
-                </div>
+            {/* La misma edición de la portada para TODAS las láminas (06-oct-2026, Jean): póster en 2 pasos,
+                en 1 paso o, en las interiores, solo la foto de fondo con el texto de tu diseño. */}
+            <div className="rounded-xl border border-border p-3.5 space-y-3">
+              <div>
+                <p className="text-[13px] text-foreground font-medium">{sel === 0 ? "Portada póster con IA de imagen" : `Lámina ${sel + 1} con IA de imagen`} <span className="text-muted-foreground font-normal">(opcional)</span></p>
+                <p className="text-[12px] text-muted-foreground">{sel === 0
+                  ? "Una foto de cine con tu titular escrito dentro, como las portadas de revista que más se guardan."
+                  : current.kind === "galeria"
+                    ? `La cuadrícula completa (${current.items.length} tomas) en una sola imagen, con sus etiquetas. Nano Banana Pro es la que mejor mantiene tu cara.`
+                    : "El mismo acabado de la portada: una foto de cine con el texto de esta lámina escrito dentro, para que todo el carrusel se vea de la misma marca."}</p>
+              </div>
+              {current.kind !== "llamada" ? (
                 <div className="space-y-1.5">
-                  <p className="text-[12px] text-foreground">Plantilla <span className="text-muted-foreground">— perspectiva 3D real: un objeto invade el primer plano, tú en segundo plano y la palabra gigante detrás de ti.</span></p>
-                  <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Plantilla de portada">
+                  <p className="text-[12px] text-foreground">Plantilla <span className="text-muted-foreground">— la misma en todas las láminas para que se vean de una sola marca.</span></p>
+                  <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Plantilla">
                     {(["hero", "editorial", "cinematica"] as CoverTemplateId[]).map(id => (
                       <button key={id} type="button" role="radio" aria-checked={template === id} disabled={posterBusy} onClick={() => setTemplate(id)}
                         className={`rounded-lg border px-3 py-2 text-left ${template === id ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
@@ -822,45 +813,60 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                     ))}
                   </div>
                 </div>
-                <label className="block space-y-1">
-                  <span className="text-[12px] text-foreground">Objeto en primer plano <span className="text-muted-foreground">(lo que sale enorme hacia la cámara)</span></span>
-                  <input value={current.prop ?? ""} maxLength={80} onChange={e => editSlide(0, { prop: e.target.value })} placeholder={design.prop || "Ej.: mi mano sosteniendo el teléfono"} aria-label="Objeto en primer plano" className={input} />
-                </label>
-                <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Cómo se hace la portada">
-                  <button type="button" role="radio" aria-checked={posterMode === "dos"} disabled={posterBusy}
-                    onClick={() => { setPosterMode("dos"); if (posterModel === "gpt-image-2") setPosterModel("nano-banana-pro"); }}
-                    className={`rounded-lg border px-3 py-2 text-left ${posterMode === "dos" ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
-                    <span className="block text-[13px] text-foreground">Portada MVP · 2 pasos <span className="text-primary text-[11px]">Recomendado</span></span>
-                    <span className="block text-[11px] text-muted-foreground">1) La foto con la IA que elijas abajo (sales tú si subiste tu foto). 2) GPT Image 2 le pone las letras sin tocar la foto.</span>
+              ) : <p className="text-[12px] text-muted-foreground">Plantilla CTA: acción de fondo y una tarjeta de cristal con tu palabra clave.</p>}
+              <label className="block space-y-1">
+                <span className="text-[12px] text-foreground">{current.kind === "galeria" ? "Lo que tienen en común todas las fotos" : "Escena"}</span>
+                <input value={current.scene ?? ""} maxLength={300} onChange={e => editSlide(sel, { scene: e.target.value })} placeholder="Ej.: una mujer cocinando de noche en una cocina pequeña, luz cálida" aria-label="Escena de la foto" className={input} />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[12px] text-foreground">Objeto en primer plano <span className="text-muted-foreground">(lo que sale enorme hacia la cámara)</span></span>
+                <input value={current.prop ?? ""} maxLength={80} onChange={e => editSlide(sel, { prop: e.target.value })} placeholder={design.prop || "Ej.: mi mano sosteniendo el teléfono"} aria-label="Objeto en primer plano" className={input} />
+              </label>
+              <div className={`grid gap-2 ${sel > 0 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`} role="radiogroup" aria-label="Cómo se hace">
+                <button type="button" role="radio" aria-checked={posterMode === "dos"} disabled={posterBusy}
+                  onClick={() => { setPosterMode("dos"); if (posterModel === "gpt-image-2") setPosterModel("nano-banana-pro"); }}
+                  className={`rounded-lg border px-3 py-2 text-left ${posterMode === "dos" ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
+                  <span className="block text-[13px] text-foreground">MVP · 2 pasos <span className="text-primary text-[11px]">Recomendado</span></span>
+                  <span className="block text-[11px] text-muted-foreground">1) La foto con la IA que elijas abajo (sales tú si subiste tu foto). 2) GPT Image 2 le pone las letras sin tocar la foto.</span>
+                </button>
+                <button type="button" role="radio" aria-checked={posterMode === "uno"} disabled={posterBusy} onClick={() => setPosterMode("uno")}
+                  className={`rounded-lg border px-3 py-2 text-left ${posterMode === "uno" ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
+                  <span className="block text-[13px] text-foreground">Rápida · 1 paso</span>
+                  <span className="block text-[11px] text-muted-foreground">Una sola IA hace la foto y las letras a la vez. Más barata, menos control.</span>
+                </button>
+                {sel > 0 && (
+                  <button type="button" role="radio" aria-checked={posterMode === "foto"} disabled={posterBusy} onClick={() => setPosterMode("foto")}
+                    className={`rounded-lg border px-3 py-2 text-left ${posterMode === "foto" ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
+                    <span className="block text-[13px] text-foreground">Solo la foto</span>
+                    <span className="block text-[11px] text-muted-foreground">{current.kind === "regla" ? "Va en una tarjeta debajo de la palabra grande." : "Va de fondo."} Las letras las pone tu diseño, perfectas.</span>
                   </button>
-                  <button type="button" role="radio" aria-checked={posterMode === "uno"} disabled={posterBusy} onClick={() => setPosterMode("uno")}
-                    className={`rounded-lg border px-3 py-2 text-left ${posterMode === "uno" ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
-                    <span className="block text-[13px] text-foreground">Rápida · 1 paso</span>
-                    <span className="block text-[11px] text-muted-foreground">Una sola IA hace la foto y las letras a la vez. Más barata, menos control.</span>
-                  </button>
-                </div>
-                <p className="text-[12px] text-muted-foreground">{posterMode === "dos" ? "Paso 1 · la foto con:" : "La hace:"}</p>
-                {modelPicker}
-                <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => void makePoster()} disabled={posterBusy}
-                    className="min-h-[40px] inline-flex items-center gap-2 rounded-lg border border-border px-3 text-[12px] text-foreground hover:border-foreground/40 disabled:opacity-60">
-                    {posterBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
-                    {posterBusy ? "Creando tu portada…" : `${current.image ? "Crear otra portada" : "Crear portada póster"} · ${posterMode === "dos" ? imgPrice + CREDIT_COSTS.gen_ad_image : imgPrice} créditos`}
-                  </button>
-                  {posterMode === "dos" && scenePath && (
-                    <button type="button" onClick={() => void makePosterMvp(true)} disabled={posterBusy}
-                      className="min-h-[40px] inline-flex items-center gap-2 rounded-lg border border-border px-3 text-[12px] text-foreground hover:border-foreground/40 disabled:opacity-60">
-                      {current.image ? "Otra vez solo las letras" : "Poner solo las letras"} · {CREDIT_COSTS.gen_ad_image} créditos
-                    </button>
-                  )}
-                  {current.image && (
-                    <button type="button" onClick={() => editSlide(0, { image: undefined, imagePath: undefined })}
-                      className="min-h-[40px] inline-flex items-center gap-1.5 rounded-lg px-3 text-[12px] text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /> Volver a la portada diseñada</button>
-                  )}
-                </div>
-                <p className="text-[11px] text-muted-foreground">La IA escribe tu titular dentro de la foto: revisa que diga exactamente lo mismo antes de publicar. Si falla, no se te cobra.</p>
+                )}
               </div>
-            )}
+              <p className="text-[12px] text-muted-foreground">{posterMode === "dos" ? "Paso 1 · la foto con:" : posterMode === "uno" ? "La hace:" : "La foto la hace:"}</p>
+              {modelPicker}
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => void makePoster(sel)} disabled={posterBusy || (sel === 0 && posterMode === "foto")}
+                  className="min-h-[40px] inline-flex items-center gap-2 rounded-lg border border-border px-3 text-[12px] text-foreground hover:border-foreground/40 disabled:opacity-60">
+                  {posterBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+                  {posterBusy ? "Creando…" : `${posterMode === "foto" ? (current.photo ? "Otra foto" : "Crear foto") : current.image ? "Crear otra versión" : sel === 0 ? "Crear portada póster" : "Crear lámina póster"} · ${posterMode === "dos" ? imgPrice + CREDIT_COSTS.gen_ad_image : imgPrice} créditos`}
+                </button>
+                {posterMode === "dos" && scenePaths[sel] && (
+                  <button type="button" onClick={() => void makePosterMvp(sel, true)} disabled={posterBusy}
+                    className="min-h-[40px] inline-flex items-center gap-2 rounded-lg border border-border px-3 text-[12px] text-foreground hover:border-foreground/40 disabled:opacity-60">
+                    {current.image ? "Otra vez solo las letras" : "Poner solo las letras"} · {CREDIT_COSTS.gen_ad_image} créditos
+                  </button>
+                )}
+                {current.image && (
+                  <button type="button" onClick={() => editSlide(sel, { image: undefined, imagePath: undefined })}
+                    className="min-h-[40px] inline-flex items-center gap-1.5 rounded-lg px-3 text-[12px] text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /> Volver a la lámina diseñada</button>
+                )}
+                {!current.image && current.photo && (
+                  <button type="button" onClick={() => editSlide(sel, { photo: undefined, photoPath: undefined })}
+                    className="min-h-[40px] inline-flex items-center gap-1.5 rounded-lg px-3 text-[12px] text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /> Quitar foto</button>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground">La IA escribe el texto dentro de la foto: revisa que diga exactamente lo mismo antes de publicar. Si falla, no se te cobra.</p>
+            </div>
           </div>
         )}
       </section>

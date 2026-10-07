@@ -557,13 +557,18 @@ export function coverSpec(o: PosterOpts & { template: CoverTemplateId }, part: "
       subtitle: o.cover.body ? { text: clean(o.cover.body, 90), placement: "bottom", size: "small" } : undefined,
       header_bar: { left: `${MONTHS[d.getMonth()]} ${d.getFullYear()}`, center: o.design.name || (o.design.handle ? `@${o.design.handle}` : ""), right: o.design.role || o.cover.tag || "", style: "small bold sans serif, three evenly spaced columns, 5% from top" },
       ...t.type.extra,
+      ...slideTextSpec(o.cover),
       language: "Spanish. Write every text EXACTLY as given, no other words.",
     };
   const base: Record<string, unknown> = {
-    format: { platform: "Instagram Carousel", aspect_ratio: o.aspect, resolution: o.aspect === "4:5" ? "1080x1350" : "1080x1080", purpose: o.template === "cta" ? "carousel CTA slide" : "carousel cover" },
+    format: { platform: "Instagram Carousel", aspect_ratio: o.aspect, resolution: o.aspect === "4:5" ? "1080x1350" : "1080x1080", purpose: o.template === "cta" ? "carousel CTA slide" : o.cover.kind === "portada" ? "carousel cover" : `carousel inner slide (${KIND_LABEL[o.cover.kind]}), same visual system as the cover` },
     creative_direction: t.direction,
     scene: { idea: clean(o.scene || o.cover.scene, 300) || `a cinematic visual metaphor of: ${clean(o.brief.promise, 120) || plain}`, location: clean(o.design.world, 160) || undefined },
     subject: { type: subject, expression: "focused and composed" },
+    grid: o.cover.kind === "galeria" && o.cover.items.length ? {
+      layout: `exact grid of ${galleryCols(o.cover.items.length)} columns and ${Math.ceil(Math.min(9, o.cover.items.length) / galleryCols(o.cover.items.length))} rows, equal cells separated by thin white lines, the same subject in every cell`,
+      cells: o.cover.items.slice(0, 9).map((it, i) => `${i + 1}) ${clean(it.text, 140) || clean(it.title, 40)}`),
+    } : undefined,
     camera: { ...t.camera, foreground_object: prop },
     composition: t.composition,
     lighting: t.lighting,
@@ -587,6 +592,25 @@ export function coverSpec(o: PosterOpts & { template: CoverTemplateId }, part: "
   return { ...base, typography, negative_prompt: [...t.negative, ...NO_BRANDS] };
 }
 const specText = (x: Record<string, unknown>) => JSON.stringify(x);
+
+/**
+ * Lo que una lámina interior escribe además del titular (la portada no lleva nada extra): sus puntos,
+ * las etiquetas de la galería (una por celda), el veredicto y la palabra clave del remate. Así una lámina
+ * póster dice lo mismo que la lámina diseñada.
+ */
+function slideTextSpec(s: Slide): Record<string, unknown> {
+  if (s.kind === "portada") return {};
+  const items = s.items.filter(it => it.title || it.text).slice(0, 9);
+  const out: Record<string, unknown> = {};
+  if (s.kind === "galeria" && items.length) {
+    out.grid_labels = { labels: items.map(it => clean(it.title, 24)), style: `a ${galleryCols(items.length)}-column grid of photos, one label per cell in this order (left to right, top to bottom), each label in a small dark navy rounded pill at the bottom center of its cell, white text` };
+  } else if (items.length) {
+    out.list = { items: items.map(it => [clean(it.title, 60), clean(it.text, 100)].filter(Boolean).join(": ")), style: "short clean list in small bold sans serif, easy to read, in a calm area of the image" };
+  }
+  if (s.verdict) out.verdict = { text: clean(s.verdict, 90), style: "one bold line near the bottom" };
+  if (s.cta) out.keyword = { text: s.cta, style: "very large, inside a glass card in the center, with a small line above: 'Comenta o escríbeme'" };
+  return out;
+}
 
 /** Las letras de la portada póster: barra superior de 3 columnas, titular con UNA palabra enorme y abajo. */
 function posterTypeLines(o: PosterOpts): string[] {

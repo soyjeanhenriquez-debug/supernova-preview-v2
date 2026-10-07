@@ -72,8 +72,8 @@ export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ 
     </div>
   );
 
-  // Portada póster hecha con IA de imagen: la imagen ES la portada (trae su texto).
-  if (slide.kind === "portada" && slide.image) {
+  // Lámina póster hecha con IA de imagen (portada o cualquier otra): la imagen ES la lámina (trae su texto).
+  if (slide.image) {
     return (
       <div ref={ref} style={{ position: "relative", width: SLIDE_W, height: H, overflow: "hidden", background: c.bg }}>
         <img src={slide.image} alt="" crossOrigin="anonymous" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />

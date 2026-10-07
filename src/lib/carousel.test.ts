@@ -379,3 +379,25 @@ describe("carrusel: formatos", () => {
     expect((r.match(/"tipo":"regla"/g) ?? []).length).toBe(4);
   });
 });
+
+describe("carrusel: láminas interiores con el mismo acabado de la portada", () => {
+  const design = { brand: "#f5b301", name: "Jean", handle: "jean", style: "poster" as const, start: "claro" as const };
+  it("la galería lleva su cuadrícula y una etiqueta por celda", () => {
+    const slide = { kind: "galeria" as const, tone: "claro" as const, kicker: "", title: "Controla la *altura*", body: "", items: ["/droneview", "/highangle", "/topright", "/wormview"].map(t => ({ title: t, text: `toma ${t}` })) };
+    const o = { cover: slide, design, brief, aspect: "4:5" as const, hasRefs: true, rules: "", template: "editorial" as const };
+    const scene = JSON.parse(posterScenePrompt(o));
+    expect(scene.grid.layout).toMatch(/2 columns and 2 rows/);
+    expect(scene.format.purpose).toMatch(/inner slide/);
+    const text = JSON.parse(posterTextPrompt(o));
+    expect(text.typography.grid_labels.labels).toEqual(["/droneview", "/highangle", "/topright", "/wormview"]);
+  });
+  it("el remate escribe su palabra clave y la portada no lleva extras", () => {
+    const remate = { kind: "llamada" as const, tone: "oscuro" as const, kicker: "", title: "Comenta *ATAJO*", body: "", items: [], cta: "ATAJO" };
+    const t = JSON.parse(posterTextPrompt({ cover: remate, design, brief, aspect: "4:5", rules: "", template: "cta" }));
+    expect(JSON.stringify(t.typography)).toMatch(/ATAJO/);
+    const cover = { kind: "portada" as const, tone: "oscuro" as const, kicker: "", title: "Hola *mundo*", body: "", items: [] };
+    const c = JSON.parse(posterTextPrompt({ cover, design, brief, aspect: "4:5", rules: "", template: "editorial" }));
+    expect(c.typography.list).toBeUndefined();
+    expect(c.typography.grid_labels).toBeUndefined();
+  });
+});

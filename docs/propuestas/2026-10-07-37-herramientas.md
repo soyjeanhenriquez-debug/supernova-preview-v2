@@ -88,6 +88,6 @@ cerrados, precio oculto.
 
 1. **Fase 0:** en pausa (ver sección 5).
 2. **Fase 1 (HECHA 07-oct, OK de Jean):** fusiones de la sección 2 → 24 tarjetas (19 para clientes) y 3 kits en Robot de copy.
-3. **Fase 2:** atajos 1–3 y 8–9 (los que más mueven a la primera venta).
+3. **Fase 2 (HECHA 07-oct, b2c4fb2):** atajos 1 (Modelar esta oferta completa + lanzamiento guiado), 2 ("Siguiente" en los kits del Robot), 3 (Ganchos → crear) y 8 ("Agregar a mi tracker" en Robot, Creativos y Miniaturas). Pendiente: 9 (el Robot ya usa la ficha de "Mi negocio"; falta usar la oferta activa).
 4. **Fase 3:** modelos nuevos + checklist único "Mi negocio" + atajos 4–7.
 5. **Fase 4:** comunidad (niveles, logros reales, reto de 7 días) y frenos de salud pendientes.

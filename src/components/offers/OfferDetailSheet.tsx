@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   X, Flame, CalendarDays, Trophy, Copy, Check, ExternalLink, ShoppingCart, Radar, Heart, Zap, Loader2,
   Target, Tag as TagIcon, Globe2, Users, CreditCard, Route, Layers, Languages, Flag, ThumbsUp, AlertTriangle,
-  MapPin, Lightbulb, BadgeDollarSign, Sparkles, RefreshCw, Briefcase, Calculator,
+  MapPin, Lightbulb, BadgeDollarSign, Sparkles, RefreshCw, Briefcase, Calculator, Rocket,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ModalPortal } from "@/components/ModalPortal";
@@ -17,6 +17,7 @@ import {
 } from "@/lib/offerIntel";
 import { useSellThis, offerBrief } from "@/lib/sellThis";
 import { setAutorun, type AutorunAction } from "@/lib/autorun";
+import { startChain } from "@/lib/launchChain";
 import { useFeatureAccess } from "@/lib/features";
 import { BusinessMap } from "@/components/offers/BusinessMap";
 import { CreateFromIdeaSheet } from "@/components/create/CreateFromIdeaSheet";
@@ -81,6 +82,23 @@ export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate
     { label: "¿Se vende? Validar", cost: "gratis", hash: "#/validar" },
     { label: "Ponerle precio", cost: "gratis", hash: "#/precio" },
   ];
+
+  // "Modelar esta oferta completa" (Fase 2, 07-oct-2026): la oferta pasa a ser su producto y abre el
+  // lanzamiento guiado (precio → página → bump → 5 anuncios → WhatsApp). Gratis: cada paso dice su costo.
+  const modelFull = async () => {
+    const b = { ...offerBrief(o), price: intel?.price_text || o.price_hint };
+    const product = (b.product ?? "").trim();
+    const ok = await sell({
+      ...b,
+      who: (b.who ?? "").trim() || `Personas interesadas en ${product}`,
+      promise: (b.promise ?? "").trim() || `Lograr lo que ofrece ${product}`,
+    }, { stay: true });
+    if (!ok) return;
+    startChain(o.product_name || o.sample_title || o.page_name || "esta oferta", o.days_active);
+    onClose();
+    window.location.hash = "#/precio";
+    window.scrollTo({ top: 0 });
+  };
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -150,6 +168,11 @@ export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate
 
           {/* Acción principal fija abajo: siempre a un toque, sin importar cuánto se haya leído */}
           <footer className="shrink-0 border-t border-border bg-card/95 backdrop-blur px-4 sm:px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-2">
+            {/* El camino completo en un toque: producto + lanzamiento guiado. */}
+            <button onClick={() => void modelFull()} disabled={selling}
+              className="w-full h-11 rounded-xl btn-primary-nova text-[14px] font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
+              {selling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />} Modelar esta oferta completa <span className="opacity-75 font-medium">· gratis, paso a paso</span>
+            </button>
             {/* Hazlo por mí: un toque y la herramienta lo hace con esta oferta como tu producto. */}
             <div>
               <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground font-semibold mb-1.5">Hazlo por mí con esta oferta</p>

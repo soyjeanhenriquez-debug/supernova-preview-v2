@@ -11,6 +11,8 @@ import { useFormAssist } from "@/lib/formAssist";
 import { AssistButton } from "@/components/AssistButton";
 import { useBusinessProfile, profileText, profileReady } from "@/lib/businessProfile";
 import { CopyLevelPicker } from "@/components/CopyLevelPicker";
+import { AddToTracker } from "@/components/AddToTracker";
+import type { Kind } from "@/lib/contentTracker";
 
 const categories = [
   { icon: Sparkles, label: "Todos", id: "all" },
@@ -36,6 +38,20 @@ const KITS: { id: string; title: string; line: string; steps: string[] }[] = [
   { id: "llamada", title: "Kit Llamada", line: "Mentoría o servicio: del video a la llamada.", steps: ["vsl-main", "dm-script", "ascension-offer", "email-sequence"] },
   { id: "contenido", title: "Kit Contenido", line: "Marca personal: publicar todos los días.", steps: ["hooks-tiktok", "reels-script", "captions-ig"] },
 ];
+
+/** El paso que sigue a este generador en su kit (el primer kit donde no es el último). */
+function nextInKit(id: string): string | null {
+  for (const k of KITS) {
+    const i = k.steps.indexOf(id);
+    if (i !== -1 && i < k.steps.length - 1) return k.steps[i + 1];
+  }
+  return null;
+}
+
+/** Textos que se publican: van al tracker de Contenido con su tipo de pieza. */
+const TRACKER_KIND: Record<string, Kind> = {
+  "reels-script": "corto", "hooks-tiktok": "corto", "ugc-script": "corto", "captions-ig": "carrusel", "yt-script": "largo",
+};
 
 export function GeneradoresPage() {
   const [activeCategory, setActiveCategory] = useState("all");
@@ -354,6 +370,31 @@ export function GeneradoresPage() {
                       </div>
                     )}
                   </div>
+                  {generatorOutput && !loading && (() => {
+                    const next = nextInKit(selectedGen.id);
+                    const nextGen = next ? generators.find(g => g.id === next) : null;
+                    const kind = TRACKER_KIND[selectedGen.id];
+                    if (!nextGen && !kind) return null;
+                    const firstLine = generatorOutput.split("\n").map(l => l.replace(/^[#>*\-\d.\s]+/, "").replace(/\*\*/g, "").trim()).find(l => l.length > 3) ?? selectedGen.title;
+                    return (
+                      <div className="mt-4 flex flex-wrap items-center gap-2">
+                        {nextGen && (
+                          <button type="button"
+                            onClick={() => {
+                              // El siguiente paso llega con el negocio y lo que se acaba de escribir, para que todo diga lo mismo.
+                              const prev = `Lo que ya escribí en el paso anterior (${selectedGen.title}); úsalo para que todo diga lo mismo:\n${generatorOutput.replace(/\*\*/g, "").slice(0, 1500)}`;
+                              setActiveGenerator(nextGen.id); setGeneratorOutput("");
+                              setGeneratorInput([myBusiness, prev].filter(Boolean).join("\n\n").slice(0, 2500));
+                              window.scrollTo({ top: 0, behavior: "smooth" });
+                            }}
+                            className="btn-primary-nova inline-flex items-center gap-2 h-10 px-4 rounded-xl text-[13px] font-semibold">
+                            Siguiente: {nextGen.title} <span className="opacity-75 font-medium">· {generatorCost(nextGen.id).cost} créditos</span>
+                          </button>
+                        )}
+                        {kind && <AddToTracker kind={kind} title={firstLine.slice(0, 120)} source={`copy-${selectedGen.id}`.slice(0, 30)} className="h-10 min-h-0" />}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>

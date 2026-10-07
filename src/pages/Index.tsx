@@ -5,6 +5,7 @@ import { TopBar } from "@/components/TopBar";
 import { LowCreditBanner } from "@/components/LowCreditBanner";
 import { OnboardingTour } from "@/components/OnboardingTour";
 import { AgeCountryGate } from "@/components/AgeCountryGate";
+import { LaunchChainBar } from "@/components/LaunchChainBar";
 import { FloatingWinnerButton } from "@/components/FloatingWinnerButton";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useVersionCheck, updateIsReady } from "@/hooks/useVersionCheck";
@@ -204,6 +205,8 @@ const Index = () => {
         <main className="flex-1 p-4 md:p-6 lg:p-8 pb-[calc(84px+env(safe-area-inset-bottom))] lg:pb-8 overflow-auto">
           {/* Si una pantalla falla, el menú sigue vivo y cambiar de pantalla la recupera. */}
           {/* Video corto de la herramienta, si ya existe (src/lib/tutorials.ts). */}
+          {/* "Modelar esta oferta completa": el lanzamiento guiado, paso a paso, en todas las pantallas. */}
+          {!locked && <LaunchChainBar onNavigate={setActivePage} />}
           {!locked && tutorialFor(activePage) && <div className="max-w-[1280px] mx-auto flex justify-end mb-3"><TutorialButton page={activePage} /></div>}
           <ErrorBoundary compact resetKey={activePage}>
             <Suspense fallback={<PageLoader />}>

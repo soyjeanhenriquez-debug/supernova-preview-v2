@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { fnErrorMessage, fnHeaders, readBilling } from "@/lib/fnAuth";
 import { generatorCost, useCredits } from "@/hooks/useCredits";
 import { formatNumber, publishSteps, type StudioMode } from "@/lib/imagePrompts";
+import { AddToTracker } from "@/components/AddToTracker";
 
 /**
  * "Listo para publicar": descargar todo, escribir el texto del anuncio (generador mandala-ad de
@@ -78,6 +79,8 @@ export function ReadyToPublish({ mode, count, onDownloadAll, copyRequest, title 
           className="min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 text-[13px] text-foreground hover:border-foreground/40 disabled:opacity-60">
           {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Descargar todo ({count})
         </button>
+        {/* Al tracker de Contenido: de ahí sale el bono por publicar. Las miniaturas van con su video largo. */}
+        {mode !== "foto_producto" && <AddToTracker kind={mode === "miniatura" ? "largo" : "carrusel"} title={title.slice(0, 120)} source={`img-${mode}`.slice(0, 30)} />}
         {wantsCopy && (
           <button type="button" onClick={() => void write()} disabled={busy}
             className="min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 text-[13px] text-foreground hover:border-foreground/40 disabled:opacity-60">

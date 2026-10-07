@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Quote, Copy, Check, Star, Video, Sparkles, Search, Flame, ChevronDown } from "lucide-react";
+import { Quote, Copy, Check, Star, Video, Sparkles, Search, Flame, ChevronDown, Image as ImageIcon, LayoutTemplate, Film } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFeatureAccess } from "@/lib/features";
+import { useBusinessProfile, profileReady } from "@/lib/businessProfile";
+import { setSeed, TARGET_PAGE, type SeedTarget } from "@/lib/creativeSeed";
 
 const HOOKS_STEP = 24;
 
@@ -110,6 +112,25 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
     try { localStorage.setItem(MEDIA_HOOK_KEY, h.hook_text); } catch { /* sin almacenamiento */ }
     onNavigate?.("Media Studio");
     toast.success("Gancho enviado a Media Studio", { description: "Allí la IA lo adapta a tu producto y a tu idioma." });
+  };
+
+  // Fase 2 (07-oct-2026): de un gancho a crear con él, con el producto de la persona ya puesto.
+  // El gancho viaja como REFERENCIA (la IA escribe otro con la misma idea, nunca lo copia).
+  const { profile } = useBusinessProfile();
+  const createFromHook = (h: VaultHook, target: SeedTarget | "reel") => {
+    if (target === "reel") {
+      try { localStorage.setItem("supernova_generator_prefill", JSON.stringify({ generator: "reels-script", text: `Gancho de referencia (otro anuncio, escribe uno nuevo con la misma idea): ${h.hook_template}` })); } catch { /* sin almacenamiento */ }
+      onNavigate?.("Generadores");
+      return;
+    }
+    const ready = profileReady(profile);
+    setSeed({
+      source: "radar", target, title: h.hook_template.slice(0, 80),
+      product: ready ? profile.product : "", who: ready ? profile.who : "", promise: ready ? profile.promise : "", price: ready ? profile.price : undefined,
+      hook: h.hook_template, evidence: h.days_active ? `${h.days_active} días en el aire` : undefined, refId: h.id,
+    });
+    if (!ready) toast("Cuéntanos qué vendes en el estudio y la IA usa este gancho.");
+    onNavigate?.(TARGET_PAGE[target]);
   };
 
   const copiesFromHook = (h: VaultHook) => {
@@ -230,6 +251,7 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
               onCopy={() => copyHook(h.hook_template)}
               onVideo={canSee("Media Studio") ? () => videoFromHook(h) : undefined}
               onCopies={() => copiesFromHook(h)}
+              onCreate={(t) => createFromHook(h, t)}
             />
           ))}
           {filtered.length > shown && (
@@ -246,13 +268,14 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
   );
 }
 
-function HookCard({ hook: h, isFavorite, onToggleFavorite, onCopy, onVideo, onCopies }: {
+function HookCard({ hook: h, isFavorite, onToggleFavorite, onCopy, onVideo, onCopies, onCreate }: {
   hook: VaultHook;
   isFavorite: boolean;
   onToggleFavorite: () => void;
   onCopy: () => void;
   onVideo?: () => void;
   onCopies: () => void;
+  onCreate: (target: SeedTarget | "reel") => void;
 }) {
   const [showOriginal, setShowOriginal] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -318,6 +341,15 @@ function HookCard({ hook: h, isFavorite, onToggleFavorite, onCopy, onVideo, onCo
         >
           <Sparkles className="w-3.5 h-3.5" /> Escribir textos
         </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-[11px] text-muted-foreground mr-1">Crear con este gancho:</span>
+        {([["creativos", "Creativo", ImageIcon], ["carrusel", "Carrusel", LayoutTemplate], ["video_anuncio", "Video", Film], ["reel", "Guion de Reel", Sparkles]] as const).map(([t, label, Icon]) => (
+          <button key={t} type="button" onClick={() => onCreate(t)}
+            className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full border border-border text-[11px] text-foreground hover:border-primary/60">
+            <Icon className="w-3 h-3" /> {label}
+          </button>
+        ))}
       </div>
     </div>
   );

@@ -80,6 +80,11 @@ su moneda.
 - NUNCA confiar en datos del cliente para precio, rol, acceso, `user_id` ajeno o id de plan.
 - Toda tabla nueva con RLS; todo `SECURITY DEFINER` con `search_path` fijo y sin `EXECUTE` para
   `anon`/`authenticated` salvo que sea a propósito.
+- **Edad y país (decisión de Jean, 07-oct-2026):** al entrar, la app pregunta SIEMPRE la edad y el
+  país (pantalla `AgeCountryGate`). Se guarda en el servidor (`user_age_country`, solo con
+  `set_age_country`); la edad queda fija, el país se puede cambiar. Toda sección o herramienta solo
+  para mayores de 18 se decide en el servidor con `private.is_adult_user(uid)` / `is_adult()`, nunca
+  en el navegador.
 - Plan nuevo de SUPERNOVA en Whop → añadir su id a `SUPERNOVA_PLANS` en `whop-webhook`.
   Generador nuevo → añadir su id a `GEN_*_IDS` en `ai-chat`.
 

@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
 import { LowCreditBanner } from "@/components/LowCreditBanner";
 import { OnboardingTour } from "@/components/OnboardingTour";
+import { AgeCountryGate } from "@/components/AgeCountryGate";
 import { FloatingWinnerButton } from "@/components/FloatingWinnerButton";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useVersionCheck, updateIsReady } from "@/hooks/useVersionCheck";
@@ -220,6 +221,8 @@ const Index = () => {
       <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} onNavigate={setActivePage} onOpenOffer={openOffer} />
       {!locked && <Suspense fallback={null}><HelpAssistant /></Suspense>}
       <OnboardingTour />
+      {/* Edad y país, una sola vez (se guarda en el servidor): va encima de todo. */}
+      <AgeCountryGate />
     </div>
     </JourneyProvider>
   );

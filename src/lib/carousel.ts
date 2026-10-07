@@ -57,6 +57,12 @@ export type Slide = {
   scene?: string;
   /** Objeto que invade el primer plano en 3D (mano, teléfono, libreta…), ligado a la historia. */
   prop?: string;
+  /** Número de la lámina del original que modela (1 = su portada). Solo en carruseles modelados. */
+  ref?: number;
+  /** Especificación visual (JSON) de esa lámina del original: la base del diseño "Como el original". */
+  refSpec?: Record<string, unknown>;
+  /** La persona eligió una plantilla genérica en vez de "Como el original" para esta lámina. */
+  refOff?: boolean;
 };
 export type Cover = { title: string; subtitle: string; tag: string; why: string };
 /** `rec` = la portada que recomendó la IA; `pick` = la que eligió la persona. */
@@ -338,13 +344,83 @@ function firstJson(text: string): unknown {
 const ITEM_MAX: Partial<Record<SlideKind, number>> = { problema: 3, comparacion: 2, tarjetas: 4, pasos: 4, llamada: 2, regla: 3, galeria: 9 };
 const upper = (s: string) => s.toLocaleUpperCase("es");
 
+/**
+ * Lee UNA lámina interior de la IA (la usan parseCarouselObj y "Modelar esta lámina"). `i` = su lugar
+ * en la lista de láminas sin la portada; `fallback` = el tipo si la IA no trae uno válido. Si trae
+ * "original" (la lámina del carrusel original que modela), queda en `ref`.
+ */
+export function parseSlideObj(l: Record<string, unknown> | null | undefined, i: number, fallback: SlideKind = "tarjetas"): Slide {
+  const asked = String(l?.tipo ?? "") as SlideKind;
+  const kind: SlideKind = asked in KICKER && asked !== "portada" ? asked : fallback === "portada" ? "tarjetas" : fallback;
+  const items = (Array.isArray(l?.items) ? l.items : []).slice(0, ITEM_MAX[kind] ?? 0)
+    .map((it: Record<string, unknown>) => ({ title: txt(it?.titulo, 70), text: txt(it?.texto, 160) })).filter(it => it.title || it.text);
+  const slide: Slide = {
+    kind, tone: "oscuro",
+    kicker: upper(txt(l?.etiqueta, 26)) || KICKER[kind],
+    title: txt(l?.titulo, 140), body: txt(l?.texto, 260), items,
+  };
+  if (kind === "llamada") slide.cta = upper(txt(l?.palabra, 20)).replace(/[^\p{L}\p{N} ]/gu, "");
+  const bridge = txt(l?.puente, 60);
+  if (bridge && kind !== "llamada" && kind !== "giro") slide.bridge = bridge;
+  const verdict = txt(l?.veredicto, 90);
+  if (verdict && kind !== "llamada" && kind !== "giro" && kind !== "respuesta") slide.verdict = verdict;
+  if (kind === "regla" && !slide.title && slide.body) slide.title = slide.body;
+  // En la galería la etiqueta de cada celda es la utilidad (ej. "/droneview"): se deja tal cual, corta.
+  if (kind === "galeria") slide.items = slide.items.map(it => ({ title: it.title.slice(0, 32), text: it.text }));
+  if (l?.peso === "corta" || l?.peso === "densa") slide.weight = l.peso;
+  const scene = txt(l?.escena, 300);
+  if (scene) slide.scene = scene;
+  if (kind === "regla") slide.tag = txt(l?.pastilla, 20) || `Regla ${i}`;
+  if (kind === "comparacion") slide.items = slide.items.map((it, k) => ({ ...it, title: upper(it.title).slice(0, 14) || (k ? "SÍ" : "NO") }));
+  // "original" = 0: el servidor dice que no corresponde a ninguna lámina del original.
+  const ref = Number(l?.original);
+  if (l?.original != null && Number.isInteger(ref) && ref >= 0 && ref <= 20) slide.ref = ref;
+  return slide;
+}
+/** ¿La lámina trae algo que mostrar? */
+export const hasContent = (s: Slide) => !!(s.title || s.body || s.items.length);
+
+/**
+ * La especificación visual de una lámina del original, recortada a un tamaño razonable (se guarda en el
+ * borrador del navegador y viaja en el pedido a la IA de imagen): textos de hasta 240 caracteres, listas
+ * de hasta 12 (una galería de 9 celdas entra completa) y 4 niveles de profundidad.
+ */
+export function trimSpec(x: unknown): Record<string, unknown> | undefined {
+  const walk = (v: unknown, depth: number, str: number, arr: number): unknown => {
+    if (typeof v === "string") return clean(v, str) || undefined;
+    if (typeof v === "number") return Number.isFinite(v) ? v : undefined;
+    if (typeof v === "boolean") return v;
+    if (depth > 4 || !v || typeof v !== "object") return undefined;
+    if (Array.isArray(v)) {
+      const a = v.slice(0, arr).map(y => walk(y, depth + 1, str, arr)).filter(y => y !== undefined);
+      return a.length ? a : undefined;
+    }
+    const out: Record<string, unknown> = {};
+    for (const [k, y] of Object.entries(v as Record<string, unknown>).slice(0, 24)) {
+      const w = walk(y, depth + 1, str, arr);
+      const key = clean(k, 40);
+      if (w !== undefined && key) out[key] = w;
+    }
+    return Object.keys(out).length ? out : undefined;
+  };
+  const isObj = (r: unknown): r is Record<string, unknown> => !!r && typeof r === "object" && !Array.isArray(r);
+  const full = walk(x, 0, 240, 12);
+  if (!isObj(full)) return undefined;
+  if (JSON.stringify(full).length <= 6000) return full;
+  const short = walk(x, 0, 100, 12);
+  return isObj(short) && JSON.stringify(short).length <= 9000 ? short : undefined;
+}
+
 /** Lee la respuesta de la IA. Devuelve null si no sirve (el servidor ya cobró: se avisa y se puede reintentar). */
 export function parseCarousel(text: string, n: number, start: "claro" | "oscuro" = "oscuro", opts: { free?: boolean } = {}): CarouselDraft | null {
   return parseCarouselObj(firstJson(text) as Record<string, unknown> | null, n, start, opts);
 }
 
-/** Igual que parseCarousel pero con el objeto ya leído. `free`: largo y tipos los decide la IA (clonar). */
-export function parseCarouselObj(j: Record<string, unknown> | null, n: number, start: "claro" | "oscuro" = "oscuro", opts: { free?: boolean } = {}): CarouselDraft | null {
+/**
+ * Igual que parseCarousel pero con el objeto ya leído. `free`: largo y tipos los decide la IA (clonar).
+ * `keepLast`: la última lámina conserva su tipo (modelar "casi igual": solo es remate si la del original lo es).
+ */
+export function parseCarouselObj(j: Record<string, unknown> | null, n: number, start: "claro" | "oscuro" = "oscuro", opts: { free?: boolean; keepLast?: boolean } = {}): CarouselDraft | null {
   if (!j) return null;
   const covers: Cover[] = (Array.isArray(j.portadas) ? j.portadas : []).slice(0, 3)
     .map((c: Record<string, unknown>) => ({ title: txt(c?.titulo, 90), subtitle: txt(c?.subtitulo, 110), tag: upper(txt(c?.pastilla, 24)), why: clean(c?.por_que, 200) }))
@@ -355,39 +431,15 @@ export function parseCarouselObj(j: Record<string, unknown> | null, n: number, s
   const plan: SlideKind[] = opts.free
     ? ["portada", ...raw.slice(0, 9).map((l, i, a) => {
       const t = String(l?.tipo ?? "") as SlideKind;
-      if (i === a.length - 1) return "llamada";
+      if (i === a.length - 1 && !opts.keepLast) return "llamada";
       return t in KICKER && t !== "portada" ? t : "tarjetas";
     })]
     : kindPlan(n);
-  const rest: Slide[] = raw.slice(0, plan.length - 1).map((l, i) => {
-    const asked = String(l?.tipo ?? "") as SlideKind;
-    const kind: SlideKind = asked in KICKER && asked !== "portada" ? asked : plan[i + 1];
-    const items = (Array.isArray(l?.items) ? l.items : []).slice(0, ITEM_MAX[kind] ?? 0)
-      .map((it: Record<string, unknown>) => ({ title: txt(it?.titulo, 70), text: txt(it?.texto, 160) })).filter(it => it.title || it.text);
-    const slide: Slide = {
-      kind, tone: "oscuro",
-      kicker: upper(txt(l?.etiqueta, 26)) || KICKER[kind],
-      title: txt(l?.titulo, 140), body: txt(l?.texto, 260), items,
-    };
-    if (kind === "llamada") slide.cta = upper(txt(l?.palabra, 20)).replace(/[^\p{L}\p{N} ]/gu, "");
-    const bridge = txt(l?.puente, 60);
-    if (bridge && kind !== "llamada" && kind !== "giro") slide.bridge = bridge;
-    const verdict = txt(l?.veredicto, 90);
-    if (verdict && kind !== "llamada" && kind !== "giro" && kind !== "respuesta") slide.verdict = verdict;
-    if (kind === "regla" && !slide.title && slide.body) slide.title = slide.body;
-    // En la galería la etiqueta de cada celda es la utilidad (ej. "/droneview"): se deja tal cual, corta.
-    if (kind === "galeria") slide.items = slide.items.map(it => ({ title: it.title.slice(0, 22), text: it.text }));
-    if (l?.peso === "corta" || l?.peso === "densa") slide.weight = l.peso;
-    const scene = txt(l?.escena, 300);
-    if (scene) slide.scene = scene;
-    if (kind === "regla") slide.tag = txt(l?.pastilla, 20) || `Regla ${i}`;
-    if (kind === "comparacion") slide.items = slide.items.map((it, k) => ({ ...it, title: upper(it.title).slice(0, 14) || (k ? "SÍ" : "NO") }));
-    return slide;
-  }).filter(s => s.title || s.body || s.items.length);
+  const rest: Slide[] = raw.slice(0, plan.length - 1).map((l, i) => parseSlideObj(l, i, plan[i + 1])).filter(hasContent);
   if (rest.length < 3) return null;
-  // La última siempre es la llamada.
+  // La última siempre es la llamada (salvo al modelar "casi igual" un original que no termina en llamado).
   const last = rest[rest.length - 1];
-  if (last.kind !== "llamada") rest[rest.length - 1] = { ...last, kind: "llamada" };
+  if (last.kind !== "llamada" && !opts.keepLast) rest[rest.length - 1] = { ...last, kind: "llamada" };
   const rec = Number(j.recomendada);
   const pick = Number.isInteger(rec) && rec >= 0 && rec < covers.length ? rec : 0;
   const c = covers[pick];
@@ -530,7 +582,9 @@ export const COVER_TEMPLATES: Record<CoverTemplateId, Tpl> = {
   },
 };
 
-type PosterOpts = { cover: Slide; scene?: string; design: CarouselDesign; brief: Brief; aspect: "4:5" | "1:1"; hasRefs?: boolean; rules: string; date?: Date; template?: CoverTemplateId };
+/** "original" = el diseño de la lámina del original que modela (su JSON), con nuestros textos. */
+export type SlideTemplate = CoverTemplateId | "original";
+type PosterOpts = { cover: Slide; scene?: string; design: CarouselDesign; brief: Brief; aspect: "4:5" | "1:1"; hasRefs?: boolean; rules: string; date?: Date; template?: SlideTemplate };
 
 const NO_BRANDS = ["logos", "brand names", "celebrities", "copyrighted characters", "money or banknotes", "text other than the requested", "sexual content"];
 
@@ -538,15 +592,16 @@ const NO_BRANDS = ["logos", "brand names", "celebrities", "copyrighted character
  * Especificación estructurada de la plantilla. part: "full" = foto + letras (1 paso), "scene" = solo la
  * foto con el espacio reservado (paso 1), "text" = solo las letras sobre la foto de referencia (paso 2).
  */
-export function coverSpec(o: PosterOpts & { template: CoverTemplateId }, part: "full" | "scene" | "text"): Record<string, unknown> {
-  const t = COVER_TEMPLATES[o.template];
-  const plain = o.cover.title.replace(/\*/g, "").trim();
-  const focal = (accentRuns(o.cover.title).find(r => r.accent)?.text.trim() || plain.split(/\s+/).sort((a, b) => b.length - a.length)[0] || plain).toLocaleUpperCase("es");
-  const rest = plain.replace(new RegExp(focal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), "").replace(/\s+/g, " ").trim();
+export function coverSpec(o: PosterOpts & { template: SlideTemplate }, part: "full" | "scene" | "text"): Record<string, unknown> {
+  if (o.template === "original" && o.cover.refSpec) return originalSpec(o, o.cover.refSpec, part);
+  // "Como el original" sin especificación (no debería pasar): la plantilla de siempre.
+  const tid: CoverTemplateId = o.template === "original" ? (o.cover.kind === "llamada" ? "cta" : "editorial") : o.template;
+  const t = COVER_TEMPLATES[tid];
+  const { plain, focal, rest } = focalSplit(o.cover.title);
   const prop = clean(o.cover.prop, 80) || clean(o.design.prop, 80) || "an everyday object from the story (a phone, a notebook, a hand, a mug)";
   const d = o.date ?? new Date();
   const subject = o.hasRefs ? "the person in the attached reference image: same face and identity, as the protagonist" : "a common Latin American person from the target audience, natural and believable";
-  const typography: Record<string, unknown> = o.template === "cta"
+  const typography: Record<string, unknown> = tid === "cta"
     ? {
       background_title: { text: focal, font_style: t.type.font_style, color: t.type.color, placement: t.type.placement },
       cta_card: { note: "rendered later by the design system; keep the center clean" },
@@ -561,7 +616,7 @@ export function coverSpec(o: PosterOpts & { template: CoverTemplateId }, part: "
       language: "Spanish. Write every text EXACTLY as given, no other words.",
     };
   const base: Record<string, unknown> = {
-    format: { platform: "Instagram Carousel", aspect_ratio: o.aspect, resolution: o.aspect === "4:5" ? "1080x1350" : "1080x1080", purpose: o.template === "cta" ? "carousel CTA slide" : o.cover.kind === "portada" ? "carousel cover" : `carousel inner slide (${KIND_LABEL[o.cover.kind]}), same visual system as the cover` },
+    format: { platform: "Instagram Carousel", aspect_ratio: o.aspect, resolution: o.aspect === "4:5" ? "1080x1350" : "1080x1080", purpose: tid === "cta" ? "carousel CTA slide" : o.cover.kind === "portada" ? "carousel cover" : `carousel inner slide (${KIND_LABEL[o.cover.kind]}), same visual system as the cover` },
     creative_direction: t.direction,
     scene: { idea: clean(o.scene || o.cover.scene, 300) || `a cinematic visual metaphor of: ${clean(o.brief.promise, 120) || plain}`, location: clean(o.design.world, 160) || undefined },
     subject: { type: subject, expression: "focused and composed" },
@@ -593,6 +648,80 @@ export function coverSpec(o: PosterOpts & { template: CoverTemplateId }, part: "
 }
 const specText = (x: Record<string, unknown>) => JSON.stringify(x);
 
+/** La palabra que domina el titular (la marcada con *asteriscos*, o la más larga) y el resto. */
+function focalSplit(title: string): { plain: string; focal: string; rest: string } {
+  const plain = title.replace(/\*/g, "").trim();
+  const focal = (accentRuns(title).find(r => r.accent)?.text.trim() || plain.split(/\s+/).sort((a, b) => b.length - a.length)[0] || plain).toLocaleUpperCase("es");
+  const rest = plain.replace(new RegExp(focal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), "").replace(/\s+/g, " ").trim();
+  return { plain, focal, rest };
+}
+
+/**
+ * "Como el original" (06-oct-2026, Jean: "modelar la portada y las demás desde el JSON del original, así
+ * no peleamos con el diseño"): la IA de imagen recrea la MISMA composición, cámara, tipografía (estilos,
+ * colores, posiciones, tamaños), elementos y paleta de la lámina original, y cambia SOLO los textos por
+ * los nuestros y la persona por la de tu foto. Nunca sus fotos, su cara, su nombre, su marca ni su logo
+ * (manual, "Clonar con arte").
+ */
+function originalSpec(o: PosterOpts, ref: Record<string, unknown>, part: "full" | "scene" | "text"): Record<string, unknown> {
+  const s = o.cover;
+  const { plain, focal, rest } = focalSplit(s.title);
+  const hasAccent = accentRuns(s.title).some(r => r.accent);
+  const brandMark = o.design.name || (o.design.handle ? `@${o.design.handle}` : "");
+  const refTypography = ref.tipografia ?? ref.typography;
+  const grid = (ref.cuadricula ?? ref.grid) as Record<string, unknown> | undefined;
+  const items = s.items.filter(it => it.title || it.text).slice(0, 9);
+  const texts: Record<string, unknown> = {
+    headline: plain || undefined,
+    highlighted_word: hasAccent ? focal : undefined,
+    headline_rest: hasAccent && rest ? rest : undefined,
+    subtitle_or_body: s.body ? clean(s.body, 200) : undefined,
+    label: s.kind !== "portada" && s.kicker ? s.kicker : undefined,
+    pill: s.tag ? clean(s.tag, 24) : undefined,
+    ...slideTextSpec(s),
+    brand_mark: brandMark ? { text: brandMark, note: "in place of any handle, name, signature or watermark of the original" } : "remove any handle, name, signature or watermark of the original",
+    mapping: "Map each text role in reference_design.tipografia (texto_rol) to the matching text here: title → headline (the highlighted word keeps the emphasis style of the original), subtitle/body → subtitle_or_body, labels → label or pill, list → list, grid labels → grid_labels, call to action → keyword. A role with no match stays empty. NEVER write any word of the original.",
+    language: "Spanish. Write every text EXACTLY as given, no other words.",
+  };
+  const subject = o.hasRefs
+    ? "the person in the attached reference image: same face and identity, in the same pose, framing and role the reference design describes"
+    : "a different, common Latin American person, natural and believable, in the same pose, framing and role the reference design describes (never the person of the original)";
+  const format = {
+    platform: "Instagram Carousel", aspect_ratio: o.aspect, resolution: o.aspect === "4:5" ? "1080x1350" : "1080x1080",
+    purpose: s.kind === "portada" ? "carousel cover" : `carousel slide (${KIND_LABEL[s.kind]})`,
+  };
+  const negative = ["copying the original photo", "the face or identity of the person in the original", "the original's handle, name, logo or watermark", ...NO_BRANDS];
+  const ourGrid = s.kind === "galeria" && items.length ? {
+    layout: grid ? "the same grid as reference_design.cuadricula (same columns, rows and separators)" : `exact grid of ${galleryCols(items.length)} columns, equal cells separated by thin white lines`,
+    cells: items.map((it, i) => `${i + 1}) ${clean(it.text, 140) || clean(it.title, 40)}`),
+  } : undefined;
+  const scene = clean(o.scene || s.scene, 300);
+  const visual = {
+    format,
+    reference_design: ref,
+    subject: { type: subject },
+    our_scene: scene || o.design.world ? { idea: scene || undefined, location: clean(o.design.world, 160) || undefined, note: "only the content of the photo changes; the composition, camera and light stay as in reference_design" } : undefined,
+    grid: ourGrid,
+    rules: o.rules,
+  };
+  if (part === "scene") return {
+    instruction: "Recreate the PHOTOGRAPHIC part of reference_design exactly: same format, background, composition, camera angle and lens, subject placement and size, graphic elements, color palette, light and texture. Do NOT add any text: keep clean and simple the areas where reference_design.tipografia places its texts, because the letters are added later.",
+    ...visual,
+    typography: "NONE. No text, letters, numbers or logos anywhere in the image.",
+    negative_prompt: [...negative, "any text"],
+  };
+  if (part === "text") return {
+    instruction: "Use the attached image as the base and keep it EXACTLY the same: same framing, same people, same colors, same light. Do not change the photo. Only add the typography, recreating reference_typography exactly (same font styles, weights, colors, positions, sizes, effects and layering), with OUR texts.",
+    format, reference_typography: refTypography ?? ref, texts,
+    negative_prompt: ["illegible typography", "misspelled words", "extra words", "any word of the original", "changing the photo", ...NO_BRANDS.filter(n => n !== "text other than the requested")],
+  };
+  return {
+    instruction: "Recreate reference_design exactly: same format, background, composition, camera, subject placement, typography (font styles, weights, colors, positions, sizes, effects), graphic elements, color palette, light and texture. Change ONLY the texts (use the ones in texts) and the person (use subject). Do not copy the original's photo, face, name, brand or logo.",
+    ...visual, texts,
+    negative_prompt: ["misspelled words", "extra words", "any word of the original", ...negative],
+  };
+}
+
 /**
  * Lo que una lámina interior escribe además del titular (la portada no lleva nada extra): sus puntos,
  * las etiquetas de la galería (una por celda), el veredicto y la palabra clave del remate. Así una lámina
@@ -603,7 +732,7 @@ function slideTextSpec(s: Slide): Record<string, unknown> {
   const items = s.items.filter(it => it.title || it.text).slice(0, 9);
   const out: Record<string, unknown> = {};
   if (s.kind === "galeria" && items.length) {
-    out.grid_labels = { labels: items.map(it => clean(it.title, 24)), style: `a ${galleryCols(items.length)}-column grid of photos, one label per cell in this order (left to right, top to bottom), each label in a small dark navy rounded pill at the bottom center of its cell, white text` };
+    out.grid_labels = { labels: items.map(it => clean(it.title, 32)), style: `a ${galleryCols(items.length)}-column grid of photos, one label per cell in this order (left to right, top to bottom), each label in a small dark navy rounded pill at the bottom center of its cell, white text` };
   } else if (items.length) {
     out.list = { items: items.map(it => [clean(it.title, 60), clean(it.text, 100)].filter(Boolean).join(": ")), style: "short clean list in small bold sans serif, easy to read, in a calm area of the image" };
   }
@@ -733,7 +862,8 @@ export function slideTwoScore(coverLikes: number, slide2Likes: number): { pct: n
 export type DnaPart = { id: string; part: string; what: string; matters: boolean; why: string };
 export type CloneInfo = {
   summary: string; why: string;
-  slides: { n: number; position: string; composition: string; artifact: string; idea: string }[];
+  /** `spec` = la especificación visual de esa lámina del original (JSON "diseno" del servidor, recortado). */
+  slides: { n: number; position: string; composition: string; artifact: string; idea: string; spec?: Record<string, unknown> }[];
   style: { colors: string[]; font: string; style: StyleId; start: "claro" | "oscuro"; photos: string };
   dna: DnaPart[]; keep: string[]; improvements: string[];
   /** El gancho de la portada original (para ponerlo al lado del clon) y lo que la persona debe poner (su foto…). */
@@ -767,6 +897,7 @@ export function parseClone(r: Record<string, unknown>, start: "claro" | "oscuro"
     summary: txt(a.resumen, 240), why: txt(a.por_que_funciona, 500),
     slides: (Array.isArray(a.laminas) ? a.laminas : []).slice(0, 10).map((l: Record<string, unknown>, i: number) => ({
       n: Number(l?.n) || i + 1, position: txt(l?.posicion, 30), composition: txt(l?.composicion, 200), artifact: txt(l?.artefacto, 120), idea: txt(l?.idea, 200),
+      ...(trimSpec(l?.diseno) ? { spec: trimSpec(l?.diseno) } : {}),
     })),
     style: {
       colors: (Array.isArray(st.colores) ? st.colores : []).filter((c): c is string => typeof c === "string" && HEX.test(c)).map(c => c.toLowerCase()).slice(0, 3),
@@ -782,9 +913,26 @@ export function parseClone(r: Record<string, unknown>, start: "claro" | "oscuro"
     },
   };
   const c = (r.carrusel ?? null) as Record<string, unknown> | null;
-  const draft = parseCarouselObj(c, 8, start, { free: true });
+  const draft = parseCarouselObj(c, 8, start, { free: true, keepLast: mode === "tema" });
   if (!draft) return null;
-  return { info, draft: { ...draft, idea: draft.idea ?? txt(c?.idea, 200) } };
+  return { info, draft: { ...draft, slides: withRefs(draft.slides, info), idea: draft.idea ?? txt(c?.idea, 200) } };
+}
+
+/**
+ * Une cada lámina con la especificación visual de la lámina del original que modela: la portada modela
+ * la 1 si no dice otra cosa; si el servidor no dijo cuál (versiones viejas), en "casi igual" se asume el
+ * mismo orden del original.
+ */
+export function withRefs(slides: Slide[], info: Pick<CloneInfo, "slides" | "mode">): Slide[] {
+  const byN = new Map(info.slides.map(x => [x.n, x.spec]));
+  const anyRef = slides.some((s, i) => i > 0 && s.ref !== undefined);
+  return slides.map((s, i) => {
+    if (s.ref === 0) return { ...s, ref: undefined, refSpec: undefined };
+    const ref = s.ref ?? (i === 0 ? 1 : !anyRef && info.mode !== "producto" && byN.has(i + 1) ? i + 1 : undefined);
+    if (!ref) return s;
+    const spec = byN.get(ref);
+    return { ...s, ref, ...(spec ? { refSpec: spec } : {}) };
+  });
 }
 
 /** El color de marca del original: el más vivo de sus 3 colores. */
@@ -888,4 +1036,55 @@ export function galleryPrompt(o: { slide: Slide; design: CarouselDesign; aspect:
     "SIN ningún texto, letra, número, logo ni marca en la imagen.",
     o.rules.replace(/Si hay texto[^.]*\./, "").trim(),
   ].filter(Boolean).join("\n");
+}
+
+// ── Orden de las láminas (mover, quitar, insertar) ──────────────────────────────────────────────────
+/** Máximo de láminas de un carrusel (al insertar) y mínimo (al quitar). */
+export const MAX_SLIDES = 12;
+export const MIN_SLIDES = 3;
+export type SlideOp = { type: "move"; i: number; dir: -1 | 1 } | { type: "remove"; i: number } | { type: "insert"; after: number } | { type: "replace"; i: number };
+
+/**
+ * El nuevo orden como lista de índices viejos (null = la lámina nueva). Devuelve null si no se puede:
+ * la portada no se mueve ni se quita, el remate (si la última es una llamada: `lockLast`) siempre queda
+ * al final, mínimo 3 y máximo 12 láminas. Insertar "después" de la última pone la nueva justo antes del remate.
+ */
+export function slideOrder(n: number, op: SlideOp, lockLast = true): (number | null)[] | null {
+  const idx = Array.from({ length: n }, (_, k) => k as number | null);
+  // Si la última no es un remate (modelar "casi igual"), se puede mover, quitar e insertar al final.
+  const last = lockLast ? n - 1 : n;
+  if (op.type === "move") {
+    const j = op.i + op.dir;
+    if (op.i <= 0 || op.i >= last || j <= 0 || j >= last) return null;
+    [idx[op.i], idx[j]] = [idx[j], idx[op.i]];
+    return idx;
+  }
+  if (op.type === "remove") {
+    if (op.i <= 0 || op.i >= last || op.i >= n || n <= MIN_SLIDES) return null;
+    return idx.filter(k => k !== op.i);
+  }
+  if (op.type === "insert") {
+    if (n >= MAX_SLIDES || n < 1) return null;
+    const at = Math.max(1, Math.min(op.after + 1, last));
+    return [...idx.slice(0, at), null, ...idx.slice(at)];
+  }
+  // La portada no se reemplaza con una lámina interior.
+  if (op.i <= 0 || op.i >= n) return null;
+  idx[op.i] = null;
+  return idx;
+}
+
+/** Lleva un registro por índice (ej. la foto del paso 1 de cada lámina) al nuevo orden. */
+export function remapByOrder<T>(rec: Record<number, T>, order: (number | null)[]): Record<number, T> {
+  const out: Record<number, T> = {};
+  order.forEach((k, j) => { if (k !== null && rec[k] !== undefined) out[j] = rec[k]; });
+  return out;
+}
+
+/** Ajusta el tipo de una lámina nueva a su lugar: si el carrusel termina en remate, solo la última lo es. */
+export function fitKind(s: Slide, isLast: boolean, prevLast?: Slide, lockLast = true): Slide {
+  if (!lockLast) return s;
+  if (isLast) return s.kind === "llamada" ? s : { ...s, kind: "llamada", cta: s.cta || prevLast?.cta || "", bridge: undefined, verdict: undefined };
+  if (s.kind !== "llamada") return s;
+  return { ...s, kind: s.items.length ? "tarjetas" : "solucion", cta: undefined, items: s.items.slice(0, ITEM_MAX.tarjetas) };
 }

@@ -344,7 +344,7 @@ describe("carrusel: clonar como espejo (casi igual)", () => {
     const g = r.draft.slides[1];
     expect(g.kind).toBe("galeria");
     expect(g.items).toHaveLength(9);
-    expect(g.items[0].title.length).toBeLessThanOrEqual(22);
+    expect(g.items[0].title.length).toBeLessThanOrEqual(32);
     expect(r.draft.slides[2].kind).toBe("galeria");
     expect(r.draft.slides.at(-1)!.kind).toBe("llamada");
   });
@@ -399,5 +399,130 @@ describe("carrusel: láminas interiores con el mismo acabado de la portada", () 
     const c = JSON.parse(posterTextPrompt({ cover, design, brief, aspect: "4:5", rules: "", template: "editorial" }));
     expect(c.typography.list).toBeUndefined();
     expect(c.typography.grid_labels).toBeUndefined();
+  });
+});
+
+import { parseSlideObj, trimSpec, slideOrder, remapByOrder, fitKind, withRefs } from "./carousel";
+describe("carrusel: modelar desde el diseño del original (JSON)", () => {
+  const diseno = (n: number) => ({
+    formato: "4:5", fondo: "crema con grano", composicion: `composición ${n}`, camara: "picado",
+    tipografia: [{ texto_rol: "titulo", estilo: "grotesk negra condensada", color: "#111111", posicion: "arriba", tamano: "enorme", efectos: "tinta gastada" }],
+    elementos: ["flecha"], paleta: ["#f4efe6", "#111111", "#e8502e"], luz: "tarde", textura: "papel",
+  });
+  const galeria = { ...diseno(3), cuadricula: { columnas: 3, filas: 3, celdas: Array.from({ length: 9 }, (_, i) => ({ etiqueta: `/toma${i + 1}`, toma: `vista ${i + 1}` })) } };
+  const resp = {
+    ...cloneResponse,
+    analisis: { ...cloneResponse.analisis, laminas: [
+      { n: 1, posicion: "apertura", composicion: "a", idea: "x", diseno: diseno(1) },
+      { n: 2, posicion: "agarre", composicion: "b", idea: "y", diseno: diseno(2) },
+      { n: 3, posicion: "columna", composicion: "c", idea: "z", diseno: galeria },
+      { n: 4, posicion: "columna", composicion: "d", idea: "w", diseno: null },
+    ] },
+    carrusel: { ...cloneResponse.carrusel, laminas: [
+      { tipo: "respuesta", titulo: "Lo visible se *copia*", original: 2 },
+      { tipo: "galeria", titulo: "Las *tomas*", original: 3, items: Array.from({ length: 9 }, (_, i) => ({ titulo: `/una-etiqueta-larga-de-treinta-${i}`, texto: `toma ${i}` })) },
+      { tipo: "regla", pastilla: "Regla 1", titulo: "*lote*", original: 0 },
+      { tipo: "tarjetas", titulo: "Final sin llamado", items: [{ titulo: "a" }], original: 4 },
+    ] },
+  };
+
+  it("parseClone guarda spec, ref y refSpec (portada = 1; original 0 = ninguna; diseno null)", () => {
+    const r = parseClone(resp)!;
+    expect(r.info.slides[0].spec).toMatchObject({ composicion: "composición 1" });
+    expect(r.info.slides[3].spec).toBeUndefined();
+    const [cover, two, gal, regla, last] = r.draft.slides;
+    expect(cover).toMatchObject({ ref: 1, refSpec: { composicion: "composición 1" } });
+    expect(two).toMatchObject({ ref: 2, refSpec: { composicion: "composición 2" } });
+    expect(gal.ref).toBe(3);
+    expect(regla.ref).toBeUndefined();
+    expect(regla.refSpec).toBeUndefined();
+    expect(last).toMatchObject({ ref: 4, kind: "tarjetas" });
+    expect(last.refSpec).toBeUndefined();
+  });
+
+  it("en modo tema la última conserva su tipo; en modo producto sigue siendo la llamada", () => {
+    expect(parseClone(resp, "oscuro", "tema")!.draft.slides.at(-1)!.kind).toBe("tarjetas");
+    expect(parseClone(resp, "oscuro", "producto")!.draft.slides.at(-1)!.kind).toBe("llamada");
+  });
+
+  it("una galería de 9 celdas se conserva completa (spec y etiquetas de hasta 32)", () => {
+    const r = parseClone(resp)!;
+    const gal = r.draft.slides[2];
+    expect((gal.refSpec!.cuadricula as { celdas: unknown[] }).celdas).toHaveLength(9);
+    expect(gal.items).toHaveLength(9);
+    expect(gal.items[0].title.length).toBe(32);
+    const t = coverSpec({ cover: gal, design: ADMIN_DESIGN, brief, aspect: "4:5", rules: "R", template: "original" }, "text") as J;
+    expect(t.texts.grid_labels.labels).toHaveLength(9);
+  });
+
+  it("coverSpec con refSpec usa la especificación del original y no la plantilla", () => {
+    const cover = { kind: "portada" as const, tone: "claro" as const, kicker: "", title: "Deja de *esperar*", body: "Lo que nadie dice", items: [], ref: 1, refSpec: diseno(1) };
+    const o = { cover, design: { ...ADMIN_DESIGN, handle: "jean" }, brief, aspect: "4:5" as const, hasRefs: true, rules: "REGLAS", template: "original" as const };
+    const full = coverSpec(o, "full") as J;
+    expect(full.reference_design).toEqual(diseno(1));
+    expect(full.creative_direction).toBeUndefined();
+    expect(full.texts.headline).toBe("Deja de esperar");
+    expect(full.texts.highlighted_word).toBe("ESPERAR");
+    expect(full.subject.type).toMatch(/attached reference image/);
+    expect(full.instruction).toMatch(/Change ONLY the texts/);
+    expect(full.negative_prompt).toContain("logos");
+    const scene = coverSpec(o, "scene") as J;
+    expect(scene.typography).toMatch(/NONE/);
+    const text = coverSpec(o, "text") as J;
+    expect(text.reference_typography).toEqual(diseno(1).tipografia);
+    expect(text.instruction).toMatch(/keep it EXACTLY the same/);
+    // Si la persona elige otra plantilla, se usa la genérica.
+    const hero = coverSpec({ ...o, template: "hero" }, "full") as J;
+    expect(hero.reference_design).toBeUndefined();
+    expect(hero.creative_direction.style).toMatch(/cinematic advertising poster/);
+    expect(JSON.parse(posterPrompt(o)).reference_design).toEqual(diseno(1));
+  });
+
+  it("lee una sola lámina con su original y recorta especificaciones enormes", () => {
+    const s = parseSlideObj({ tipo: "pasos", titulo: "En *3 pasos*", items: [{ titulo: "Uno" }], puente: "Y luego", original: 5 }, 2);
+    expect(s).toMatchObject({ kind: "pasos", title: "En *3 pasos*", bridge: "Y luego", ref: 5, kicker: "PASO A PASO" });
+    expect(parseSlideObj({ tipo: "portada", titulo: "x" }, 1).kind).toBe("tarjetas");
+    expect(trimSpec(null)).toBeUndefined();
+    const big = trimSpec({ a: "x".repeat(5000), lista: Array.from({ length: 50 }, (_, i) => i) })!;
+    expect((big.a as string).length).toBeLessThanOrEqual(240);
+    expect(big.lista).toHaveLength(12);
+  });
+
+  it("withRefs: 0 quita la referencia", () => {
+    const out = withRefs([{ kind: "portada", tone: "claro", kicker: "", title: "a", body: "", items: [] }, { kind: "tarjetas", tone: "claro", kicker: "", title: "b", body: "", items: [], ref: 0 }], { slides: [{ n: 1, position: "", composition: "", artifact: "", idea: "", spec: { a: 1 } }], mode: "tema" });
+    expect(out[0]).toMatchObject({ ref: 1, refSpec: { a: 1 } });
+    expect(out[1].ref).toBeUndefined();
+  });
+});
+
+describe("carrusel: orden de las láminas", () => {
+  it("mover: ni la portada ni el remate; quitar: mínimo 3", () => {
+    expect(slideOrder(5, { type: "move", i: 1, dir: 1 })).toEqual([0, 2, 1, 3, 4]);
+    expect(slideOrder(5, { type: "move", i: 1, dir: -1 })).toBeNull();
+    expect(slideOrder(5, { type: "move", i: 3, dir: 1 })).toBeNull();
+    expect(slideOrder(5, { type: "move", i: 3, dir: 1 }, false)).toEqual([0, 1, 2, 4, 3]);
+    expect(slideOrder(5, { type: "remove", i: 4 })).toBeNull();
+    expect(slideOrder(5, { type: "remove", i: 0 })).toBeNull();
+    expect(slideOrder(3, { type: "remove", i: 1 })).toBeNull();
+    expect(slideOrder(5, { type: "remove", i: 2 })).toEqual([0, 1, 3, 4]);
+  });
+  it("insertar después de la última va antes del remate; máximo 12; la portada no se reemplaza", () => {
+    expect(slideOrder(4, { type: "insert", after: 3 })).toEqual([0, 1, 2, null, 3]);
+    expect(slideOrder(4, { type: "insert", after: 3 }, false)).toEqual([0, 1, 2, 3, null]);
+    expect(slideOrder(4, { type: "insert", after: 0 })).toEqual([0, null, 1, 2, 3]);
+    expect(slideOrder(12, { type: "insert", after: 2 })).toBeNull();
+    expect(slideOrder(4, { type: "replace", i: 0 })).toBeNull();
+    expect(slideOrder(4, { type: "replace", i: 2 })).toEqual([0, 1, null, 3]);
+  });
+  it("las fotos del paso 1 siguen a su lámina", () => {
+    const order = slideOrder(5, { type: "insert", after: 1 })!;
+    expect(remapByOrder({ 0: "p0", 2: "p2", 4: "p4" }, order)).toEqual({ 0: "p0", 3: "p2", 5: "p4" });
+    expect(remapByOrder({ 2: "p2" }, slideOrder(5, { type: "replace", i: 2 })!)).toEqual({});
+  });
+  it("una lámina nueva al final es el remate y en medio no", () => {
+    const base = { tone: "claro" as const, kicker: "", title: "t", body: "", items: [] };
+    expect(fitKind({ ...base, kind: "pasos" }, true, { ...base, kind: "llamada", cta: "LOTE" })).toMatchObject({ kind: "llamada", cta: "LOTE" });
+    expect(fitKind({ ...base, kind: "llamada", cta: "X" }, false).kind).toBe("solucion");
+    expect(fitKind({ ...base, kind: "pasos" }, true, undefined, false).kind).toBe("pasos");
   });
 });

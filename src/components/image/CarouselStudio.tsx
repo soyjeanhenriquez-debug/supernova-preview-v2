@@ -1,6 +1,6 @@
 import { useCreditsLeft } from "@/hooks/useCreditsLeft";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Check, Copy, Download, ImagePlus, Loader2, Plus, Sparkles, Star, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, Copy, Download, ImagePlus, Loader2, Plus, Sparkles, Star, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { generatorCost, useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
@@ -12,6 +12,7 @@ import {
   ADMIN_DESIGN, BRAND_COLORS, DEFAULT_DESIGN, DEFAULT_SLIDES, GENERATOR_ID, KIND_LABEL, PUBLISH_STEPS, SLIDE_COUNTS, STYLES,
   carouselRequest, cleanHandle, coverCheck, draftCarousel, parseCarousel, posterPrompt, posterScenePrompt, posterTextPrompt, retone, slideTwoScore, storyTest, withCover,
   FORMATS, planFor, type FormatId,
+  parseSlideObj, hasContent, trimSpec, withRefs, slideOrder, remapByOrder, fitKind, MAX_SLIDES, MIN_SLIDES, type SlideOp, type SlideTemplate,
   brandFromClone, parseClone, parseReclone, photoPrompt, recloneRequest, MAX_KEEP, COVER_TEMPLATES, CLONE_MODES, type CoverTemplateId, type CloneMode,
   type CarouselDesign, type CarouselDraft, type CarouselGoal, type Item, type Slide, type StyleId,
 } from "@/lib/carousel";
@@ -192,8 +193,15 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
   const editItem = (i: number, k: number, patch: Partial<Item>) => setSlides(list => list.map((s, j) => (j === i ? { ...s, items: s.items.map((it, m) => (m === k ? { ...it, ...patch } : it)) } : s)));
   const setStart = (start: "claro" | "oscuro") => { setDesign(d => ({ ...d, start })); if (draft) setDraft({ ...draft, slides: retone(draft.slides, start) }); };
 
-  /** La plantilla de cada lámina: el remate usa siempre la CTA; las demás, la elegida. */
-  const tplFor = (i: number): CoverTemplateId => (slides[i]?.kind === "llamada" ? "cta" : template);
+  /**
+   * La plantilla de cada lámina: si modela una lámina del original y la persona no eligió otra, "Como el
+   * original" (su JSON de diseño); si no, el remate usa la CTA y las demás, la elegida.
+   */
+  const tplFor = (i: number): SlideTemplate => {
+    const s = slides[i];
+    if (s?.refSpec && !s.refOff) return "original";
+    return s?.kind === "llamada" ? "cta" : template;
+  };
   /** Lámina póster (con su texto escrito por la IA, 1 paso) o solo la foto de fondo (el texto lo pone el diseño). */
   const makeImage = async (index: number, poster = index === 0) => {
     const m = POSTER_MODELS.find(x => x.id === posterModel) ?? POSTER_MODELS[0];
@@ -319,7 +327,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
       if (data.billing) applyServerCharge("clone_carousel", data.billing, "Modelar carrusel viral");
       const parsed = parseClone(data, design.start, cloneMode2);
       if (!parsed) throw new Error("La IA respondió en un formato raro. Escríbenos y te devolvemos los créditos.");
-      setDraft({ ...parsed.draft, clone: parsed.info }); setSel(0); setCount(parsed.draft.slides.length);
+      setDraft({ ...parsed.draft, clone: parsed.info }); setSel(0); setCount(parsed.draft.slides.length); setScenePaths({}); setRefPick(null);
       toast.success("Carrusel modelado con su ADN", { description: "Mira abajo qué 3 partes se mantuvieron y cómo lo mejoramos." });
     } catch (e) {
       toast.error(e instanceof Error && e.message ? e.message : "No se pudo modelar el carrusel.");
@@ -335,11 +343,81 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
       const text = await runGenerator({ id: GENERATOR_ID, title: label, system: SYSTEM, prompt: recloneRequest({ info: cloneInfo, keep, brief, goal: goal === "ensenar" ? "ensenar" : "vender", handle: design.handle, world: design.world, line: design.line }), onCharge: b => applyServerCharge(action, b, label) });
       const parsed = parseReclone(text, design.start);
       if (!parsed) throw new Error("La IA respondió en un formato raro. Toca de nuevo: si vuelve a pasar, escríbenos y te devolvemos los créditos.");
-      setDraft({ ...parsed.draft, clone: { ...cloneInfo, keep, improvements: parsed.improvements.length ? parsed.improvements : cloneInfo.improvements } }); setSel(0);
+      setDraft({ ...parsed.draft, slides: withRefs(parsed.draft.slides, cloneInfo), clone: { ...cloneInfo, keep, improvements: parsed.improvements.length ? parsed.improvements : cloneInfo.improvements } }); setSel(0); setScenePaths({});
       toast.success("Listo: modelado con las 3 partes que elegiste");
     } catch (e) {
       toast.error(e instanceof Error && e.message ? e.message : "No se pudo volver a modelar.");
     } finally { setWriting(false); }
+  };
+
+  // ── Orden de las láminas: mover, quitar e insertar. La foto del paso 1 (scenePaths) sigue a su lámina.
+  // El remate queda fijo al final solo si la última es una llamada (al modelar "casi igual" puede no serlo).
+  const lockLast = slides[slides.length - 1]?.kind === "llamada";
+  const applyOrder = (order: (number | null)[], fresh?: Slide, focus?: number) => {
+    setDraft(d => {
+      const base = d ?? previewRef.current;
+      const list = base.slides;
+      const last = order.length - 1;
+      const locked = list[list.length - 1]?.kind === "llamada";
+      const next = order.map((k, j) => (k === null ? (fresh ? fitKind(fresh, j === last, list[list.length - 1], locked) : null) : list[k] ?? null));
+      if (next.some(x => !x)) return d;
+      return { ...base, slides: retone(next as Slide[], design.start) };
+    });
+    setScenePaths(x => remapByOrder(x, order));
+    if (focus !== undefined) setSel(Math.max(0, Math.min(focus, order.length - 1)));
+  };
+  const moveSel = (dir: -1 | 1) => {
+    const order = slideOrder(slides.length, { type: "move", i: sel, dir }, lockLast);
+    if (order) applyOrder(order, undefined, sel + dir);
+  };
+  const removeSel = () => {
+    const order = slideOrder(slides.length, { type: "remove", i: sel }, lockLast);
+    if (!order) return;
+    const before = { draft, paths: scenePaths, sel };
+    applyOrder(order, undefined, Math.min(sel, order.length - (lockLast ? 2 : 1)));
+    toast(`Quitaste la lámina ${sel + 1}`, { action: { label: "Deshacer", onClick: () => { setDraft(before.draft); setScenePaths(before.paths); setSel(before.sel); } } });
+  };
+
+  // ── Modelar lámina por lámina: toca una lámina del original y la IA escribe la tuya con su diseño.
+  const [refPick, setRefPick] = useState<number | null>(null);
+  const [refWhere, setRefWhere] = useState<"after" | "replace">("after");
+  const [modeling, setModeling] = useState(false);
+  const modelCost = CREDIT_COSTS.model_slide;
+  const modelSlide = async () => {
+    if (modeling || posterBusy || refPick === null || !cloneInfo) return;
+    const image_url = cloneInfo.source.images[refPick];
+    if (!image_url) return;
+    const op: SlideOp = refWhere === "replace" ? { type: "replace", i: sel } : { type: "insert", after: sel };
+    if (!slideOrder(slides.length, op, lockLast)) {
+      toast(refWhere === "replace" ? "La portada no se reemplaza: elige otra lámina en \"Tu carrusel\" o ponla después." : `Tu carrusel ya tiene ${MAX_SLIDES} láminas, el máximo. Quita una o ponla en lugar de otra.`);
+      return;
+    }
+    if (balance < modelCost) { toast.error(`Te faltan créditos: esto cuesta ${modelCost}`); return; }
+    const n = refPick + 1;
+    setModeling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("carousel-slide-model", {
+        body: {
+          image_url, n, clone_id: cloneInfo.id,
+          context: { resumen: cloneInfo.summary, gancho_original: cloneInfo.hook ?? "", idea: preview.idea ?? "", pie: preview.caption ?? "" },
+          brief, handle: design.handle, world: design.world ?? "", line: design.line ?? "",
+        },
+      });
+      if (error && (error as { context?: unknown }).context instanceof Response && ((error as { context: Response }).context.status === 429))
+        throw new Error("Llegaste al límite por hora; prueba en un rato. No se te cobró.");
+      if (error || !data?.lamina) throw new Error(error ? await invokeErrorMessage(error, "No se pudo modelar la lámina. No se te cobró.") : (data?.error || "No se pudo modelar la lámina. No se te cobró."));
+      if (data.billing) applyServerCharge("model_slide", data.billing, `Modelar la lámina ${n} del original`);
+      // Con el largo de AHORA (la persona pudo cambiar algo mientras esperaba).
+      const now = previewRef.current.slides;
+      const order = slideOrder(now.length, op, now[now.length - 1]?.kind === "llamada");
+      const read = parseSlideObj(data.lamina as Record<string, unknown>, Math.max(1, order?.indexOf(null) ?? 1), "tarjetas");
+      if (!order || !hasContent(read)) throw new Error("La IA respondió en un formato raro. Escríbenos y te devolvemos los créditos.");
+      const spec = trimSpec(data.diseno) ?? cloneInfo.slides.find(x => x.n === n)?.spec;
+      applyOrder(order, { ...read, ref: n, ...(spec ? { refSpec: spec } : {}) }, order.indexOf(null));
+      toast.success(`Lámina ${n} del original modelada`, { description: "Ya está en tu carrusel. Revisa el texto y créala con IA de imagen \"Como el original\"." });
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : "No se pudo modelar la lámina.");
+    } finally { setModeling(false); }
   };
 
   const [styleChoice, setStyleChoice] = useState<"mio" | "original">("mio");
@@ -610,11 +688,47 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
             {cloneInfo.source.likes != null && <span className="text-[12px] text-muted-foreground">{cloneInfo.source.likes.toLocaleString("es")} me gusta · {(cloneInfo.source.comments ?? 0).toLocaleString("es")} comentarios</span>}
           </div>
           {cloneInfo.source.images.length > 0 && (
-            <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin]">
-              {cloneInfo.source.images.map((u, i) => (
-                <img key={i} src={u} alt={`Lámina ${i + 1} del original`} referrerPolicy="no-referrer" loading="lazy"
-                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} className="h-28 w-auto rounded-md border border-border shrink-0" />
-              ))}
+            <div className="space-y-2">
+              <p className="text-[12px] text-muted-foreground">Toca una lámina del original para modelarla y sumarla a tu carrusel.</p>
+              <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin]" role="radiogroup" aria-label="Láminas del original">
+                {cloneInfo.source.images.map((u, i) => (
+                  <button key={i} type="button" role="radio" aria-checked={refPick === i} aria-label={`Lámina ${i + 1} del original`} disabled={modeling}
+                    onClick={() => setRefPick(p => (p === i ? null : i))}
+                    className={`relative shrink-0 rounded-md border-2 overflow-hidden disabled:opacity-60 ${refPick === i ? "border-primary" : "border-transparent"}`}>
+                    <img src={u} alt="" referrerPolicy="no-referrer" loading="lazy"
+                      onError={e => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }} className="h-28 w-auto block" />
+                    <span className="absolute bottom-1 left-1 rounded bg-background/85 px-1.5 text-[10px] leading-4 text-foreground">{i + 1}</span>
+                  </button>
+                ))}
+              </div>
+              {refPick !== null && (
+                <div className="rounded-xl border border-border p-3.5 space-y-3">
+                  <div>
+                    <p className="text-[13px] text-foreground font-medium">Lámina {refPick + 1} del original</p>
+                    <p className="text-[12px] text-muted-foreground">La IA lee su diseño y escribe la tuya con la misma idea y la misma composición, en español y con tus palabras. Después la creas con IA de imagen en "Como el original".</p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Dónde ponerla">
+                    <button type="button" role="radio" aria-checked={refWhere === "after"} disabled={modeling} onClick={() => setRefWhere("after")}
+                      className={`rounded-lg border px-3 py-2 text-left min-h-[44px] ${refWhere === "after" ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
+                      <span className="block text-[13px] text-foreground">Después de la lámina seleccionada</span>
+                      <span className="block text-[11px] text-muted-foreground">{sel >= slides.length - 1 && lockLast ? "Va antes del remate: el remate siempre queda al final." : `Va después de la ${sel + 1} de tu carrusel.`}</span>
+                    </button>
+                    <button type="button" role="radio" aria-checked={refWhere === "replace"} disabled={modeling} onClick={() => setRefWhere("replace")}
+                      className={`rounded-lg border px-3 py-2 text-left min-h-[44px] ${refWhere === "replace" ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
+                      <span className="block text-[13px] text-foreground">En lugar de la lámina seleccionada</span>
+                      <span className="block text-[11px] text-muted-foreground">{sel === 0 ? "La portada no se reemplaza: toca otra lámina en \"Tu carrusel\"." : `Reemplaza la ${sel + 1} de tu carrusel.`}</span>
+                    </button>
+                  </div>
+                  {refWhere === "after" && slides.length >= MAX_SLIDES && <p className="text-[12px] text-muted-foreground">Tu carrusel ya tiene {MAX_SLIDES} láminas, el máximo. Elige "En lugar de…" o quita una.</p>}
+                  <button type="button" onClick={() => void modelSlide()}
+                    disabled={modeling || posterBusy || (refWhere === "replace" ? sel === 0 : slides.length >= MAX_SLIDES)}
+                    className="min-h-[44px] inline-flex items-center gap-2 rounded-lg border border-foreground/30 px-4 text-[13px] text-foreground hover:border-foreground/50 disabled:opacity-50">
+                    {modeling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    {modeling ? "Modelando la lámina…" : `Modelar esta lámina · ${modelCost} créditos`}
+                  </button>
+                  <p className="text-[11px] text-muted-foreground">No usa sus fotos, su cara, su nombre ni su marca. Si falla, no se te cobra.</p>
+                </div>
+              )}
             </div>
           )}
           {cloneInfo.why && <p className="text-[13px] text-foreground"><span className="text-muted-foreground">Por qué funciona: </span>{cloneInfo.why}</p>}
@@ -711,14 +825,26 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
               <Scaled width={THUMB} aspect={aspect}>
                 <SlideView ref={el => { nodes.current[i] = el; }} slide={s} index={i} total={slides.length} design={design} aspect={aspect} />
               </Scaled>
-              <span className="block px-2.5 py-1.5 text-[11px] text-muted-foreground">{i + 1}. {KIND_LABEL[s.kind]}</span>
+              <span className="block px-2.5 py-1.5 text-[11px] text-muted-foreground">{i + 1}. {KIND_LABEL[s.kind]}{s.ref ? ` · como la ${s.ref} del original` : ""}</span>
             </button>
           ))}
         </div>
 
         {current && (
           <div className="rounded-2xl border border-border p-4 space-y-3">
-            <p className="text-[12px] text-muted-foreground">Lámina {sel + 1} · {KIND_LABEL[current.kind]}</p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[12px] text-muted-foreground">Lámina {sel + 1} · {KIND_LABEL[current.kind]}{current.ref ? ` · modela la ${current.ref} del original` : ""}</p>
+              {sel > 0 && (sel < slides.length - 1 || !lockLast) ? (
+                <div className="flex flex-wrap gap-1.5">
+                  <button type="button" onClick={() => moveSel(-1)} disabled={posterBusy || modeling || !slideOrder(slides.length, { type: "move", i: sel, dir: -1 }, lockLast)} aria-label="Mover la lámina a la izquierda"
+                    className="min-h-[40px] inline-flex items-center gap-1 rounded-lg border border-border px-3 text-[12px] text-foreground hover:border-foreground/40 disabled:opacity-40"><ArrowLeft className="w-3.5 h-3.5" /> Mover</button>
+                  <button type="button" onClick={() => moveSel(1)} disabled={posterBusy || modeling || !slideOrder(slides.length, { type: "move", i: sel, dir: 1 }, lockLast)} aria-label="Mover la lámina a la derecha"
+                    className="min-h-[40px] inline-flex items-center gap-1 rounded-lg border border-border px-3 text-[12px] text-foreground hover:border-foreground/40 disabled:opacity-40">Mover <ArrowRight className="w-3.5 h-3.5" /></button>
+                  <button type="button" onClick={removeSel} disabled={posterBusy || modeling || slides.length <= MIN_SLIDES}
+                    className="min-h-[40px] inline-flex items-center gap-1.5 rounded-lg border border-border px-3 text-[12px] text-muted-foreground hover:text-foreground disabled:opacity-40"><Trash2 className="w-3.5 h-3.5" /> Quitar lámina</button>
+                </div>
+              ) : <span className="text-[11px] text-muted-foreground">{sel === 0 ? "La portada siempre va primero." : "El remate siempre va al final."}</span>}
+            </div>
             <div className="grid gap-3 sm:grid-cols-[1fr_200px]">
               <label className="block space-y-1">
                 <span className="text-[12px] text-foreground">Titular</span>
@@ -799,7 +925,24 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                     ? `La cuadrícula completa (${current.items.length} tomas) en una sola imagen, con sus etiquetas. Nano Banana Pro es la que mejor mantiene tu cara.`
                     : "El mismo acabado de la portada: una foto de cine con el texto de esta lámina escrito dentro, para que todo el carrusel se vea de la misma marca."}</p>
               </div>
-              {current.kind !== "llamada" ? (
+              {current.refSpec && (
+                <div className="space-y-1.5">
+                  <p className="text-[12px] text-foreground">Diseño <span className="text-muted-foreground">— esta lámina modela la {current.ref} del original.</span></p>
+                  <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Diseño de la lámina">
+                    <button type="button" role="radio" aria-checked={!current.refOff} disabled={posterBusy} onClick={() => editSlide(sel, { refOff: false })}
+                      className={`rounded-lg border px-3 py-2 text-left min-h-[44px] ${!current.refOff ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
+                      <span className="flex items-center justify-between gap-2 text-[13px] text-foreground">Como el original <span className="text-primary text-[10px]">Recomendado</span></span>
+                      <span className="block text-[11px] text-muted-foreground">La misma composición, letra, colores y posiciones de su lámina {current.ref}, con tus textos{kitRefs.length && useRefs ? " y tu foto" : ""}. Sin sus fotos, su cara, su nombre ni su marca.</span>
+                    </button>
+                    <button type="button" role="radio" aria-checked={!!current.refOff} disabled={posterBusy} onClick={() => editSlide(sel, { refOff: true })}
+                      className={`rounded-lg border px-3 py-2 text-left min-h-[44px] ${current.refOff ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
+                      <span className="block text-[13px] text-foreground">Una plantilla de SUPERNOVA</span>
+                      <span className="block text-[11px] text-muted-foreground">{current.kind === "llamada" ? "CTA: acción de fondo y una tarjeta de cristal con tu palabra clave." : "Hero, Editorial o Cinemática, la misma en todo el carrusel."}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+              {current.refSpec && !current.refOff ? null : current.kind !== "llamada" ? (
                 <div className="space-y-1.5">
                   <p className="text-[12px] text-foreground">Plantilla <span className="text-muted-foreground">— la misma en todas las láminas para que se vean de una sola marca.</span></p>
                   <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Plantilla">
@@ -845,13 +988,13 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
               <p className="text-[12px] text-muted-foreground">{posterMode === "dos" ? "Paso 1 · la foto con:" : posterMode === "uno" ? "La hace:" : "La foto la hace:"}</p>
               {modelPicker}
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => void makePoster(sel)} disabled={posterBusy || (sel === 0 && posterMode === "foto")}
+                <button type="button" onClick={() => void makePoster(sel)} disabled={posterBusy || modeling || (sel === 0 && posterMode === "foto")}
                   className="min-h-[40px] inline-flex items-center gap-2 rounded-lg border border-border px-3 text-[12px] text-foreground hover:border-foreground/40 disabled:opacity-60">
                   {posterBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
                   {posterBusy ? "Creando…" : `${posterMode === "foto" ? (current.photo ? "Otra foto" : "Crear foto") : current.image ? "Crear otra versión" : sel === 0 ? "Crear portada póster" : "Crear lámina póster"} · ${posterMode === "dos" ? imgPrice + CREDIT_COSTS.gen_ad_image : imgPrice} créditos`}
                 </button>
                 {posterMode === "dos" && scenePaths[sel] && (
-                  <button type="button" onClick={() => void makePosterMvp(sel, true)} disabled={posterBusy}
+                  <button type="button" onClick={() => void makePosterMvp(sel, true)} disabled={posterBusy || modeling}
                     className="min-h-[40px] inline-flex items-center gap-2 rounded-lg border border-border px-3 text-[12px] text-foreground hover:border-foreground/40 disabled:opacity-60">
                     {current.image ? "Otra vez solo las letras" : "Poner solo las letras"} · {CREDIT_COSTS.gen_ad_image} créditos
                   </button>

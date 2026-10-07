@@ -221,7 +221,14 @@ export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ 
       const cells = slide.items.slice(0, 9);
       const cols = galleryCols(cells.length);
       const rows = Math.max(1, Math.ceil(cells.length / cols));
-      const pill: CSSProperties = { alignSelf: "center", maxWidth: "92%", padding: `${10 * k}px 22px`, borderRadius: 999, background: "#0e1530", color: "#ffffff", fontSize: (cols === 2 ? 34 : 27) * k, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 16 * k };
+      // La etiqueta es la utilidad (ej. "/onepointperspective"): nunca se corta con "…". La letra se
+      // achica para que la más larga quepa en una línea y, si aun así no cabe (hasta 32 caracteres),
+      // pasa a dos líneas.
+      const longest = Math.max(1, ...cells.map(it => it.title.length));
+      const avail = cols === 2 ? 340 : 210; // ancho útil de la pastilla en px (lámina de 1080)
+      const labelSize = Math.max(22 * k, Math.min((cols === 2 ? 34 : 27) * k, avail / (0.58 * longest)));
+      const oneLine = labelSize * 0.58 * longest <= avail;
+      const pill: CSSProperties = { alignSelf: "center", maxWidth: "92%", padding: `${10 * k}px ${oneLine ? 22 : 14}px`, borderRadius: oneLine ? 999 : 16, background: "#0e1530", color: "#ffffff", fontSize: labelSize, lineHeight: 1.15, fontWeight: 600, textAlign: "center", whiteSpace: oneLine ? "nowrap" : "normal", overflowWrap: "anywhere", marginBottom: 16 * k };
       body = (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
           {slide.title && <Title text={slide.title} size={fitSize(slide.title, 76 * k, 52 * k, 22)} c={c} f={f} style={{ marginBottom: 28 * k }} />}

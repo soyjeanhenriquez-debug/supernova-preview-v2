@@ -9,8 +9,9 @@
 // "Roba como un artista" (manual, sección 2): se copia estructura y mecanismo, NUNCA textos, fotos,
 // caras, nombres ni marcas. Las imágenes del original solo se usan para el análisis: no se guardan.
 // La llave de Apify va en la cabecera (nunca en la URL, para que no quede en logs).
-import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { admin, billingHeaders, caller, charge, json, refund } from "../_shared/media.ts";
+import { cleanDiseno, type Diseno, DISENO_RULE, DISENO_SHAPE, fillGaleria, fitAnalysis, GALERIA_RULE, SIRVE_RULE, SYSTEM, TEMA_LAMINAS_RULE, TIPOS_LAMINA } from "../_shared/carouselRules.ts";
 
 const FN = "carousel-clone";
 const MODEL = "gemini-3-flash-preview";
@@ -39,14 +40,6 @@ async function fetchPost(url: string, token: string): Promise<any | null> {
   return Array.isArray(items) && items[0] && !items[0].error ? items[0] : null;
 }
 
-const SYSTEM = `Eres el director creativo de SUPERNOVA. Analizas carruseles de Instagram que ya funcionan y creas versiones nuevas para emprendedores latinos que empiezan de cero, con el método "Roba como un artista" y el "ADN ganador":
-- Todo carrusel se descompone en unas 9 partes. Si se mantienen todas, es una copia. Según el modo que se te pida: en "mismo tema" se conservan el tema, las ideas y la estructura (reescritos con tus palabras); en "producto" se mantienen SOLO las 3 partes que explican por qué funcionó y se cambia todo lo demás.
-- Clonar lo que funciona es la base (no se reinventa la rueda). Lo único que no se hace es copiar y pegar en el mismo idioma, traducir palabra por palabra, ni usar sus fotos, su cara, su nombre, su marca, sus números ni sus recursos.
-- La versión nueva debe ser MEJOR que el original: aplica la fórmula de 6 posiciones (apertura que crea un deseo, agarre en la lámina 2 que responde solo la portada, columna donde cada lámina abre la siguiente, ritmo corta/densa, giro "Para que puedas…", remate con creencia nueva + UNA acción) y que cada lámina lleve algo real (ejemplo, comparación, regla con veredicto).
-Español neutro latinoamericano, de tú, frases cortas, sin jerga. Sin emojis en las láminas; en el pie, solo si el original los usa (los mismos en el mismo lugar). Prohibido: promesas de ingresos o de resultados, plazos, testimonios, cifras o estudios inventados, urgencia falsa, marcas ajenas, personas famosas.
-En todo lo que lee la persona (mejoras, necesitas, por qué funciona) di "modelar" y "tu versión", nunca "clonar" ni "clon".
-Respondes SOLO con el JSON pedido.`;
-
 // Dos formas de clonar (06-oct-2026, Jean: "la referencia tiene que servir"):
 //  · "tema": transcreación fiel: el mismo tema, las mismas ideas y el mismo remate de cada lámina, en el
 //    mismo orden y estructura, adaptado al español latino ("Clonar con arte" del manual: de otro idioma
@@ -55,10 +48,10 @@ Respondes SOLO con el JSON pedido.`;
 const TEMA_STEP = (n: number) => [
   `PASO 3 · TU VERSIÓN MODELADA EN ESPAÑOL (ESPEJO, 06-oct-2026, Jean: "debe parecerse al 97 % a lo que ya funcionó"). Escribe un carrusel de ${n + 1} láminas que sea el ESPEJO del original: el MISMO tema, el MISMO gancho, las MISMAS ideas, el MISMO número de láminas, en el MISMO orden, con la MISMA composición de cada lámina y el MISMO remate. No reinventes nada: si el original funciona, se repite su receta.`,
   "PORTADAS: la portada 1 es el gancho del original. Si está en otro idioma, transcréalo fiel (la misma promesa, el mismo remate, en español latino natural). Si ya está en español, conserva su estructura y casi sus mismas palabras con un toque propio (un sinónimo, un orden mejor), nunca idéntico. Las portadas 2 y 3 son variantes del MISMO gancho (otra forma de decir lo mismo), nunca otro tema. 'recomendada' = 0. El producto de la persona NUNCA va en la portada.",
-  "LÁMINAS: lámina por lámina, la misma idea y el mismo tipo de contenido que la lámina del original en esa posición. Si el original muestra una cuadrícula de fotos o ejemplos con etiquetas, usa el tipo 'galeria' con los mismos elementos: si las etiquetas son comandos, atajos, nombres de herramientas o términos técnicos que funcionan tal cual (ej. '/droneview'), se conservan iguales porque son la utilidad; si son frases, se transcrean. No fuerces los tipos respuesta o giro si el original no los tiene.",
+  TEMA_LAMINAS_RULE,
   "PIE: el ESPEJO del pie original: misma apertura, mismos beneficios, misma mecánica de llamada (si pide comentar una palabra, se pide comentar una palabra equivalente) y hashtags del mismo tema, reescrito con sus propias palabras en español latino (nunca copiar y pegar).",
   "REMATE: la misma mecánica del original (comentar una palabra, guardar, seguir…) y el mismo tipo de regalo (ej. 'el listado completo'), que la persona entrega ella misma. Nunca su nombre, su cuenta, su marca ni sus números.",
-  "SIRVE PARA CUALQUIER CARRUSEL: mira cómo está construido y repite esa construcción. Si cada lámina es una escena (de una película, una serie, un viaje, una historia), cada lámina lleva su 'escena' para que la IA de imagen la cree con la persona o con personajes propios (nunca actores, personajes ni fotogramas reales: se recrea la idea). Si son capturas de una app, frases sobre fondo, antes/después o un producto, usa el tipo de lámina que más se parezca y explica en 'necesitas' qué captura o qué foto debe poner.",
+  `${SIRVE_RULE} Si son capturas, fotos de producto o antes/después, explica en 'necesitas' qué captura o qué foto debe poner.`,
   "NECESITAS: todo lo que la persona debe tener para que su versión se vea y funcione igual, en frases cortas y concretas, en este orden: 1) las fotos (ej. 'Una foto tuya de cuerpo entero, de frente y con buena luz: la IA la usa para crear cada toma'); 2) capturas o pruebas propias si el original las usa; 3) si el remate promete un regalo (un listado, una guía, una plantilla), 'Prepara <ese regalo> para mandarlo por mensaje a quien comente <PALABRA>'. Nunca se usan las fotos del original.",
   "Mejóralo solo donde suma (legibilidad, orden, una palabra más clara); en 'mejoras' explica 3 cosas concretas. En 'mantener' marca las 3 partes del ADN más importantes.",
 ].join("\n");
@@ -71,23 +64,14 @@ function userPrompt(o: { mode: "tema" | "producto"; brief: Record<string, string
       ? `Pie de publicación original (haz su espejo en español con tus palabras; nunca copiar y pegar): """${o.caption}"""`
       : `Pie de publicación original (solo para entender la idea; NO lo copies): """${o.caption}"""`) : "",
     "",
-    "PASO 1 · RADIOGRAFÍA. Para cada lámina: su posición en la historia (apertura, agarre, columna, giro o remate), su composición (cómo está armada: dónde va el texto grande, si hay foto, tarjetas, etc.), su artefacto (ejemplo, comparación, regla…) y su idea con TUS palabras (no copies el texto). Luego por qué funciona en 2 o 3 frases, y su estilo: 3 colores en hex, cómo es la letra, cuál de estos estilos se le parece más (poster = sans negra gruesa + serifa en cursiva; editorial = serifa de revista; moderno = sans geométrica; impacto = condensada en mayúsculas; elegante = serifa fina) y si empieza claro u oscuro.",
+    "PASO 1 · RADIOGRAFÍA. Para cada lámina: su posición en la historia (apertura, agarre, columna, giro o remate), su composición (cómo está armada: dónde va el texto grande, si hay foto, tarjetas, etc.), su artefacto (ejemplo, comparación, regla…) y su idea con TUS palabras (no copies el texto). Luego por qué funciona en 2 o 3 frases, y su estilo: 3 colores en hex, cómo es la letra, cuál de estos estilos se le parece más (poster = sans negra gruesa + serifa en cursiva; editorial = serifa de revista; moderno = sans geométrica; impacto = condensada en mayúsculas; elegante = serifa fina) y si empieza claro u oscuro. Además, cada lámina lleva 'diseno': su JSON visual (ver DISEÑO), describiendo la lámina del original tal como se ve.",
+    DISENO_RULE,
     "PASO 2 · ADN. Descompón el carrusel en 9 partes (id a1 a a9). Marca con importa=true y pon en 'mantener' EXACTAMENTE las 3 que más explican por qué funcionó. Solo patrones, nunca contenido literal.",
     o.mode === "tema" ? TEMA_STEP(slides) : `PASO 3 · TU VERSIÓN. Escribe un carrusel NUEVO de ${slides + 1} láminas para este producto, que mantiene esas 3 partes y cambia todo lo demás. Debe ser mejor que el original: en 'mejoras' explica 3 cosas concretas que hiciste mejor.`,
     o.mode === "tema" ? "El producto de la persona NO cambia el tema: como mucho aparece en una línea del remate si encaja. Todo el carrusel es el tema del original." : o.goal === "ensenar" ? "Objetivo: enseñar algo útil del tema del producto para que lo guarden y lo compartan." : "Objetivo: que quieran el producto; el remate conecta la creencia nueva con escribir una palabra clave.",
     "",
-    "TIPOS DE LÁMINA (el diseño ya existe; tú solo llenas el texto):",
-    "- respuesta: la lámina 2, responde SOLO la portada. titulo + texto.",
-    "- problema: 3 items (titulo 2-5 palabras + texto ≤12 palabras) + veredicto.",
-    "- comparacion: 2 items: el primero lo que NO funciona, el segundo lo que SÍ (titulo = etiqueta como NO/SÍ, DÉBIL/FUERTE, ANTES/DESPUÉS; texto ≤18 palabras) + veredicto.",
-    "- solucion: titulo + texto ≤30 palabras + veredicto.",
-    "- tarjetas: 4 items (titulo 1-4 palabras + texto ≤10 palabras) + veredicto.",
-    "- pasos: 3 items en orden + veredicto.",
-    "- regla: para carruseles de 'reglas', 'claves' o 'estilos': pastilla ('Regla 1', 'Clave 2'…), titulo = 1 o 2 palabras GIGANTES, texto = una frase ≤10 palabras, veredicto ≤14 palabras (o una acción corta, como 'Busca \"…\"'), escena = foto de ejemplo para esa regla. Opcional: items = 3 líneas muy cortas (qué hace, cuándo usarlo, cuándo no), si el original las tiene.",
-    "- galeria: una cuadrícula de 4 a 9 fotos o ejemplos con etiqueta (como el original). titulo = el encabezado de la lámina (puede ir vacío si el original no tiene), items = cada celda en orden: titulo = la etiqueta tal como se ve (≤22 caracteres), texto = qué muestra esa foto, para que la IA de imagen la cree (≤18 palabras). escena = qué tienen en común todas las fotos (la misma persona, el mismo lugar, la misma ropa).",
-    "- giro: la penúltima, 'Para que puedas…', ≤14 palabras.",
-    "- llamada: la última. titulo = la creencia nueva; palabra = UNA palabra clave en MAYÚSCULAS conectada con esa creencia; texto = qué recibe al comentarla; items = 1 recordatorio.",
-    "Cada lámina (menos llamada y giro) lleva 'puente' (≤7 palabras, abre la siguiente) y 'peso' (corta o densa; nunca dos iguales seguidas). Marca 1 o 2 palabras de cada titular entre *asteriscos*. 'escena' (opcional en todas, obligatoria en regla) = una foto cinematográfica SIN texto que muestre la idea: personas latinas comunes, sin famosos, sin marcas, sin dinero.",
+    TIPOS_LAMINA,
+    o.mode === "tema" ? GALERIA_RULE : "",
     "'objeto' = un objeto de la historia que invade el primer plano de la portada en perspectiva 3D (mano, teléfono, libreta…), enorme hacia la cámara. 'plantilla' = hero (agresiva, frases fuertes), editorial (crema y negro, marca personal premium) o cinematica (historias, con aire). Copia la GRAMÁTICA visual del original, nunca sus fotos.",
     o.mode === "tema" ? "PORTADAS: 3 versiones del MISMO gancho del original (titulo hasta 9 palabras, subtitulo ≤12, pastilla en MAYÚSCULAS, por_que = qué desea quien la lee). 'escena' de portada = la misma composición del original con la persona de su foto." : "PORTADAS: 3 distintas (titulo 3 a 5 palabras, subtitulo ≤12, pastilla en MAYÚSCULAS, por_que = qué desea quien la lee). 'escena' de portada = metáfora visual del deseo.",
     "'revelar' = lista oculta de 3 a 6 elementos solo si la respuesta es una lista; si no, vacío.",
@@ -101,10 +85,10 @@ function userPrompt(o: { mode: "tema" | "producto"; brief: Record<string, string
     o.world ? `MUNDO DE LA MARCA (todas las escenas ocurren aquí): ${o.world}.` : "",
     "",
     "RESPONDE SOLO con JSON válido con esta forma:",
-    `{"analisis":{"resumen":"","gancho_original":"","por_que_funciona":"","laminas":[{"n":1,"posicion":"","composicion":"","artefacto":"","idea":""}],"estilo":{"colores":["#000000","#000000","#000000"],"letra":"","estilo_cercano":"poster","empieza":"claro","fotos":""}},"adn":[{"id":"a1","parte":"","que_es":"","importa":false,"por_que":""}],"mantener":["a1","a2","a3"],"mejoras":["","",""],"necesitas":[],"carrusel":{"idea":"","portadas":[{"titulo":"","subtitulo":"","pastilla":"","por_que":""}],"recomendada":0,"revelar":[],"etiquetas":["","",""],"escena":"","objeto":"","plantilla":"editorial","laminas":[{"tipo":"respuesta","peso":"","etiqueta":"","titulo":"","texto":"","items":[],"veredicto":"","puente":"","palabra":"","pastilla":"","escena":""}],"pie":""}}`,
+    `{"analisis":{"resumen":"","gancho_original":"","por_que_funciona":"","laminas":[{"n":1,"posicion":"","composicion":"","artefacto":"","idea":"","diseno":${DISENO_SHAPE}}],"estilo":{"colores":["#000000","#000000","#000000"],"letra":"","estilo_cercano":"poster","empieza":"claro","fotos":""}},"adn":[{"id":"a1","parte":"","que_es":"","importa":false,"por_que":""}],"mantener":["a1","a2","a3"],"mejoras":["","",""],"necesitas":[],"carrusel":{"idea":"","portadas":[{"titulo":"","subtitulo":"","pastilla":"","por_que":""}],"recomendada":0,"revelar":[],"etiquetas":["","",""],"escena":"","objeto":"","plantilla":"editorial","laminas":[{"tipo":"respuesta","peso":"","etiqueta":"","titulo":"","texto":"","items":[],"veredicto":"","puente":"","palabra":"","pastilla":"","escena":"","original":2}],"pie":""}}`,
     o.mode === "tema"
-      ? `"carrusel.laminas" trae ${slides} elementos (la portada va aparte), uno por cada lámina del original después de su portada, en el mismo orden; la última es de tipo llamada. 'gancho_original' = el texto de la portada del original tal como se lee (solo para mostrarlo al lado del clon).`
-      : `"carrusel.laminas" trae ${slides} elementos (la portada va aparte), con la primera de tipo respuesta, la penúltima giro y la última llamada.`,
+      ? `"carrusel.laminas" trae ${slides} elementos (la portada va aparte), uno por cada lámina del original después de su portada, en el mismo orden; la última es de tipo llamada solo si la última del original es un llamado (pedir comentar, guardar, seguir…); si no, es el espejo de esa lámina. 'original' = el número n de la lámina del original que modela (la portada del original es 1, así que la primera de carrusel.laminas suele ser 2). 'gancho_original' = el texto de la portada del original tal como se lee (solo para mostrarlo al lado de tu versión).`
+      : `"carrusel.laminas" trae ${slides} elementos (la portada va aparte), con la primera de tipo respuesta, la penúltima giro y la última llamada. 'original' = el número n de la lámina del original que más se parece en su función (la portada del original es 1), o 0 si ninguna.`,
   ].filter(Boolean).join("\n");
 }
 
@@ -132,7 +116,7 @@ Deno.serve(async (req) => {
     const gemini = Deno.env.get("GEMINI_API_KEY");
     if (!apify || !gemini) return json({ error: "Esta función llega pronto.", pronto: true }, 503);
 
-    const g = await charge(FN, who.id, "clone_carousel", `Clonar carrusel · ${m[1]}`, 6, 30);
+    const g = await charge(FN, who.id, "clone_carousel", `Modelar carrusel · ${m[1]}`, 6, 30);
     if (g instanceof Response) return g;
     txId = g.txId;
 
@@ -173,13 +157,13 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: { Authorization: `Bearer ${gemini}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: MODEL, max_tokens: 12_000, response_format: { type: "json_object" },
+        model: MODEL, max_tokens: 16_000, response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM },
           { role: "user", content: [{ type: "text", text: userPrompt({ mode, brief, goal, handle, world, line, caption: clean(post.caption, 1500), owner: clean(post.ownerUsername, 40), likes: Number.isFinite(post.likesCount) ? post.likesCount : null, comments: Number.isFinite(post.commentsCount) ? post.commentsCount : null, n: parts.length }) }, ...parts] },
         ],
       }),
-      signal: AbortSignal.timeout(85_000),
+      signal: AbortSignal.timeout(100_000),
     });
     if (!ai.ok) {
       console.error(`${FN}: gemini`, ai.status, (await ai.text()).slice(0, 300));
@@ -197,6 +181,27 @@ Deno.serve(async (req) => {
       return json({ error: "La IA respondió en un formato raro. No se te cobró: inténtalo de nuevo." }, 502);
     }
 
+    // 3b) Diseño de cada lámina del original con la forma pactada, y 'original' (n de la lámina que
+    // modela) como entero entre 1 y el número de láminas (0 = ninguna).
+    {
+      const an = result.analisis && typeof result.analisis === "object" ? result.analisis as Record<string, unknown> : null;
+      if (an && Array.isArray(an.laminas)) {
+        an.laminas = (an.laminas as unknown[]).map(l => l && typeof l === "object" ? { ...(l as Record<string, unknown>), diseno: cleanDiseno((l as Record<string, unknown>).diseno) } : l);
+      }
+      const car = (result.carrusel ?? {}) as Record<string, unknown>;
+      if (Array.isArray(car.laminas)) {
+        car.laminas = (car.laminas as unknown[]).map(l => {
+          if (!l || typeof l !== "object") return l;
+          const o = Math.round(Number((l as Record<string, unknown>).original));
+          const original = Number.isFinite(o) && o >= 1 && o <= parts.length ? o : 0;
+          const src = an && Array.isArray(an.laminas) && original
+            ? (an.laminas as Record<string, unknown>[]).find(x => Number(x?.n) === original) : undefined;
+          const lam = { ...(l as Record<string, unknown>), original };
+          return mode === "tema" ? fillGaleria(lam, (src?.diseno ?? null) as Diseno | null) : lam;
+        });
+      }
+    }
+
     // 4) Guardarlo para aprender (Admin → Aprendizaje): solo texto, nunca las fotos del original.
     let cloneId: string | null = null;
     try {
@@ -211,17 +216,18 @@ Deno.serve(async (req) => {
         hook: clean(an.gancho_original, 200) || null,
         summary: clean(an.resumen, 300) || null,
         why: clean(an.por_que_funciona, 600) || null,
-        analysis: {
+        analysis: fitAnalysis({
           laminas: Array.isArray(an.laminas) ? (an.laminas as unknown[]).slice(0, 10) : [],
           estilo: an.estilo ?? null,
           adn: Array.isArray(result.adn) ? (result.adn as unknown[]).slice(0, 12) : [],
           mantener: result.mantener ?? [],
           necesitas: Array.isArray(result.necesitas) ? (result.necesitas as unknown[]).slice(0, 6) : [],
           caption: clean(post.caption, 600),
-        },
+        }),
         result: {
           portadas: Array.isArray(car.portadas) ? (car.portadas as Record<string, unknown>[]).slice(0, 3).map(c => clean(c?.titulo, 120)) : [],
           tipos: slidesOut.map(l => clean(l?.tipo, 20)),
+          originales: slidesOut.map(l => Number(l?.original) || 0),
           palabra: clean(slidesOut.at(-1)?.palabra, 20),
         },
       }).select("id").single();

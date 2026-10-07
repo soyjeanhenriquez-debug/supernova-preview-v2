@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProducts } from "@/contexts/ProductContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureAccess } from "@/lib/features";
-import { TOOLS, ADMIN_EXTRA_TOOLS, HOME_CATEGORIES, MODELS, openTool, useBusinessModel, type Tool } from "@/lib/tools";
+import { TOOLS, ADMIN_EXTRA_TOOLS, HOME_CATEGORIES, MERGED_INTO, MODELS, openTool, useBusinessModel, type Tool } from "@/lib/tools";
 import { ToolThumb } from "@/components/dashboard/ToolThumb";
 import { ASK_ASSISTANT_EVENT } from "@/components/HelpAssistant";
 import { IdeaOfTheDay } from "@/components/create/IdeaOfTheDay";
@@ -232,14 +232,16 @@ export function DashboardPage({ onNavigate }: Props) {
   const chooseView = (v: "grid" | "list") => { setView(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* sin almacenamiento */ } };
   const chooseCat = (c: string) => { setCat(c); setQuery(""); try { localStorage.setItem(CAT_KEY, c); } catch { /* sin almacenamiento */ } };
 
+  // El buscador encuentra todas (también las que viven dentro de otra); "Todo" muestra solo las tarjetas.
   const visibleAll = useMemo(() => {
     const extra = ADMIN_EXTRA_TOOLS.filter(t => canSee(t.key));
     return [...TOOLS, ...extra].filter(t => canSee(t.key));
   }, [canSee]);
+  const gridAll = useMemo(() => visibleAll.filter(t => !MERGED_INTO[t.id]), [visibleAll]);
   const tabs = useMemo(() => [
     ...HOME_CATEGORIES.map(c => ({ id: c.id, label: c.label, tools: c.tools.filter(t => t && canSee(t.key)) })),
-    { id: "todo", label: "Todo", tools: visibleAll },
-  ].filter(t => t.tools.length > 0), [canSee, visibleAll]);
+    { id: "todo", label: "Todo", tools: gridAll },
+  ].filter(t => t.tools.length > 0), [canSee, gridAll]);
   const q = norm(query.trim());
   const shown = q
     ? visibleAll.filter(t => norm(`${t.title} ${t.nav} ${t.desc} ${t.keywords}`).includes(q))

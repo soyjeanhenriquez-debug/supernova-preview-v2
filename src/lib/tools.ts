@@ -47,10 +47,12 @@ const FREE = "Gratis";
 
 export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
   // ---------- Estudio IA ----------
-  T({ id: "creativos", key: "Creativos", icon: Image, title: "Creativos para anuncios", cost: cr(C.gen_ad_image * 3),
-    desc: "3 imágenes listas para Meta, hechas desde tu producto.", keywords: "creativo creativos imagen imagenes anuncio ads banner meta facebook instagram" }),
-  T({ id: "videoanuncio", key: "Video anuncio", icon: Megaphone, title: "Anuncio en video", nav: "Video anuncio", cost: cr(C.vid_mini_5 * 3),
-    desc: "3 tomas de 5 s: gancho, demostración y llamada. La IA elige la plantilla.", keywords: "video anuncio ads reels tiktok meta gancho demo llamada comercial" }),
+  T({ id: "creativos", key: "Creativos", icon: Image, title: "Creativos y fotos", nav: "Creativos y fotos", cost: cr(C.gen_ad_image * 3),
+    desc: "Anuncios para Meta, una persona usando tu producto o fotos de estudio: eliges el estilo arriba.",
+    keywords: "creativo creativos imagen imagenes anuncio ads banner meta facebook instagram fotos ugc celular selfie persona lifestyle foto producto mockup estudio packshot tienda catalogo" }),
+  T({ id: "videoanuncio", key: "Video anuncio", icon: Megaphone, title: "Video con IA", nav: "Video con IA", cost: `desde ${cr(C.vid_mini_5)}`,
+    desc: "Anuncio de 3 tomas, una escena libre o una serie de escenas: eliges el modo arriba.",
+    keywords: "video videos ia anuncio ads reels tiktok meta gancho demo llamada comercial clip escena faceless sin cara serie series novela novelas dibujos animados anime historia capitulos" }),
   T({ id: "carrusel", key: "Carrusel", icon: LayoutTemplate, title: "Carrusel que vende", cost: cr(C.gen_light),
     desc: "3 portadas a elegir y láminas con tu marca, texto perfecto.", keywords: "carrusel carruseles laminas slides instagram post" }),
   T({ id: "fotosugc", key: "Fotos UGC", icon: Smartphone, title: "Fotos estilo UGC", nav: "Fotos estilo UGC", cost: cr(C.gen_ad_image * 3),
@@ -60,9 +62,10 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
   T({ id: "personaje", key: "Sin mostrar tu cara", icon: UserRound, title: "Influencer IA", nav: "Influencer IA (sin tu cara)",
     desc: "Elige o crea tu influencer, dale una voz y hazlo hablar en video por ti.", keywords: "personaje avatar influencer ia sin cara reels tiktok ugc presentador habla camara voz video" }),
   T({ id: "copy", key: "Generadores", icon: FileText, title: "Robot de copy", nav: "Robot de copy", cost: `desde ${cr(C.gen_light)}`,
-    desc: "26 generadores: anuncios, VSL, correos, WhatsApp y más.", keywords: "copy copys textos guion guiones correo email pagina de venta landing generador vsl" }),
-  T({ id: "anuncios", key: "Mándala", icon: Orbit, title: "Anuncios paso a paso", nav: "Mándala Creativa",
-    desc: "Tus primeros 5 anuncios, en el orden que conviene.", keywords: "anuncio anuncios ads mandala campaña" }),
+    desc: "Página de ventas, VSL, correos, DM, Reels y textos de posts, en 3 kits de pasos.",
+    keywords: "copy copys textos guion guiones correo correos email secuencia pagina de venta landing generador vsl dm setter mensajes ascension high ticket reels tiktok shorts captions descripcion post" }),
+  T({ id: "anuncios", key: "Mándala", icon: Orbit, title: "Tus primeros 5 anuncios", nav: "Tus primeros 5 anuncios",
+    desc: "Créalos en el orden que conviene y mide cuál apagar o escalar.", keywords: "anuncio anuncios ads mandala campaña resultados metricas medir escalar apagar ctr gasto ventas" }),
   T({ id: "miniaturas", key: "Miniaturas", icon: MonitorPlay, title: "Miniaturas", cost: cr(C.gen_ad_image * 2),
     desc: "Portadas para YouTube y Reels que se leen en pequeño.", keywords: "miniatura miniaturas thumbnail portada youtube" }),
   T({ id: "ganchos", key: "Hooks", icon: Quote, title: "Ganchos que atrapan", nav: "Ganchos (hooks)",
@@ -75,7 +78,7 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
     desc: "Videos cortos con un presentador hecho con IA.", keywords: "video videos avatar presentador ugc media studio" }),
 
   T({ id: "creadoryt", key: "Creador YouTube", icon: Youtube, title: "Videos para YouTube", nav: "Creador de YouTube", cost: `guion ${cr(C.gen_medium)}`,
-    desc: "Del guion al video terminado: voz, imágenes y subtítulos, para canales sin cara.", keywords: "youtube faceless sin cara canal video largo guion creador documental animado" }),
+    desc: "Del guion al video terminado (o solo el guion): voz, imágenes y subtítulos, para canales sin cara.", keywords: "youtube faceless sin cara canal video largo guion guiones creador documental animado" }),
 
   // ---------- Encontrar ----------
   T({ id: "ideas", key: "Ideas", icon: Lightbulb, featured: true, title: "Ideas de side hustle", nav: "Ideas de side hustle", cost: FREE,
@@ -139,9 +142,9 @@ const pick = (ids: string[]) => ids.map(id => TOOL_BY_ID[id]);
 // "UGC con IA" ya no es una herramienta aparte (05-oct-2026): vive en "Influencer IA" (personaje), que
 // muestra el video que habla si el interruptor del servidor (edge_limits 'video-studio:ugc') está abierto
 // y, si no, el aviso de "pronto". La ruta #/ugc abre Influencer IA en el paso 3.
-export const STUDIO_TOOLS = pick(["creativos", "videoanuncio", "videoia", "creadoryt", "carrusel", "fotosugc", "miniaturas", "series"]);
+export const STUDIO_TOOLS = pick(["creativos", "videoanuncio", "creadoryt", "carrusel", "miniaturas"]);
 /** Más para crear: siguen en el menú y en el buscador, debajo de las 8 principales. */
-export const STUDIO_MORE_TOOLS = pick(["fotoproducto", "personaje", "copy"]);
+export const STUDIO_MORE_TOOLS = pick(["personaje", "copy"]);
 /** Ideas ganadoras: qué ya vende, antes de crear nada. Todo gratis de mirar. */
 export const FIND_TOOLS = pick(["radar", "ofertas", "nichosyt", "miniapps"]);
 export const ADMIN_EXTRA_TOOLS = pick(["mercado", "oraculo", "video"]);
@@ -152,12 +155,12 @@ export const ADMIN_EXTRA_TOOLS = pick(["mercado", "oraculo", "video"]);
  * herramientas que ya funcionan: nada de tarjetas de cosas que no existen.
  */
 export const HOME_CATEGORIES: { id: string; label: string; tools: Tool[] }[] = [
-  { id: "esencial", label: "Lo esencial", tools: pick(["creativos", "carrusel", "videoia", "miniaturas", "personaje", "fotoproducto", "copy", "paginas", "producto", "ofertas", "radar", "videoanuncio"]) },
+  { id: "esencial", label: "Lo esencial", tools: pick(["ofertas", "radar", "creativos", "videoanuncio", "carrusel", "copy", "anuncios", "miniaturas", "personaje", "producto", "precio", "contenido"]) },
   { id: "ideas", label: "Ideas que venden", tools: pick(["radar", "ofertas", "nichosyt", "miniapps", "ganchos", "dolores"]) },
-  { id: "imagenes", label: "Imágenes", tools: pick(["creativos", "carrusel", "miniaturas", "fotosugc", "fotoproducto"]) },
-  { id: "video", label: "Video", tools: pick(["videoanuncio", "videoia", "creadoryt", "series", "personaje", "video"]) },
-  { id: "textos", label: "Textos y anuncios", tools: pick(["copy", "paginas", "anuncios", "ganchos", "vsl", "correos", "reels", "captions", "dm", "youtube", "contenido"]) },
-  { id: "negocio", label: "Tu negocio", tools: pick(["producto", "validar", "precio", "plan", "bump", "ascension", "recuperar", "resultados"]) },
+  { id: "imagenes", label: "Imágenes", tools: pick(["creativos", "carrusel", "miniaturas"]) },
+  { id: "video", label: "Video", tools: pick(["videoanuncio", "creadoryt", "personaje", "video"]) },
+  { id: "textos", label: "Textos y anuncios", tools: pick(["copy", "anuncios", "ganchos", "contenido"]) },
+  { id: "negocio", label: "Tu negocio", tools: pick(["producto", "validar", "precio", "plan", "bump", "recuperar"]) },
 ];
 
 export const MODELS:{ id: BusinessModel; label: string; short: string; line: string; tools: Tool[] }[] = [
@@ -175,8 +178,23 @@ export const MODELS:{ id: BusinessModel; label: string; short: string; line: str
  * Su pantalla y sus datos siguen existiendo; Index.tsx redirige su dirección al Inicio.
  */
 export const HIDDEN_TOOL_IDS = new Set(["ideas"]);
+/**
+ * Fase 1 de "las 37 herramientas" (07-oct-2026, docs/propuestas/2026-10-07-37-herramientas.md):
+ * estas tarjetas viven DENTRO de otra (pestaña, modo o kit), así que no salen en las cuadrículas del
+ * Inicio ni en el menú. Siguen en el buscador y en los caminos por modelo de negocio, y su pantalla
+ * abre igual: nada se borra.
+ */
+export const MERGED_INTO: Record<string, string> = {
+  fotosugc: "creativos", fotoproducto: "creativos",
+  videoia: "videoanuncio", series: "videoanuncio",
+  youtube: "creadoryt",
+  vsl: "copy", dm: "copy", ascension: "copy", correos: "copy", reels: "copy", captions: "copy", paginas: "copy",
+  resultados: "anuncios",
+};
 export const HIDDEN_PAGES = new Set(["Ideas"]);
 export const TOOLS: Tool[] = Object.values(TOOL_BY_ID).filter(t => !ADMIN_EXTRA_TOOLS.includes(t) && !HIDDEN_TOOL_IDS.has(t.id));
+/** Lo que se ve en las cuadrículas ("Todo" del Inicio): sin las que viven dentro de otra. */
+export const GRID_TOOLS: Tool[] = TOOLS.filter(t => !MERGED_INTO[t.id]);
 
 /**
  * Abre una herramienta. Las que son un generador concreto dejan dicho cuál abrir (GeneradoresPage

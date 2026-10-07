@@ -29,6 +29,13 @@ const categories = [
   { icon: BarChart2, label: "Estrategia", id: "strategy" },
 ];
 
+// Kits (Fase 1 de "las 37 herramientas", 07-oct-2026): las tarjetas sueltas del Inicio (Página de
+// ventas, VSL, DM, ascensión, correos, Reels y textos) viven aquí como pasos en orden.
+const KITS: { id: string; title: string; line: string; steps: string[] }[] = [
+  { id: "lanzar", title: "Kit Lanzar", line: "Infoproducto: de la página a la venta.", steps: ["landing-copy", "order-bump", "email-sequence", "whatsapp-sequence"] },
+  { id: "llamada", title: "Kit Llamada", line: "Mentoría o servicio: del video a la llamada.", steps: ["vsl-main", "dm-script", "ascension-offer", "email-sequence"] },
+  { id: "contenido", title: "Kit Contenido", line: "Marca personal: publicar todos los días.", steps: ["hooks-tiktok", "reels-script", "captions-ig"] },
+];
 
 export function GeneradoresPage() {
   const [activeCategory, setActiveCategory] = useState("all");
@@ -174,6 +181,34 @@ export function GeneradoresPage() {
                 </details>
               </div>
             </div>
+
+            {/* Kits: los pasos en orden, cada uno abre su generador con tu negocio ya puesto */}
+            {activeCategory === "all" && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-8">
+                {KITS.map(kit => (
+                  <div key={kit.id} className="rounded-2xl border border-border bg-card/60 p-4">
+                    <p className="font-display font-semibold text-[15px] text-foreground">{kit.title}</p>
+                    <p className="text-[12px] text-muted-foreground mt-0.5">{kit.line}</p>
+                    <ol className="mt-3 space-y-1.5">
+                      {kit.steps.map((id, i) => {
+                        const g = generators.find(x => x.id === id);
+                        if (!g) return null;
+                        return (
+                          <li key={id}>
+                            <button type="button" onClick={() => { setActiveGenerator(g.id); setGeneratorOutput(""); setGeneratorInput(myBusiness); }}
+                              className="w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] text-foreground hover:bg-secondary transition-colors">
+                              <span className="w-5 h-5 shrink-0 rounded-full border border-primary/50 text-primary text-[11px] font-semibold flex items-center justify-center">{i + 1}</span>
+                              <span className="flex-1 truncate">{g.title}</span>
+                              <span className="text-[11px] text-muted-foreground tabular-nums">{generatorCost(g.id).cost} créditos</span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

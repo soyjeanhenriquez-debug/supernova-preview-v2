@@ -37,6 +37,7 @@ const AdminMensajes = lazy(() => import("@/pages/admin/AdminMensajes"));
 const AdminEnsenanzas = lazy(() => import("@/pages/admin/AdminEnsenanzas"));
 const AdminAprendizaje = lazy(() => import("@/pages/admin/AdminAprendizaje"));
 const AdminMisiones = lazy(() => import("@/pages/admin/AdminMisiones"));
+const GenjutsuPage = lazy(() => import("@/pages/GenjutsuPage"));
 const SetPasswordDialog = lazy(() => import("@/components/SetPasswordDialog"));
 
 /** "Crea tu contraseña nueva": la ventana se descarga solo si se abre (tras login con código o desde el menú). */
@@ -166,6 +167,7 @@ function AppRoutes() {
           <Route path="/app" element={<Index />} />
           <Route path="/auth" element={<Navigate to="/app" replace />} />
           <Route path="/signup" element={<Navigate to="/app" replace />} />
+          <Route path="/genjutsu" element={<GenjutsuPage />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminOverview />} />
             <Route path="accesos" element={<AdminAccesos />} />

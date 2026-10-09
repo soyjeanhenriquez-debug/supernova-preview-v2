@@ -110,7 +110,7 @@ export type AppEvent =
   | "personaje_ideas" | "personaje_creado" | "personaje_foto" | "guiones_generados" | "bio_copiada"
   | "video_avisame" | "video_reserva_click" | "higgsfield_click"
   | "video_generado" | "comunidad_upsell_click"
-  | "motion_grabado" | "motion_estilo_modelado" | "motion_escenas" | "motion_partes"
+  | "motion_grabado" | "motion_estilo_modelado" | "motion_escenas" | "motion_partes" | "motion_clip_ia"
   | "home_card_click" | "home_ask_assistant" | "search_used"
   | "idea_sheet_open" | "idea_create_click";
 export function track(event: AppEvent, props?: Record<string, string | number | boolean | null>) {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, Copy, Download, FileArchive, Loader2, Mic, Pause, Play, Sparkles, Upload, Wand2 } from "lucide-react";
+import { Check, ChevronDown, Copy, Download, FileArchive, ImagePlus, Loader2, Mic, Pause, Play, Plus, Sparkles, Upload, Wand2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import { useCreditsLeft } from "@/hooks/useCreditsLeft";
@@ -9,10 +9,14 @@ import { AddToTracker } from "@/components/AddToTracker";
 import { ToolFeedback } from "@/components/ToolFeedback";
 import { VOICES, VOICE_LABEL, type Voice } from "@/lib/ytScenes";
 import {
-  MOTION_PRESETS, buildTimeline, drawMotionFrame, fontWeightFor, framesFromImages, framesFromVideo, loadMotionFont,
-  loadSavedStyles, motionPackage, motionSize, playMotion, sanitizeStyle, saveStyle, styleForServer, timelineTotal, voiceChunks,
-  type Beat, type Layout, type MotionFormat, type MotionPlan, type MotionStyle, type PlayHandle, type VoiceChunk,
+  MOTION_PRESETS, buildTimeline, drawMotionFrame, framesFromImages, framesFromVideo, loadMotionFonts,
+  LAYOUTS, fmtNum, loadSavedStyles, motionPackage, motionSize, parseChartData, playMotion, sanitizeStyle, saveStyle, styleForServer, timelineTotal, voiceChunks,
+  type Beat, type Layout, type MotionAssets, type MotionFormat, type MotionPlan, type MotionStyle, type PlayHandle, type VoiceChunk,
 } from "@/lib/motionGraphics";
+import { compressImage } from "@/lib/montage";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { createVideo, downloadVideo, waitForVideo } from "@/components/video/videoApi";
 
 /**
  * Motion graphics con estilo (08-oct-2026). El flujo del tutorial "estilo de referencia → prompt
@@ -25,13 +29,26 @@ import {
  *   3. Voz opcional (la misma del Creador de YouTube) → las escenas se ajustan a lo que dura.
  *   4. Se dibuja y graba en tu navegador (texto perfecto, sin costo de video con IA) y se bajan
  *      todas las partes en un .zip para terminar en CapCut o Remotion.
+ * 09-oct-2026 (método de Mirko, aplicado): escenas "Tarjetas" (intro con N puntos), "Capítulo"
+ * (número + título de cada punto), "Gráfica" (línea animada SOLO con datos reales: la persona los
+ * escribe o vienen en su guion) y "Producto" (su foto flotando con las características alrededor).
  * Todo cobro lo hace el servidor (motion-graphics y yt-produce); aquí solo se refleja el saldo.
  */
 const FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 const VOICE_PRICE = CREDIT_COSTS.yt_voice_scene;
+/** Clip con IA (método de Mirko): imagen base con Nano Banana Pro + animación corta de 5 s con Seedance. */
+const AI_CLIP_PRICE = CREDIT_COSTS.gen_ad_image_nbpro + CREDIT_COSTS.vid_mini_5;
+type AiClip = { step: "imagen" | "video" | "listo" | "error"; image?: string; video?: string; error?: string; progress?: number | null };
 const LAYOUT_LABEL: Record<Layout, string> = {
   statement: "Frase", big_word: "Palabra grande", list: "Lista", question: "Pregunta", contrast: "Antes / después", quote: "Cita", cta: "Llamada a la acción",
+  cards: "Tarjetas", chapter: "Capítulo", chart: "Gráfica", product: "Producto",
 };
+/** Cuántos textos cortos lleva cada tipo de escena (y qué son). */
+const ITEM_RULES: Partial<Record<Layout, { max: number; label: string }>> = {
+  list: { max: 3, label: "Punto" }, contrast: { max: 2, label: "Antes / después" }, cards: { max: 5, label: "Tarjeta" },
+  product: { max: 4, label: "Característica" },
+};
+const chartText = (b: Beat) => (b.values ?? []).map((v, k) => (b.items[k] ? `${b.items[k]}: ${fmtNum(v)}` : fmtNum(v))).join("; ");
 const DEMO: Beat[] = [
   { layout: "big_word", text: "Detente", emphasis: ["Detente"], items: [], narration: "", seconds: 1.6 },
   { layout: "statement", text: "Lo que ya vende no se inventa: se modela", emphasis: ["modela"], items: [], narration: "", seconds: 2.8 },
@@ -54,6 +71,8 @@ type VoiceTake = { key: string; chunks: VoiceChunk[]; buffers: AudioBuffer[] };
 
 export function MotionStudio({ productId, hasProduct, hook }: { productId?: string | null; hasProduct: boolean; hook?: string }) {
   const { applyServerCharge, balance } = useCredits();
+  const { user } = useAuth();
+  const [aiClips, setAiClips] = useState<Record<number, AiClip>>({});
   const creditsLeft = useCreditsLeft().label;
 
   // 1. Estilo
@@ -86,6 +105,10 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<{ url: string; ext: string; blob: Blob } | null>(null);
   const [packing, setPacking] = useState(false);
+  const [images, setImages] = useState<Record<string, { blob: Blob; bmp: ImageBitmap }>>({});
+  const assets = useMemo<MotionAssets>(() => Object.fromEntries(Object.entries(images).map(([k, v]) => [k, v.bmp])), [images]);
+  const [focus, setFocus] = useState(0);
+  const [chartDraft, setChartDraft] = useState<Record<number, string>>({});
   const [copied, setCopied] = useState(false);
 
   useEffect(() => { if (!hasProduct && source === "anuncio") setSource("guion"); }, [hasProduct, source]);
@@ -106,15 +129,16 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
   useEffect(() => {
     let alive = true;
     if (playing) return;
-    void loadMotionFont(style.font, fontWeightFor(style)).then(() => {
+    void loadMotionFonts(style).then(() => {
       const c = canvasRef.current;
       if (!alive || !c) return;
       c.width = W; c.height = H;
       const g = c.getContext("2d", { alpha: false });
-      if (g) drawMotionFrame(g, W, H, style, beats, tl, Math.min(total, (tl[0]?.dur ?? 2) * 0.75));
+      const f = tl[Math.min(focus, tl.length - 1)];
+      if (g && f) drawMotionFrame(g, W, H, style, beats, tl, Math.min(total, f.start + f.dur * 0.75), assets);
     });
     return () => { alive = false; };
-  }, [style, beats, tl, total, W, H, playing]);
+  }, [style, beats, tl, total, W, H, playing, focus, assets]);
 
   const ctx = () => {
     if (!audioCtx.current || audioCtx.current.state === "closed") {
@@ -129,11 +153,11 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
     if (playing) { stop(); return; }
     const c = canvasRef.current;
     if (!c) return;
-    await loadMotionFont(style.font, fontWeightFor(style));
+    await loadMotionFonts(style);
     c.width = W; c.height = H;
     setResult(null); setProgress(0);
     try {
-      const h = playMotion({ canvas: c, ctx: ctx(), style, beats, tl, audio: audioPlan(), record, onProgress: (t, tot) => setProgress(tot ? t / tot : 0) });
+      const h = playMotion({ canvas: c, ctx: ctx(), style, beats, tl, audio: audioPlan(), record, assets, onProgress: (t, tot) => setProgress(tot ? t / tot : 0) });
       handle.current = h;
       setPlaying(record ? "record" : "preview");
       const out = await h.done;
@@ -187,7 +211,7 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
     setPlanning(true);
     try {
       const resp = await post("motion-graphics", {
-        action: "plan", source, seconds, style: styleForServer(style),
+        action: "plan", source, seconds, format, style: styleForServer(style),
         ...(source === "guion" ? { script: script.trim() } : { product_id: productId ?? undefined, hook: hook || undefined }),
       });
       const data = await resp.json();
@@ -199,7 +223,30 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
       toast.error(e instanceof Error ? e.message : "No pudimos armar las escenas.");
     } finally { setPlanning(false); }
   };
-  const editBeat = (i: number, patch: Partial<Beat>) => setPlan(p => (p ? { ...p, beats: p.beats.map((b, j) => (j === i ? { ...b, ...patch } : b)) } : p));
+  // Cualquier cambio después de grabar deja el video viejo fuera del paquete (QA 08-oct: el .zip
+  // mezclaba un video con el texto o la voz anteriores y un plan nuevo).
+  const editBeat = (i: number, patch: Partial<Beat>) => { setResult(null); setFocus(i); setPlan(p => (p ? { ...p, beats: p.beats.map((b, j) => (j === i ? { ...b, ...patch } : b)) } : p)); };
+  /** Cambiar el tipo de escena conserva el texto y ajusta lo demás (capítulo lleva su número). */
+  const changeLayout = (i: number, layout: Layout) => {
+    const b = plan?.beats[i];
+    if (!b) return;
+    const rule = ITEM_RULES[layout];
+    const items = layout === "chapter" ? [String(plan!.beats.slice(0, i + 1).filter(x => x.layout === "chapter").length + (b.layout === "chapter" ? 0 : 1))]
+      : layout === "chart" ? b.items : rule ? b.items.filter(x => x.trim()).slice(0, rule.max) : [];
+    editBeat(i, { layout, items: rule && !items.length ? [""] : items, ...(layout === "chart" ? {} : { values: undefined }) });
+  };
+  /** Foto del producto: se comprime en el navegador y queda solo en este equipo (va en el .zip). */
+  const addPhoto = async (i: number, file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { toast.error("Sube una imagen (JPG, PNG o WebP)."); return; }
+    try {
+      const blob = await compressImage(file, 1600, 0.9).catch(() => file);
+      const bmp = await createImageBitmap(blob);
+      const name = `producto-${i + 1}-${Date.now().toString(36)}.${blob.type === "image/webp" ? "webp" : blob.type === "image/png" ? "png" : "jpg"}`;
+      setImages(cur => ({ ...cur, [name]: { blob, bmp } }));
+      editBeat(i, { image: name });
+    } catch { toast.error("No pudimos abrir esa imagen."); }
+  };
 
   // ---------- 3. Voz ----------
   const makeVoice = async () => {
@@ -231,7 +278,10 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
     if (!plan || packing) return;
     setPacking(true);
     try {
-      const zip = await motionPackage({ style, plan, tl, format, video: result ? { blob: result.blob, ext: result.ext } : null, voice: audioPlan() });
+      const zip = await motionPackage({
+        style, plan, tl, format, video: result ? { blob: result.blob, ext: result.ext } : null, voice: audioPlan(),
+        images: Object.fromEntries(Object.entries(images).map(([k, v]) => [k, v.blob])),
+      });
       const href = URL.createObjectURL(zip);
       const a = document.createElement("a");
       a.href = href; a.download = `supernova-motion-${plan.title.replace(/[^\p{L}\p{N}]+/gu, "-").toLowerCase().slice(0, 40) || "partes"}.zip`; a.click();
@@ -239,6 +289,46 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
       track("motion_partes", { video: !!result, voz: voiceOn && voiceReady });
     } catch { toast.error("No se pudo armar el paquete."); }
     finally { setPacking(false); }
+  };
+
+  /**
+   * Clip con IA, como en los motion graphics hechos con Nano Banana Pro + Omni Flash/Seedance:
+   * 1) imagen base fiel al estilo (el primer cuadro), 2) se anima 5 s desde esa imagen. Clips cortos:
+   * si se le pide más tiempo del que necesita la animación, sale lenta y desincronizada. El servidor
+   * cobra cada paso antes de gastar y lo devuelve si falla.
+   */
+  const makeAiClip = async (k: number) => {
+    const c = plan?.clips?.[k];
+    if (!c || !user || aiClips[k]?.step === "imagen" || aiClips[k]?.step === "video") return;
+    if (balance < AI_CLIP_PRICE) { toast.error(`Te faltan créditos: este clip cuesta ${AI_CLIP_PRICE}.`); return; }
+    const set = (v: AiClip) => setAiClips(cur => ({ ...cur, [k]: v }));
+    set({ step: "imagen" });
+    try {
+      const aspect = format === "16:9" ? "16:9" : format === "1:1" ? "1:1" : "9:16";
+      const imgPrompt = `Primer cuadro (imagen fija) de un motion graphic. ${c.prompt.slice(0, 1500)}\nMuestra el estado del inicio, con los textos en español escritos exactamente como van entre comillas. Fondo y colores del estilo. Sin personas reales, marcas ni logotipos.`;
+      const r = await post("generate-ad-creative", { prompt: imgPrompt, aspectRatio: aspect, model: "nano-banana-pro" });
+      const data = await r.json();
+      applyServerCharge("gen_ad_image_nbpro", data.billing ?? readBilling(r), `Imagen base del clip ${k + 1}`);
+      if (typeof data.image !== "string") throw new Error("La IA no devolvió la imagen.");
+      const raw = await (await fetch(data.image)).blob();
+      const webp = await compressImage(raw, 1280, 0.9).catch(() => raw);
+      const path = `${user.id}/motion/${Date.now().toString(36)}-clip${k + 1}.webp`;
+      const up = await supabase.storage.from("creativos").upload(path, webp, { contentType: webp.type || "image/webp", upsert: false });
+      if (up.error) throw new Error("No se pudo guardar la imagen base.");
+      set({ step: "video", image: data.image });
+      const job = await createVideo({
+        prompt: `Anima esta imagen como un motion graphic suave y profesional, sin cortes de cámara y sin inventar elementos nuevos: ${c.prompt.slice(0, 1200)}`,
+        seconds: 5, size: aspect, audio: false, kind: "clip", image_path: path, image_bucket: "creativos",
+        product_id: productId ?? undefined,
+      });
+      if (job.billing) applyServerCharge("vid_mini_5", job.billing, `Clip ${k + 1} con IA`);
+      const done = await waitForVideo(job.job.id, p => setAiClips(cur => ({ ...cur, [k]: { ...cur[k], step: "video", progress: p } })));
+      if (done.status !== "done" || !done.result_url) throw new Error("La animación falló. Te devolvimos los créditos del video.");
+      set({ step: "listo", image: data.image, video: done.result_url });
+      track("motion_clip_ia", { clip: k + 1, formato: format });
+    } catch (e) {
+      setAiClips(cur => ({ ...cur, [k]: { ...cur[k], step: "error", error: e instanceof Error ? e.message : "No se pudo crear el clip." } }));
+    }
   };
 
   const chip = (on: boolean) => `h-9 px-3 rounded-full border text-[12px] transition-colors ${on ? "border-foreground/40 text-foreground bg-card" : "border-border text-muted-foreground hover:text-foreground"}`;
@@ -333,26 +423,79 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
             {plan.beats.map((b, i) => (
               <div key={i} className="rounded-xl border border-border p-3 space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                  <span>Escena {i + 1} · {LAYOUT_LABEL[b.layout]}</span>
+                  <label className="inline-flex items-center gap-1.5">
+                    <span>Escena {i + 1} ·</span>
+                    <select value={b.layout} disabled={busy} onChange={e => changeLayout(i, e.target.value as Layout)} onFocus={() => setFocus(i)}
+                      aria-label={`Tipo de la escena ${i + 1}`}
+                      className="h-8 rounded-md border border-border bg-background px-2 text-[12px] text-foreground focus:outline-none focus:border-primary/60">
+                      {LAYOUTS.map(l => <option key={l} value={l}>{LAYOUT_LABEL[l]}</option>)}
+                    </select>
+                  </label>
                   <span>{fmtSec(tl[i]?.dur ?? b.seconds)}</span>
                 </div>
                 <input value={b.text} disabled={busy} onChange={e => editBeat(i, { text: e.target.value.slice(0, 90) })}
                   aria-label={`Texto en pantalla de la escena ${i + 1}`}
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary/60" />
-                {b.items.length > 0 && (
+                {b.layout === "chapter" && (
+                  <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                    Número
+                    <input value={b.items[0] ?? ""} disabled={busy} onChange={e => editBeat(i, { items: [e.target.value.slice(0, 3)] })}
+                      className="w-20 rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground focus:outline-none focus:border-primary/60" />
+                  </label>
+                )}
+                {b.layout === "chart" && (
+                  <div className="space-y-1">
+                    <input value={chartDraft[i] ?? chartText(b)} disabled={busy}
+                      onChange={e => {
+                        const raw = e.target.value.slice(0, 300);
+                        setChartDraft(d => ({ ...d, [i]: raw }));
+                        const { labels, values } = parseChartData(raw);
+                        editBeat(i, { items: labels, values });
+                      }}
+                      placeholder="Tus datos reales: Ene: 2.000; Feb: 2.500; Mar: 3.100"
+                      aria-label={`Datos de la gráfica de la escena ${i + 1}`}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground focus:outline-none focus:border-primary/60" />
+                    <p className="text-[11px] text-muted-foreground">
+                      {(b.values?.length ?? 0) >= 2 ? `${b.values!.length} datos. ` : "Faltan datos: escribe al menos 2. "}
+                      Solo números reales tuyos (ventas, seguidores, precio): la app nunca los inventa.
+                    </p>
+                  </div>
+                )}
+                {ITEM_RULES[b.layout] && (
                   <div className="grid gap-2 sm:grid-cols-3">
                     {b.items.map((it, k) => (
-                      <input key={k} value={it} disabled={busy} onChange={e => editBeat(i, { items: b.items.map((x, j) => (j === k ? e.target.value.slice(0, 40) : x)) })}
-                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground focus:outline-none focus:border-primary/60" />
+                      <div key={k} className="relative">
+                        <input value={it} disabled={busy} onChange={e => editBeat(i, { items: b.items.map((x, j) => (j === k ? e.target.value.slice(0, 40) : x)) })}
+                          placeholder={`${ITEM_RULES[b.layout]!.label} ${k + 1}`}
+                          className="w-full rounded-lg border border-border bg-background pl-3 pr-9 py-2 text-[13px] text-foreground focus:outline-none focus:border-primary/60" />
+                        {b.items.length > 1 && (
+                          <button type="button" onClick={() => editBeat(i, { items: b.items.filter((_, j) => j !== k) })} disabled={busy}
+                            aria-label="Quitar" className="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 inline-flex items-center justify-center text-muted-foreground hover:text-foreground">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     ))}
+                    {b.items.length < ITEM_RULES[b.layout]!.max && (
+                      <button type="button" onClick={() => editBeat(i, { items: [...b.items, ""] })} disabled={busy}
+                        className="inline-flex items-center justify-center gap-1.5 h-10 rounded-lg border border-dashed border-border text-[12px] text-muted-foreground hover:text-foreground">
+                        <Plus className="w-3.5 h-3.5" /> {ITEM_RULES[b.layout]!.label}
+                      </button>
+                    )}
                   </div>
+                )}
+                {b.layout === "product" && (
+                  <label className={`inline-flex items-center gap-2 h-10 px-3.5 rounded-full border border-border text-[12px] cursor-pointer ${busy ? "opacity-60 pointer-events-none" : "text-foreground hover:border-foreground/30"}`}>
+                    <ImagePlus className="w-4 h-4" /> {b.image && images[b.image] ? "Cambiar la foto del producto" : "Subir la foto del producto"}
+                    <input type="file" accept="image/*" className="hidden" onChange={e => { void addPhoto(i, e.target.files?.[0] ?? null); e.target.value = ""; }} />
+                  </label>
                 )}
                 <textarea value={b.narration} rows={2} disabled={busy} onChange={e => editBeat(i, { narration: e.target.value.slice(0, 240) })}
                   aria-label={`Lo que dice la voz en la escena ${i + 1}`} placeholder="Lo que dice la voz"
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-muted-foreground focus:outline-none focus:border-primary/60" />
               </div>
             ))}
-            <p className="text-[11px] text-muted-foreground">Puedes cambiar cualquier texto gratis. Si cambias lo que dice la voz, hay que volver a crearla.</p>
+            <p className="text-[11px] text-muted-foreground">Puedes cambiar cualquier texto y el tipo de cada escena gratis; la vista previa muestra la escena que estás editando. Si cambias lo que dice la voz, hay que volver a crearla. Para el producto, mejor una foto con fondo liso o sin fondo.</p>
           </section>
         )}
 
@@ -361,7 +504,7 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
           <section className="rounded-2xl border border-border p-4 sm:p-5 space-y-3 min-w-0">
             <div>
               <h2 className="font-display text-[17px] font-semibold text-foreground">Prompts de 10 segundos (opcional)</h2>
-              <p className="text-[12px] text-muted-foreground mt-0.5">Por si quieres generar tomas con IA en Google Flow (Omni Flash), Veo o Seedance con el mismo estilo. Tu video ya sale sin esto.</p>
+              <p className="text-[12px] text-muted-foreground mt-0.5">Tu video ya sale sin esto. Si quieres una toma hecha con IA (iconos, objetos, movimiento de cámara), "Crear este clip con IA" hace primero la imagen base con el estilo y después la anima 5 segundos; o copia el prompt para Google Flow (Omni Flash), Veo o Seedance. A veces sale a la segunda: la IA no siempre acierta a la primera.</p>
             </div>
             {plan.clips.map((c, k) => (
               <details key={k} className="rounded-xl border border-border">
@@ -372,7 +515,27 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
                 <div className="px-3 pb-3 space-y-2">
                   {c.subline && <p className="text-[12px] text-muted-foreground">{c.subline}</p>}
                   <pre className="text-[11px] text-foreground whitespace-pre-wrap break-words max-h-56 overflow-auto rounded-lg bg-card p-2">{c.prompt}</pre>
-                  <button onClick={() => void copyText(c.prompt)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border text-[12px] text-foreground"><Copy className="w-3.5 h-3.5" /> Copiar</button>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => void copyText(c.prompt)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border text-[12px] text-foreground"><Copy className="w-3.5 h-3.5" /> Copiar</button>
+                    <button onClick={() => void makeAiClip(k)} disabled={aiClips[k]?.step === "imagen" || aiClips[k]?.step === "video"}
+                      className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border text-[12px] text-foreground hover:border-foreground/30 disabled:opacity-60">
+                      {aiClips[k]?.step === "imagen" || aiClips[k]?.step === "video" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      {aiClips[k]?.step === "imagen" ? "Creando la imagen base…" : aiClips[k]?.step === "video" ? `Animando… ${typeof aiClips[k]?.progress === "number" ? `${aiClips[k]!.progress} %` : "1 a 3 min"}`
+                        : `${aiClips[k]?.step === "listo" ? "Otra versión" : "Crear este clip con IA"} · ${AI_CLIP_PRICE} créditos`}
+                    </button>
+                  </div>
+                  {aiClips[k]?.error && <p className="text-[12px] text-muted-foreground">{aiClips[k]!.error}</p>}
+                  {(aiClips[k]?.image || aiClips[k]?.video) && (
+                    <div className="flex flex-wrap items-start gap-3">
+                      {aiClips[k]?.image && <img src={aiClips[k]!.image} alt={`Imagen base del clip ${k + 1}`} className="w-28 rounded-lg border border-border" />}
+                      {aiClips[k]?.video && (
+                        <div className="space-y-1.5">
+                          <video src={aiClips[k]!.video} controls playsInline className="w-40 rounded-lg border border-border bg-black" />
+                          <button onClick={() => void downloadVideo(aiClips[k]!.video!, `supernova-clip-${k + 1}.mp4`)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border text-[12px] text-foreground"><Download className="w-3.5 h-3.5" /> Descargar (el enlace dura 24 h)</button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </details>
             ))}
@@ -384,12 +547,12 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
           <section className="rounded-2xl border border-border p-4 sm:p-5 space-y-3 min-w-0">
             {step(3, "Voz (opcional)", "Una voz en español latino narra tu video y las escenas se ajustan a su ritmo.")}
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => setVoiceOn(true)} disabled={busy} className={chip(voiceOn)}><Mic className="w-3.5 h-3.5 inline mr-1" />Con voz</button>
-              <button onClick={() => setVoiceOn(false)} disabled={busy} className={chip(!voiceOn)}>Sin voz</button>
+              <button onClick={() => { setVoiceOn(true); setResult(null); }} disabled={busy} className={chip(voiceOn)}><Mic className="w-3.5 h-3.5 inline mr-1" />Con voz</button>
+              <button onClick={() => { setVoiceOn(false); setResult(null); }} disabled={busy} className={chip(!voiceOn)}>Sin voz</button>
             </div>
             {voiceOn && (
               <>
-                <div className="flex flex-wrap gap-2">{VOICES.map(v => <button key={v} onClick={() => setVoice(v)} disabled={busy} className={chip(voice === v)}>{VOICE_LABEL[v]}</button>)}</div>
+                <div className="flex flex-wrap gap-2">{VOICES.map(v => <button key={v} onClick={() => { setVoice(v); setResult(null); }} disabled={busy} className={chip(voice === v)}>{VOICE_LABEL[v]}</button>)}</div>
                 {voiceReady
                   ? <p className="inline-flex items-center gap-1.5 text-[12px] text-foreground"><Check className="w-4 h-4 text-primary" /> Voz lista ({fmtSec(total)})</p>
                   : (

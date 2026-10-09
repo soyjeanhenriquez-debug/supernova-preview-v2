@@ -106,3 +106,21 @@ español, gratis) y los prompts de 10 s quedan para quien quiera generar tomas c
   - **CapCut:** importa el video, la voz y el .srt; ajusta y exporta.
   - **Remotion** (proyecto EDICIONES REELS de Jean): el `plan.json` trae escenas, tiempos, estilo y
     textos para armar la composición allá.
+
+---
+
+## 3. Método "imagen base → animación" (video de Mirko, aplicado el 09-oct-2026)
+
+Lo que se tomó del video ("motion graphics desde cero con IA", Nano Banana Pro + Seedance / Gemini
+Omni Flash) y cómo quedó en la app:
+
+| En el video | En SUPERNOVA |
+|---|---|
+| Intro "5 formas de crecer" con 5 tarjetas que se revelan una por una | Escena **Tarjetas** (2 a 5, en abanico), dibujada gratis |
+| Portada de cada punto: número + título ("1 · Constancia") | Escena **Capítulo** |
+| Gráfica de Bitcoin con la gráfica y el precio REALES para que no los invente | Escena **Gráfica**: solo con datos que escribe la persona o que trae su guion (el servidor rechaza números que no estén en el texto) |
+| Producto: hoja de producto con fondo blanco, levitando, características arriba | Escena **Producto**: la persona sube su foto (mejor fondo liso) y aparecen sus características |
+| Imagen base con Nano Banana Pro → animarla con el modelo de video | **Crear este clip con IA** en cada prompt de 10 s: imagen base (Nano Banana Pro) + animación de 5 s (Seedance) |
+| "Si le das más duración de la que necesita, sale lenta y desincronizada" | Clips de IA de 5 s; las escenas dibujadas ajustan su animación a lo que dura cada una |
+| "No fue el primer intento" | La pantalla lo dice: a veces sale a la segunda; si la animación falla se devuelven sus créditos |
+| Combinar con edición (meter tu video dentro de la animación) | El .zip trae todo para terminar en CapCut o Remotion |

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 const bytesOf = (b: Blob) => new Promise<Uint8Array>((res) => { const r = new FileReader(); r.onload = () => res(new Uint8Array(r.result as ArrayBuffer)); r.readAsArrayBuffer(b); });
 import {
-  MOTION_PRESETS, buildTimeline, makeZip, promptsText, sanitizeStyle, styleForServer, timelineTotal, toSrt, voiceChunks, voiceTrackWav,
+  MOTION_PRESETS, buildTimeline, fmtNum, makeZip, parseChartData, parseNum, shareWithMin, wordsOf, promptsText, sanitizeStyle, styleForServer, timelineTotal, toSrt, voiceChunks, voiceTrackWav,
   type Beat,
 } from "./motionGraphics";
 
@@ -82,5 +82,48 @@ describe("partes para editar", () => {
     expect(dv.getUint32(end, true)).toBe(0x06054b50);
     expect(dv.getUint16(end + 10, true)).toBe(2);
     expect(dv.getUint32(14, true)).toBe(0x6fa0f988); // CRC-32 estándar de "hola" (zlib)
+  });
+});
+
+describe("arreglos del QA del 08-oct", () => {
+  it("el mínimo por escena se compensa dentro del tramo: la voz y la imagen no se separan", () => {
+    const d = shareWithMin(5, [8, 30, 12]);
+    expect(d[0]).toBeCloseTo(1.4);
+    expect(d.reduce((a, b) => a + b, 0)).toBeCloseTo(5);
+    expect(shareWithMin(2, [10, 10])).toEqual([1.4, 1.4]); // no alcanza: cada una al mínimo
+  });
+  it("con voz, el total del video es el del audio (más el respiro final)", () => {
+    const beats = [beat("Año", ""), beat("b", "x".repeat(40)), beat("c", "uno dos tres")];
+    const tl = buildTimeline(beats, voiceChunks(beats), [5], 0);
+    expect(timelineTotal(tl)).toBeCloseTo(5);
+  });
+  it("una frase resaltada solo se marca donde aparece completa, y la ñ no es n", () => {
+    const w = wordsOf("La oferta de la semana es la mejor oferta", ["la mejor oferta"], false);
+    expect(w.filter(x => x.hot).map(x => x.w)).toEqual(["la", "mejor", "oferta"]);
+    expect(wordsOf("Un año, un ano", ["año"], false).filter(x => x.hot).map(x => x.w)).toEqual(["año,"]);
+    expect(wordsOf("¿Empiezas HOY?", ["hoy"], true).filter(x => x.hot).map(x => x.w)).toEqual(["HOY?"]);
+  });
+  it("el .srt no se parte con renglones vacíos ni numera subtítulos vacíos", () => {
+    const srt = toSrt([beat("A", "Hola\n\nmundo"), beat("", ""), beat("C", "")], [{ start: 0, dur: 1 }, { start: 1, dur: 1 }, { start: 2, dur: 1 }]);
+    expect(srt).toBe("1\n00:00:00,000 --> 00:00:01,000\nHola mundo\n\n2\n00:00:02,000 --> 00:00:03,000\nC\n");
+  });
+});
+
+describe("escenas nuevas (09-oct): datos de la gráfica en formato español", () => {
+  it("lee números como los escribe la persona", () => {
+    expect(parseNum("2.000")).toBe(2000);
+    expect(parseNum("0,8 %")).toBe(0.8);
+    expect(parseNum("US$ 1.250,50")).toBe(1250.5);
+    expect(parseNum("sin número")).toBeNaN();
+  });
+  it("arma etiquetas y valores; ignora lo que no es número", () => {
+    expect(parseChartData("Ene: 2.000; Feb: 2.500; Mar: hola; Abr: 3.100")).toEqual({ labels: ["Ene", "Feb", "Abr"], values: [2000, 2500, 3100] });
+    expect(parseChartData("100\n120\n150")).toEqual({ labels: ["", "", ""], values: [100, 120, 150] });
+  });
+  it("muestra los números en formato español", () => {
+    expect(fmtNum(3100)).toBe("3.100");
+    expect(fmtNum(1250.5)).toBe("1.250,5");
+    expect(fmtNum(-2000000)).toBe("-2.000.000");
+    expect(fmtNum(0.8)).toBe("0,8");
   });
 });

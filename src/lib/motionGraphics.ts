@@ -15,7 +15,10 @@ export type Transition = "cut" | "fade" | "slide" | "zoom" | "wipe";
 export type Deco = "none" | "lines" | "grain" | "circles" | "grid" | "glow";
 export type Highlight = "color" | "box" | "underline";
 export type Camera = "still" | "push" | "drift";
-export type Layout = "statement" | "big_word" | "list" | "question" | "contrast" | "quote" | "cta";
+export type Layout = "statement" | "big_word" | "list" | "question" | "contrast" | "quote" | "cta"
+  // 09-oct-2026 (método de Mirko: intro con tarjetas, portada de cada punto, gráfica con datos reales, producto):
+  | "cards" | "chapter" | "chart" | "product";
+export const LAYOUTS: Layout[] = ["statement", "big_word", "list", "question", "contrast", "quote", "cta", "cards", "chapter", "chart", "product"];
 
 export type MotionStyle = {
   name: string; summary: string;
@@ -26,7 +29,15 @@ export type MotionStyle = {
   /** Del prompt maestro (solo estilos modelados de una referencia). */
   motif?: string; breakdown?: string[]; master_prompt?: string;
 };
-export type Beat = { layout: Layout; text: string; emphasis: string[]; items: string[]; narration: string; seconds: number };
+export type Beat = {
+  layout: Layout; text: string; emphasis: string[]; items: string[]; narration: string; seconds: number;
+  /** chart: los valores REALES (vienen del guion o los escribe la persona; nunca inventados). items = etiquetas. */
+  values?: number[];
+  /** product: nombre del archivo de la foto (imagenes/<nombre> en el paquete). */
+  image?: string;
+};
+/** Imágenes ya cargadas para dibujar (fotos de producto), por nombre de archivo. */
+export type MotionAssets = Record<string, CanvasImageSource & { width: number; height: number }>;
 /** Clip de 10 s del "prompt maestro universal": cubre escenas seguidas, para generarlo con IA aparte. */
 export type MotionClip = { beats: number[]; headline: string; subline: string; prompt: string };
 export type MotionPlan = { title: string; beats: Beat[]; clips?: MotionClip[]; caption: string };
@@ -75,16 +86,33 @@ const FONT_CSS: Record<MotionFont, string> = {
 const SINGLE_WEIGHT = new Set<MotionFont>(["Anton", "Bebas Neue", "Archivo Black", "DM Serif Display"]);
 export const fontWeightFor = (s: Pick<MotionStyle, "font" | "weight">) => (SINGLE_WEIGHT.has(s.font) ? 400 : s.weight);
 
-export async function loadMotionFont(font: MotionFont, weight: number): Promise<void> {
-  if (typeof document === "undefined") return;
+/**
+ * La letra del estilo + las dos fijas del dibujo (números de la lista en Sora, comillas en Playfair).
+ * Devuelve las que NO cargaron (sin internet o Google Fonts lento): el video sale con la de respaldo,
+ * pero quien llama puede avisar.
+ */
+export async function loadMotionFonts(s: Pick<MotionStyle, "font" | "weight">): Promise<string[]> {
+  const list: [MotionFont, number][] = [[s.font, fontWeightFor(s)], ["Sora", 800], ["Playfair Display", 900]];
+  const ok = await Promise.all(list.map(([f, w]) => loadMotionFont(f, w)));
+  return list.filter((_, i) => !ok[i]).map(([f]) => f);
+}
+
+/** Carga una fuente de Google Fonts con tope de tiempo en CADA paso (QA 08-oct: si el archivo de la
+ * fuente quedaba a medio bajar, document.fonts.load no volvía nunca y el render se colgaba). */
+export async function loadMotionFont(font: MotionFont, weight: number, timeoutMs = 6000): Promise<boolean> {
+  if (typeof document === "undefined") return false;
+  const within = <T,>(p: Promise<T>) => Promise.race([p, new Promise<null>(res => setTimeout(() => res(null), timeoutMs))]);
   const href = `https://fonts.googleapis.com/css2?${FONT_CSS[font]}&display=swap`;
   if (!document.querySelector(`link[href="${href}"]`)) {
     const link = document.createElement("link");
     link.rel = "stylesheet"; link.href = href;
     document.head.appendChild(link);
-    await new Promise<void>(res => { link.onload = () => res(); link.onerror = () => res(); setTimeout(res, 4000); });
+    await within(new Promise<void>(res => { link.onload = () => res(); link.onerror = () => res(); }));
   }
-  try { await document.fonts.load(`${weight} 80px "${font}"`, "ÁÉÍÓÚÑ¿?áéíóúñ"); } catch { /* se usa la de respaldo */ }
+  try {
+    const faces = await within(document.fonts.load(`${weight} 80px "${font}"`, "ÁÉÍÓÚÑ¿?áéíóúñ"));
+    return Array.isArray(faces) && faces.length > 0;
+  } catch { return false; }
 }
 
 // ---------- Validación del estilo que viene del servidor o de localStorage ----------
@@ -151,22 +179,43 @@ export function buildTimeline(beats: Pick<Beat, "narration" | "text" | "seconds"
   if (chunks && audioSecs && chunks.length === audioSecs.length) {
     chunks.forEach((c, k) => {
       const lens = c.beats.map(i => Math.max(8, (beats[i].narration || beats[i].text).length));
-      const sum = lens.reduce((a, b) => a + b, 0);
-      c.beats.forEach((i, j) => { durs[i] = Math.max(MIN_BEAT, (audioSecs[k] * lens[j]) / sum); });
+      shareWithMin(audioSecs[k], lens).forEach((d, j) => { durs[c.beats[j]] = d; });
     });
   }
   if (durs.length) durs[durs.length - 1] += tail;
   let t = 0;
   return durs.map(d => { const r = { start: t, dur: d }; t += d; return r; });
 }
+/**
+ * Reparte `total` según `weights`, con mínimo MIN_BEAT por escena. Las que suben al mínimo le quitan
+ * ese tiempo a las demás del MISMO tramo (antes se sumaba y la imagen se iba atrasando respecto a la
+ * voz: QA del 08-oct-2026). Si el tramo es tan corto que no alcanza, cada una queda en el mínimo.
+ */
+export function shareWithMin(total: number, weights: number[]): number[] {
+  const n = weights.length;
+  if (!n) return [];
+  if (total <= MIN_BEAT * n) return weights.map(() => MIN_BEAT);
+  const fixed = new Set<number>();
+  for (;;) {
+    const free = weights.map((w, i) => (fixed.has(i) ? 0 : w));
+    const sum = free.reduce((a, b) => a + b, 0);
+    const left = total - fixed.size * MIN_BEAT;
+    const out = weights.map((w, i) => (fixed.has(i) ? MIN_BEAT : (left * w) / sum));
+    const low = out.findIndex((d, i) => !fixed.has(i) && d < MIN_BEAT);
+    if (low < 0) return out;
+    fixed.add(low);
+  }
+}
 export const timelineTotal = (tl: Timeline) => (tl.length ? tl[tl.length - 1].start + tl[tl.length - 1].dur : 0);
 
 // ---------- Dibujo ----------
+// Regla: dentro de una escena la transparencia se MULTIPLICA (globalAlpha *=), nunca se pisa; si no,
+// el fundido de la transición se perdía y el texto viejo desaparecía de golpe (QA 08-oct).
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 const easeOut = (t: number) => 1 - Math.pow(1 - clamp01(t), 3);
 const easeInOut = (t: number) => { const x = clamp01(t); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
 const backOut = (t: number) => { const c1 = 1.70158, c3 = c1 + 1, x = clamp01(t) - 1; return 1 + c3 * x * x * x + c1 * x * x; };
-const norm = (w: string) => w.toLocaleLowerCase("es").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\p{L}\p{N}]/gu, "");
+const norm = (w: string) => w.toLocaleLowerCase("es").normalize("NFD").replace(/n\u0303/g, "ñ").replace(/[\u0300-\u036f]/g, "").replace(/[^\p{L}\p{N}]/gu, "");
 
 function hexToRgba(hex: string, a: number) {
   const n = parseInt(hex.slice(1), 16);
@@ -176,9 +225,19 @@ function hexToRgba(hex: string, a: number) {
 function rand(seed: number) { const x = Math.sin(seed * 12.9898) * 43758.5453; return x - Math.floor(x); }
 
 type Word = { w: string; hot: boolean };
-function wordsOf(text: string, emphasis: string[], upper: boolean): Word[] {
-  const hot = new Set(emphasis.flatMap(e => e.split(/\s+/)).map(norm).filter(Boolean));
-  return text.split(/\s+/).filter(Boolean).map(w => ({ w: upper ? w.toLocaleUpperCase("es") : w, hot: hot.has(norm(w)) }));
+/** Marca las palabras de cada frase resaltada SOLO donde la frase aparece completa y seguida. */
+export function wordsOf(text: string, emphasis: string[], upper: boolean): Word[] {
+  const raw = text.split(/\s+/).filter(Boolean);
+  const keys = raw.map(norm);
+  const hot = new Array(raw.length).fill(false);
+  for (const e of emphasis) {
+    const phrase = e.split(/\s+/).map(norm).filter(Boolean);
+    if (!phrase.length) continue;
+    for (let i = 0; i + phrase.length <= keys.length; i++) {
+      if (phrase.every((p, j) => keys[i + j] === p)) for (let j = 0; j < phrase.length; j++) hot[i + j] = true;
+    }
+  }
+  return raw.map((w, i) => ({ w: upper ? w.toLocaleUpperCase("es") : w, hot: hot[i] }));
 }
 
 type Placed = Word & { x: number; y: number; width: number };
@@ -207,7 +266,35 @@ function fitWords(g: CanvasRenderingContext2D, words: Word[], font: (s: number) 
   return { size: 18, lines: [], space: 4, lh: 20 };
 }
 
-type Ctx = { g: CanvasRenderingContext2D; W: number; H: number; s: MotionStyle; vertical: boolean };
+type Ctx = { g: CanvasRenderingContext2D; W: number; H: number; s: MotionStyle; vertical: boolean; assets?: MotionAssets };
+
+/** Lee un número escrito en español: "2.000" → 2000, "0,8" → 0.8, "US$ 1.250,50" → 1250.5. */
+export function parseNum(raw: string): number {
+  const t = raw.replace(/[^\d.,-]/g, "");
+  if (!/\d/.test(t)) return NaN;
+  return Number(t.replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", "."));
+}
+/** "Ene: 2.000; Feb: 2.500" (o un renglón por dato) → etiquetas y valores. Sin etiqueta: solo el valor. */
+export function parseChartData(raw: string): { labels: string[]; values: number[] } {
+  const labels: string[] = [], values: number[] = [];
+  for (const part of raw.split(/[;\n]+/)) {
+    const m = part.match(/^\s*(.*?)\s*[:=]\s*(.+)$/);
+    const v = parseNum(m ? m[2] : part);
+    if (!Number.isFinite(v)) continue;
+    labels.push(m ? m[1].slice(0, 12) : "");
+    values.push(v);
+  }
+  return { labels: labels.slice(0, 12), values: values.slice(0, 12) };
+}
+
+/** Números en formato español: 2.000 y 0,8 (sin redondear lo que trae la persona). */
+export function fmtNum(n: number): string {
+  if (!Number.isFinite(n)) return "";
+  const [int, dec] = String(Math.round(n * 100) / 100).split(".");
+  const sign = int.startsWith("-") ? "-" : "";
+  const digits = int.replace("-", "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${sign}${digits}${dec ? `,${dec}` : ""}`;
+}
 
 function drawBackground(c: Ctx, t: number, beatIndex: number) {
   const { g, W, H, s } = c;
@@ -225,13 +312,13 @@ function drawBackground(c: Ctx, t: number, beatIndex: number) {
   g.save();
   switch (s.deco) {
     case "lines": {
-      g.strokeStyle = hexToRgba(P.muted, 0.14); g.lineWidth = 1.5;
+      g.strokeStyle = hexToRgba(P.muted, 0.14); g.lineWidth = 1.5 * (u / 720);
       const gap = u * 0.09, off = (t * 18) % gap;
       for (let x = -H; x < W + H; x += gap) { g.beginPath(); g.moveTo(x + off, 0); g.lineTo(x + off - H * 0.5, H); g.stroke(); }
       break;
     }
     case "grid": {
-      g.strokeStyle = hexToRgba(P.muted, 0.12); g.lineWidth = 1;
+      g.strokeStyle = hexToRgba(P.muted, 0.12); g.lineWidth = u / 720;
       const gap = u * 0.08, off = (t * 10) % gap;
       for (let x = -gap + off; x < W; x += gap) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
       for (let y = -gap + off; y < H; y += gap) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
@@ -255,29 +342,42 @@ function drawBackground(c: Ctx, t: number, beatIndex: number) {
     case "grain": {
       const f = Math.floor(t * 24);
       g.fillStyle = hexToRgba(P.fg, 0.05);
-      for (let k = 0; k < 900; k++) g.fillRect(rand(f * 1000 + k) * W, rand(f * 1000 + k + 0.5) * H, 2, 2);
+      const dot = 2 * (u / 720), dots = Math.round(900 * (W * H) / (720 * 1280));
+      for (let k = 0; k < dots; k++) g.fillRect(rand(f * 1000 + k) * W, rand(f * 1000 + k + 0.5) * H, dot, dot);
       break;
     }
   }
   g.restore();
 }
 
-/** Aparición de una palabra k (de n) en el tiempo local `lt` de la escena. */
-function wordState(anim: TextAnim, k: number, lt: number, energy: number) {
-  const stagger = anim === "slam" ? 0.16 : anim === "fade" ? 0.07 : 0.11 / (energy * 0.5 + 0.5);
+/**
+ * Cuándo entra cada palabra: el escalonado del estilo, pero todas tienen que haber terminado de entrar
+ * a más tardar al 60 % de la escena (QA 08-oct: con texto largo en escenas cortas, Impacto dejaba
+ * palabras sin aparecer). `n` = palabras del bloque, `sceneDur` = duración de la escena.
+ */
+function wordTiming(anim: TextAnim, n: number, energy: number, sceneDur: number) {
+  const base = anim === "slam" ? 0.16 : anim === "fade" ? 0.07 : 0.11 / (energy * 0.5 + 0.5);
   const dur = anim === "fade" ? 0.5 : 0.32;
-  const p = clamp01((lt - 0.08 - k * stagger) / dur);
+  const budget = Math.max(0.3, sceneDur * 0.6 - 0.08 - dur);
+  return { stagger: n > 1 ? Math.min(base, budget / (n - 1)) : base, dur: Math.min(dur, Math.max(0.15, sceneDur * 0.25)) };
+}
+/** La primera palabra ya va entrando en el cuadro 0 de cada escena (antes había 3–4 cuadros vacíos). */
+const LEAD_IN = 0.12;
+/** Aparición de una palabra k en el tiempo local `lt` de la escena. */
+function wordState(anim: TextAnim, k: number, lt: number, tm: { stagger: number; dur: number }) {
+  const p = clamp01((lt + LEAD_IN - k * tm.stagger) / tm.dur);
   switch (anim) {
     case "pop": return { a: clamp01(p * 2), scale: 0.55 + 0.45 * backOut(p), dy: 0 };
     case "rise": return { a: easeOut(p), scale: 1, dy: (1 - easeOut(p)) * 0.6 };
-    case "slam": return { a: clamp01(p * 3), scale: 1 + 0.9 * (1 - easeOut(p)), dy: 0 };
+    case "slam": return { a: clamp01(p * 3), scale: 1 + 0.55 * (1 - easeOut(p)), dy: 0 };
     case "fade": return { a: easeInOut(p), scale: 1, dy: 0 };
     default: return { a: p > 0 ? 1 : 0, scale: 1, dy: 0 }; // type: se maneja por letras
   }
 }
 
 /** Dibuja un bloque de texto animado. Devuelve dónde terminó (para poner lo que va debajo). */
-function drawTextBlock(c: Ctx, text: string, emphasis: string[], lt: number, o: { size: number; maxW: number; maxH: number; maxLines: number; cx: number; top: number; color?: string; anim?: TextAnim; center?: boolean }) {
+type LineBox = { x: number; y: number; width: number };
+function drawTextBlock(c: Ctx, text: string, emphasis: string[], lt: number, o: { size: number; maxW: number; maxH: number; maxLines: number; cx: number; top: number; color?: string; anim?: TextAnim; center?: boolean; dur?: number; vcenter?: boolean }) {
   const { g, s } = c;
   const P = s.palette;
   const weight = fontWeightFor(s);
@@ -287,54 +387,68 @@ function drawTextBlock(c: Ctx, text: string, emphasis: string[], lt: number, o: 
   const anim = o.anim ?? s.text_anim;
   const center = o.center ?? s.align === "center";
   const placed: Placed[] = [];
+  const lineBoxes: LineBox[] = [];
+  // vcenter: `top` es el centro del bloque (big_word, paneles del contraste).
+  const top = o.vcenter ? o.top - (fit.lines.length * fit.lh) / 2 : o.top;
   fit.lines.forEach((line, li) => {
     let x = center ? o.cx - line.width / 2 : o.cx - o.maxW / 2;
-    const y = o.top + li * fit.lh + fit.size * 0.85;
+    const y = top + li * fit.lh + fit.size * 0.85;
+    lineBoxes.push({ x, y, width: line.width });
     line.words.forEach(w => { placed.push({ ...w, x, y }); x += w.width + fit.space; });
   });
+  const sceneDur = o.dur ?? 3;
+  const tm = wordTiming(anim, placed.length, s.energy, sceneDur);
   g.font = font(fit.size);
   g.textBaseline = "alphabetic";
   g.textAlign = "left";
   const totalChars = placed.reduce((a, w) => a + w.w.length + 1, 0);
-  const typed = anim === "type" ? Math.floor(clamp01((lt - 0.05) / Math.max(0.6, Math.min(1.6, totalChars * 0.035))) * totalChars) : Infinity;
+  // Máquina de escribir: termina a más tardar al 55 % de la escena (antes cortaba a media palabra).
+  const typeTime = Math.max(0.3, Math.min(1.6, totalChars * 0.035, sceneDur * 0.55));
+  const typed = anim === "type" ? Math.floor(clamp01((lt + LEAD_IN) / typeTime) * totalChars) : Infinity;
   let charsSoFar = 0;
+  let cursor: { x: number; y: number } | null = null;
   placed.forEach((w, k) => {
-    const st = wordState(anim, k, lt, s.energy);
+    const st = wordState(anim, k, lt, tm);
     let shown = w.w;
     if (anim === "type") {
       const left = typed - charsSoFar;
       charsSoFar += w.w.length + 1;
       if (left <= 0) return;
       shown = w.w.slice(0, left);
+      g.font = font(fit.size);
+      cursor = { x: w.x + g.measureText(shown).width, y: w.y };
     }
     if (st.a <= 0) return;
     g.save();
-    g.globalAlpha = st.a;
+    g.globalAlpha *= st.a;
     const mx = w.x + w.width / 2, my = w.y - fit.size * 0.35 + st.dy * fit.size;
     g.translate(mx, my); g.scale(st.scale, st.scale); g.translate(-mx, -my + st.dy * fit.size);
-    const hp = clamp01((lt - 0.25 - k * 0.11) / 0.35);
+    // El resalte arranca cuando entra la palabra (antes esperaba un escalonado fijo y la palabra
+    // quedaba invisible: texto del color del fondo sin su caja todavía).
+    const hp = clamp01((lt + LEAD_IN - k * tm.stagger - tm.dur * 0.5) / 0.25);
     if (w.hot && s.highlight === "box") {
       const pad = fit.size * 0.12;
       g.fillStyle = P.accent;
-      g.fillRect(w.x - pad, w.y - fit.size * 0.86, (w.width + pad * 2) * easeOut(hp * 1.4), fit.size * 1.06);
-      g.fillStyle = P.bg;
+      // Alto de la caja con aire para las tildes de mayúsculas (Ñ, Á).
+      g.fillRect(w.x - pad, w.y - fit.size * 1.0, (w.width + pad * 2) * easeOut(hp), fit.size * 1.22);
+      g.fillStyle = hp > 0.5 ? P.bg : (o.color ?? P.fg);
     } else {
       g.fillStyle = w.hot ? P.accent : (o.color ?? P.fg);
     }
     g.fillText(shown, w.x, w.y);
-    if (w.hot && s.highlight === "underline") {
+    if (w.hot && s.highlight === "underline" && shown === w.w) { // en "type", el subrayado espera a la palabra entera
       g.fillStyle = P.accent;
       g.fillRect(w.x, w.y + fit.size * 0.1, w.width * easeOut(hp), Math.max(3, fit.size * 0.07));
     }
     g.restore();
   });
-  // Cursor de la máquina de escribir.
-  if (anim === "type" && typed < totalChars && placed.length && Math.floor(lt * 3) % 2 === 0) {
-    const last = placed[placed.length - 1];
+  // Cursor de la máquina de escribir: justo donde va escribiendo.
+  const cur = cursor as { x: number; y: number } | null;
+  if (anim === "type" && typed < totalChars && cur && Math.floor(lt * 3) % 2 === 0) {
     g.fillStyle = P.accent;
-    g.fillRect(last.x + last.width + 6, last.y - fit.size * 0.8, Math.max(3, fit.size * 0.08), fit.size * 0.9);
+    g.fillRect(cur.x + fit.size * 0.06, cur.y - fit.size * 0.8, Math.max(3, fit.size * 0.08), fit.size * 0.9);
   }
-  return { bottom: o.top + fit.lines.length * fit.lh, size: fit.size };
+  return { bottom: top + fit.lines.length * fit.lh, size: fit.size, lines: lineBoxes };
 }
 
 function drawBeat(c: Ctx, b: Beat, lt: number, dur: number) {
@@ -345,38 +459,42 @@ function drawBeat(c: Ctx, b: Beat, lt: number, dur: number) {
   const maxW = W - padX * 2;
   const cx = W / 2;
   const left = s.align === "left";
+  const square = !vertical && W / H < 1.2;
+  /** Altura de arranque según formato: vertical / cuadrado / horizontal. */
+  const at = (v: number, sq: number, h: number) => H * (vertical ? v : square ? sq : h);
 
   switch (b.layout) {
     case "big_word": {
-      const r = drawTextBlock(c, b.text, b.emphasis.length ? b.emphasis : [b.text], lt, { size: u * 0.26, maxW, maxH: H * 0.45, maxLines: 3, cx, top: H * 0.5 - u * 0.17, anim: s.text_anim === "type" ? "slam" : s.text_anim, center: true });
-      void r;
+      drawTextBlock(c, b.text, b.emphasis.length ? b.emphasis : [b.text], lt, { size: u * 0.26, maxW, maxH: H * 0.45, maxLines: 3, cx, top: H * 0.5, vcenter: true, anim: s.text_anim === "type" ? "slam" : s.text_anim, center: true, dur });
       break;
     }
     case "list": {
-      const head = drawTextBlock(c, b.text, b.emphasis, lt, { size: u * 0.085, maxW, maxH: H * 0.25, maxLines: 3, cx, top: H * (vertical ? 0.22 : 0.14) });
-      const per = Math.max(0.35, (dur - 0.9) / Math.max(1, b.items.length + 0.5));
-      b.items.forEach((it, k) => {
+      const head = drawTextBlock(c, b.text, b.emphasis, lt, { size: u * 0.085, maxW, maxH: H * 0.25, maxLines: 3, cx, top: at(0.28, 0.16, 0.14), dur: dur * 0.5 });
+      const items = b.items.filter(it => it.trim());
+      const per = Math.max(0.35, (dur - 0.9) / Math.max(1, items.length + 0.5));
+      const slide = 40 * (u / 720);
+      items.forEach((it, k) => {
         const p = easeOut((lt - 0.5 - k * per) / 0.35);
         if (p <= 0) return;
-        const y = head.bottom + u * 0.08 + k * u * 0.15;
+        const y = head.bottom + u * 0.09 + k * u * 0.17;
         g.save();
-        g.globalAlpha = p;
-        g.translate((1 - p) * -40, 0);
+        g.globalAlpha *= p;
+        g.translate((1 - p) * -slide, 0);
         const bx = left ? padX : padX + maxW * 0.08;
         g.fillStyle = P.accent;
-        g.beginPath(); g.arc(bx + u * 0.03, y + u * 0.045, u * 0.028, 0, Math.PI * 2); g.fill();
-        g.fillStyle = P.bg; g.font = `800 ${Math.round(u * 0.032)}px Sora, system-ui, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
-        g.fillText(String(k + 1), bx + u * 0.03, y + u * 0.047);
+        g.beginPath(); g.arc(bx + u * 0.035, y + u * 0.045, u * 0.036, 0, Math.PI * 2); g.fill();
+        g.fillStyle = P.bg; g.font = `800 ${Math.round(u * 0.042)}px Sora, system-ui, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
+        g.fillText(String(k + 1), bx + u * 0.035, y + u * 0.048);
         g.textAlign = "left"; g.textBaseline = "alphabetic";
         g.restore();
-        g.save(); g.globalAlpha = p; g.translate((1 - p) * -40, 0);
-        drawTextBlock(c, it, [], 99, { size: u * 0.06, maxW: maxW * 0.8, maxH: u * 0.13, maxLines: 2, cx: (left ? padX : padX + maxW * 0.08) + u * 0.09 + maxW * 0.4, top: y, color: P.fg, anim: "fade", center: false });
+        g.save(); g.globalAlpha *= p; g.translate((1 - p) * -slide, 0);
+        drawTextBlock(c, it, [], 99, { size: u * 0.068, maxW: maxW * 0.8, maxH: u * 0.13, maxLines: 2, cx: (left ? padX : padX + maxW * 0.08) + u * 0.09 + maxW * 0.4, top: y, color: P.fg, anim: "fade", center: false });
         g.restore();
       });
       break;
     }
     case "contrast": {
-      const head = drawTextBlock(c, b.text, b.emphasis, lt, { size: u * 0.08, maxW, maxH: H * 0.22, maxLines: 3, cx, top: H * (vertical ? 0.2 : 0.12) });
+      const head = drawTextBlock(c, b.text, b.emphasis, lt, { size: u * 0.08, maxW, maxH: H * 0.22, maxLines: 3, cx, top: at(0.24, 0.12, 0.12), dur: Math.min(dur, 1.2) });
       const [a, z] = b.items;
       const boxH = vertical ? H * 0.17 : H * 0.26;
       const gap = u * 0.04;
@@ -384,14 +502,16 @@ function drawBeat(c: Ctx, b: Beat, lt: number, dur: number) {
       const pa = easeOut((lt - 0.45) / 0.4), pz = easeOut((lt - 0.45 - Math.min(1.2, dur * 0.3)) / 0.4);
       const panel = (txt: string, y: number, p: number, on: boolean) => {
         if (p <= 0 || !txt) return;
-        g.save(); g.globalAlpha = p; g.translate(0, (1 - p) * 30);
+        const lift = 30 * (u / 720);
+        g.save(); g.globalAlpha *= p; g.translate(0, (1 - p) * lift);
         g.fillStyle = on ? hexToRgba(P.accent, 0.16) : hexToRgba(P.muted, 0.12);
         g.strokeStyle = on ? P.accent : hexToRgba(P.muted, 0.5); g.lineWidth = 2;
         g.beginPath(); g.roundRect(padX, y, maxW, boxH, u * 0.03); g.fill(); g.stroke();
         g.restore();
-        g.save(); g.globalAlpha = p; g.translate(0, (1 - p) * 30);
-        const r = drawTextBlock(c, txt, [], 99, { size: u * 0.06, maxW: maxW * 0.86, maxH: boxH * 0.8, maxLines: 3, cx, top: y + boxH * 0.18, color: on ? P.fg : P.muted, anim: "fade", center: true });
-        if (!on) { g.fillStyle = P.muted; g.fillRect(cx - maxW * 0.3, y + boxH * 0.18 + (r.bottom - y - boxH * 0.18) / 2, maxW * 0.6 * p, 3); }
+        g.save(); g.globalAlpha *= p; g.translate(0, (1 - p) * lift);
+        const r = drawTextBlock(c, txt, [], 99, { size: u * 0.06, maxW: maxW * 0.86, maxH: boxH * 0.8, maxLines: 3, cx, top: y + boxH / 2, vcenter: true, color: on ? P.fg : P.muted, anim: "fade", center: true });
+        // Tachado del "antes": una raya por renglón, del ancho de ese renglón.
+        if (!on) { g.fillStyle = P.muted; r.lines.forEach(l => g.fillRect(l.x, l.y - r.size * 0.32, l.width * p, Math.max(2, r.size * 0.06))); }
         g.restore();
       };
       panel(a, top, pa, false);
@@ -400,22 +520,24 @@ function drawBeat(c: Ctx, b: Beat, lt: number, dur: number) {
     }
     case "question": {
       const qp = easeOut((lt - 0.05) / 0.5);
-      g.save(); g.globalAlpha = 0.18 * qp; g.fillStyle = P.accent;
-      g.font = `900 ${Math.round(u * 0.9)}px "${s.font}", Sora, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
-      g.fillText("?", W * 0.72, H * 0.5 + (1 - qp) * 40); g.restore();
-      drawTextBlock(c, b.text, b.emphasis, lt, { size: u * 0.11, maxW, maxH: H * 0.55, maxLines: 6, cx, top: H * (vertical ? 0.3 : 0.24) });
+      g.save(); g.globalAlpha *= 0.18 * qp; g.fillStyle = P.accent;
+      // "?" de fondo: más chico y tenue, dentro del cuadro también en 1:1 y 16:9.
+      g.font = `900 ${Math.round(u * (vertical ? 0.9 : 0.7))}px "${s.font}", Sora, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
+      g.globalAlpha *= vertical ? 1 : 0.7;
+      g.fillText("?", W * (vertical ? 0.72 : 0.8), H * 0.5 + (1 - qp) * 40 * (u / 720)); g.restore();
+      drawTextBlock(c, b.text, b.emphasis, lt, { size: u * 0.11, maxW, maxH: H * 0.55, maxLines: 6, cx, top: at(0.34, 0.26, 0.24), dur });
       break;
     }
     case "quote": {
       const qp = easeOut(lt / 0.5);
-      g.save(); g.globalAlpha = qp; g.fillStyle = P.accent;
+      g.save(); g.globalAlpha *= qp; g.fillStyle = P.accent;
       g.font = `900 ${Math.round(u * 0.32)}px "Playfair Display", Georgia, serif`; g.textAlign = left ? "left" : "center"; g.textBaseline = "alphabetic";
-      g.fillText("“", left ? padX - u * 0.02 : cx, H * (vertical ? 0.36 : 0.36)); g.restore();
-      drawTextBlock(c, b.text, b.emphasis, lt, { size: u * 0.085, maxW, maxH: H * 0.45, maxLines: 6, cx, top: H * (vertical ? 0.36 : 0.36) });
+      g.fillText("“", left ? padX - u * 0.02 : cx, at(0.4, 0.36, 0.36)); g.restore();
+      drawTextBlock(c, b.text, b.emphasis, lt, { size: u * 0.085, maxW, maxH: H * 0.45, maxLines: 6, cx, top: at(0.4, 0.36, 0.36), dur });
       break;
     }
     case "cta": {
-      const r = drawTextBlock(c, b.text, b.emphasis, lt, { size: u * 0.1, maxW, maxH: H * 0.4, maxLines: 5, cx, top: H * (vertical ? 0.3 : 0.22), center: true });
+      const r = drawTextBlock(c, b.text, b.emphasis, lt, { size: u * 0.1, maxW, maxH: H * 0.4, maxLines: 5, cx, top: at(0.34, 0.24, 0.22), center: true, dur: dur * 0.7 });
       const p = backOut((lt - 0.55) / 0.45);
       if (lt > 0.55) {
         const pulse = 1 + 0.04 * Math.sin(lt * 5);
@@ -425,25 +547,217 @@ function drawBeat(c: Ctx, b: Beat, lt: number, dur: number) {
         g.fillStyle = P.accent;
         g.beginPath(); g.roundRect(cx - bw / 2, by, bw, bh, bh / 2); g.fill();
         if (p > 0.8) {
-          g.fillStyle = P.bg; g.font = `800 ${Math.round(u * 0.07)}px "${s.font}", Sora, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
-          g.fillText("→", cx + Math.sin(lt * 6) * u * 0.012, by + bh / 2 + 2);
+          // El botón dice la palabra clave de la llamada (la resaltada), si cabe; si no, solo la flecha.
+          const key = (b.emphasis[0] ?? "").toLocaleUpperCase("es");
+          g.fillStyle = P.bg; g.textAlign = "center"; g.textBaseline = "middle";
+          g.font = `800 ${Math.round(u * 0.055)}px "${s.font}", Sora, sans-serif`;
+          const label = key && g.measureText(`${key} →`).width < bw * 0.85 ? `${key} →` : "→";
+          if (label === "→") g.font = `800 ${Math.round(u * 0.07)}px "${s.font}", Sora, sans-serif`;
+          g.fillText(label, cx + Math.sin(lt * 6) * u * 0.008, by + bh / 2 + 2);
         }
         g.restore();
       }
       break;
     }
+    case "cards": {
+      // Título + 2 a 5 tarjetas numeradas que entran una por una en abanico (intro "5 formas de…").
+      const head = drawTextBlock(c, b.text, b.emphasis, lt, { size: u * 0.085, maxW, maxH: H * 0.2, maxLines: 3, cx, top: at(0.14, 0.1, 0.1), center: true, dur: Math.min(dur, 1.2) });
+      const items = b.items.filter(it => it.trim()).slice(0, 5);
+      if (!items.length) break;
+      const n = items.length;
+      const cols = vertical ? (n <= 3 ? 1 : 2) : square ? Math.min(n, 3) : n;
+      const rows = Math.ceil(n / cols);
+      const gap = u * 0.03;
+      const areaTop = head.bottom + u * 0.06;
+      const areaH = Math.min(H * (vertical ? 0.62 : 0.62), H - areaTop - H * (vertical ? 0.12 : 0.08));
+      const cw = (maxW - gap * (cols - 1)) / cols;
+      const ch = Math.min((areaH - gap * (rows - 1)) / rows, vertical && cols === 1 ? u * 0.3 : cw * 1.25);
+      const startY = areaTop + Math.max(0, (areaH - (ch * rows + gap * (rows - 1))) / 2);
+      const per = Math.max(0.12, Math.min(0.35, (dur * 0.6 - 0.3) / Math.max(1, n)));
+      items.forEach((it, k) => {
+        const p = easeOut((lt - 0.25 - k * per) / 0.45);
+        if (p <= 0) return;
+        const col = k % cols, row = Math.floor(k / cols);
+        // La última fila, si queda incompleta, va centrada.
+        const inRow = row === rows - 1 ? n - row * cols : cols;
+        const rowW = inRow * cw + (inRow - 1) * gap;
+        const x = padX + (maxW - rowW) / 2 + col * (cw + gap);
+        const y = startY + row * (ch + gap);
+        g.save();
+        g.globalAlpha *= p;
+        g.translate(x + cw / 2, y + ch);
+        g.rotate((1 - p) * -0.22); // abanico: entran girando desde la izquierda
+        g.translate(-(x + cw / 2) - (1 - p) * u * 0.08, -(y + ch));
+        g.fillStyle = hexToRgba(P.fg, 0.06);
+        g.strokeStyle = hexToRgba(P.accent, 0.55); g.lineWidth = Math.max(1.5, u * 0.003);
+        g.beginPath(); g.roundRect(x, y, cw, ch, u * 0.025); g.fill(); g.stroke();
+        const r = Math.min(cw, ch) * 0.13;
+        g.fillStyle = P.accent;
+        g.beginPath(); g.arc(x + r * 1.6, y + r * 1.6, r, 0, Math.PI * 2); g.fill();
+        g.fillStyle = P.bg; g.font = `800 ${Math.round(r * 1.15)}px Sora, system-ui, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
+        g.fillText(String(k + 1), x + r * 1.6, y + r * 1.66);
+        g.textAlign = "left"; g.textBaseline = "alphabetic";
+        g.restore();
+        g.save(); g.globalAlpha *= p;
+        g.translate(-(1 - p) * u * 0.08, 0);
+        drawTextBlock(c, it, [], 99, { size: Math.min(u * 0.06, ch * 0.2), maxW: cw * 0.84, maxH: ch * 0.5, maxLines: 3, cx: x + cw / 2, top: y + ch * 0.66, vcenter: true, anim: "fade", center: true });
+        g.restore();
+      });
+      break;
+    }
+    case "chapter": {
+      // Portada de un punto: número grande (entra desde la izquierda) + título (sube desde abajo).
+      const num = (b.items[0] ?? "").trim() || "1";
+      const np = easeOut((lt + LEAD_IN) / 0.5);
+      const big = u * (vertical ? 0.42 : 0.36);
+      g.save();
+      g.globalAlpha *= np;
+      g.fillStyle = P.accent; g.textBaseline = "alphabetic";
+      g.font = `${fontWeightFor(s)} ${Math.round(big)}px "${s.font}", Sora, sans-serif`;
+      const nw = g.measureText(num).width;
+      const nx = vertical ? cx - nw / 2 : padX;
+      const ny = vertical ? H * 0.46 : H * 0.5 + big * 0.36;
+      g.fillText(num, nx - (1 - np) * u * 0.25, ny);
+      g.restore();
+      // Línea fina que une número y título.
+      const lp = easeOut((lt - 0.2) / 0.4);
+      g.fillStyle = hexToRgba(P.accent, 0.8);
+      if (vertical) g.fillRect(cx - u * 0.12 * lp, H * 0.5, u * 0.24 * lp, Math.max(3, u * 0.008));
+      else g.fillRect(padX + nw + u * 0.05, H * 0.5 - big * 0.28, Math.max(3, u * 0.008), big * 0.56 * lp);
+      g.save();
+      const tp = easeOut((lt - 0.25) / 0.45);
+      g.globalAlpha *= tp;
+      g.translate(0, (1 - tp) * u * 0.06);
+      if (vertical) drawTextBlock(c, b.text, b.emphasis, lt, { size: u * 0.11, maxW, maxH: H * 0.25, maxLines: 3, cx, top: H * 0.55, center: true, dur });
+      else {
+        const tx = padX + nw + u * 0.1;
+        const tw = W - padX - tx;
+        drawTextBlock(c, b.text, b.emphasis, lt, { size: u * 0.12, maxW: tw, maxH: H * 0.5, maxLines: 3, cx: tx + tw / 2, top: H * 0.5, vcenter: true, center: false, dur });
+      }
+      g.restore();
+      break;
+    }
+    case "chart": {
+      // Gráfica de línea que se dibuja sola. SOLO con valores reales (guion o la persona); sin valores
+      // no se dibuja nada inventado: queda el título.
+      const head = drawTextBlock(c, b.text, b.emphasis, lt, { size: u * 0.075, maxW, maxH: H * 0.18, maxLines: 2, cx, top: at(0.16, 0.08, 0.08), center: true, dur: Math.min(dur, 1) });
+      const vals = (b.values ?? []).filter(Number.isFinite).slice(0, 12);
+      if (vals.length < 2) break;
+      const labels = b.items.slice(0, vals.length);
+      const top = head.bottom + u * 0.1;
+      const bottom = H * (vertical ? 0.72 : 0.82);
+      const x0 = padX + u * 0.02, x1 = W - padX - u * 0.02;
+      const min = Math.min(...vals), max = Math.max(...vals);
+      const span = max - min || Math.abs(max) || 1;
+      const lo = min - span * 0.12, hi = max + span * 0.18;
+      const px = (i: number) => x0 + ((x1 - x0) * i) / (vals.length - 1);
+      const py = (v: number) => bottom - ((v - lo) / (hi - lo)) * (bottom - top);
+      // Rejilla suave.
+      g.strokeStyle = hexToRgba(P.muted, 0.18); g.lineWidth = Math.max(1, u * 0.0015);
+      for (let k = 0; k <= 3; k++) { const y = top + ((bottom - top) * k) / 3; g.beginPath(); g.moveTo(x0, y); g.lineTo(x1, y); g.stroke(); }
+      const prog = easeInOut((lt - 0.35) / Math.max(0.6, dur * 0.55));
+      const reach = prog * (vals.length - 1);
+      const pts: [number, number][] = [];
+      for (let i = 0; i <= Math.floor(reach); i++) pts.push([px(i), py(vals[i])]);
+      if (reach < vals.length - 1 && reach > 0) {
+        const i = Math.floor(reach), f = reach - i;
+        pts.push([px(i) + (px(i + 1) - px(i)) * f, py(vals[i]) + (py(vals[i + 1]) - py(vals[i])) * f]);
+      }
+      if (pts.length >= 2) {
+        const grad = g.createLinearGradient(0, top, 0, bottom);
+        grad.addColorStop(0, hexToRgba(P.accent, 0.28)); grad.addColorStop(1, hexToRgba(P.accent, 0));
+        g.beginPath(); g.moveTo(pts[0][0], bottom); pts.forEach(([x, y]) => g.lineTo(x, y)); g.lineTo(pts[pts.length - 1][0], bottom); g.closePath();
+        g.fillStyle = grad; g.fill();
+        g.beginPath(); pts.forEach(([x, y], k) => (k ? g.lineTo(x, y) : g.moveTo(x, y)));
+        g.strokeStyle = P.accent; g.lineWidth = Math.max(3, u * 0.008); g.lineJoin = "round"; g.lineCap = "round"; g.stroke();
+      }
+      g.textAlign = "center"; g.textBaseline = "top";
+      g.font = `600 ${Math.round(u * 0.032)}px Sora, system-ui, sans-serif`;
+      vals.forEach((v, i) => {
+        if (i > reach + 0.001) return;
+        g.fillStyle = P.accent; g.beginPath(); g.arc(px(i), py(v), Math.max(4, u * 0.011), 0, Math.PI * 2); g.fill();
+        if (labels[i] && (vals.length <= 7 || i % 2 === 0 || i === vals.length - 1)) { g.fillStyle = P.muted; g.fillText(labels[i], px(i), bottom + u * 0.02); }
+      });
+      // El último valor, grande, al terminar de dibujar.
+      const lp = easeOut((reach - (vals.length - 1.3)) / 0.3);
+      if (lp > 0) {
+        const lx = px(vals.length - 1), ly = py(vals[vals.length - 1]);
+        g.save(); g.globalAlpha *= lp;
+        g.font = `800 ${Math.round(u * 0.06)}px "${s.font}", Sora, sans-serif`; g.fillStyle = P.fg;
+        g.textAlign = lx > W * 0.7 ? "right" : "center"; g.textBaseline = "bottom";
+        g.fillText(fmtNum(vals[vals.length - 1]), lx, ly - u * 0.03);
+        g.restore();
+      }
+      g.textAlign = "left"; g.textBaseline = "alphabetic";
+      break;
+    }
+    case "product": {
+      // Foto del producto flotando + sus características alrededor (estilo anuncio de Apple).
+      const img = b.image ? c.assets?.[b.image] : undefined;
+      const head = drawTextBlock(c, b.text, b.emphasis, lt, { size: u * 0.08, maxW, maxH: H * 0.16, maxLines: 2, cx, top: at(0.1, 0.06, 0.08), center: true, dur: Math.min(dur, 1) });
+      const feats = b.items.filter(it => it.trim()).slice(0, 4);
+      const boxW = vertical ? maxW * 0.8 : square ? maxW * 0.5 : maxW * 0.42;
+      const boxH = vertical ? H * 0.36 : H * 0.58;
+      const bx = cx - boxW / 2, by = head.bottom + u * 0.04;
+      const ip = easeOut((lt + LEAD_IN) / 0.6);
+      const float = Math.sin(lt * 1.6) * u * 0.012;
+      if (img && img.width && img.height) {
+        const k = Math.min(boxW / img.width, boxH / img.height) * (0.9 + 0.1 * ip);
+        const w = img.width * k, h = img.height * k;
+        // Sombra en el piso.
+        g.save(); g.globalAlpha *= 0.35 * ip; g.fillStyle = "#000";
+        g.beginPath(); g.ellipse(cx, by + boxH * 0.97, w * 0.32, u * 0.018, 0, 0, Math.PI * 2); g.fill(); g.restore();
+        g.save(); g.globalAlpha *= ip;
+        g.drawImage(img, cx - w / 2, by + (boxH - h) / 2 + float + (1 - ip) * u * 0.05, w, h);
+        g.restore();
+      } else {
+        // Sin foto todavía: un marco que dice qué falta (la persona sube la foto en el editor).
+        g.save(); g.globalAlpha *= ip * 0.8;
+        g.setLineDash([u * 0.015, u * 0.012]); g.strokeStyle = hexToRgba(P.muted, 0.6); g.lineWidth = Math.max(2, u * 0.004);
+        g.beginPath(); g.roundRect(bx, by, boxW, boxH, u * 0.03); g.stroke(); g.setLineDash([]);
+        g.fillStyle = P.muted; g.textAlign = "center"; g.textBaseline = "middle"; g.font = `600 ${Math.round(u * 0.04)}px Sora, system-ui, sans-serif`;
+        g.fillText("Foto de tu producto", cx, by + boxH / 2); g.textAlign = "left"; g.textBaseline = "alphabetic";
+        g.restore();
+      }
+      const per = Math.max(0.15, Math.min(0.4, (dur * 0.65 - 0.6) / Math.max(1, feats.length)));
+      feats.forEach((f, k) => {
+        const p = easeOut((lt - 0.6 - k * per) / 0.4);
+        if (p <= 0) return;
+        let x: number, y: number, fw: number;
+        if (vertical || square) {
+          fw = maxW * (feats.length > 2 ? 0.48 : 0.9);
+          const cols = feats.length > 2 ? 2 : 1;
+          x = padX + (k % cols) * (maxW - fw) + (cols === 1 ? (maxW - fw) / 2 : 0);
+          y = by + boxH + u * 0.05 + Math.floor(k / cols) * u * 0.14;
+        } else {
+          fw = (W - boxW) / 2 - padX - u * 0.04;
+          x = k % 2 === 0 ? padX : cx + boxW / 2 + u * 0.04;
+          y = by + boxH * (0.15 + Math.floor(k / 2) * 0.45);
+        }
+        const fh = u * 0.11;
+        g.save(); g.globalAlpha *= p; g.translate(0, (1 - p) * u * 0.04);
+        g.fillStyle = hexToRgba(P.fg, 0.07); g.strokeStyle = hexToRgba(P.accent, 0.5); g.lineWidth = Math.max(1.5, u * 0.003);
+        g.beginPath(); g.roundRect(x, y, fw, fh, fh / 2); g.fill(); g.stroke();
+        g.fillStyle = P.accent; g.beginPath(); g.arc(x + fh * 0.5, y + fh / 2, fh * 0.14, 0, Math.PI * 2); g.fill();
+        g.restore();
+        g.save(); g.globalAlpha *= p; g.translate(0, (1 - p) * u * 0.04);
+        drawTextBlock(c, f, [], 99, { size: u * 0.042, maxW: fw - fh * 1.1, maxH: fh * 0.8, maxLines: 2, cx: x + fh * 0.85 + (fw - fh * 1.1) / 2, top: y + fh / 2, vcenter: true, center: false, anim: "fade", color: P.fg });
+        g.restore();
+      });
+      break;
+    }
     default: {
       // statement
-      const top = H * (vertical ? 0.32 : 0.26);
+      const top = at(0.36, 0.28, 0.26);
       if (left) { g.fillStyle = P.accent; g.fillRect(padX, top - u * 0.06, u * 0.12 * easeOut(lt / 0.4), Math.max(4, u * 0.012)); }
-      drawTextBlock(c, b.text, b.emphasis, lt, { size: u * 0.12, maxW, maxH: H * 0.5, maxLines: 6, cx, top });
+      drawTextBlock(c, b.text, b.emphasis, lt, { size: u * 0.12, maxW, maxH: H * 0.5, maxLines: 6, cx, top, dur });
     }
   }
 }
 
 /** Un cuadro del video en el tiempo `t` (segundos). */
-export function drawMotionFrame(g: CanvasRenderingContext2D, W: number, H: number, style: MotionStyle, beats: Beat[], tl: Timeline, t: number) {
-  const c: Ctx = { g, W, H, s: style, vertical: H > W };
+export function drawMotionFrame(g: CanvasRenderingContext2D, W: number, H: number, style: MotionStyle, beats: Beat[], tl: Timeline, t: number, assets?: MotionAssets) {
+  const c: Ctx = { g, W, H, s: style, vertical: H > W, assets };
   if (!beats.length || !tl.length) { g.fillStyle = style.palette.bg; g.fillRect(0, 0, W, H); return; }
   let i = tl.findIndex(x => t < x.start + x.dur);
   if (i < 0) i = tl.length - 1;
@@ -481,7 +795,7 @@ export function drawMotionFrame(g: CanvasRenderingContext2D, W: number, H: numbe
         break;
       case "wipe": {
         const x = W * p;
-        g.save(); g.beginPath(); g.rect(x, 0, W - x, H); g.clip(); layer(i - 1, prevT); g.restore();
+        g.save(); g.beginPath(); g.rect(x, 0, W - x, H); g.clip(); drawBackground(c, t, i - 1); layer(i - 1, prevT); g.restore();
         g.save(); g.beginPath(); g.rect(0, 0, x, H); g.clip(); drawBackground(c, t, i); layer(i, lt); g.restore();
         g.fillStyle = style.palette.accent; g.fillRect(x - 4, 0, 8, H);
         break;
@@ -502,7 +816,7 @@ export type PlayHandle = { stop: () => void; done: Promise<{ blob: Blob; mime: s
  */
 export function playMotion(o: {
   canvas: HTMLCanvasElement; ctx: AudioContext; style: MotionStyle; beats: Beat[]; tl: Timeline;
-  audio?: { buffer: AudioBuffer; at: number }[]; record?: boolean; monitor?: boolean;
+  audio?: { buffer: AudioBuffer; at: number }[]; record?: boolean; monitor?: boolean; assets?: MotionAssets;
   onProgress?: (t: number, total: number) => void;
 }): PlayHandle {
   const { canvas, ctx } = o;
@@ -539,15 +853,19 @@ export function playMotion(o: {
     if (stopped) return;
     stopped = true;
     if (!recorder) { cleanup(); resolveDone(null); return; }
-    if (cancelled) { try { recorder.stop(); } catch { /* nada */ } cleanup(); resolveDone(null); return; }
+    if (cancelled || !recording) { try { if (recording) recorder.stop(); } catch { /* nada */ } cleanup(); resolveDone(null); return; }
     recorder.onstop = () => { cleanup(); const type = rec!.mime.split(";")[0]; resolveDone({ blob: new Blob(chunks, { type }), mime: type, ext: rec!.ext }); };
     try { recorder.stop(); } catch (e) { cleanup(); rejectDone(e instanceof Error ? e : new Error("No se pudo cerrar la grabación.")); }
   };
 
+  let recording = false;
   const frame = () => {
     if (stopped) return;
     const now = ctx.currentTime - t0;
-    drawMotionFrame(g, W, H, o.style, o.beats, o.tl, Math.max(0, Math.min(now, total)));
+    // La grabación arranca justo cuando arranca la voz (t0), no antes: así el MP4, voz.wav y el .srt
+    // del paquete empiezan en el mismo segundo 0 (QA 08-oct: el video iba ~0,25 s atrasado).
+    if (recorder && !recording && now >= 0) { recording = true; recorder.start(1000); }
+    drawMotionFrame(g, W, H, o.style, o.beats, o.tl, Math.max(0, Math.min(now, total)), o.assets);
     o.onProgress?.(Math.max(0, Math.min(now, total)), total);
     if (now >= total + 0.15) finish(false);
   };
@@ -566,7 +884,7 @@ export function playMotion(o: {
     // Temporizador fijo de 30 cuadros/s, no requestAnimationFrame: rAF se frena a 1–2 cuadros/s si la
     // ventana queda tapada o en un panel embebido, y el video grabado salía cortado (probado 08-oct).
     // El reloj es el del audio: aunque un cuadro llegue tarde, imagen y voz no se separan.
-    if (recorder) { recorder.onerror = () => { cleanup(); stopped = true; rejectDone(new Error("La grabación falló. Intenta de nuevo.")); }; recorder.start(1000); }
+    if (recorder) recorder.onerror = () => { cleanup(); stopped = true; rejectDone(new Error("La grabación falló. Intenta de nuevo.")); };
     timer = window.setInterval(frame, 1000 / 30);
     frame();
   });
@@ -647,7 +965,10 @@ const srtTime = (t: number) => {
 };
 /** Subtítulos: lo que dice la voz en cada escena (o su texto, si no hay narración). */
 export function toSrt(beats: Pick<Beat, "narration" | "text">[], tl: Timeline): string {
-  return beats.map((b, i) => `${i + 1}\n${srtTime(tl[i].start)} --> ${srtTime(tl[i].start + tl[i].dur)}\n${(b.narration || b.text).trim()}\n`).join("\n");
+  // Sin saltos de línea dentro de un subtítulo (un renglón vacío parte el bloque del .srt) y sin
+  // subtítulos vacíos: se numeran solo los que tienen texto.
+  return beats.map((b, i) => ({ i, t: (b.narration || b.text).replace(/\s+/g, " ").trim() })).filter(x => x.t)
+    .map((x, n) => `${n + 1}\n${srtTime(tl[x.i].start)} --> ${srtTime(tl[x.i].start + tl[x.i].dur)}\n${x.t}\n`).join("\n");
 }
 
 /** Mezcla los tramos de voz en una sola pista, cada uno en su segundo del video (WAV 16 bits mono). */
@@ -741,6 +1062,8 @@ export async function makeZip(files: { name: string; data: Blob | string }[]): P
 export async function motionPackage(o: {
   style: MotionStyle; plan: MotionPlan; tl: Timeline; format: MotionFormat;
   video?: { blob: Blob; ext: string } | null; voice?: { buffer: AudioBuffer; at: number }[];
+  /** Fotos de producto por nombre de archivo (van en imagenes/; plan.json las nombra en scenes[].image). */
+  images?: Record<string, Blob>;
 }): Promise<Blob> {
   const total = timelineTotal(o.tl);
   const files: { name: string; data: Blob | string }[] = [{ name: "LEEME.txt", data: README }];
@@ -748,6 +1071,9 @@ export async function motionPackage(o: {
   if (o.voice?.length) files.push({ name: "voz.wav", data: voiceTrackWav(o.voice, total) });
   files.push({ name: "subtitulos.srt", data: toSrt(o.plan.beats, o.tl) });
   files.push({ name: "prompts.txt", data: promptsText(o.style, o.plan) });
+  for (const [name, blob] of Object.entries(o.images ?? {})) {
+    if (o.plan.beats.some(b => b.image === name)) files.push({ name: `imagenes/${name}`, data: blob });
+  }
   files.push({ name: "plan.json", data: JSON.stringify({
     title: o.plan.title, format: o.format, size: motionSize(o.format), fps: 30, seconds: Math.round(total * 100) / 100,
     style: o.style, caption: o.plan.caption, clips: o.plan.clips ?? [],

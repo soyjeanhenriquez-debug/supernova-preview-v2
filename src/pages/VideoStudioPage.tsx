@@ -1,6 +1,6 @@
 import { useCreditsLeft } from "@/hooks/useCreditsLeft";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Clapperboard, Download, Film, Loader2, Megaphone, Play, RefreshCw, Sparkles, Volume2, VolumeX, Wand2, X } from "lucide-react";
+import { Clapperboard, Download, Film, Loader2, Megaphone, Orbit, Play, RefreshCw, Shapes, Sparkles, Volume2, VolumeX, Wand2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,6 +17,8 @@ import {
 } from "@/lib/videoTemplates";
 import { PresenterPicker } from "@/components/video/PresenterPicker";
 import { ReadyToPublish } from "@/components/video/ReadyToPublish";
+import { MotionStudio } from "@/components/video/MotionStudio";
+import { isGenjutsuOwner } from "@/lib/genjutsuOwner";
 import {
   createVideo, downloadVideo, invokeVideo, loadVideoConfig, streamUgcScript, takePresenter, waitForVideo,
   type CreateBody, type VideoJob,
@@ -29,14 +31,19 @@ import {
  * - Serie: escenas encadenadas por el último cuadro (novela, dibujos, short).
  * - Anuncio: 3 tomas de 5 s (gancho, demo, llamada) = 165. La IA elige la plantilla.
  * - UGC: un presentador IA habla a cámara 10 s en español = 110. Nunca testimonio.
+ * - Genjutsu (08-oct-2026): botón SOLO para la cuenta de Jean que abre /genjutsu (Seedance 2.0). La
+ *   compuerta real está en el servidor; para los demás el botón no existe.
+ * - Motion graphics (08-oct-2026): texto animado con el estilo de una referencia, dibujado en el
+ *   navegador (MotionStudio). La IA solo arma estilo y escenas; la animación no cuesta.
  * Llega con una "semilla" desde una idea (Radar, Ofertas, creativos de LUMEN): si el botón tocado
  * mostraba el costo (`autostart`), genera sin otro toque. Los enlaces duran 24 h: se descargan.
  */
 type Scene = { text: string; label?: string; job?: VideoJob; error?: string; progress?: number | null };
-type Mode = VideoMode;
+type Mode = VideoMode | "motion";
 
 const MODES: { id: Mode; label: string; icon: typeof Film }[] = [
   { id: "anuncio", label: "Anuncio", icon: Megaphone },
+  { id: "motion", label: "Motion graphics", icon: Shapes },
   { id: "clip", label: "Un clip", icon: Film },
   { id: "serie", label: "Serie", icon: Clapperboard },
 ];
@@ -44,9 +51,10 @@ const TITLES: Record<Mode, { h: string; p: string }> = {
   clip: { h: "Video con IA", p: "Describe la escena y la IA la graba por ti, con sonido." },
   serie: { h: "Series de video", p: "Novelas, dibujos animados o shorts en escenas que siguen una a la otra: el final de cada clip es el inicio del siguiente." },
   anuncio: { h: "Anuncio en video", p: "3 tomas de 5 segundos: gancho, demostración y llamada a la acción. La IA arma el guion; tú solo lo creas." },
+  motion: { h: "Motion graphics", p: "Texto animado con el estilo de un video que ya funciona: elige o modela el estilo, pega tu guion (o usa tu producto) y descárgalo listo para Reels, TikTok o anuncios." },
   ugc: { h: "UGC con IA", p: "Un presentador creado con IA habla a cámara de tu producto, en español latino. Explica y presenta; nunca finge ser cliente." },
 };
-const SEED_MODE: Partial<Record<CreativeSeed["target"], Mode>> = { video_anuncio: "anuncio", video_ugc: "ugc", serie: "serie" };
+const SEED_MODE: Partial<Record<CreativeSeed["target"], VideoMode>> = { video_anuncio: "anuncio", video_ugc: "ugc", serie: "serie" };
 
 export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }) {
   const { user } = useAuth();
@@ -90,7 +98,7 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
       setSeed(s);
       const m = SEED_MODE[s.target];
       if (m) setMode(m);
-      setSize(videoSizeFor(s.aspect, m ?? initialMode));
+      setSize(videoSizeFor(s.aspect, m ?? (initialMode === "motion" ? "anuncio" : initialMode)));
       if (s.target === "serie") setScenes(serieFromBrief(s).map(text => ({ text })));
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -316,6 +324,11 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
             <m.icon className="w-4 h-4" /> {m.label}
           </button>
         ))}
+        {isGenjutsuOwner(user?.id) && (
+          <a href="/genjutsu" className="inline-flex items-center gap-2 h-10 px-3.5 rounded-full border border-border text-[13px] text-muted-foreground hover:text-foreground">
+            <Orbit className="w-4 h-4" /> Genjutsu <span className="text-[10px] uppercase tracking-[0.14em]">solo tú</span>
+          </a>
+        )}
       </div>
 
       {seed && (
@@ -428,8 +441,10 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
         </section>
       )}
 
+      {mode === "motion" && <MotionStudio productId={productId} hasProduct={profileReady(profile)} hook={seed?.hook} />}
+
       {/* ---------- Clip / Serie ---------- */}
-      {!adMode && (
+      {!adMode && mode !== "motion" && (
         <div className="rounded-2xl border border-border p-4 sm:p-5 space-y-4 min-w-0">
           <div className="space-y-1.5">
             <p className="text-xs text-muted-foreground">Estilo</p>
@@ -502,7 +517,7 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
         </section>
       )}
 
-      {recent.length > 0 && (
+      {mode !== "motion" && recent.length > 0 && (
         <section>
           <h2 className="text-[11px] uppercase tracking-[0.18em] font-semibold text-foreground mb-3">Tus videos de hoy</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

@@ -3,7 +3,7 @@ import {
   Trophy, Gem, Boxes, Lightbulb, BookOpen, ClipboardCheck, Orbit, Quote, FileText, UserRound, Video,
   ListTodo, CalendarDays, MessageCircle, Calculator, BarChart3, Telescope, Store, Image, LayoutTemplate,
   MonitorPlay, Clapperboard, Send, TrendingUp, Mail, Film, Hash, Youtube, ShoppingBag, Radar,
-  Megaphone, Smartphone, Camera, PanelsTopLeft,
+  Megaphone, Smartphone, Camera, PanelsTopLeft, Shapes,
   type LucideIcon,
 } from "lucide-react";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
@@ -51,8 +51,11 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
     desc: "Anuncios para Meta, una persona usando tu producto o fotos de estudio: eliges el estilo arriba.",
     keywords: "creativo creativos imagen imagenes anuncio ads banner meta facebook instagram fotos ugc celular selfie persona lifestyle foto producto mockup estudio packshot tienda catalogo" }),
   T({ id: "videoanuncio", key: "Video anuncio", icon: Megaphone, title: "Video con IA", nav: "Video con IA", cost: `desde ${cr(C.vid_mini_5)}`,
-    desc: "Anuncio de 3 tomas, una escena libre o una serie de escenas: eliges el modo arriba.",
-    keywords: "video videos ia anuncio ads reels tiktok meta gancho demo llamada comercial clip escena faceless sin cara serie series novela novelas dibujos animados anime historia capitulos" }),
+    desc: "Anuncio de 3 tomas, motion graphics, una escena libre o una serie: eliges el modo arriba.",
+    keywords: "video videos ia anuncio ads reels tiktok meta gancho demo llamada comercial clip escena faceless sin cara serie series novela novelas dibujos animados anime historia capitulos motion graphics texto animado" }),
+  T({ id: "motion", key: "Motion graphics", icon: Shapes, title: "Motion graphics", cost: `desde ${cr(C.motion_ad)}`,
+    desc: "Texto animado con el estilo de un video que ya funciona: pega tu guion y descárgalo.",
+    keywords: "motion graphics motion grafics animacion texto animado tipografia kinetic estilo referencia guion reels tiktok shorts motivacional anuncio faceless sin cara plantilla" }),
   T({ id: "carrusel", key: "Carrusel", icon: LayoutTemplate, title: "Carrusel que vende", cost: cr(C.gen_light),
     desc: "3 portadas a elegir y láminas con tu marca, texto perfecto.", keywords: "carrusel carruseles laminas slides instagram post" }),
   T({ id: "fotosugc", key: "Fotos UGC", icon: Smartphone, title: "Fotos estilo UGC", nav: "Fotos estilo UGC", cost: cr(C.gen_ad_image * 3),
@@ -186,7 +189,7 @@ export const HIDDEN_TOOL_IDS = new Set(["ideas"]);
  */
 export const MERGED_INTO: Record<string, string> = {
   fotosugc: "creativos", fotoproducto: "creativos",
-  videoia: "videoanuncio", series: "videoanuncio",
+  videoia: "videoanuncio", series: "videoanuncio", motion: "videoanuncio",
   youtube: "creadoryt",
   vsl: "copy", dm: "copy", ascension: "copy", correos: "copy", reels: "copy", captions: "copy", paginas: "copy",
   resultados: "anuncios",

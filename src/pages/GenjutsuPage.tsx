@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Box, Loader2, Orbit, Plus, RefreshCw, Replace, Shirt, Sparkles, UserRound, Video, X } from "lucide-react";
+import { ArrowLeft, Box, Loader2, Orbit, Plus, RefreshCw, Replace, Shirt, Sparkles, UserRound, Video, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { GENJUTSU_OWNER_ID as OWNER_ID } from "@/lib/genjutsuOwner";
 
 /**
  * Genjutsu (07-oct-2026): laboratorio oculto SOLO para Jean. Video de referencia con Seedance 2.0
  * (Higgsfield o APIMart). Sin créditos, sin planes, sin pulir. La compuerta real está en el servidor
  * (genjutsu-generate / genjutsu-status) y en la RLS; esto solo esconde la pantalla a los demás.
  */
-const OWNER_ID = "2687ca65-02c7-40db-b2fc-8ed0d57a4424";
 const BUCKET = "genjutsu";
 const MAX_BYTES = 50 * 1024 * 1024;
 type Provider = "higgsfield" | "apimart";
@@ -140,6 +140,9 @@ export default function GenjutsuPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-xl mx-auto px-4 pt-6 pb-32 space-y-4">
+        <a href="/app#/video-anuncio" className="inline-flex items-center gap-1.5 h-10 text-[13px] text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="w-4 h-4" /> Volver a Video con IA
+        </a>
         <div className="text-center space-y-1">
           <p className="font-display text-[28px] font-bold tracking-tight">Genjutsu</p>
           <p className="text-[12px] text-muted-foreground">Seedance 2.0 · solo para ti · sin créditos</p>

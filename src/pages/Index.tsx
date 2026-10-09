@@ -130,6 +130,7 @@ const Index = () => {
       case "Video IA": return <VideoStudioPage key="clip" initialMode="clip" />;
       case "Series": return <VideoStudioPage key="serie" initialMode="serie" />;
       case "Video anuncio": return <VideoStudioPage key="anuncio" initialMode="anuncio" />;
+      case "Motion graphics": return <VideoStudioPage key="motion" initialMode="motion" />;
       // UGC con IA vive dentro de Influencer IA (05-oct-2026): mismo flujo, sin duplicar.
       case "UGC con IA": return <PersonajePage key="ugc" onNavigate={setActivePage} initialStep={3} />;
       case "Nichos YouTube": return <YouTubeRadarPage onNavigate={setActivePage} />;

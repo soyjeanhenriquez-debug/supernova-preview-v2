@@ -50,7 +50,7 @@ export default function GenjutsuPage() {
   const [videoErr, setVideoErr] = useState("");
   const [images, setImages] = useState<{ file: File; url: string }[]>([]);
   const [prompt, setPrompt] = useState("");
-  const [provider, setProvider] = useState<Provider>("higgsfield");
+  const [provider, setProvider] = useState<Provider>("apimart"); // Higgsfield aún sin llaves (08-oct-2026)
   const [duration, setDuration] = useState(5);
   const [aspect, setAspect] = useState("9:16");
   const [busy, setBusy] = useState("");

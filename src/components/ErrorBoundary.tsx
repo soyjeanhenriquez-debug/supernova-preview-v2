@@ -7,7 +7,9 @@ const RELOAD_KEY = "supernova_chunk_reload_at";
  *  archivos cambian en cada despliegue). La cura es recargar. */
 export function isChunkLoadError(err: unknown): boolean {
   const msg = err instanceof Error ? `${err.name} ${err.message}` : String(err ?? "");
-  return /dynamically imported module|Importing a module script failed|ChunkLoadError|Failed to fetch dynamically|Unable to preload CSS/i.test(msg);
+  // "reading 'default'": main.tsx atrapa vite:preloadError con preventDefault y Vite devuelve undefined;
+  // React.lazy falla así (11-oct-2026: tras un deploy la app quedó en "Esta pantalla tuvo un problema").
+  return /dynamically imported module|Importing a module script failed|ChunkLoadError|Failed to fetch dynamically|Unable to preload CSS|reading 'default'|reading "default"/i.test(msg);
 }
 
 /** Recarga UNA vez por minuto como mucho: si el chunk de verdad no existe, no entra en bucle. */
@@ -17,7 +19,13 @@ export function reloadOnceForNewVersion(): boolean {
     if (Date.now() - last < 60_000) return false;
     sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
   } catch { /* sessionStorage bloqueado: se recarga igual, una vez */ }
-  window.location.reload();
+  // Recarga pidiendo la página de nuevo al servidor (con un parámetro distinto): un reload simple a veces
+  // volvía a usar el index.html viejo guardado y la pestaña quedaba atascada en el error.
+  try {
+    const u = new URL(window.location.href);
+    u.searchParams.set("v", String(Date.now()));
+    window.location.replace(u.toString());
+  } catch { window.location.reload(); }
   return true;
 }
 

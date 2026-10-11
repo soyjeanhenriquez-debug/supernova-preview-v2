@@ -60,6 +60,14 @@ function writePreviewCache(id: string, entry: Omit<CacheEntry, "ts">) {
   }
 }
 
+/**
+ * Solo las imágenes de creativo de anuncio (Facebook las marca "t39.35426" en la ruta). La silueta gris
+ * por defecto ("t1.30497") y la foto de perfil de la página ("t39.30808") no son el anuncio (11-oct-2026).
+ */
+export function isAdCreativeImage(url: string | null | undefined): boolean {
+  return !!url && /\/v\/t39\.35426-/.test(url);
+}
+
 function extractAdId(url?: string): string | null {
   if (!url) return null;
   try {
@@ -96,8 +104,8 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title, fi
     if (!adId) return;
     const cached = readPreviewCache(adId);
     if (!cached) return;
-    if (cached.failed) { setState("failed"); return; }
-    setImageUrl(cached.imageUrl || null);
+    if (cached.failed || (!cached.videoUrl && !isAdCreativeImage(cached.imageUrl))) { setState("failed"); return; }
+    setImageUrl(isAdCreativeImage(cached.imageUrl) ? cached.imageUrl! : null);
     setVideoUrl(cached.videoUrl || null);
     setState("ready");
   }, [adId]);
@@ -115,14 +123,14 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title, fi
       .then((headers) => fetch(`https://${projectId}.supabase.co/functions/v1/meta-ad-proxy?id=${adId}`, { headers, signal: ctrl.signal }))
       .then(async (r) => ({ status: r.status, data: await r.json().catch(() => null) }))
       .then(({ status, data }) => {
-        if (!data?.success || (!data.imageUrl && !data.videoUrl)) {
+        if (!data?.success || (!data.videoUrl && !isAdCreativeImage(data.imageUrl))) {
           // Solo se recuerda el fallo si de verdad no hay creativo; un 401/429 o un error pasajero, no.
           if (status === 200) writePreviewCache(adId, { failed: true });
           setState("failed");
           return;
         }
         writePreviewCache(adId, { imageUrl: data.imageUrl, videoUrl: data.videoUrl });
-        setImageUrl(data.imageUrl || null);
+        setImageUrl(isAdCreativeImage(data.imageUrl) ? data.imageUrl : null);
         setVideoUrl(data.videoUrl || null);
         setState("ready");
       })
@@ -171,9 +179,10 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title, fi
       {/* Video real si lo detectamos */}
       {state === "ready" && videoUrl && (
         <video
-          // Portada = un cuadro del propio video (medio segundo). La "imagen" que guarda el raspado a veces es
-          // la silueta gris por defecto de Facebook, no el anuncio; el cuadro del video siempre es real.
-          src={`${videoUrl}#t=0.5`}
+          // Portada: la imagen del creativo (solo si es de verdad el anuncio, ver isAdCreativeImage); si no,
+          // el cuadro de medio segundo del propio video.
+          src={imageUrl ? videoUrl : `${videoUrl}#t=0.5`}
+          poster={imageUrl ?? undefined}
           controls
           playsInline
           preload="metadata"

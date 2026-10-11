@@ -73,7 +73,7 @@ export const PAGE_STAGE: Record<string, number> = {
   "Precio": 3, "Order bump": 3,
   "Crear producto": 4, "Plan": 4, "Proyectos": 4,
   "Mándala": 5, "Hooks": 5, "Contenido": 5, "Generadores": 5, "Media Studio": 5, "Sin mostrar tu cara": 5,
-  "Resultados": 6, "Recuperar": 6,
+  "Resultados": 6, "Recuperar": 6, "Diagnóstico": 6,
 };
 
 /**

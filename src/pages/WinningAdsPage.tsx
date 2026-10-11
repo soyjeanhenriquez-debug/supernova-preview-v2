@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { isAdultAd } from "@/lib/adultFilter";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
 import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2, Bookmark, Plus, X, Check, Copy, Languages, Eye, LayoutGrid, List, Star, Info, Columns3, ChevronDown } from "lucide-react";
@@ -447,7 +448,7 @@ export function WinningAdsPage() {
           vertical: classifyOffer(`${title} ${body}`),
         };
       });
-      setRealAds(mapped);
+      setRealAds(mapped.filter((a) => !isAdultAd(`${a.title} ${a.body} ${a.pageName}`)));
       setFilteredTotal(count ?? 0);
       setLoadingReal(false);
     })();
@@ -569,7 +570,7 @@ export function WinningAdsPage() {
       // Prepend nuevos, dedupe por id, mantener historial
       setRealAds((prev) => {
         const seen = new Set(prev.map((a) => a.id));
-        const fresh = groupedMapped.filter((a) => !seen.has(a.id));
+        const fresh = groupedMapped.filter((a) => !seen.has(a.id) && !isAdultAd(`${a.title} ${a.body} ${a.pageName}`));
         return [...fresh, ...prev];
       });
       setLastAutoRun(new Date());
@@ -717,7 +718,7 @@ export function WinningAdsPage() {
         };
       });
       const grouped = groupByAdvertiser(mapped, items);
-      setRealAds(grouped);
+      setRealAds(grouped.filter((a) => !isAdultAd(`${a.title} ${a.body} ${a.pageName}`)));
       toast.success(`✓ Encontramos ${mapped.length} anuncios de ${grouped.length} anunciantes distintos`);
     } catch (e: unknown) {
       console.error(e);
@@ -991,6 +992,9 @@ export function WinningAdsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               value={keyword} onChange={(e) => setKeyword(e.target.value)}
+              // Enter nunca lanza la búsqueda en vivo de pago: la lista ya se filtra sola al escribir (gratis).
+              onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
+              aria-describedby="radar-search-hint"
               placeholder={PLACEHOLDERS[market]}
               className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-3 text-base focus:outline-none focus:ring-1 focus:ring-primary"
             />
@@ -1002,6 +1006,10 @@ export function WinningAdsPage() {
             {loadingReal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} {loadingReal ? "Buscando…" : "Buscar en vivo en Facebook"} <span className="opacity-70">· {CREDIT_COSTS.search_ads} créditos</span>
           </button>
         </div>
+
+        <p id="radar-search-hint" className="text-[11px] text-muted-foreground -mt-1">
+          Escribe 3 letras o más y la lista se filtra sola, gratis. El botón busca anuncios nuevos en vivo en Facebook y cuesta {CREDIT_COSTS.search_ads} créditos.
+        </p>
 
         {/* Búsquedas guardadas del usuario */}
         {userSearches.length > 0 && (
@@ -1161,6 +1169,13 @@ export function WinningAdsPage() {
         ) : (
           <>
             <HeatMap />
+            {verticalFilter !== "Todas" && (
+              // El tipo se adivina por el texto de cada anuncio de ESTA página (no hay columna en la base):
+              // se dice claro para que el total de abajo no engañe (prueba de Hany, 10-oct-2026).
+              <p className="text-xs text-muted-foreground">
+                {paginated.length} de los {realAds.length} anuncios de esta página parecen «{(CATEGORY_LABEL as Record<string, string>)[verticalFilter] ?? verticalFilter}». El tipo se calcula por el texto del anuncio; pasa de página para ver más.
+              </p>
+            )}
             <PaginationBar
               total={filteredTotal}
               page={currentPage}

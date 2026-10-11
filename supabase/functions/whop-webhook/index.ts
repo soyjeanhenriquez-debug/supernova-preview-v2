@@ -159,10 +159,16 @@ function mapEvent(rawType: string, data: Record<string, unknown>): SubStatus | n
 
 // Packs de recarga: productos de pago único en whop.com/digitalizados/<ruta>. Se reconocen por
 // la ruta o el título del producto dentro del payload (no dependen de un id que cambie).
-const PACKS: Array<{ id: string; name: string; credits: number; plan: string; re?: RegExp; media?: boolean }> = [
+// cashback: créditos de regalo que se entregan solos cuando la persona ya gastó en la app los
+// créditos del pack (credit_cashback + cron grant_due_cashback). Con el regalo, cada pack queda
+// en US$0,008 o más por crédito: el piso de la regla de margen (10-oct-2026, decisión de Jean).
+const PACKS: Array<{ id: string; name: string; credits: number; plan: string; re?: RegExp; media?: boolean; cashback?: number }> = [
   { id: "boost", name: "Boost 500", credits: 500, plan: "plan_ogd3Tq3dhAPU0", re: /boost[\s-]*500/i },
   { id: "power", name: "Power 2,000", credits: 2000, plan: "plan_MmMIIQFDwfLFg", re: /power[\s-]*2[\s.,-]*000/i },
   { id: "nuclear", name: "Nuclear 4,500", credits: 4500, plan: "plan_iLopCOOcLRFGb", re: /nuclear[\s-]*4[\s.,-]*500/i },
+  // US$100 → 11.000 + 1.500 de cashback = 12.500 (US$0,008). US$250 → 27.500 + 3.300 = 30.800 (US$0,0081).
+  { id: "pro100", name: "Pack 100 · 11,000", credits: 11000, plan: "plan_ep1IoU1lqyq2f", cashback: 1500 },
+  { id: "pro250", name: "Pack 250 · 27,500", credits: 27500, plan: "plan_4Grs7qGPHcLCr", cashback: 3300 },
   // Media Credits (video con avatar): saldo aparte. Solo por id de plan: "Starter"/"Pro" son
   // nombres demasiado genéricos para reconocerlos por título (chocarían con los planes).
   { id: "media-starter", name: "Media Starter 50", credits: 50, plan: "plan_Om5ryuOj3N6ny", media: true },
@@ -279,6 +285,10 @@ serve(async (req) => {
       await db.from("stripe_events").delete().eq("id", key); // que el reintento pueda acreditar
       console.error("grant_purchased_credits:", grantErr.message);
       return new Response(JSON.stringify({ error: "DB error" }), { status: 500, headers: { "Content-Type": "application/json" } });
+    }
+    if (pack.cashback) {
+      const { error: cbErr } = await db.rpc("register_cashback", { p_user_id: buyerId, p_source: `${key}:${pack.id}`, p_spend_target: pack.credits, p_amount: pack.cashback });
+      if (cbErr) console.error("register_cashback:", cbErr.message); // los créditos ya entraron; el cashback se revisa a mano
     }
     console.log(`OK pack ${pack.id} → +${pack.credits} créditos`);
     return new Response(JSON.stringify({ ok: true, pack: pack.id, credits: pack.credits }), { headers: { "Content-Type": "application/json" } });

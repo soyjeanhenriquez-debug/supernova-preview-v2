@@ -41,3 +41,23 @@ App: Starter US$19 = 270 créditos; un clip de 8 s con Kling 3.0 = 20 créditos 
 ## Pendiente
 - APIMart necesita cuenta y llave (secreto APIMART_API_KEY en Supabase, nunca en el repo ni en el chat).
 - Riesgo: es un intermediario; mantener fal.ai como respaldo si APIMart falla.
+
+## APIMart vs RunningHub (07-oct-2026)
+
+Precios de RunningHub por capturas de Jean. APIMart: página de cada modelo, columna "precio actual". Costos
+reales de APIMart en `ai_usage`: gpt-image-2 0,0081 · nano-banana-2-ext 0,0143 · nano-banana-pro-ext 0,0285 ·
+seedance-2.0-mini 720p 0,0217/s.
+
+| Modelo (720p) | APIMart | RunningHub | Más barato |
+|---|---|---|---|
+| GPT Image 2 | 0,0081 | 0,009 Stable texto→imagen · 0,027 Stable imagen→imagen · 0,015 Economy | APIMart |
+| Nano Banana 2 | 0,0143 | 0,027 Economy · 0,07 Stable | APIMart (2×) |
+| Nano Banana Pro | 0,0285 | 0,06 Economy · 0,12 Stable | APIMart (2–4×) |
+| Seedance 2.0 Mini | 0,0217/s | 0,05/s | APIMart (2,3×) |
+| Seedance 2.0 Fast | 0,0813/s | 0,08/s | empate |
+| Seedance 2.0 | 0,1349/s | 0,10/s | RunningHub (−26 %) |
+| Seedance 2.0 con video de referencia (Genjutsu) | 0,0815/s × (seg. de referencia + seg. generados) | 0,10/s (no dice si cobra la referencia) | depende del largo de la referencia |
+| Seedance 2.5 | no lo ofrece | ~0,29/s (US$1,454 por 5 s) | solo RunningHub |
+| Seedance 1.5 Pro | 0,0418/s | 0,01/s | RunningHub (4×) |
+
+Ojo: algunas tarjetas de RunningHub dicen "/null" en vez de "/seconds"; confirmar con el botón Run (5 s 720p).

@@ -69,6 +69,7 @@ async function charge(uid: string, action: string, label: string): Promise<Gate 
   if (g?.ok !== true) {
     switch (g?.reason) {
       case "rate_limited": return json({ error: "Alcanzaste el límite de escenas por ahora. Intenta más tarde; lo hecho queda guardado.", code: "rate_limited" }, 429);
+      case "recharge_required": return json({ error: "Ya usaste tus pruebas gratis de esta herramienta. Recarga al menos US$20 para seguir usándola; mientras, puedes probar todo lo demás.", code: "recharge_required", min_usd: 20 }, 402);
       case "insufficient_credits": return json({ error: "No tienes créditos suficientes.", code: "insufficient_credits", balance: g.balance, cost: g.cost }, 402);
       case "disabled": return json({ error: "Producir video no está disponible por ahora." }, 503);
       case "unknown_action": return json({ error: "Acción sin precio configurado." }, 500);

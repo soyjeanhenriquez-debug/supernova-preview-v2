@@ -14,7 +14,7 @@ const ART_BY_TOOL: Record<string, Art> = {
   personaje: "person", copy: "text", paginas: "page", producto: "book", anuncios: "orbit", ganchos: "quote",
   ideas: "idea", dolores: "idea", radar: "radar", ofertas: "offer", nichosyt: "youtube", miniapps: "apps",
   validar: "check", precio: "calc", plan: "calendar", contenido: "calendar", bump: "ladder", ascension: "ladder",
-  recuperar: "chat", dm: "chat", resultados: "chart", vsl: "video", correos: "text", reels: "phone",
+  recuperar: "chat", dm: "chat", resultados: "chart", diagnostico: "chart", vsl: "video", correos: "text", reels: "phone",
   captions: "text", youtube: "youtube", mercado: "offer", oraculo: "page",
 };
 

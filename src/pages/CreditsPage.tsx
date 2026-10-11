@@ -13,7 +13,11 @@ const PACKS = [
   { id: "boost",   name: "PACK BOOST",   credits: 500,  price: 10, tagline: "Alcanza para unos 33 textos cortos (15 créditos cada uno)", save: null },
   { id: "power",   name: "PACK POWER",   credits: 2000, price: 20, tagline: "Como tener otro mes entero de créditos", save: "50%", popular: true },
   { id: "nuclear", name: "PACK NUCLEAR", credits: 4500, price: 39, tagline: "Para quien crea muchos anuncios cada semana", save: "57%" },
-];
+  // Packs grandes con cashback (10-oct-2026): el regalo llega solo cuando ya usaste los créditos del pack
+  // (credit_cashback, servidor). Con el regalo quedan en el piso de la regla de margen.
+  { id: "pro100", name: "PACK 100", credits: 11000, price: 100, cashback: 1500, tagline: "Para crear todas las semanas: videos, creativos y tu producto", save: "60% con el cashback," },
+  { id: "pro250", name: "PACK 250", credits: 27500, price: 250, cashback: 3300, tagline: "Para quien ya vende y produce anuncios sin parar", save: "59% con el cashback," },
+] as { id: string; name: string; credits: number; price: number; tagline: string; save: string | null; popular?: boolean; cashback?: number }[];
 
 // Pool separado del de texto: el costo real de video con avatar IA (HeyGen,
 // ~$1 USD/min) es órdenes de magnitud mayor al de un generador de texto.
@@ -176,13 +180,16 @@ export function CreditsPage() {
               )}
               <div className="font-display font-extrabold text-lg tracking-wide">{p.name}</div>
               <div className="flex items-baseline gap-2 mt-3">
-                <span className="text-3xl font-display font-bold text-primary tabular-nums">{p.credits.toLocaleString()}</span>
+                <span className="text-3xl font-display font-bold text-primary tabular-nums">{p.credits.toLocaleString("es-ES")}</span>
                 <span className="text-xs text-muted-foreground">créditos</span>
               </div>
               <div className="flex items-baseline gap-2 mt-3">
                 <span className="text-2xl font-display font-bold text-foreground">{formatUsd(p.price)}</span>
                 {p.save && <span className="text-[11px] text-success font-semibold">{p.save} más barato por crédito</span>}
               </div>
+              {p.cashback && (
+                <p className="text-[12px] text-primary mt-2">+{p.cashback.toLocaleString("es-ES")} créditos de cashback cuando uses los {p.credits.toLocaleString("es-ES")} del pack</p>
+              )}
               <p className="text-[13px] text-muted-foreground mt-3 leading-relaxed flex-1">{p.tagline}</p>
               <button onClick={() => handleRecharge(p.id)} disabled={buyingPack !== null} className="btn-primary-nova w-full py-2.5 rounded-lg text-sm mt-5 disabled:opacity-60">
                 {buyingPack === p.id ? "Abriendo el pago…" : `Comprar por ${formatUsd(p.price)} →`}
@@ -225,7 +232,7 @@ export function CreditsPage() {
               )}
               <div className="font-display font-extrabold text-lg tracking-wide">{p.name}</div>
               <div className="flex items-baseline gap-2 mt-3">
-                <span className="text-3xl font-display font-bold text-primary tabular-nums">{p.credits.toLocaleString()}</span>
+                <span className="text-3xl font-display font-bold text-primary tabular-nums">{p.credits.toLocaleString("es-ES")}</span>
                 <span className="text-xs text-muted-foreground">Media Credits</span>
               </div>
               <div className="flex items-baseline gap-2 mt-3">

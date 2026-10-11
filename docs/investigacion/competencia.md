@@ -16,6 +16,7 @@
 | HacksLabs | YouTube con IA + series de video + comunidad Spaces | sin dato | — | Comunidad dentro de la app con resultados reales, niveles y referidos | 03-oct-2026 |
 | Mini Apps Rentables | 2 mini SaaS al mes con código, Supabase, landing, creativos y licencia | US$14 al mes / US$140 al año | Romildo Jr | Entrega mensual "lista para vender"; nicho + landing + creativos en un paquete | 24-sep-2026 |
 | Prime IA (primeia.app) | Suite de generación de imagen/video con IA + Academia en Skool (avatares, ComfyUI) | App US$9,99 / 19,99 · Academia US$14,99 / 29,99 / 39,99 al mes | "Barbu Dev" (Skool 830 miembros; dominio con privacidad, PA, EE. UU.) | Academia gratis en Skool como puerta a la app; "ilimitado" en un modelo barato como gancho | 25-sep-2026 |
+| Máquina IA (Nino Director) | Comunidad Skool: skills y proyectos de Claude para producir contenido ("30 días en automático") | US$47 al mes (fundador) o US$249 al año; dice que sube a US$67 a los 200 miembros | Jose Duque (IG @ninodirector 209 mil; Skool 179 miembros; agencia Eucalipto Media) | Plan de contenido de 30 días, publicar desde la app, "comenta PALABRA" → DM, equipo de pasos con nombre | 07-oct-2026 |
 
 Cuatro de los seis son del mismo creador (Romildo Jr, gestor de tráfico brasileño; `romildo.online`, Instagram `sigaromildo`, YouTube `@JrRomildo`, empresa RMD Edição e Produtos Digitais LTDA). Su jugada es una **escalera de productos baratos de pago único** (5,90 → 14,90 → 19 → 14/mes) que se venden juntos en el checkout de Hotmart ("Buy together"). No compite con nosotros en producto; compite en **precio de entrada y volumen**.
 
@@ -202,8 +203,35 @@ Capturas que pasó Jean el 03-oct-2026. Compite con nuestra parte de **contenido
 
 **Tomamos (propuesto, decisión de Jean):** canal ¡Resultados! con datos reales, Sugerencias y Actualizaciones dentro de la app; referidos con comisión. **Ojo:** el 23-sep Jean quitó XP, rachas por entrar y niveles ("lo que retiene es avanzar en tu negocio"); si se vuelve a gamificar, que sea por avances reales (primer producto, primera venta), no por entrar.
 
+## 10. Máquina IA — Nino Director (skool.com/maquinadeleads)
+
+Capturas de Jean + investigación pública del 07-oct-2026 (página de Skool, YouTube con yt-dlp, GitHub, eucaliptomedia.com, Biblioteca de Anuncios sin sesión). Instagram no se pudo leer sin sesión. Compite con nuestra parte de **Vender y Contenido**, no con el Radar ni con Ofertas.
+
+- **Quién:** Jose Duque, "Nino Director". Instagram @ninodirector (verificado, 209 mil seguidores, 644 publicaciones); YouTube @Ninodirectoroficial (492 suscriptores, ~56 videos largos + 213 shorts). Cofundador de **Eucalipto Media** (Orlando y Táchira): agencia "Sistema de Clientes Predecibles" para profesionales que venden servicios de US$3.000 o más, cobra con **profit share** y se entra aplicando. Su web parece hecha en GoHighLevel (imágenes en filesafe.space).
+- **Qué vende (Skool "MAQUINA IA"):** "Tu contenido de 30 días en automático. Claude crea reels, YouTube y carruseles por ti." Incluye La Fábrica (16 skills de Claude, en un video dice 15), Bases de Claude (22 lecciones), Sistema 1 (17 lecciones), anuncios/webs/SEO con IA, 29 proyectos de Claude (16 bots), snapshots de GHL y plantillas n8n/Make, clase en vivo los lunes 5 pm NY y 59 grabaciones. **El alumno instala y opera todo en su propio Claude.**
+- **Su "agencia de 18 agentes"** (video del 02-ago): un agente reparte el trabajo, otro verifica datos con dos fuentes, otro descarta guiones flojos con una rúbrica de viralidad, otro revisa que se entienda sin sonido, grabación con HeyGen + ElevenLabs, edición con control de calidad hasta 3 veces (Remotion, ffmpeg) y uno que mide en una base de datos. Cada agente tiene nombre de personaje famoso. La lista completa está detrás del pago.
+- **Piezas públicas:** skill de web con scroll animado gratis en GitHub; "Moldes" (los 10 carruseles más virales de Instagram convertidos en un comando); anuncios con IA que parecen grabados con celular y suben a Meta en pausa.
+- **Precio:** US$47/mes "fundador" o US$249/año; dice que sube a US$67 a los 200 miembros. 179 miembros, nota 5,0 con 3 reseñas.
+- **Captación:** el YouTube rinde poco (largos de 6 a 1.819 vistas desde julio, todo sobre Claude Code). Compensa con **anuncios pagados directos a Skool**: ~100 anuncios en 2026, **~15 activos** lanzados el 20 y 21-sep, de imagen/texto, pruebas A/B de copy ("tu competencia no tiene equipo, tiene una fábrica", "recupera 15 horas a la semana", "$249 = $21/mes", "sube a $67 a los 200, ya somos +160"). Antes: videos "Comenta PALABRA y te envío la guía" (PYME, DASHBOARD, MAQUINA…) que rota cada 1 a 4 semanas. Embudo: contenido o anuncio → comenta PALABRA → DM con guía → Skool → arriba la agencia.
+- **Debilidades:** (1) exige saber instalar y operar Claude; el público que empieza de cero se queda fuera. (2) Produce contenido, pero no dice qué vender, no valida, no pone precio ni mide ventas. (3) Ningún anuncio suyo dura mucho: por nuestro criterio de longevidad, todavía no ha encontrado su ganador. (4) Cifras sin prueba ("+10K leads/mes", "comunidad #1") y descripciones que dicen "comunidad gratis" con enlace al Skool de pago.
+
+**Lo que ya tenemos frente a él (mapa del 07-oct):** Carrusel v2 con "modelar uno que ya funciona" (su "Moldes"), Creativos y fotos, Video con IA, Creador de YouTube que "ve" videos, Ganchos, Generadores (guion de Reels, captions, DM), Mándala con veredicto, Influencer IA / sin mostrar tu cara, Contenido (calendario semanal + tracker + leads/ventas a mano) y bono por publicar.
+
+**Huecos que él sí promete:** plan de 30 días armado solo; publicar y programar en redes desde la app; respuesta automática "comenta PALABRA → DM"; transcribir Reels/TikToks de otros; webs y landings publicadas. (Presentador UGC y Media Studio siguen apagados para clientes.)
+
+**Tomamos (propuesto, decisión de Jean, en este orden):**
+1. **"Tu mes de contenido"** en Contenido: con la oferta elegida y el producto activo (sin preguntar de más), arma 30 días con la mezcla de piezas (carrusel, reel, historia, anuncio), cada día enlazado a la herramienta que ya lo produce y con su gancho del banco. El plan es barato; cada pieza cobra lo de siempre. Es su promesa principal, hecha para quien empieza de cero y atada a una oferta que ya vende.
+2. **Publicar y programar desde la app** (Upload-Post por API o la API de Meta): el último paso que hoy es "descarga y súbelo a mano". Además deja medir alcance real en vez de anotarlo. Requiere costo por cuenta conectada, compuerta en servidor y precio con la regla × 5.
+3. **"Comenta PALABRA y te lo mando por DM"**: guía y generador para que el usuario arme su propio imán (palabra + guía + mensaje), y más adelante la respuesta automática si la API lo permite. También sirve para la captación de SUPERNOVA (Jean).
+4. **Un equipo de pasos visible con control de calidad**: idea → guion → filtro con rúbrica (gancho, claridad sin sonido, una sola idea) → pieza. Que el usuario vea el "equipo" trabajando, con nombres propios nuestros (no los suyos). Encaja con Mándala.
+5. **Biblioteca de "moldes" de carruseles** que ya funcionan, sacados de carruseles públicos reales con más interacción, listos para modelar con el Carrusel v2.
+6. **Captación propia:** sus ángulos de anuncio sirven de estructura (equipo vs. fábrica, horas recuperadas, anual contra mensual con la cuenta hecha), reescritos con nuestro mensaje: "una oferta que ya vende + tu contenido del mes".
+
+**No tomamos:** escasez por número de miembros salvo que sea una regla real que se cumpla; cifras sin prueba ("+10K leads"); llamar "gratis" a algo de pago; exigir que el usuario instale Claude o GHL; usar sus nombres de agentes, textos o su skill de GitHub.
+
 ## Pendientes de verificación
 - Cifras de volumen de Quantum y PulpoIA (no comprobables desde fuera).
+- Máquina IA: Instagram (reels más vistos), nombres de las 16 skills, con qué publica (GHL, n8n o Make) y si sus anuncios del 20-sep siguen activos en noviembre.
 - Canales de YouTube (@Quantumminers, @JrRomildo): no se pudieron leer; revisar a mano si hace falta.
 - Repetir el raspado de anuncios cada mes (cuesta centavos) y anotar aquí quién sigue activo.
 
@@ -213,3 +241,4 @@ Capturas que pasó Jean el 03-oct-2026. Compite con nuestra parte de **contenido
 - 25-sep-2026: Prime IA (primeia.app / PrimeLabs): stack, precios, Academia en Skool y sus 2 anuncios activos.
 - 03-oct-2026: LanzaYa (estudio de IA de Romildo Jr): inicio, vitrina con candado y precios US$5 / 9 / 18.
 - 03-oct-2026: HacksLabs (Hacks Flow y la comunidad Spaces).
+- 07-oct-2026: Máquina IA de Nino Director (Skool US$47, La Fábrica de skills de Claude, ~15 anuncios activos a Skool, agencia Eucalipto Media).

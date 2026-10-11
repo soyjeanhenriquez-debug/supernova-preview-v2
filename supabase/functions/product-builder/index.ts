@@ -18,6 +18,7 @@
 // Ruta interna de prueba: con x-cron-secret válido + test_user_id de un ADMIN, actúa como ese
 // usuario (cobrando igual). Así se puede probar desde SQL (net.http_post) sin sesión de navegador.
 import { corsHeaders as baseCors } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { HONESTY_RULES } from "../_shared/honesty.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 import Anthropic from "npm:@anthropic-ai/sdk@0.128.0";
 import { safeRefund } from "../_shared/refund.ts";
@@ -104,6 +105,8 @@ async function charge(
   if (g?.ok !== true) {
     switch (g?.reason) {
       case "rate_limited": return fail(429, "rate_limited", "Llegaste al tope por ahora. Intenta más tarde.");
+      case "recharge_required":
+        return fail(402, "recharge_required", "Ya usaste tus pruebas gratis de esta herramienta. Recarga al menos US$20 para seguir usándola; mientras, puedes probar todo lo demás.", { min_usd: 20 });
       case "insufficient_credits":
         return fail(402, "insufficient_credits", "No tienes créditos suficientes para esta acción.", { balance: g.balance, cost: g.cost });
       case "disabled": return fail(503, "disabled", "Esta función no está disponible por ahora.");
@@ -194,7 +197,7 @@ async function callOpenAICompat(
   const payload: Record<string, any> = {
     model: row.model_id,
     reasoning_effort: row.effort ?? "low",
-    messages: [{ role: "system", content: system }, { role: "user", content: `${stable}\n\n${userMsg}` }],
+    messages: [{ role: "system", content: system + HONESTY_RULES }, { role: "user", content: `${stable}\n\n${userMsg}` }],
   };
   payload[isOpenAI ? "max_completion_tokens" : "max_tokens"] = row.max_output_tokens;
   if (jsonMode) payload.response_format = { type: "json_object" };

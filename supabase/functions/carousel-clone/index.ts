@@ -9,7 +9,8 @@
 // "Roba como un artista" (manual, sección 2): se copia estructura y mecanismo, NUNCA textos, fotos,
 // caras, nombres ni marcas. Las imágenes del original solo se usan para el análisis: no se guardan.
 // La llave de Apify va en la cabecera (nunca en la URL, para que no quede en logs).
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { HONESTY_RULES } from "../_shared/honesty.ts";
 import { admin, billingHeaders, caller, charge, json, refund } from "../_shared/media.ts";
 import { cleanDiseno, type Diseno, DISENO_RULE, DISENO_SHAPE, fillGaleria, fitAnalysis, GALERIA_RULE, SIRVE_RULE, SYSTEM, TEMA_LAMINAS_RULE, TIPOS_LAMINA } from "../_shared/carouselRules.ts";
 
@@ -159,7 +160,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: MODEL, max_tokens: 16_000, response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: SYSTEM },
+          { role: "system", content: SYSTEM + HONESTY_RULES },
           { role: "user", content: [{ type: "text", text: userPrompt({ mode, brief, goal, handle, world, line, caption: clean(post.caption, 1500), owner: clean(post.ownerUsername, 40), likes: Number.isFinite(post.likesCount) ? post.likesCount : null, comments: Number.isFinite(post.commentsCount) ? post.commentsCount : null, n: parts.length }) }, ...parts] },
         ],
       }),

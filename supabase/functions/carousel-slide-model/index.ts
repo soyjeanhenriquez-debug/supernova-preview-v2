@@ -8,7 +8,7 @@
 // Solo se aceptan imágenes del CDN de Instagram/Facebook (nada de URLs arbitrarias). La imagen se usa
 // solo para el análisis: no se guarda. Si viene clone_id y es de esta persona, se anota en su fila de
 // carousel_clones qué lámina modeló (para Admin → Aprendizaje).
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 import { admin, billingHeaders, caller, charge, json, refund } from "../_shared/media.ts";
 import { cleanDiseno, DISENO_RULE, DISENO_SHAPE, fillGaleria, fitAnalysis, GALERIA_RULE, SIRVE_RULE, SYSTEM, TIPOS, TIPOS_LAMINA } from "../_shared/carouselRules.ts";
 

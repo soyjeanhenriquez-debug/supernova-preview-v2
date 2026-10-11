@@ -65,15 +65,15 @@ export function calculateTemperature(
     isPulsing: false, isNuclear: false,
     marketReading: 'El anunciante está viendo retorno. Empieza a escalar.',
     userAction: 'Analiza el mecanismo. Prepara tu versión.',
-    moneyWindow: 'Tienes 2-3 semanas antes de saturación.',
+    moneyWindow: 'Buen momento para preparar tu versión.',
   };
   if (heatScore < 150) return {
     level: 4, fires: '🔥🔥🔥', label: 'HOT',
     color: '#F97316', glowColor: 'rgba(249,115,22,0.25)',
     isPulsing: false, isNuclear: false,
-    marketReading: 'Dinero real fluyendo. El mercado está comprando.',
-    userAction: 'SOFISTÍCALO ahora. La ventana está abierta.',
-    moneyWindow: 'Esta semana puedes lanzar tu versión.',
+    marketReading: 'Lo sigue pagando con varias copias: señal de que le funciona.',
+    userAction: 'Modélalo con tu propia mejora: tu idioma, tu país, tu entrega.',
+    moneyWindow: 'Puedes armar tu versión esta semana.',
   };
   if (heatScore < 400) return {
     level: 5, fires: '🔥🔥🔥🔥', label: 'ON FIRE',
@@ -81,15 +81,15 @@ export function calculateTemperature(
     isPulsing: true, isNuclear: false,
     marketReading: 'Escala masiva. El ángulo está siendo validado por el mercado.',
     userAction: 'Entra con diferenciación. El ángulo funciona.',
-    moneyWindow: 'El dinero está aquí AHORA.',
+    moneyWindow: 'Uno de los ángulos más probados del radar.',
   };
   return {
     level: 6, fires: '🔥🔥🔥🔥🔥', label: '☢️ NUCLEAR',
     color: '#F97316', glowColor: 'rgba(249,115,22,0.5)',
     isPulsing: true, isNuclear: true,
-    marketReading: 'FENÓMENO DE MERCADO. Millones fluyendo en este ángulo ahora mismo.',
-    userAction: 'CLONA ESTO HOY. No mañana. HOY.',
-    moneyWindow: '⚡ Máxima urgencia. Este ángulo está en llamas.',
+    marketReading: 'Muchísimas copias y muchos días pagando: de las pruebas de venta más fuertes del radar.',
+    userAction: 'Modela este ángulo: misma idea, tu versión en español.',
+    moneyWindow: 'Prioridad alta para estudiar y modelar.',
   };
 }
 
@@ -113,7 +113,7 @@ export function getMarketSignal(uniquePages: number, allPageNames: string[]): Ma
   if (uniquePages <= 6 || nameVariety < 0.8) return {
     type: 'multi_seller', badge: '🌍 MULTI-VENDEDOR',
     explanation: 'Diferentes vendedores encontraron que este ángulo convierte.',
-    opportunity: 'El ÁNGULO está probado. El riesgo de clonar es mínimo.',
+    opportunity: 'El ángulo está probado por varios vendedores: modelarlo es más seguro.',
     cloneRisk: 'low',
   };
   return {

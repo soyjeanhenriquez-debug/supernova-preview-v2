@@ -140,7 +140,15 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
       setSlots(list => list.map(s => (s.id === slot.id ? { ...s, status: "done", url: localUrl, path } : s)));
     } catch (e) {
       const msg = e instanceof Error ? e.message : "No se pudo crear la imagen.";
-      setSlots(list => list.map(s => (s.id === slot.id ? { ...s, status: "error", error: msg } : s)));
+      // Rehacer una imagen que ya existía y falla: se conserva la de antes y se avisa (prueba de Hany,
+      // 10-oct-2026: la imagen "desaparecía" sin ningún mensaje).
+      if (slot.url) {
+        setSlots(list => list.map(s => (s.id === slot.id ? { ...s, status: "done", url: slot.url, path: slot.path, error: undefined } : s)));
+        toast.error("No se pudo rehacer esta imagen: te dejamos la anterior.", { description: msg });
+      } else {
+        setSlots(list => list.map(s => (s.id === slot.id ? { ...s, status: "error", error: msg } : s)));
+        toast.error(msg);
+      }
     }
   };
 

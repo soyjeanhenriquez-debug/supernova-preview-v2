@@ -138,6 +138,7 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
       actions: [
         { label: "Anotar mis resultados", page: "Resultados", primary: true },
         { label: "Recuperar ventas", page: "Recuperar" },
+        { label: "¿Dónde se me escapan las ventas?", page: "Diagnóstico" },
       ],
     },
     ];

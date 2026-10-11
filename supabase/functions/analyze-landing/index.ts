@@ -55,6 +55,8 @@ async function requireUser(req: Request, fn: string, maxHour: number, maxDay: nu
   if (g?.ok !== true) {
     switch (g?.reason) {
       case "rate_limited": return deny(429, "Alcanzaste el límite de uso de esta función. Intenta más tarde.");
+      case "recharge_required":
+        return deny(402, "Ya usaste tus pruebas gratis de esta herramienta. Recarga al menos US$20 para seguir usándola; mientras, puedes probar todo lo demás.", { code: "recharge_required", min_usd: 20 });
       case "insufficient_credits":
         return deny(402, "No tienes créditos suficientes para esta acción.", { code: "insufficient_credits", balance: g.balance, cost: g.cost });
       case "disabled": return deny(503, "Esta función no está disponible por ahora.");

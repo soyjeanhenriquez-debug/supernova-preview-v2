@@ -19,9 +19,9 @@ interface TopBarProps {
 const EXTRA_TITLES: Record<string, string> = {
   "Precio": "Precio y ganancia", "Mi negocio": "Mi ficha", "Validar": "Matriz de validación",
   "Plan": "Plan de lanzamiento", "Contenido": "Calendario de contenido", "Resultados": "Resultados de tus anuncios",
-  "Recuperar": "Recuperar ventas", "Productos": "Mis productos", "Crear producto": "Crea tu producto",
+  "Recuperar": "Recuperar ventas", "Diagnóstico": "¿Dónde se me escapan las ventas?", "Productos": "Mis productos", "Crear producto": "Crea tu producto",
   "Ideas": "Ideas de side hustle", "Fotos UGC": "Fotos estilo UGC", "Video anuncio": "Anuncio en video",
-  "Order bump": "Order bump",
+  "Order bump": "Order bump", "Recompensas": "Gana con tu contenido",
 };
 
 export function TopBar({ activePage, onOpenMobileNav, onSearch }: TopBarProps) {

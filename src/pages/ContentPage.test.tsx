@@ -23,6 +23,11 @@ const PRODUCTS = { activeId: PID };
 vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: USER }) }));
 vi.mock("@/contexts/ProductContext", () => ({ useProducts: () => PRODUCTS, useOptionalProducts: () => PRODUCTS }));
 vi.mock("@/lib/businessProfile", () => ({ useBusinessProfile: () => PROFILE }));
+// La pantalla ya muestra el costo del "mes de contenido": los créditos se simulan (no hay sesión real).
+vi.mock("@/hooks/useCredits", async () => {
+  const actual = await vi.importActual<typeof import("@/hooks/useCredits")>("@/hooks/useCredits");
+  return { ...actual, useCredits: () => ({ applyServerCharge: vi.fn(), canAfford: () => true, balance: 2000 }) };
+});
 
 import { ContentPage } from "./ContentPage";
 

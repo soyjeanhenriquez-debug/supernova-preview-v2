@@ -200,7 +200,7 @@ export function buildSlots(mode: StudioMode, ctx: PromptCtx): SlotSpec[] {
         { id: "m1", label: "Cara con emoción", aspect: a,
           prompt: `Miniatura de video. Primer plano de una persona latina con expresión de sorpresa genuina, mirando a cámara, fondo con contraste fuerte. ${words} ${t}` },
         { id: "m2", label: "Antes y después", aspect: a,
-          prompt: `Miniatura de video dividida en dos: a la izquierda el problema, a la derecha el resultado, flecha clara entre ambos. ${words} ${t}` },
+          prompt: `Miniatura de video dividida en dos: a la izquierda el problema, a la derecha el resultado, flecha clara entre ambos. El cambio se ve en la situación y la emoción, nunca en el cuerpo, la salud ni el dinero. ${words} ${t}` },
       ];
     }
     case "foto_ugc": {

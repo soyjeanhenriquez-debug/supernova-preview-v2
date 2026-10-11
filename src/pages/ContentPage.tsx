@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, Check, ChevronLeft, ChevronRight, Link2, List, Loader2, Minus, PenLine, Plus, Search, Sparkles, Target, Trash2 } from "lucide-react";
+import { CalendarDays, CalendarRange, Check, ChevronDown, ChevronLeft, ChevronRight, Layers, Link2, List, Loader2, Minus, PenLine, Plus, Search, Sparkles, Target, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,6 +7,10 @@ import { useProducts } from "@/contexts/ProductContext";
 import { useBusinessProfile } from "@/lib/businessProfile";
 import { PageHeader } from "@/components/PageHeader";
 import { ClaimBonusButton, PublishBonusCard } from "@/components/PublishBonus";
+import { ToolFeedback } from "@/components/ToolFeedback";
+import { CREDIT_COSTS, useCredits } from "@/hooks/useCredits";
+import { fnErrorMessage, fnHeaders, readBilling } from "@/lib/fnAuth";
+import { setSeed as setCreativeSeed } from "@/lib/creativeSeed";
 import {
   DEFAULT_GOALS, EXTRA_NETWORKS, KINDS, NETWORK_LABEL, cleanChannels, freshChannels, kindFromPlatform, loadGoals, progressOf, saveGoals, statusFromChannels, weekSummary,
   type Channels, type Goals, type Kind, type Network,
@@ -22,6 +26,11 @@ import {
  * Tracker de publicaciones (06-oct-2026): cada pieza tiene su tipo (video corto, largo, texto o
  * carrusel) y se publica en varias redes con un check y su enlace; guarda la palabra clave y los
  * leads y ventas que la persona anota. Arriba, "Tu semana" contra su meta. Todo gratis.
+ *
+ * Tu mes de contenido (07-oct-2026, decisión de Jean: 50 créditos): "Arma tu mes" llama a la edge
+ * function content-month, que cobra en el servidor y guarda hasta 30 días de piezas (gancho, qué
+ * decir, llamado a la acción y palabra clave) para Instagram y TikTok. Sirve para vender y para
+ * marca personal. Cada pieza abre la herramienta que la produce con todo cargado.
  */
 
 type Stage = "atraer" | "conectar" | "convertir";
@@ -31,8 +40,9 @@ type Item = {
   id: string; topic: string; title: string | null; stage: Stage; platform: Platform; status: Status;
   due: string | null; source: string | null; created_at: string;
   kind: Kind | null; channels: Channels; keyword: string | null; leads: number; sales: number;
+  brief: string | null; cta: string | null; plan_id: string | null;
 };
-const COLS = "id,topic,title,stage,platform,status,due,source,created_at,kind,channels,keyword,leads,sales";
+const COLS = "id,topic,title,stage,platform,status,due,source,created_at,kind,channels,keyword,leads,sales,brief,cta,plan_id";
 const normalize = (r: Record<string, unknown>): Item => ({ ...(r as unknown as Item), kind: (r.kind as Kind) ?? kindFromPlatform(r.platform as string), channels: cleanChannels(r.channels), leads: Number(r.leads) || 0, sales: Number(r.sales) || 0 });
 type Idea = { topic: string; title: string; stage: Stage; platform: Platform; why: string; source: string };
 type SearchHit = { q: string; source: "google" | "youtube" };
@@ -52,6 +62,16 @@ const STATUSES: { id: Status; label: string }[] = [
   { id: "idea", label: "Idea" }, { id: "guion", label: "Guion" }, { id: "grabado", label: "Grabado" }, { id: "publicado", label: "Publicado" },
 ];
 const DAY_NAMES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+// Tu mes de contenido: opciones de "Personalizar" (todas opcionales).
+type MonthGoal = "vender" | "marca" | "ambas";
+type MonthNet = "instagram" | "tiktok";
+const MONTH_GOALS: { id: MonthGoal; label: string; desc: string }[] = [
+  { id: "marca", label: "Crecer mi marca personal", desc: "Que te conozcan y confíen en ti. Poca venta directa." },
+  { id: "vender", label: "Vender mi producto", desc: "Más piezas que invitan a comprar, sin presión." },
+  { id: "ambas", label: "Las dos", desc: "Marca personal y ventas en el mismo mes." },
+];
+const MONTH_FREQ = [3, 5, 7] as const;
 
 // Tabla nueva, aún no está en los tipos generados de Supabase.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -91,6 +111,16 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const [goals, setGoals] = useState<Goals>(DEFAULT_GOALS);
   const [editGoals, setEditGoals] = useState(false);
   const [linksOpen, setLinksOpen] = useState<string | null>(null);
+  const [briefOpen, setBriefOpen] = useState<string | null>(null);
+  // Tu mes de contenido
+  const { applyServerCharge, canAfford } = useCredits();
+  const [monthOpts, setMonthOpts] = useState(false);
+  const [monthGoal, setMonthGoal] = useState<MonthGoal | null>(null);
+  const [monthNets, setMonthNets] = useState<MonthNet[]>(["instagram", "tiktok"]);
+  const [monthFreq, setMonthFreq] = useState<number>(5);
+  const [monthFace, setMonthFace] = useState(true);
+  const [monthBusy, setMonthBusy] = useState(false);
+  const [lastPlan, setLastPlan] = useState<{ id: string; count: number; end: string } | null>(null);
 
   useEffect(() => {
     if (loaded && !seedTouched && !seed) setSeed(defaultSeed(profile.product, profile.who));
@@ -147,7 +177,7 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
     }
   };
 
-  type NewRow = Omit<Item, "id" | "created_at" | "kind" | "channels" | "keyword" | "leads" | "sales"> & { kind?: Kind };
+  type NewRow = Omit<Item, "id" | "created_at" | "kind" | "channels" | "keyword" | "leads" | "sales" | "brief" | "cta" | "plan_id"> & { kind?: Kind };
   const insertItems = async (rows: NewRow[]) => {
     if (!user || !activeId || !rows.length) return false;
     const full = rows.map(r => { const k = r.kind ?? kindFromPlatform(r.platform); return { ...r, kind: k, channels: freshChannels(k), user_id: user.id, product_id: activeId }; });
@@ -232,6 +262,65 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
     onNavigate?.("Generadores");
   };
 
+  // ── Tu mes de contenido ──
+  // Sin producto con nombre se asume marca personal; si no, las dos. Siempre se puede cambiar.
+  const deducedGoal: MonthGoal = profile.product.trim() ? "ambas" : "marca";
+  const goalNow = monthGoal ?? deducedGoal;
+  const buildMonth = async () => {
+    if (!activeId || monthBusy) return;
+    if (!canAfford("content_month")) {
+      toast.error(`Te faltan créditos: armar tu mes cuesta ${CREDIT_COSTS.content_month}`, { description: "Recarga créditos o espera a que se renueven." });
+      return;
+    }
+    setMonthBusy(true);
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/content-month`, {
+        method: "POST", headers: await fnHeaders(),
+        body: JSON.stringify({ product_id: activeId, goal: goalNow, networks: monthNets, per_week: monthFreq, face: monthFace, start: ymd(new Date()), seed: seedTouched ? seed : undefined }),
+      });
+      if (!resp.ok) throw new Error(await fnErrorMessage(resp, "No se pudo armar tu mes"));
+      const data = await resp.json() as { plan_id: string; count: number; end: string; from_searches: number };
+      applyServerCharge("content_month", readBilling(resp), `${data.count} piezas`);
+      setLastPlan({ id: data.plan_id, count: data.count, end: data.end });
+      setWeekOffset(0); setView("semana");
+      await load();
+      toast.success(`Listo: ${data.count} piezas hasta el ${prettyDate(data.end)}`, { description: data.from_searches ? `${data.from_searches} salen de lo que la gente busca en Google y YouTube.` : undefined });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo armar tu mes");
+    } finally {
+      setMonthBusy(false);
+    }
+  };
+  const removePlan = async (planId: string) => {
+    const mine = items.filter(i => i.plan_id === planId);
+    const touched = mine.filter(i => i.status !== "idea" || i.leads || i.sales || Object.values(i.channels).some(c => c?.done)).length;
+    if (!window.confirm(`¿Borrar las ${mine.length} piezas de este mes?${touched ? ` ${touched} ya tienen avances y también se borran.` : ""} Los créditos no se devuelven.`)) return;
+    const before = items;
+    setItems(prev => prev.filter(i => i.plan_id !== planId));
+    const { error } = await table().delete().eq("plan_id", planId);
+    if (error) { toast.error("No se pudo borrar"); setItems(before); return; }
+    if (lastPlan?.id === planId) setLastPlan(null);
+  };
+  /** Abre la herramienta que produce la pieza, con el gancho y el qué decir cargados. */
+  const makePiece = (it: Item) => {
+    const what = [it.brief, it.cta && `Cierre: ${it.cta}`, it.keyword && `Palabra clave: comenta ${it.keyword}`].filter(Boolean).join("\n");
+    if (it.kind === "carrusel") {
+      setCreativeSeed({
+        source: "manual", target: "carrusel", title: (it.title ?? it.topic).slice(0, 80),
+        product: profile.product, who: profile.who, promise: profile.promise, price: profile.price,
+        hook: (it.title ?? "").slice(0, 140), angle: (it.brief ?? "").slice(0, 200),
+      });
+      if (it.status === "idea") void update(it.id, { status: "guion" });
+      onNavigate?.("Carrusel");
+      return;
+    }
+    try {
+      localStorage.setItem("supernova_generator_prefill", JSON.stringify({ generator: "reels-script", text: `${it.title ?? ""}\n${what}`.trim().slice(0, 1500) }));
+    } catch { /* sin almacenamiento */ }
+    if (it.status === "idea") void update(it.id, { status: "guion" });
+    onNavigate?.("Generadores");
+  };
+
   // ── Funciones de render (no componentes): los inputs no se vuelven a montar al teclear ──
   const stageChip = (s: Stage, small?: boolean) => {
     const st = stageOf(s);
@@ -250,6 +339,20 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
         onBlur={e => { const v = e.target.value.trim().slice(0, 200); if (v !== (it.title ?? "")) update(it.id, { title: v }); }}
         className="w-full resize-none bg-transparent text-sm text-foreground leading-snug focus:outline-none focus:ring-1 focus:ring-primary/40 rounded" />
       {it.topic && it.topic !== it.title && <p className="text-[11px] text-muted-foreground leading-snug">🔎 {it.topic}</p>}
+      {(it.brief || it.cta) && (
+        <div>
+          <button type="button" onClick={() => setBriefOpen(v => (v === it.id ? null : it.id))} aria-expanded={briefOpen === it.id}
+            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground">
+            <ChevronDown className={`w-3 h-3 transition-transform ${briefOpen === it.id ? "rotate-180" : ""}`} /> Qué decir
+          </button>
+          {briefOpen === it.id && (
+            <div className="mt-1 space-y-1 text-[11px] leading-snug text-muted-foreground">
+              {it.brief && <ul className="list-disc pl-4 space-y-0.5">{it.brief.split(" · ").map((b, i) => <li key={i}>{b}</li>)}</ul>}
+              {it.cta && <p><span className="text-foreground">Cierre:</span> {it.cta}</p>}
+            </div>
+          )}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-1.5">
         <select value={it.stage} onChange={e => update(it.id, { stage: e.target.value as Stage })} aria-label="Etapa"
           className="rounded-md border px-1.5 py-1 text-[11px] font-semibold bg-background"
@@ -317,9 +420,16 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
       <div className="flex flex-wrap items-center gap-1.5">
         <input type="date" value={it.due ?? ""} onChange={e => update(it.id, { due: e.target.value || null })} aria-label="Fecha"
           className="rounded-md border border-border bg-background px-1.5 py-1 text-[11px] text-muted-foreground min-w-0" />
-        <button onClick={() => writeScript(it)} className="inline-flex items-center gap-1 rounded-md border border-primary/40 px-2 py-1 text-[11px] font-semibold text-primary hover:bg-primary/10">
-          <PenLine className="w-3 h-3" /> Escribir guion
-        </button>
+        {it.plan_id ? (
+          <button onClick={() => makePiece(it)} title={it.kind === "carrusel" ? "Abre el Carrusel con este gancho" : "Abre el guion de Reels con este gancho"}
+            className="inline-flex items-center gap-1 rounded-md border border-primary/40 px-2 py-1 text-[11px] font-semibold text-primary hover:bg-primary/10">
+            {it.kind === "carrusel" ? <Layers className="w-3 h-3" /> : <PenLine className="w-3 h-3" />} Hacer esta pieza
+          </button>
+        ) : (
+          <button onClick={() => writeScript(it)} className="inline-flex items-center gap-1 rounded-md border border-primary/40 px-2 py-1 text-[11px] font-semibold text-primary hover:bg-primary/10">
+            <PenLine className="w-3 h-3" /> Escribir guion
+          </button>
+        )}
         <button onClick={() => remove(it.id)} className="ml-auto p-1 text-muted-foreground hover:text-red-400" aria-label="Borrar"><Trash2 className="w-3.5 h-3.5" /></button>
       </div>
     </div>
@@ -432,6 +542,94 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
           {week.best && <span>Lo que más te trae clientes: <span className="text-foreground">{KINDS[week.best.kind].label.toLowerCase()}</span> ({week.best.leads} en total)</span>}
         </div>
         <p className="text-[11px] text-muted-foreground/80">Una pieza cuenta como publicada cuando tiene el check en todas sus redes. Los leads y las ventas los anotas tú en cada pieza: solo números reales.</p>
+      </div>
+
+      {/* Tu mes de contenido: hasta 30 días armados de un toque (cobra el servidor) */}
+      <div className="card-surface rounded-2xl p-5 space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-semibold text-foreground flex items-center gap-2"><CalendarRange className="w-4 h-4 text-primary" /> Arma tu mes de contenido</p>
+            <p className="text-xs text-muted-foreground mt-0.5 max-w-xl">
+              Con lo que ya sabemos de {profile.product.trim() ? `"${profile.product.trim().slice(0, 50)}"` : "ti"} armamos {Math.round(monthFreq * 30 / 7)} piezas para los próximos 30 días en {monthNets.map(n => (n === "instagram" ? "Instagram" : "TikTok")).join(" y ")}: tema con búsquedas reales, gancho, qué decir y cómo cerrar. Cada una se abre lista en Carrusel o en Guion de Reels.
+            </p>
+          </div>
+          <button onClick={buildMonth} disabled={monthBusy || !activeId || !monthNets.length}
+            className="inline-flex items-center justify-center gap-2 rounded-lg gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50 shrink-0">
+            {monthBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {monthBusy ? "Armando tu mes…" : `Arma mi mes · ${CREDIT_COSTS.content_month} créditos`}
+          </button>
+        </div>
+        {monthBusy && <p className="text-[12px] text-muted-foreground">Leemos lo que la gente busca sobre tu tema y escribimos cada pieza. Tarda menos de un minuto.</p>}
+
+        <div>
+          <button type="button" onClick={() => setMonthOpts(v => !v)} aria-expanded={monthOpts} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${monthOpts ? "rotate-180" : ""}`} /> Personalizar (opcional)
+          </button>
+          {monthOpts && (
+            <div className="mt-3 grid gap-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <p className="text-[12px] font-semibold text-foreground">¿Para qué es tu contenido?</p>
+                {MONTH_GOALS.map(g => (
+                  <button key={g.id} type="button" onClick={() => setMonthGoal(g.id)} aria-pressed={goalNow === g.id}
+                    className={`w-full text-left rounded-lg border px-3 py-2 ${goalNow === g.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"}`}>
+                    <span className="block text-[13px] text-foreground">{g.label}{monthGoal === null && g.id === deducedGoal && <span className="text-[11px] text-muted-foreground"> · elegido por ti</span>}</span>
+                    <span className="block text-[11px] text-muted-foreground">{g.desc}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <p className="text-[12px] font-semibold text-foreground">Redes</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(["instagram", "tiktok"] as MonthNet[]).map(n => {
+                      const on = monthNets.includes(n);
+                      return (
+                        <button key={n} type="button" aria-pressed={on} onClick={() => setMonthNets(v => (on ? v.filter(x => x !== n) : [...v, n]))}
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs ${on ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
+                          {on && <Check className="w-3 h-3" />}{n === "instagram" ? "Instagram" : "TikTok"}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {!monthNets.length && <p className="text-[11px] text-muted-foreground">Elige al menos una red.</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-[12px] font-semibold text-foreground">Piezas por semana</p>
+                  <div className="flex gap-2">
+                    {MONTH_FREQ.map(f => (
+                      <button key={f} type="button" aria-pressed={monthFreq === f} onClick={() => setMonthFreq(f)}
+                        className={`rounded-full border px-3 py-1.5 text-xs ${monthFreq === f ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
+                        {f} <span className="text-muted-foreground">({Math.round(f * 30 / 7)} en el mes)</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-[12px] font-semibold text-foreground">¿Muestras tu cara?</p>
+                  <div className="flex gap-2">
+                    {[{ v: true, l: "Sí" }, { v: false, l: "No, prefiero voz o personaje IA" }].map(o => (
+                      <button key={String(o.v)} type="button" aria-pressed={monthFace === o.v} onClick={() => setMonthFace(o.v)}
+                        className={`rounded-full border px-3 py-1.5 text-xs ${monthFace === o.v ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
+                        {o.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {lastPlan && (
+          <div className="border-t border-border pt-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-foreground">{lastPlan.count} piezas en tu calendario hasta el {prettyDate(lastPlan.end)}. Empieza por la de hoy: toca <span className="text-primary font-semibold">Hacer esta pieza</span>.</p>
+              <button type="button" onClick={() => void removePlan(lastPlan.id)} className="text-xs text-muted-foreground hover:text-red-400">Borrar este mes</button>
+            </div>
+            <ToolFeedback tool="mes-contenido" refId={lastPlan.id} context={{ objetivo: goalNow, redes: monthNets, por_semana: monthFreq, cara: monthFace }} />
+          </div>
+        )}
+        <p className="text-[11px] text-muted-foreground/80">Es un plan para publicar con constancia, no una promesa de vistas ni de ventas. Todo lo puedes editar, mover o borrar.</p>
       </div>
 
       {/* Buscar ideas con demanda real */}

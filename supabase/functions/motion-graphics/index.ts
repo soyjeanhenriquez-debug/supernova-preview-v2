@@ -24,6 +24,7 @@
 // Compuerta: usuario real (auth.getUser; verify_jwt no protege) + edge_guard_charge. Costo real en
 // ai_usage. Si la IA falla o devuelve algo inservible → safeRefund.
 import { corsHeaders as baseCors } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { HONESTY_RULES } from "../_shared/honesty.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 import { safeRefund } from "../_shared/refund.ts";
 
@@ -73,6 +74,8 @@ async function charge(admin: Admin, userId: string, kind: keyof typeof ACTIONS, 
   if (g?.ok !== true) {
     switch (g?.reason) {
       case "rate_limited": return json(429, { error: "Hiciste varios seguidos. Intenta más tarde." });
+      case "recharge_required":
+        return json(402, { error: "Ya usaste tus pruebas gratis de esta herramienta. Recarga al menos US$20 para seguir usándola; mientras, puedes probar todo lo demás.", code: "recharge_required", min_usd: 20 });
       case "insufficient_credits":
         return json(402, { error: "No tienes créditos suficientes.", code: "insufficient_credits", balance: g.balance, cost: g.cost });
       case "disabled": return json(503, { error: "Esta función no está disponible por ahora." });
@@ -118,7 +121,7 @@ async function askGemini(admin: Admin, userId: string, apiKey: string, messages:
     const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, response_format: { type: "json_object" }, messages }),
+      body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, reasoning_effort: "low", response_format: { type: "json_object" }, messages }),
       signal: ctrl.signal,
     });
     if (!r.ok) {
@@ -134,8 +137,14 @@ async function askGemini(admin: Admin, userId: string, apiKey: string, messages:
       if (error) console.error("log_ai_usage:", error.message);
     }
     const text = String(out?.choices?.[0]?.message?.content ?? "").replace(/^```(?:json)?\s*|\s*```$/g, "");
-    const parsed = JSON.parse(text);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+    // A veces llega con texto alrededor o cortado: se intenta rescatar el objeto entre la primera { y la última }.
+    let parsed: unknown = null;
+    try { parsed = JSON.parse(text); } catch {
+      const a = text.indexOf("{"), z = text.lastIndexOf("}");
+      if (a >= 0 && z > a) { try { parsed = JSON.parse(text.slice(a, z + 1)); } catch { /* sigue null */ } }
+    }
+    if (!parsed) console.error(`${FN}: JSON inválido (${text.length} caracteres, fin=${out?.choices?.[0]?.finish_reason ?? "?"})`);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Row : null;
   } catch (e) {
     console.error(`${FN}:`, e instanceof Error ? e.name : e);
     return null;
@@ -357,11 +366,18 @@ Deno.serve(async (req) => {
     }
     const gate = await charge(admin, userId, "plan", label);
     if (gate instanceof Response) return gate;
-    const out = await askGemini(admin, userId, apiKey, [
-      { role: "system", content: planSystem(seconds, source, tone, styleBible(style), format) },
+    const msgs = [
+      { role: "system", content: planSystem(seconds, source, tone, styleBible(style), format) + HONESTY_RULES },
       { role: "user", content: userMsg },
-    ], 9_000, 0);
-    const plan = out ? cleanPlan(out, seconds, userMsg) : null;
+    ];
+    // Prueba de Hany (10-oct-2026): con 9.000 tokens el JSON llegaba cortado y fallaba siempre. Más margen y
+    // un reintento antes de devolver el cobro.
+    let out = await askGemini(admin, userId, apiKey, msgs, 16_000, 0);
+    let plan = out ? cleanPlan(out, seconds, userMsg) : null;
+    if (!plan) {
+      out = await askGemini(admin, userId, apiKey, msgs, 16_000, 0);
+      plan = out ? cleanPlan(out, seconds, userMsg) : null;
+    }
     if (!plan) {
       const back = await safeRefund(admin, gate.txId, out ? "ia_vacia" : "ia_error", FN);
       return json(502, { error: back ? "No pudimos armar las escenas. No se te cobró." : "No pudimos armar las escenas." }, billingHeaders({ ...gate, charged: back ? 0 : gate.charged }));

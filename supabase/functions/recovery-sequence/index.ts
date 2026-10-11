@@ -7,6 +7,7 @@
 // Ruta interna de prueba: con x-cron-secret válido + test_user_id de un ADMIN, actúa como ese
 // usuario (cobrando igual). Así se puede probar desde SQL (net.http_post) sin sesión de navegador.
 import { corsHeaders as baseCors } from "npm:@supabase/supabase-js@2.117.1/cors";
+import { HONESTY_RULES } from "../_shared/honesty.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 import { safeRefund } from "../_shared/refund.ts";
 
@@ -58,6 +59,8 @@ async function charge(admin: Admin, userId: string): Promise<Gate | Response> {
   if (g?.ok !== true) {
     switch (g?.reason) {
       case "rate_limited": return json(429, { error: "Ya creaste varias secuencias seguidas. Intenta más tarde." });
+      case "recharge_required":
+        return json(402, { error: "Ya usaste tus pruebas gratis de esta herramienta. Recarga al menos US$20 para seguir usándola; mientras, puedes probar todo lo demás.", code: "recharge_required", min_usd: 20 });
       case "insufficient_credits":
         return json(402, { error: "No tienes créditos suficientes para esta acción.", code: "insufficient_credits", balance: g.balance, cost: g.cost });
       case "disabled": return json(503, { error: "Esta función no está disponible por ahora." });
@@ -190,7 +193,7 @@ DUDA O EXCUSA QUE MÁS LE DICEN: ${objection || "no la indicó: usa la más prob
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: MODEL, max_tokens: 6000, response_format: { type: "json_object" },
-        messages: [{ role: "system", content: system }, { role: "user", content: user }],
+        messages: [{ role: "system", content: system + HONESTY_RULES }, { role: "user", content: user }],
       }),
       signal: ctrl.signal,
     });

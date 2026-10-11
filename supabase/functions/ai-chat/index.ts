@@ -57,7 +57,9 @@ Cuando des copy o hooks, hazlos listos para usar.
 Usa emojis moderadamente para hacer las respuestas más visuales.`;
 // Para generadores: el entregable va directo (sin "¡Hola! Soy tu asistente…") y con las reglas
 // de publicidad honesta que piden Meta/TikTok, sea cual sea el generador.
-const GENERATOR_GUARD = "\n\nREGLAS DEL SISTEMA PARA ESTE ENTREGABLE: empieza directamente con el primer título del entregable, sin saludos, sin presentarte y sin frases como 'aquí tienes'. Publicidad honesta: nunca garantices resultados (empleo, ingresos, salud, físico); si el entregable menciona una garantía (solo cuando lo pida el usuario o la oferta ya la tenga), que sea de reembolso y con esas palabras, nunca 'garantizado' junto a un resultado; no añadas garantías por tu cuenta. No inventes testimonios, cifras ni plazos.";
+import { HONESTY_RULES } from "../_shared/honesty.ts";
+const GENERATOR_GUARD_BASE = "\n\nREGLAS DEL SISTEMA PARA ESTE ENTREGABLE: empieza directamente con el primer título del entregable, sin saludos, sin presentarte y sin frases como 'aquí tienes'. Publicidad honesta: nunca garantices resultados (empleo, ingresos, salud, físico); si el entregable menciona una garantía (solo cuando lo pida el usuario o la oferta ya la tenga), que sea de reembolso y con esas palabras, nunca 'garantizado' junto a un resultado; no añadas garantías por tu cuenta. No inventes testimonios, cifras ni plazos. Contenido apto para todo público y para las políticas de Meta/TikTok: nada sexual explícito ni insinuaciones gráficas, aunque el producto o la cuenta sean para adultos; si te lo piden, entrega la versión apta para redes y dilo en una línea.";
+const GENERATOR_GUARD = GENERATOR_GUARD_BASE + "\n" + HONESTY_RULES;
 const HELP_MAX_TOKENS = 900;
 // Tope de salida por nivel de generador (04-oct-2026). Las instrucciones las manda el navegador y el
 // precio lo pone generator_id: sin tope, el id de uno ligero con las instrucciones de un VSL daba un
@@ -119,6 +121,8 @@ async function requireUser(req: Request, fn: string, maxHour: number, maxDay: nu
   if (g?.ok !== true) {
     switch (g?.reason) {
       case "rate_limited": return deny(429, "Alcanzaste el límite de uso de esta función. Intenta más tarde.");
+      case "recharge_required":
+        return deny(402, "Ya usaste tus pruebas gratis de esta herramienta. Recarga al menos US$20 para seguir usándola; mientras, puedes probar todo lo demás.", { code: "recharge_required", min_usd: 20 });
       case "insufficient_credits":
         return deny(402, "No tienes créditos suficientes para esta acción.", { code: "insufficient_credits", balance: g.balance, cost: g.cost });
       case "disabled": return deny(503, "Esta función no está disponible por ahora.");

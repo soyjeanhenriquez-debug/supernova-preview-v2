@@ -9,7 +9,9 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 // "Proyectos" NO va aquí: es donde se guardan las mini apps de "Hacer mi versión".
 // "Crear producto" (Fase 1, ebook o curso con IA): en piloto con Jean; se quita de aquí para lanzarlo.
 // "UGC con IA" ya no está aquí: abre Influencer IA, que sabe mostrar "pronto" si el servidor lo tiene cerrado.
-export const ADMIN_ONLY_PAGES = new Set(["Media Studio", "Mercado", "Crear", "Oráculo", "Crear producto"]);
+// "Recompensas" (11-oct-2026): en pausa para clientes hasta que exista la campaña de Whop (rewards.ts whopUrl):
+// no se promete un pago que todavía no existe.
+export const ADMIN_ONLY_PAGES = new Set(["Media Studio", "Mercado", "Crear", "Oráculo", "Crear producto", "Recompensas"]);
 
 /** Los idiomas inglés y portugués también quedan en pausa para clientes: la app va en español. */
 export const MULTI_LANGUAGE_FOR_CLIENTS = false;

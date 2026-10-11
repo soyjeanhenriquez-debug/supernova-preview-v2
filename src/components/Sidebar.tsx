@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderKanban, Coins, Shield, LogOut, PanelLeftClose, PanelLeftOpen, X, KeyRound, Briefcase, LayoutGrid, GraduationCap, Lock, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Coins, Shield, LogOut, PanelLeftClose, PanelLeftOpen, X, KeyRound, Briefcase, LayoutGrid, GraduationCap, Lock, BadgeDollarSign, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
@@ -48,6 +48,8 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
     { title: "Biblioteca", items: [
       // Aprende: guías de Jean (siempre) y videos de cada herramienta (cuando haya).
       { icon: GraduationCap, key: "Aprende", label: "Aprende", hint: TUTORIALS.length ? "Guías paso a paso de Jean y un video corto por herramienta." : "Guías paso a paso de Jean, con las herramientas para hacerlo." },
+      // Recompensas (07-oct-2026): clips de SUPERNOVA o de Jean pagados por vistas en Whop. Sin candado.
+      ...(canSee("Recompensas") ? [{ icon: BadgeDollarSign, key: "Recompensas", label: "Gana con tu contenido", hint: "Haz clips sobre SUPERNOVA o sobre Jean y cobra por cada 1.000 vistas en Whop." }] : []),
       { icon: LayoutGrid, key: "Productos", label: "Mis productos", hint: "Todos tus productos y cuánto avanzó cada uno." },
       { icon: FolderKanban, key: "Proyectos", label: t("nav.projects"), hint: t("nav.hint.projects") },
     ] },
@@ -147,7 +149,7 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
             >
               <Icon className={`w-[15px] h-[15px] flex-shrink-0 ${isActive ? "text-foreground" : ""}`} strokeWidth={1.6} />
               {!isCollapsed && <span className="text-[13px] font-medium tracking-tight truncate">{item.label}</span>}
-              {!isCollapsed && locked && item.key !== "Dashboard" && item.key !== "Aprende" && <Lock className="ml-auto w-3 h-3 text-muted-foreground/60 shrink-0" strokeWidth={1.8} />}
+              {!isCollapsed && locked && item.key !== "Dashboard" && item.key !== "Aprende" && item.key !== "Recompensas" && <Lock className="ml-auto w-3 h-3 text-muted-foreground/60 shrink-0" strokeWidth={1.8} />}
             </button>
           );
         })}

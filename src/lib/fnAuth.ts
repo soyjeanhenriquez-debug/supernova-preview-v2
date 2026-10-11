@@ -23,9 +23,18 @@ export async function fnHeaders(): Promise<Record<string, string>> {
  * devuelven `{ error }` en español (sesión vencida, sin acceso, límite de uso):
  * mostrarlo es más útil que un "Error de IA" genérico.
  */
+/**
+ * Probadores (10-oct-2026): cuando el servidor dice "recharge_required", se abre la ventana de recarga
+ * (RechargePopup, montada en Index). Se cierra y la persona sigue con otra herramienta.
+ */
+export function offerRecharge() {
+  try { window.dispatchEvent(new Event("sn:recharge-required")); } catch { /* sin ventana (pruebas) */ }
+}
+
 export async function fnErrorMessage(resp: Response, fallback: string): Promise<string> {
   try {
     const data = await resp.clone().json();
+    if (data?.code === "recharge_required") offerRecharge();
     if (typeof data?.error === "string" && data.error.trim()) return data.error;
   } catch { /* cuerpo no-JSON (stream cortado, HTML de un proxy…) */ }
   return fallback;

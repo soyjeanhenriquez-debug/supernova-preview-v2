@@ -13,6 +13,7 @@ export type CreditAction =
   | "search_ads" | "analyze_url" | "landing_intelligence" | "sofisticar"
   | "blueprint" | "adaptar" | "pain_discovery" | "chat_message" | "ai_intel"
   | "gen_landing" | "gen_ad_copies" | "gen_avatar" | "gen_funnel"
+  | "content_month"
   | "gen_master_prompt" | "pillar_assist" | "gen_light" | "gen_medium" | "gen_heavy" | "gen_media"
   | "gen_ad_image" | "gen_ad_image_nb2" | "gen_ad_image_nbpro" | "clone_carousel" | "model_slide" | "follow_offer" | "unlock_kit"
   | "build_piece_std" | "build_piece_sonnet" | "build_piece_opus" | "build_piece_fable" | "build_piece_gpt" | "build_piece_astra"
@@ -49,6 +50,8 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   // antes de aplicar la migración 20261004060000_yt_production.sql.
   yt_voice_scene: 5, // gpt-4o-mini-tts ≤600 caracteres a speed ≥1 (≤US$0,0104) → ~3,9× peor caso, ~5× normal
   yt_scene_image: 6, // gpt-image-2 (~US$0,0081) → 5,9×
+  // Tu mes de contenido (edge function content-month, gemini-3-flash ~US$0,03 → ~13×). Jean, 07-oct-2026.
+  content_month: 50,
   // Motion graphics (edge function motion-graphics, gemini-3-flash). Jean, 08-oct-2026: "×15, sin exagerar".
   motion_style: 40, // desglose + ADN del estilo + prompt listo para pegar (≤ US$0,023 → ≈ 14×)
   motion_ad: 50, // escenas, narración y prompts de clips de 10 s (≤ US$0,029 → ≈ 14×); la animación se dibuja gratis
@@ -82,6 +85,7 @@ export const ACTION_LABEL: Record<CreditAction, string> = {
   vid_mini_10: "Video con IA de 10 segundos",
   yt_voice_scene: "Voz de una escena (hasta ~40 s)",
   yt_scene_image: "Imagen de una escena de tu video",
+  content_month: "Tu mes de contenido",
   motion_style: "Modelar el estilo de un motion graphics",
   motion_ad: "Motion graphics con IA",
 };
@@ -105,6 +109,7 @@ export const ACTION_HOURS: Record<CreditAction, number> = {
   build_piece_std: 3, build_piece_sonnet: 3, build_piece_opus: 3, build_piece_fable: 3, build_piece_gpt: 3, build_piece_astra: 3,
   business_map: 3,
   vid_mini_5: 2, vid_mini_10: 3, yt_voice_scene: 0.5, yt_scene_image: 1,
+  content_month: 6,
   motion_style: 2, motion_ad: 6,
 };
 

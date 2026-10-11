@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react"
 import { Loader2 } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
+import { RechargePopup } from "@/components/RechargePopup";
 import { LowCreditBanner } from "@/components/LowCreditBanner";
 import { OnboardingTour } from "@/components/OnboardingTour";
 import { AgeCountryGate } from "@/components/AgeCountryGate";
@@ -45,6 +46,7 @@ const MyBusinessPage = lazy(() => import("@/pages/MyBusinessPage").then(m => ({ 
 const ValidationPage = lazy(() => import("@/pages/ValidationPage").then(m => ({ default: m.ValidationPage })));
 const LaunchPlanPage = lazy(() => import("@/pages/LaunchPlanPage").then(m => ({ default: m.LaunchPlanPage })));
 const RecoveryPage = lazy(() => import("@/pages/RecoveryPage").then(m => ({ default: m.RecoveryPage })));
+const DiagnosticoPage = lazy(() => import("@/pages/DiagnosticoPage").then(m => ({ default: m.DiagnosticoPage })));
 const ContentPage = lazy(() => import("@/pages/ContentPage").then(m => ({ default: m.ContentPage })));
 const ProductsPage = lazy(() => import("@/pages/ProductsPage").then(m => ({ default: m.ProductsPage })));
 const ProductBuilderPage = lazy(() => import("@/pages/ProductBuilderPage"));
@@ -55,6 +57,7 @@ const YouTubeCreatorPage = lazy(() => import("@/pages/YouTubeCreatorPage").then(
 const IdeasPage = lazy(() => import("@/pages/IdeasPage").then(m => ({ default: m.IdeasPage })));
 const OrderBumpPage = lazy(() => import("@/pages/OrderBumpPage").then(m => ({ default: m.OrderBumpPage })));
 const AprendePage = lazy(() => import("@/pages/AprendePage").then(m => ({ default: m.AprendePage })));
+const RecompensasPage = lazy(() => import("@/pages/RecompensasPage").then(m => ({ default: m.RecompensasPage })));
 
 function PageLoader() {
   return (
@@ -63,6 +66,9 @@ function PageLoader() {
     </div>
   );
 }
+
+// Pantallas que se abren sin plan: cualquiera puede aprender o hacer clips para la campaña de Whop.
+const OPEN_IN_VITRINA = new Set(["Dashboard", "Aprende", "Recompensas"]);
 
 function pageFromHash(): string {
   // Un hash que no es nuestro (p. ej. el #access_token=… de un enlace de acceso) se ignora.
@@ -116,11 +122,21 @@ const Index = () => {
   const { locked } = useVitrina();
   const renderPage = () => {
     // Secciones en pausa (src/lib/features.ts): un cliente que llega por un enlace viejo va al inicio.
-    if (!canSee(activePage)) return accessLoading ? null : <DashboardPage onNavigate={setActivePage} />;
-    // Vitrina (sin plan): el Inicio y Aprende se ven; cada herramienta enseña qué hace, con candado.
-    if (locked && activePage !== "Dashboard" && activePage !== "Aprende") return <LockedToolPage page={activePage} />;
+    // Secciones en pausa (src/lib/features.ts): antes mandaban al Inicio sin decir nada (prueba de Hany,
+    // 10-oct-2026). Ahora se explica y se ofrece volver.
+    if (!canSee(activePage)) return accessLoading ? null : (
+      <div className="card-surface rounded-2xl p-8 max-w-xl mx-auto text-center space-y-3 mt-8">
+        <p className="text-xs uppercase tracking-wider text-primary font-semibold">En pausa</p>
+        <h1 className="font-display font-bold text-xl text-foreground">{activePage} se está mejorando</h1>
+        <p className="text-sm text-muted-foreground">Esta herramienta todavía no está abierta para todos. Mientras tanto, puedes seguir con el resto de la app.</p>
+        <button onClick={() => setActivePage("Dashboard")} className="inline-flex items-center gap-2 rounded-lg gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground">Volver al inicio</button>
+      </div>
+    );
+    // Vitrina (sin plan): el Inicio, Aprende y Recompensas se ven; cada herramienta enseña qué hace, con candado.
+    if (locked && !OPEN_IN_VITRINA.has(activePage)) return <LockedToolPage page={activePage} />;
     switch (activePage) {
       case "Aprende": return <AprendePage onNavigate={setActivePage} />;
+      case "Recompensas": return <RecompensasPage onNavigate={setActivePage} />;
       case "Creativos": return <ImageStudioPage key="creativo" initialMode="creativo" />;
       case "Carrusel": return <ImageStudioPage key="carrusel" initialMode="carrusel" />;
       case "Miniaturas": return <ImageStudioPage key="miniatura" initialMode="miniatura" />;
@@ -151,6 +167,7 @@ const Index = () => {
       case "Plan": return <LaunchPlanPage onNavigate={setActivePage} />;
       case "Contenido": return <ContentPage onNavigate={setActivePage} />;
       case "Recuperar": return <RecoveryPage onNavigate={setActivePage} />;
+      case "Diagnóstico": return <DiagnosticoPage onNavigate={setActivePage} />;
       case "Order bump": return <OrderBumpPage onNavigate={setActivePage} />;
       case "Productos": return <ProductsPage onNavigate={setActivePage} />;
       case "Crear producto": return <ProductBuilderPage onNavigate={setActivePage} />;
@@ -200,6 +217,7 @@ const Index = () => {
 
       <div className="flex-1 flex flex-col min-w-0">
         {!locked && <LowCreditBanner onRecharge={() => setActivePage("Créditos")} />}
+        <RechargePopup onRecharge={() => setActivePage("Créditos")} />
         <TopBar activePage={activePage} onOpenMobileNav={() => setMobileNavOpen(true)} onSearch={() => setSearchOpen(true)} />
         {/* En qué etapa vas y tu siguiente paso, en todas las pantallas. El Inicio ya muestra el
             recorrido completo. Vive fuera del div con key={productKey}: no parpadea al cambiar de producto. */}

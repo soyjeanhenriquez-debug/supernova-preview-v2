@@ -85,6 +85,8 @@ async function chargeUser(userId: string, fn: string, maxHour: number, maxDay: n
   if (g?.ok !== true) {
     switch (g?.reason) {
       case "rate_limited": return deny(429, "Alcanzaste el límite de uso de esta función. Intenta más tarde.");
+      case "recharge_required":
+        return deny(402, "Ya usaste tus pruebas gratis de esta herramienta. Recarga al menos US$20 para seguir usándola; mientras, puedes probar todo lo demás.", { code: "recharge_required", min_usd: 20 });
       case "insufficient_credits":
         return deny(402, "No tienes créditos suficientes para esta acción.", { code: "insufficient_credits", balance: g.balance, cost: g.cost });
       case "disabled": return deny(503, "Esta función no está disponible por ahora.");
@@ -123,6 +125,9 @@ async function refundCharge(gate: Gate | null, reason: string): Promise<void> {
   if (!gate?.txId) return;
   await safeRefund(guardClient(), gate.txId, reason, "generate-ad-creative");
 }
+
+// Lo que ningún creativo puede mostrar (manual de SUPERNOVA y políticas de Meta): se añade en el servidor.
+const SAFE_RULES = "Apto para todo público: nada sexual, sin desnudos ni poses o ropa sugerentes; sin cuerpos antes y después ni cambios físicos; sin cifras de dinero, peso o salud; sin logos de otras marcas ni personas famosas (el logo y la foto propios del usuario sí).";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -169,9 +174,11 @@ Deno.serve(async (req) => {
     if (g instanceof Response) return g;
     gate = g;
 
+    // Reglas del servidor en TODO creativo (chequeo 07-oct-2026): el prompt lo arma el navegador, así que
+    // lo que nunca debe pasar se añade aquí y no depende del cliente.
     const aspect = ASPECT_HINT[body.aspectRatio ?? "1:1"] ? (body.aspectRatio ?? "1:1") : "1:1";
     const aspectHint = ASPECT_HINT[aspect];
-    const fullPrompt = `${prompt}\n\nFormato: ${aspectHint}. Estilo publicitario profesional, alta calidad, listo para usar como creativo de anuncio en redes sociales.`;
+    const fullPrompt = `${prompt}\n\nFormato: ${aspectHint}. Estilo publicitario profesional, alta calidad, listo para usar como creativo de anuncio en redes sociales. ${SAFE_RULES}`;
 
     // 1) APIMart (principal y más barato).
     const am = await apimartImage(fullPrompt, aspect, refUrls, model);

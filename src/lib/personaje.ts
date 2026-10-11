@@ -37,6 +37,8 @@ export type PersonajeState = {
 export const HONESTY_RULES = `REGLAS DE HONESTIDAD (obligatorias, no se negocian):
 - El personaje es un NARRADOR o una MARCA creada con IA, no un experto real. Nunca le inventes edad extrema, títulos, profesión regulada (médico, nutriólogo, abogado, asesor financiero), años de experiencia, curas, testimonios, clientes, cifras de ventas ni resultados.
 - Puede tener personalidad, estilo y una historia de ficción ligera, pero nada que se presente como un hecho verificable para vender.
+- El personaje NUNCA dice que usó, probó o le funcionó el producto ("yo lo uso", "yo probé este programa", "a mí me cambió"): eso es un testimonio falso. Presenta y explica lo que el producto enseña, como un presentador.
+- No nombra la marca de la oferta que se modela ni repite un precio que no esté en la ficha.
 - Nunca prometas ingresos, resultados de salud, físicos ni plazos ("gana X en 7 días", "baja 10 kilos"). Habla de lo que el producto enseña o ayuda a hacer.
 - Nada de productos milagro, detox ni curas. Salud = hábitos y organización.
 - La bio SIEMPRE incluye "Personaje creado con IA".`;

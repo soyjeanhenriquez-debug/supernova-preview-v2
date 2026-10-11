@@ -3,7 +3,7 @@ import {
   Trophy, Gem, Boxes, Lightbulb, BookOpen, ClipboardCheck, Orbit, Quote, FileText, UserRound, Video,
   ListTodo, CalendarDays, MessageCircle, Calculator, BarChart3, Telescope, Store, Image, LayoutTemplate,
   MonitorPlay, Clapperboard, Send, TrendingUp, Mail, Film, Hash, Youtube, ShoppingBag, Radar,
-  Megaphone, Smartphone, Camera, PanelsTopLeft, Shapes,
+  Megaphone, Smartphone, Camera, PanelsTopLeft, Stethoscope, Shapes,
   type LucideIcon,
 } from "lucide-react";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
@@ -109,6 +109,8 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
     desc: "El extra de un clic antes de pagar: ideas gratis y el texto listo aquí mismo.", keywords: "order bump upsell oferta extra ticket promedio" }),
   T({ id: "recuperar", key: "Recuperar", icon: MessageCircle, title: "Recuperar ventas",
     desc: "Mensajes de WhatsApp para quien casi compra.", keywords: "recuperar ventas whatsapp carrito abandonado mensajes" }),
+  T({ id: "diagnostico", key: "Diagnóstico", icon: Stethoscope, title: "¿Dónde se me escapan las ventas?", nav: "Diagnóstico del embudo", cost: FREE,
+    desc: "Anota tus números: te decimos qué paso frena todo y los 3 cambios que más mueven.", keywords: "diagnostico embudo metricas conversion cuello de botella consultor numeros ventas leads whatsapp por que no vendo" }),
   T({ id: "resultados", key: "Resultados", icon: BarChart3, title: "¿Qué anuncio apago o escalo?", nav: "Resultados de anuncios",
     desc: "Anota gasto y ventas: la app te dice qué hacer.", keywords: "resultados metricas medir escalar apagar ctr gasto ventas" }),
   T({ id: "plan", key: "Plan", icon: ListTodo, title: "Plan de lanzamiento",
@@ -163,14 +165,14 @@ export const HOME_CATEGORIES: { id: string; label: string; tools: Tool[] }[] = [
   { id: "imagenes", label: "Imágenes", tools: pick(["creativos", "carrusel", "miniaturas"]) },
   { id: "video", label: "Video", tools: pick(["videoanuncio", "creadoryt", "personaje", "video"]) },
   { id: "textos", label: "Textos y anuncios", tools: pick(["copy", "anuncios", "ganchos", "contenido"]) },
-  { id: "negocio", label: "Tu negocio", tools: pick(["producto", "validar", "precio", "plan", "bump", "recuperar"]) },
+  { id: "negocio", label: "Tu negocio", tools: pick(["producto", "validar", "precio", "plan", "bump", "recuperar", "diagnostico"]) },
 ];
 
 export const MODELS:{ id: BusinessModel; label: string; short: string; line: string; tools: Tool[] }[] = [
   { id: "low", label: "Infoproducto (low ticket)", short: "Low ticket", line: "Ebook, curso o reto de US$7 a US$47, vendido con anuncios.",
-    tools: pick(["producto", "anuncios", "validar", "precio", "bump", "recuperar", "resultados", "ganchos"]) },
+    tools: pick(["producto", "anuncios", "validar", "precio", "bump", "recuperar", "diagnostico", "resultados", "ganchos"]) },
   { id: "high", label: "Mentoría o servicio (high ticket)", short: "High ticket", line: "Programas de US$300 o más que se cierran en una llamada.",
-    tools: pick(["vsl", "dm", "anuncios", "ascension", "correos", "precio", "resultados"]) },
+    tools: pick(["vsl", "dm", "anuncios", "ascension", "correos", "precio", "diagnostico", "resultados"]) },
   { id: "marca", label: "Marca personal", short: "Marca personal", line: "Contenido que te posiciona y atrae clientes sin pagar anuncios.",
     tools: pick(["creadoryt", "nichosyt", "reels", "contenido", "captions", "ganchos"]) },
 ];

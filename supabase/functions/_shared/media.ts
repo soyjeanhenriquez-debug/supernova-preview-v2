@@ -81,6 +81,7 @@ export async function charge(fn: string, userId: string, action: string, label: 
   if (g?.ok !== true) {
     switch (g?.reason) {
       case "rate_limited": return json({ error: "Alcanzaste el límite por ahora. Intenta más tarde." }, 429);
+      case "recharge_required": return json({ error: "Ya usaste tus pruebas gratis de esta herramienta. Recarga al menos US$20 para seguir usándola; mientras, puedes probar todo lo demás.", code: "recharge_required", min_usd: 20 }, 402);
       case "insufficient_credits": return json({ error: "No tienes créditos suficientes.", code: "insufficient_credits", balance: g.balance, cost: g.cost }, 402);
       case "disabled": return json({ error: "Llega pronto.", pronto: true }, 503);
       case "unknown_action": return json({ error: "Modelo sin precio configurado." }, 500);

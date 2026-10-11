@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Search, Plus, UserRound, Briefcase, LayoutGrid, FolderKanban, Coins, KeyRound, LogOut } from "lucide-react";
+import { Home, Search, Plus, UserRound, Briefcase, LayoutGrid, FolderKanban, Coins, KeyRound, LogOut, BadgeDollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
@@ -18,7 +18,7 @@ interface Props {
   onSearch: () => void;
 }
 
-const ACCOUNT_PAGES = new Set(["Mi negocio", "Productos", "Proyectos", "Créditos"]);
+const ACCOUNT_PAGES = new Set(["Mi negocio", "Productos", "Proyectos", "Créditos", "Recompensas"]);
 
 export function MobileBottomNav({ activePage, onNavigate, onSearch }: Props) {
   const [sheet, setSheet] = useState<null | "crear" | "cuenta">(null);
@@ -77,7 +77,8 @@ export function MobileBottomNav({ activePage, onNavigate, onSearch }: Props) {
                   { icon: LayoutGrid, label: "Mis productos", page: "Productos" },
                   { icon: FolderKanban, label: "Lo que creaste", page: "Proyectos" },
                   { icon: Coins, label: "Mis créditos", page: "Créditos" },
-                ].map(i => (
+                  { icon: BadgeDollarSign, label: "Gana con tu contenido", page: "Recompensas" },
+                ].filter(i => canSee(i.page)).map(i => (
                   <button key={i.page} onClick={() => go(i.page)} className="w-full flex items-center gap-3 rounded-lg px-3 py-3 text-[14px] text-foreground hover:bg-secondary/60">
                     <i.icon className="w-4 h-4 text-muted-foreground" strokeWidth={1.7} /> {i.label}
                   </button>

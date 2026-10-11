@@ -171,9 +171,9 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title, fi
       {/* Video real si lo detectamos */}
       {state === "ready" && videoUrl && (
         <video
-          // Portada: la imagen del mismo anuncio; sin ella, el cuadro de medio segundo (si no, la tarjeta se veía negra).
-          src={imageUrl ? videoUrl : `${videoUrl}#t=0.5`}
-          poster={imageUrl ?? undefined}
+          // Portada = un cuadro del propio video (medio segundo). La "imagen" que guarda el raspado a veces es
+          // la silueta gris por defecto de Facebook, no el anuncio; el cuadro del video siempre es real.
+          src={`${videoUrl}#t=0.5`}
           controls
           playsInline
           preload="metadata"

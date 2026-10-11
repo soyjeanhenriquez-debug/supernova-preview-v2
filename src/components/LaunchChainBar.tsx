@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Check, Rocket, X } from "lucide-react";
-import { LAUNCH_EVENT, LAUNCH_STEPS, endChain, goToStep, readChain, type LaunchChain } from "@/lib/launchChain";
+import { LAUNCH_EVENT, LAUNCH_STEPS, bindChainToProduct, endChain, goToStep, readChain, type LaunchChain } from "@/lib/launchChain";
+import { useOptionalProducts } from "@/contexts/ProductContext";
 
 /**
  * Barra de "Modelar esta oferta completa": en qué paso del lanzamiento vas y el siguiente a un toque.
@@ -13,7 +14,10 @@ export function LaunchChainBar({ onNavigate }: { onNavigate: (page: string) => v
     window.addEventListener(LAUNCH_EVENT, sync);
     return () => window.removeEventListener(LAUNCH_EVENT, sync);
   }, []);
-  if (!c) return null;
+  const activeId = useOptionalProducts()?.activeId ?? null;
+  useEffect(() => { if (c && !c.productId && activeId) bindChainToProduct(activeId); }, [c, activeId]);
+  // Con otro producto activo, la barra no aplica: se oculta (vuelve si regresa a ese producto).
+  if (!c || (c.productId && activeId && c.productId !== activeId)) return null;
 
   const go = (step: number) => {
     const page = goToStep(step);

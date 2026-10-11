@@ -14,7 +14,9 @@ export const LAUNCH_STEPS: LaunchStep[] = [
   { page: "Recuperar", label: "WhatsApp para quien casi compra" },
 ];
 
-export type LaunchChain = { offer: string; days: number; step: number; at: number };
+/** productId: el producto que se está lanzando. La barra solo se ve con ese producto activo (11-oct-2026: al
+ *  elegir otra oferta seguía diciendo "Lanzando tu versión de Muscle Booster"). */
+export type LaunchChain = { offer: string; days: number; step: number; at: number; productId?: string | null };
 
 const KEY = "supernova.launch_chain";
 export const LAUNCH_EVENT = "supernova:launch-chain";
@@ -50,3 +52,9 @@ export function goToStep(step: number): string | null {
 }
 
 export function endChain() { write(null); }
+
+/** Ata la barra al producto activo la primera vez que se ve (la oferta se acaba de volver ese producto). */
+export function bindChainToProduct(productId: string) {
+  const c = readChain();
+  if (c && !c.productId) write({ ...c, productId });
+}

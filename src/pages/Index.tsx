@@ -217,7 +217,7 @@ const Index = () => {
 
       <div className="flex-1 flex flex-col min-w-0">
         {!locked && <LowCreditBanner onRecharge={() => setActivePage("Créditos")} />}
-        <RechargePopup onRecharge={() => setActivePage("Créditos")} />
+        <RechargePopup onRecharge={() => { setActivePage("Créditos"); setTimeout(() => document.getElementById("recharge-packs")?.scrollIntoView({ behavior: "smooth", block: "start" }), 400); }} />
         <TopBar activePage={activePage} onOpenMobileNav={() => setMobileNavOpen(true)} onSearch={() => setSearchOpen(true)} />
         {/* En qué etapa vas y tu siguiente paso, en todas las pantallas. El Inicio ya muestra el
             recorrido completo. Vive fuera del div con key={productKey}: no parpadea al cambiar de producto. */}

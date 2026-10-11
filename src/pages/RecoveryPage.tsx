@@ -8,6 +8,7 @@ import { profileReady, useBusinessProfile, type RecoveryMessage } from "@/lib/bu
 import { fnErrorMessage, fnHeaders, readBilling } from "@/lib/fnAuth";
 import { useCredits } from "@/hooks/useCredits";
 import { PageHeader } from "@/components/PageHeader";
+import { useAuth } from "@/contexts/AuthContext";
 
 /**
  * Etapa 6 del recorrido "Mi negocio": recuperar a quien casi compra.
@@ -29,6 +30,7 @@ const dayLabel = (d: number) => (d === 0 ? "Día 0 · hoy" : `Día ${d}`);
 
 export function RecoveryPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { profile, savePatch, loaded } = useBusinessProfile();
+  const { user } = useAuth();
   const { applyServerCharge, canAfford } = useCredits();
   const [channel, setChannel] = useState<Channel>("whatsapp");
   const [objection, setObjection] = useState("");
@@ -88,7 +90,9 @@ export function RecoveryPage({ onNavigate }: { onNavigate?: (page: string) => vo
       if (!resp.ok) throw new Error(await fnErrorMessage(resp, "No se pudo crear tu secuencia. Intenta de nuevo."));
       applyServerCharge("gen_light", readBilling(resp), "Recuperación de ventas");
       const data = await resp.json() as { messages?: RecoveryMessage[] };
-      const next = Array.isArray(data.messages) ? data.messages : [];
+      // {tu_nombre} es quien vende: si la app ya lo sabe, se escribe; {nombre} y {link} los cambia la persona.
+      const seller = String((user?.user_metadata as { display_name?: string } | undefined)?.display_name ?? "").trim().slice(0, 40);
+      const next = (Array.isArray(data.messages) ? data.messages : []).map(m => (seller ? { ...m, text: m.text.split("{tu_nombre}").join(seller) } : m));
       if (!next.length) throw new Error("La IA no devolvió mensajes. Intenta de nuevo.");
       setMessages(next);
       const ok = await savePatch({ recovery: { messages: next, generated_at: new Date().toISOString() } });

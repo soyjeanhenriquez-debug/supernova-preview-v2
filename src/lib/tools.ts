@@ -170,9 +170,9 @@ export const HOME_CATEGORIES: { id: string; label: string; tools: Tool[] }[] = [
 
 export const MODELS:{ id: BusinessModel; label: string; short: string; line: string; tools: Tool[] }[] = [
   { id: "low", label: "Infoproducto (low ticket)", short: "Low ticket", line: "Ebook, curso o reto de US$7 a US$47, vendido con anuncios.",
-    tools: pick(["producto", "anuncios", "validar", "precio", "bump", "recuperar", "diagnostico", "resultados", "ganchos"]) },
+    tools: pick(["producto", "anuncios", "validar", "precio", "bump", "recuperar", "diagnostico", "resultados", "ganchos", "contenido"]) },
   { id: "high", label: "Mentoría o servicio (high ticket)", short: "High ticket", line: "Programas de US$300 o más que se cierran en una llamada.",
-    tools: pick(["vsl", "dm", "anuncios", "ascension", "correos", "precio", "diagnostico", "resultados"]) },
+    tools: pick(["vsl", "dm", "anuncios", "ascension", "correos", "precio", "diagnostico", "resultados", "contenido"]) },
   { id: "marca", label: "Marca personal", short: "Marca personal", line: "Contenido que te posiciona y atrae clientes sin pagar anuncios.",
     tools: pick(["creadoryt", "nichosyt", "reels", "contenido", "captions", "ganchos"]) },
 ];

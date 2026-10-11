@@ -504,8 +504,8 @@ export function DashboardPage({ onNavigate }: Props) {
               {isAdmin ? (
                 <p className="mt-3 font-display font-bold text-[28px] text-foreground leading-none">Ilimitado</p>
               ) : (<>
-                <p className="mt-3 font-display font-bold text-[28px] tabular-nums text-foreground leading-none">{balance.toLocaleString("es")}</p>
-                <p className="mt-1 text-[12px] text-muted-foreground">de {limit.toLocaleString("es")} de tu plan este mes</p>
+                <p className="mt-3 font-display font-bold text-[28px] tabular-nums text-foreground leading-none">{balance.toLocaleString("de-DE")}</p>
+                <p className="mt-1 text-[12px] text-muted-foreground">{balance > limit ? `créditos disponibles (tu plan trae ${limit.toLocaleString("de-DE")} al mes; el resto los recargaste)` : `créditos disponibles de ${limit.toLocaleString("de-DE")} de tu plan este mes`}</p>
                 <div className="mt-3 h-1.5 rounded-full bg-secondary overflow-hidden" aria-hidden>
                   <div className="h-full rounded-full bg-primary" style={{ width: `${usedPct}%` }} />
                 </div>

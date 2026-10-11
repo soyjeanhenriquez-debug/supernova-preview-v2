@@ -167,7 +167,7 @@ ENTREGA EXACTAMENTE ESTO EN ESTE ORDEN (usa markdown):
 ## ❌ LO QUE NO COPIES
 (lo que es específico de ellos y no funcionaría para ti)
 
-## 🚀 TU VERSIÓN: CÓMO CLONARLO
+## 🚀 TU VERSIÓN: CÓMO MODELARLO
 (instrucciones específicas para crear tu propia versión)
 
 ## ✍️ HOOK ALTERNATIVO PARA TI

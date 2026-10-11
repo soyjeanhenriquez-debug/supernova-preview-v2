@@ -97,6 +97,15 @@ export function DiagnosticoPage({ onNavigate }: { onNavigate?: (page: string) =>
     return h;
   }, [draft.healthy]);
   const d = useMemo(() => diagnose(inputs, healthy, currency), [inputs, healthy, currency]);
+  // Cada paso sale del anterior: si un número es mayor que el de arriba, el resultado no tendría sentido.
+  const mismatch = useMemo(() => {
+    const order = FIELDS.filter(f => !f.optional);
+    for (let i = 1; i < order.length; i++) {
+      const prev = inputs[order[i - 1].k], cur = inputs[order[i].k];
+      if (prev !== undefined && cur !== undefined && cur > prev) return `"${order[i].label}" (${cur.toLocaleString("es-ES")}) no puede ser mayor que "${order[i - 1].label}" (${prev.toLocaleString("es-ES")}). Revisa esos dos números.`;
+    }
+    return null;
+  }, [inputs]);
 
   if (!loaded) return <div className="text-sm text-muted-foreground p-6">Cargando…</div>;
 
@@ -147,7 +156,10 @@ export function DiagnosticoPage({ onNavigate }: { onNavigate?: (page: string) =>
           </div>
 
           {/* Veredicto */}
-          {d.enough && (
+          {mismatch && (
+            <div className="card-surface rounded-2xl p-5 border border-primary/40 text-sm text-foreground">{mismatch}</div>
+          )}
+          {!mismatch && d.enough && (
             <div className="card-surface rounded-2xl p-5 space-y-4">
               <p className="text-xs uppercase tracking-wider text-muted-foreground">Lo que vemos desde afuera</p>
               {d.bottleneck ? (

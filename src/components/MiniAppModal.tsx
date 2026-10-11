@@ -12,6 +12,7 @@ import { OFFER_TYPE_LABEL } from "@/lib/demo-winning-ads";
 import { ModalPortal } from "@/components/ModalPortal";
 import { useFeatureAccess } from "@/lib/features";
 import { useSellThis, type SellBrief } from "@/lib/sellThis";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   ad: DemoAd; onClose: () => void;
@@ -59,7 +60,24 @@ export function MiniAppModal({ ad, onClose, brief, onNavigate }: Props) {
   const [salesScript, setSalesScript] = useState("");
   const [salesLoading, setSalesLoading] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const [country, setCountry] = useState(() => localStorage.getItem("supernova_country") || "CO");
+  const [country, setCountry] = useState(() => { try { return localStorage.getItem("supernova_country") || "CO"; } catch { return "CO"; } });
+  // Sin país elegido aquí: el que la persona dio al entrar (user_age_country). Antes salía Colombia para
+  // alguien de República Dominicana (prueba de Hany, 11-oct-2026).
+  useEffect(() => {
+    let saved: string | null = null;
+    try { saved = localStorage.getItem("supernova_country"); } catch { /* sin almacenamiento */ }
+    if (saved) return;
+    let on = true;
+    void (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any).from("user_age_country").select("country").eq("user_id", user.id).maybeSingle();
+      const c = String(data?.country ?? "").toUpperCase();
+      if (on && c) setCountry(COUNTRIES.some(x => x.code === c) ? c : "OTRO");
+    })();
+    return () => { on = false; };
+  }, []);
   const scrollRef = useRef<HTMLDivElement>(null);
   const startedRef = useRef(false);
   // Recibo del cobro de "Mi App": lo emite el servidor al cobrar el blueprint y

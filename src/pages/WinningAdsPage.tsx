@@ -1143,7 +1143,7 @@ export function WinningAdsPage() {
                   <span className="text-[10px] font-bold tracking-widest text-primary border border-primary/30 bg-primary/10 px-2 py-1 rounded">
                     {lastAutoRun
                       ? `RADAR ACTUALIZADO HACE ${Math.max(0, Math.floor((Date.now() - lastAutoRun.getTime()) / 60_000))} MIN`
-                      : "CARGANDO EL RADAR…"}
+                      : autoLoading ? "CARGANDO EL RADAR…" : "DE LA BIBLIOTECA DE META"}
                   </span>
                 </div>
               </div>

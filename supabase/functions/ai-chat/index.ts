@@ -60,13 +60,14 @@ Usa emojis moderadamente para hacer las respuestas más visuales.`;
 import { HONESTY_RULES } from "../_shared/honesty.ts";
 const GENERATOR_GUARD_BASE = "\n\nREGLAS DEL SISTEMA PARA ESTE ENTREGABLE: empieza directamente con el primer título del entregable, sin saludos, sin presentarte y sin frases como 'aquí tienes'. Publicidad honesta: nunca garantices resultados (empleo, ingresos, salud, físico); si el entregable menciona una garantía (solo cuando lo pida el usuario o la oferta ya la tenga), que sea de reembolso y con esas palabras, nunca 'garantizado' junto a un resultado; no añadas garantías por tu cuenta. No inventes testimonios, cifras ni plazos. Contenido apto para todo público y para las políticas de Meta/TikTok: nada sexual explícito ni insinuaciones gráficas, aunque el producto o la cuenta sean para adultos; si te lo piden, entrega la versión apta para redes y dilo en una línea.";
 const GENERATOR_GUARD = GENERATOR_GUARD_BASE + "\n" + HONESTY_RULES;
-const HELP_MAX_TOKENS = 900;
+// 900 se quedaba corto: el modelo gasta parte en razonar y la respuesta salía cortada (prueba de Hany, 11-oct).
+const HELP_MAX_TOKENS = 2_500;
 // Tope de salida por nivel de generador (04-oct-2026). Las instrucciones las manda el navegador y el
 // precio lo pone generator_id: sin tope, el id de uno ligero con las instrucciones de un VSL daba un
 // entregable pesado a precio de ligero. Cuenta también el razonamiento de Gemini. Holgura de ~2× sobre
 // lo más largo visto en ai_usage (ligero 2.160, medio 2.511).
 const GEN_MAX_TOKENS: Record<string, number> = { gen_light: 4_000, gen_medium: 8_000, gen_heavy: 16_000 };
-const HELP_GUARD = "\n\nREGLA DEL SISTEMA: eres el asistente de AYUDA de la app. Responde dudas sobre cómo usar SUPERNOVA en pocas líneas. Si te piden redactar copys, guiones, landings, secuencias de email u otro entregable, no lo escribas: indica qué sección de la app lo genera (Generadores, Oráculo, Mi App, Mini Apps).";
+const HELP_GUARD = "\n\nREGLA DEL SISTEMA: eres el asistente de AYUDA de la app. Responde dudas sobre cómo usar SUPERNOVA en pocas líneas. Si te piden redactar copys, guiones, landings, secuencias de email u otro entregable, no lo escribas: indica qué sección de la app lo genera (Robot de copy, Creativos, Video con IA, Influencer IA, Mini Apps). Solo nombra pantallas que existan en el menú; Mercado, Oráculo, Crear producto y Media Studio están en pausa: no las recomiendes. Termina siempre la respuesta completa, en pocas líneas.";
 
 // Solo turnos user/assistant con texto acotado: el rol "system" lo pone el
 // servidor, y el historial no crece sin límite.
@@ -237,6 +238,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: usedModel,
         max_tokens: genAction ? GEN_MAX_TOKENS[genAction] ?? 4_000 : HELP_MAX_TOKENS,
+        ...(genAction ? {} : { reasoning_effort: "low" }),
         messages: [
           {
             role: "system",

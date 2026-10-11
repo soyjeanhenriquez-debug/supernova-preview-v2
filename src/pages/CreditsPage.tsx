@@ -119,11 +119,11 @@ export function CreditsPage() {
             </svg>
             <div>
               <div className="text-4xl font-display font-extrabold text-primary"><CountUp value={balance} /></div>
-              <div className="text-xs text-muted-foreground">/ {limit.toLocaleString("de-DE")}</div>
+              <div className="text-xs text-muted-foreground">{purchased > 0 ? "disponibles" : `de ${limit.toLocaleString("de-DE")} al mes`}</div>
             </div>
           </div>
           <div className="text-sm text-foreground mt-3">Créditos disponibles</div>
-          <div className="text-xs text-primary mt-1">Se recargan en {renewDays} días ({renewFormatted})</div>
+          <div className="text-xs text-primary mt-1">Los del plan se renuevan en {renewDays} días ({renewFormatted})</div>
           {purchased > 0 && (
             <div className="text-[11px] text-muted-foreground mt-1">
               {monthly.toLocaleString("de-DE")} de tu plan + <span className="text-success font-semibold">{purchased.toLocaleString("de-DE")} comprados</span>

@@ -653,7 +653,11 @@ export function WinningAdsPage() {
   // idioma se les sigue aplicando aquí (no quita nada a lo que ya vino filtrado).
   const paginated = useMemo(() => {
     let list = realAds.slice();
-    if (market !== "all") list = list.filter((a) => a.lang === market);
+    // El catálogo ya viene filtrado por país desde Supabase: aquí NO se esconde nada por idioma (el
+    // manual prohíbe que un filtro haga desaparecer anuncios con muchos días). La tarjeta muestra el
+    // idioma real del texto (langFromText). Solo la búsqueda en vivo, que no pasa por la consulta,
+    // se filtra aquí.
+    if (market !== "all") list = list.filter((a) => a.id.startsWith("db-") || a.lang === market);
     if (verticalFilter !== "Todas") {
       list = list.filter((a) => (a.vertical ?? classifyOffer(`${a.title} ${a.body}`)) === verticalFilter);
     }

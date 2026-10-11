@@ -16,3 +16,14 @@ describe("langFromText", () => {
     expect(langFromText("Curso gratis", "pt")).toBe("pt");
   });
 });
+
+describe("langFromText con textos largos", () => {
+  it("portugués largo no empata con español", () => {
+    const pt = "Bilionário traído – ele ascende com a ajuda de uma garota muda. O magnata de Wall Street, Ryan Chase, é envenenado e jogado ao mar por sua noiva, Mia, durante uma luxuosa festa em um iate. Ele sobrevive milagrosamente, porém perde a voz, a identidade e tudo o que um dia teve. Sem nada, Ryan é resgatado por uma gentil mulher muda chamada Sophia, que leva ele de volta ao pequeno restaurante de sua família e oferece a ele um emprego.";
+    expect(langFromText(pt, "es")).toBe("pt");
+  });
+  it("español largo sigue siendo español", () => {
+    const es = "Si quieres empezar a vender por internet pero no sabes por dónde empezar, esta guía es para ti. Aprende paso a paso cómo crear tu primer producto digital, cómo ponerle precio y cómo conseguir tus primeros clientes por WhatsApp, sin experiencia y con lo que ya tienes en casa.";
+    expect(langFromText(es, "pt")).toBe("es");
+  });
+});

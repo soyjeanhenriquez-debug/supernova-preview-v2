@@ -163,10 +163,11 @@ export const NON_ENGLISH_COUNTRIES = Object.values(LANG_COUNTRIES).flat();
  * frecuentes de cada idioma; si el texto es corto o no hay una ganadora clara, se usa el país.
  */
 const LANG_WORDS: Record<"es" | "en" | "pt" | "fr" | "de", string[]> = {
-  es: ["el", "la", "los", "las", "de", "que", "y", "en", "un", "una", "para", "con", "por", "tu", "es", "más", "cómo", "aprende", "sin"],
-  en: ["the", "and", "you", "your", "to", "of", "for", "with", "is", "this", "how", "get", "now", "in", "it", "on"],
-  pt: ["você", "não", "para", "com", "uma", "seu", "sua", "de", "que", "em", "os", "as", "mais", "como", "aprenda"],
-  fr: ["le", "les", "des", "vous", "votre", "pour", "avec", "est", "et", "une", "dans", "pas", "qui"],
+  // Solo palabras que distinguen: "de", "que" y "para" son de español Y portugués, y empataban.
+  es: ["el", "los", "y", "un", "una", "con", "por", "tu", "tus", "es", "más", "cómo", "sin", "del", "lo", "al", "está", "aprende", "también", "pero", "muy", "hay"],
+  en: ["the", "and", "you", "your", "to", "of", "for", "with", "is", "this", "how", "get", "now", "it", "on"],
+  pt: ["você", "não", "com", "uma", "um", "seu", "sua", "em", "os", "mais", "do", "da", "dos", "das", "ao", "é", "ele", "ela", "também", "aprenda", "porém", "sem", "na", "no"],
+  fr: ["le", "les", "des", "vous", "votre", "pour", "avec", "est", "et", "une", "dans", "pas", "qui", "du", "au"],
   de: ["der", "die", "das", "und", "ist", "mit", "für", "nicht", "sie", "ein", "eine", "auf"],
 };
 export function langFromText(text: string, fallback: AdLang): AdLang {
@@ -181,7 +182,7 @@ export function langFromText(text: string, fallback: AdLang): AdLang {
     return [l, words.filter(w => set.has(w)).length] as const;
   }).sort((a, b) => b[1] - a[1]);
   const [best, n] = score[0];
-  if (n < 2 || n < score[1][1] * 1.5) return fallback;
+  if (n < 2 || n < score[1][1] * 1.3) return fallback;
   return best === "fr" ? "otro" : best;
 }
 

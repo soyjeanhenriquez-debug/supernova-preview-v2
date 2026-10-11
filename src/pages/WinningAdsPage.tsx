@@ -4,7 +4,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
 import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2, Bookmark, Plus, X, Check, Copy, Languages, Eye, LayoutGrid, List, Star, Info, Columns3, ChevronDown } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, normalizeAdsLibraryUrl, langFromCountry, LANG_COUNTRIES, NON_ENGLISH_COUNTRIES, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
+import { MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, normalizeAdsLibraryUrl, langFromCountry, langFromText, LANG_COUNTRIES, NON_ENGLISH_COUNTRIES, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
 import { useElapsedMinutes } from "@/hooks/useElapsedMinutes";
 import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import { SofisticarModal } from "@/components/SofisticarModal";
@@ -443,7 +443,7 @@ export function WinningAdsPage() {
           market: adMarket,
           marketLabel: r.market ?? "",
           flag: flagEmoji(r.market ?? "US"),
-          lang: langFromCountry(r.market),
+          lang: langFromText(`${title} ${body}`, langFromCountry(r.market)),
           adUrl,
           platforms: Array.isArray(r.publisher_platforms) ? r.publisher_platforms : ["facebook"],
           countries: [r.market ?? "US"],

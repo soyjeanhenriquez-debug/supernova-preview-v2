@@ -155,7 +155,7 @@ LLAMADA A LA ACCIÓN SEGÚN LA ETAPA: ${stage.id === "atraer" || stage.id === "c
 Entrega exactamente:
 ## 3 ganchos (primeros 3 segundos o titular)
 ## El anuncio
-${/video|avatar/i.test(format) ? "Guion hablado con marcas de tiempo (máximo 45 segundos). Si es para avatar, máximo 150 palabras y sin indicaciones de escena dentro del texto hablado." : format === "Carrusel" ? "Texto de cada tarjeta (5 tarjetas) y qué imagen lleva cada una." : "Descripción exacta de la imagen y el texto que va encima."}
+${/video|avatar/i.test(format) ? "Guion hablado con marcas de tiempo en SEGUNDOS (0-3 s, 3-10 s…; máximo 45 segundos en total, nunca minutos). Si es para avatar, máximo 150 palabras y sin indicaciones de escena dentro del texto hablado." : format === "Carrusel" ? "Texto de cada tarjeta (5 tarjetas) y qué imagen lleva cada una." : "Descripción exacta de la imagen y el texto que va encima."}
 ## Texto del anuncio y llamada a la acción
 ## Cómo publicarlo
 ## Cómo saber si funciona
@@ -165,7 +165,7 @@ Usa exactamente estas reglas (son las que usa la app en "Resultados"), medidas a
 - Gastó 2 veces el precio sin ventas → apagar.
 - Costo por venta igual o menor al precio → ganador: subir presupuesto ≈20% cada 2 días y pedir variaciones.
 ## Revisión de políticas
-Frases que podrían rechazar y cómo quedaron corregidas (si no hay, dilo).
+Solo frases que REALMENTE escribiste arriba y que podrían rechazar, citadas tal cual, con cómo quedaron. No inventes frases que no están en el anuncio; si no hay ninguna, escribe "Sin riesgos detectados".
 ## Siguiente giro
 Qué ángulo probar después en esta MISMA etapa (${stage.name}) y por qué.
 

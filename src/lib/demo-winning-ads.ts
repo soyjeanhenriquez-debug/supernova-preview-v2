@@ -1,7 +1,7 @@
 // Realistic demo data for Anuncios Ganadores
 export type OfferType = "infoproducto" | "ecommerce" | "saas" | "app" | "servicio";
 export type AdMarket = "BR" | "US" | "ES" | "MX" | "RU" | "LATAM";
-export type AdLang = "en" | "es" | "pt" | "de" | "ru";
+export type AdLang = "en" | "es" | "pt" | "de" | "ru" | "otro";
 export type Tier = "mega" | "rising" | "solid";
 
 export interface DemoAd {
@@ -148,7 +148,7 @@ export const KEYWORD_CHIPS: Record<string, string[]> = {
 // Lo usan langFromCountry y la consulta del radar: si el filtro de idioma se
 // aplicara solo en el navegador, la primera página (ordenada por score, casi
 // toda US/GB) quedaría vacía para quien entra con el navegador en español.
-export const LANG_COUNTRIES: Record<Exclude<AdLang, "en">, string[]> = {
+export const LANG_COUNTRIES: Record<Exclude<AdLang, "en" | "otro">, string[]> = {
   es: ["ES","MX","AR","CO","CL","PE","LATAM"],
   pt: ["BR","PT"],
   de: ["DE","AT","CH"],
@@ -157,6 +157,34 @@ export const LANG_COUNTRIES: Record<Exclude<AdLang, "en">, string[]> = {
 export const NON_ENGLISH_COUNTRIES = Object.values(LANG_COUNTRIES).flat();
 
 // Idioma probable según el país del anuncio (para el filtro de idioma)
+/**
+ * Idioma por el TEXTO del anuncio (11-oct-2026): el país dice a quién se le muestra, no en qué idioma
+ * está (había anuncios en vietnamita o inglés dirigidos a México marcados "ES"). Cuenta palabras
+ * frecuentes de cada idioma; si el texto es corto o no hay una ganadora clara, se usa el país.
+ */
+const LANG_WORDS: Record<"es" | "en" | "pt" | "fr" | "de", string[]> = {
+  es: ["el", "la", "los", "las", "de", "que", "y", "en", "un", "una", "para", "con", "por", "tu", "es", "más", "cómo", "aprende", "sin"],
+  en: ["the", "and", "you", "your", "to", "of", "for", "with", "is", "this", "how", "get", "now", "in", "it", "on"],
+  pt: ["você", "não", "para", "com", "uma", "seu", "sua", "de", "que", "em", "os", "as", "mais", "como", "aprenda"],
+  fr: ["le", "les", "des", "vous", "votre", "pour", "avec", "est", "et", "une", "dans", "pas", "qui"],
+  de: ["der", "die", "das", "und", "ist", "mit", "für", "nicht", "sie", "ein", "eine", "auf"],
+};
+export function langFromText(text: string, fallback: AdLang): AdLang {
+  const t = (text || "").toLowerCase();
+  // Alfabetos no latinos o vietnamita (letras con dos acentos): no es ninguno de los nuestros.
+  if (/[\u0400-\u04ff]/.test(t)) return "ru";
+  if (/[\u0590-\u06ff\u0e00-\u0e7f\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7af]|[ạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹđ]/.test(t)) return "otro";
+  const words = t.match(/\p{L}+/gu) ?? [];
+  if (words.length < 6) return fallback;
+  const score = (Object.keys(LANG_WORDS) as (keyof typeof LANG_WORDS)[]).map(l => {
+    const set = new Set(LANG_WORDS[l]);
+    return [l, words.filter(w => set.has(w)).length] as const;
+  }).sort((a, b) => b[1] - a[1]);
+  const [best, n] = score[0];
+  if (n < 2 || n < score[1][1] * 1.5) return fallback;
+  return best === "fr" ? "otro" : best;
+}
+
 export function langFromCountry(country?: string | null): AdLang {
   const c = (country ?? "").toUpperCase();
   for (const [lang, list] of Object.entries(LANG_COUNTRIES)) {

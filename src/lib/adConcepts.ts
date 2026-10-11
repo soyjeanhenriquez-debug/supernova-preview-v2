@@ -43,15 +43,15 @@ const SAFE_CHANGE = "Muestra el cambio en el día a día y en la emoción; nada 
 
 export const AD_CONCEPTS: AdConcept[] = [
   { id: "pregunta", name: "Pregunta", group: "n1", get: "Una pregunta grande que tu cliente se hace.", example: "«¿Te cuesta empezar aunque sabes qué hacer?»",
-    scene: "Fondo limpio y una pregunta grande que el público objetivo se hace sobre su problema, como protagonista. Una persona pensativa a un lado." },
+    scene: "Fondo limpio con la pregunta ESCRITA en grande, legible y en español, como protagonista (la pregunta que el público objetivo se hace sobre su problema). Una persona pensativa a un lado. La imagen nunca va sin el texto de la pregunta." },
   { id: "native", name: "Publicación normal", en: "Native", group: "n0", get: "Parece un post orgánico, no un anuncio.", example: "Foto casual de celular con texto corto encima.",
     scene: "Imagen que parece una publicación orgánica hecha con el celular, sin aspecto de anuncio: encuadre casual, luz natural. Sin logos de medios ni de redes sociales." },
   { id: "red_flags", name: "Señales de alerta", en: "Red Flags", group: "n1", get: "Lista de señales de que tienes el problema.", example: "«3 señales de que tu negocio necesita esto 🚩»",
-    scene: "Lista visual de 3 señales de alerta con iconos de bandera roja, sobre el problema que resuelve el producto. Diseño limpio y legible." },
+    scene: "Lista visual de 3 señales de alerta con iconos de bandera roja, sobre el problema que resuelve el producto (hábitos, tiempo, organización; nunca el cuerpo, el peso ni la salud). Solo iconos y texto, sin personas. Diseño limpio y legible." },
   { id: "dont_ignore", name: "No lo ignores", en: "Don't Ignore", group: "n1", get: "Llamado directo a no pasar de largo.", example: "«No ignores esto si vendes por WhatsApp»",
     scene: "Composición de alto contraste que pide no ignorar el mensaje, dirigido al público objetivo. Una sola idea, texto grande." },
   { id: "notas", name: "Notas", en: "Notes", group: "n1", get: "Estilo app de notas o post-it escrito a mano.", example: "Lista en la app de notas: «Lo que nadie me dijo…»",
-    scene: "Imagen estilo captura de una app de notas genérica (sin marca) o post-its escritos a mano, con ideas cortas sobre el problema y la solución." },
+    scene: "Imagen estilo captura de una app de notas genérica (sin marca) o post-its escritos a mano, con ideas cortas sobre el problema y la solución. Sin columnas de antes/después ni comparaciones del cuerpo." },
   { id: "buscamos", name: "Buscamos personas", en: "Looking For People", group: "n1", get: "Convocatoria a un público concreto.", example: "«Busco 10 mamás que quieran vender desde casa»",
     scene: "Cartel tipo convocatoria dirigido al público objetivo, cálido y cercano.", needsReal: "Escribe la convocatoria real (debe ser verdad: cupos, para quién)." },
   { id: "descubrimiento", name: "Descubrimiento", en: "Discovery", group: "n0", get: "«Descubrí esto y cambió cómo hago…»", example: "«Lo descubrí por casualidad y ahora lo uso a diario»",

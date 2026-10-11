@@ -169,7 +169,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
         onCharge: b => applyServerCharge(action, b, label),
       });
       const parsed = parseCarousel(text, count, design.start, { free: !!planFor(fmt, count) });
-      if (!parsed) throw new Error("La IA respondió en un formato raro. Toca de nuevo: si vuelve a pasar, escríbenos y te devolvemos los créditos.");
+      if (!parsed) throw new Error("La respuesta de la IA salió incompleta. Toca de nuevo: si se cortó por largo, ya te devolvimos los créditos.");
       setDraft({ ...parsed, template: parsed.template ?? FORMATS[fmt].template }); setSel(0);
       toast.success("Tu carrusel está listo", { description: "Elige la portada y toca cualquier lámina para cambiar el texto." });
     } catch (e) {
@@ -342,7 +342,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     try {
       const text = await runGenerator({ id: GENERATOR_ID, title: label, system: SYSTEM, prompt: recloneRequest({ info: cloneInfo, keep, brief, goal: goal === "ensenar" ? "ensenar" : "vender", handle: design.handle, world: design.world, line: design.line }), onCharge: b => applyServerCharge(action, b, label) });
       const parsed = parseReclone(text, design.start);
-      if (!parsed) throw new Error("La IA respondió en un formato raro. Toca de nuevo: si vuelve a pasar, escríbenos y te devolvemos los créditos.");
+      if (!parsed) throw new Error("La respuesta de la IA salió incompleta. Toca de nuevo: si se cortó por largo, ya te devolvimos los créditos.");
       setDraft({ ...parsed.draft, slides: withRefs(parsed.draft.slides, cloneInfo), clone: { ...cloneInfo, keep, improvements: parsed.improvements.length ? parsed.improvements : cloneInfo.improvements } }); setSel(0); setScenePaths({});
       toast.success("Listo: modelado con las 3 partes que elegiste");
     } catch (e) {

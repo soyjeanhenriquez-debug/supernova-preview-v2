@@ -92,6 +92,24 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
   const playerRef = useRef<HTMLVideoElement>(null);
   const autoRef = useRef(false);
 
+  // El último anuncio terminado se guarda en esta pestaña (6 h): si la persona va atrás y vuelve,
+  // siguen sus tomas, "Armar video final" y "Listo para publicar" (prueba Hany, 11-oct-2026).
+  const LAST_RUN_KEY = "sn_video_last_run";
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(LAST_RUN_KEY);
+      const saved = raw ? JSON.parse(raw) as { mode: Mode; size: VideoSize; run: Scene[]; at: number } : null;
+      if (saved && saved.mode === initialMode && Date.now() - saved.at < 6 * 3_600_000 && saved.run?.length) {
+        setRun(saved.run); setSize(saved.size);
+      }
+    } catch { /* sin almacenamiento */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (busy || !run.length || !run.every(x => x.job?.result_url)) return;
+    try { sessionStorage.setItem(LAST_RUN_KEY, JSON.stringify({ mode, size, run, at: Date.now() })); } catch { /* sin almacenamiento */ }
+  }, [busy, run, mode, size]);
+
   // Semilla de una idea (se lee una vez y se borra) y presentador elegido en "Sin mostrar tu cara".
   useEffect(() => {
     const s = takeSeed(["video_anuncio", "video_ugc", "serie"]);

@@ -209,7 +209,7 @@ export function DiagnosticoPage({ onNavigate }: { onNavigate?: (page: string) =>
             </div>
           )}
 
-          {d.alerts.length > 0 && (
+          {!mismatch && d.alerts.length > 0 && (
             <div className="space-y-2">
               {d.alerts.map(a => (
                 <p key={a.text} className="flex gap-2 rounded-xl border border-border p-3 text-sm text-muted-foreground">
@@ -220,7 +220,7 @@ export function DiagnosticoPage({ onNavigate }: { onNavigate?: (page: string) =>
           )}
 
           {/* Todos los pasos */}
-          <div className="card-surface rounded-2xl p-5 space-y-3">
+          {!mismatch && <div className="card-surface rounded-2xl p-5 space-y-3">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">Cada paso de tu embudo</p>
             <ul className="divide-y divide-border">
               {d.stages.map(s => (
@@ -237,7 +237,7 @@ export function DiagnosticoPage({ onNavigate }: { onNavigate?: (page: string) =>
                 </li>
               ))}
             </ul>
-          </div>
+          </div>}
 
           <ToolFeedback tool="diagnostico" />
         </div>

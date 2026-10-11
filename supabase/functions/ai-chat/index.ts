@@ -66,7 +66,9 @@ const HELP_MAX_TOKENS = 2_500;
 // precio lo pone generator_id: sin tope, el id de uno ligero con las instrucciones de un VSL daba un
 // entregable pesado a precio de ligero. Cuenta también el razonamiento de Gemini. Holgura de ~2× sobre
 // lo más largo visto en ai_usage (ligero 2.160, medio 2.511).
-const GEN_MAX_TOKENS: Record<string, number> = { gen_light: 4_000, gen_medium: 8_000, gen_heavy: 16_000 };
+// Gemini 3 cuenta lo que "piensa" dentro de max_tokens: con 4.000 el carrusel se cortaba a la mitad
+// (11-oct-2026, 3.996 tokens dos veces). Los ligeros piensan poco (reasoning low) y tienen 8.000.
+const GEN_MAX_TOKENS: Record<string, number> = { gen_light: 8_000, gen_medium: 8_000, gen_heavy: 16_000 };
 const HELP_GUARD = "\n\nREGLA DEL SISTEMA: eres el asistente de AYUDA de la app. Responde dudas sobre cómo usar SUPERNOVA en pocas líneas. Si te piden redactar copys, guiones, landings, secuencias de email u otro entregable, no lo escribas: indica qué sección de la app lo genera (Robot de copy, Creativos, Video con IA, Influencer IA, Mini Apps). Solo nombra pantallas que existan en el menú; Mercado, Oráculo, Crear producto y Media Studio están en pausa: no las recomiendes. Termina siempre la respuesta completa, en pocas líneas.";
 
 // Solo turnos user/assistant con texto acotado: el rol "system" lo pone el
@@ -159,11 +161,14 @@ async function refundCharge(gate: Gate | null, reason: string): Promise<void> {
 // Gemini, que trae el conteo de tokens (stream_options.include_usage). Al terminar lo
 // registra con log_ai_usage. Salida = total − entrada, para contar también el
 // razonamiento, que Google cobra como salida. Si algo falla aquí, el usuario no se entera.
-function meteredStream(body: ReadableStream<Uint8Array>, userId: string, fn: string, model: string): ReadableStream<Uint8Array> {
+function meteredStream(body: ReadableStream<Uint8Array>, userId: string, fn: string, model: string, onCut?: () => Promise<void>): ReadableStream<Uint8Array> {
   const decoder = new TextDecoder();
   let buf = "";
+  let cut = false;
   let usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null = null;
   const scan = (line: string) => {
+    // Respuesta cortada por el tope de largo: el entregable no sirve, se devuelven los créditos.
+    if (line.includes('"finish_reason":"length"')) cut = true;
     if (!line.startsWith("data: ") || !line.includes("\"usage\"")) return;
     try { const u = JSON.parse(line.slice(6)).usage; if (u) usage = u; } catch { /* bloque incompleto */ }
   };
@@ -176,6 +181,7 @@ function meteredStream(body: ReadableStream<Uint8Array>, userId: string, fn: str
     },
     async flush() {
       scan(buf.trim());
+      if (cut && onCut) { try { await onCut(); } catch (e) { console.error("refund cut:", e instanceof Error ? e.message : e); } }
       if (!usage) return;
       const input = Number(usage.prompt_tokens) || 0;
       const output = Math.max(Number(usage.completion_tokens) || 0, (Number(usage.total_tokens) || 0) - input);
@@ -238,7 +244,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: usedModel,
         max_tokens: genAction ? GEN_MAX_TOKENS[genAction] ?? 4_000 : HELP_MAX_TOKENS,
-        ...(genAction ? {} : { reasoning_effort: "low" }),
+        ...(!genAction || genAction === "gen_light" ? { reasoning_effort: "low" } : {}),
         messages: [
           {
             role: "system",
@@ -268,7 +274,8 @@ serve(async (req) => {
     }
 
     const body = response.body
-      ? meteredStream(response.body, gate.userId, generatorId ? `ai-chat:${generatorId}` : "ai-chat:ayuda", usedModel)
+      ? meteredStream(response.body, gate.userId, generatorId ? `ai-chat:${generatorId}` : "ai-chat:ayuda", usedModel,
+        generatorId ? () => refundCharge(gate, "respuesta cortada (tope de largo)") : undefined)
       : response.body;
     return new Response(body, {
       headers: { ...corsHeaders, ...billingHeaders(gate), "Content-Type": "text/event-stream" },

@@ -221,6 +221,8 @@ export function WinningAdsPage() {
   const _cachedInit = readAdsCache();
   const [realAds, setRealAds] = useState<DemoAd[]>(_cachedInit?.ads ?? []);
   const [loadingReal, setLoadingReal] = useState(false);
+  // Solo la búsqueda en vivo de pago (botón): la búsqueda gratis en la base no debe decir "Buscando… · 5 créditos".
+  const [liveLoading, setLiveLoading] = useState(false);
   const [liveStats, setLiveStats] = useState(_cachedInit?.stats ?? { total: 0, unique: 0, mega: 0, rising: 0, solid: 0 });
   const [autoKeywords, setAutoKeywords] = useState<string[]>([]);
   const [autoLoading, setAutoLoading] = useState(false);
@@ -664,6 +666,7 @@ export function WinningAdsPage() {
   const handleSearch = async () => {
     if (!canAfford("search_ads")) { toast.error("No te alcanzan los créditos para buscar en vivo. Mientras tanto, mirar el radar es gratis."); return; }
     setLoadingReal(true);
+    setLiveLoading(true);
     toast.info(`Buscando "${keyword || "todos"}" en ${searchCountry}: hasta ${searchLimit} anuncios…`);
     try {
       const { data, error } = await supabase.functions.invoke<FacebookAdsResponse>("facebook-ads", {
@@ -725,6 +728,7 @@ export function WinningAdsPage() {
       toast.error(e instanceof Error ? e.message : "La búsqueda en vivo no está disponible.", { description: "No se te cobró. Mientras tanto puedes explorar el catálogo guardado." });
     } finally {
       setLoadingReal(false);
+      setLiveLoading(false);
     }
   };
 
@@ -991,7 +995,7 @@ export function WinningAdsPage() {
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
-              value={keyword} onChange={(e) => setKeyword(e.target.value)}
+              value={keyword} onChange={(e) => { setKeyword(e.target.value); setPage(1); }}
               // Enter nunca lanza la búsqueda en vivo de pago: la lista ya se filtra sola al escribir (gratis).
               onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
               aria-describedby="radar-search-hint"
@@ -1002,8 +1006,8 @@ export function WinningAdsPage() {
           <button onClick={saveCurrentSearch} className="px-4 py-3 rounded-lg text-sm flex items-center gap-2 whitespace-nowrap border border-border bg-secondary/60 text-foreground hover:border-primary/40 hover:text-primary transition-colors" title="Guardar esta búsqueda para repetirla luego">
             <Star className="w-4 h-4" />
           </button>
-          <button onClick={handleSearch} disabled={loadingReal} className="btn-primary-nova px-6 py-3 rounded-lg text-sm flex items-center gap-2 whitespace-nowrap disabled:opacity-60">
-            {loadingReal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} {loadingReal ? "Buscando…" : "Buscar en vivo en Facebook"} <span className="opacity-70">· {CREDIT_COSTS.search_ads} créditos</span>
+          <button onClick={handleSearch} disabled={liveLoading} className="btn-primary-nova px-6 py-3 rounded-lg text-sm flex items-center gap-2 whitespace-nowrap disabled:opacity-60">
+            {liveLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} {liveLoading ? "Buscando en Facebook…" : "Buscar en vivo en Facebook"} <span className="opacity-70">· {CREDIT_COSTS.search_ads} créditos</span>
           </button>
         </div>
 

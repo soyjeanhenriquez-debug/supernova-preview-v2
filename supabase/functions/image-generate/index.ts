@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
     const raw = await req.text();
     if (raw.length > 6000) return json({ error: "La solicitud es demasiado grande." }, 413);
     const body = raw ? JSON.parse(raw) : {};
-    const prompt = String(body.prompt ?? "").trim().slice(0, 1800);
+    const prompt = String(body.prompt ?? "").replace(/\s*\((?:tu |mi )?versi[oó]n de [^)]{1,80}\)/gi, "").trim().slice(0, 1800);
     const productId = typeof body.product_id === "string" && /^[0-9a-f-]{36}$/i.test(body.product_id) ? body.product_id : null;
     if (!prompt) return json({ error: "Describe la foto." }, 400);
     if (!productId) return json({ error: "Falta el producto." }, 400);

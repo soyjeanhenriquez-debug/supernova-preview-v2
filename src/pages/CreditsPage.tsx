@@ -119,14 +119,14 @@ export function CreditsPage() {
             </svg>
             <div>
               <div className="text-4xl font-display font-extrabold text-primary"><CountUp value={balance} /></div>
-              <div className="text-xs text-muted-foreground">/ {limit.toLocaleString()}</div>
+              <div className="text-xs text-muted-foreground">/ {limit.toLocaleString("es-ES")}</div>
             </div>
           </div>
           <div className="text-sm text-foreground mt-3">Créditos disponibles</div>
           <div className="text-xs text-primary mt-1">Se recargan en {renewDays} días ({renewFormatted})</div>
           {purchased > 0 && (
             <div className="text-[11px] text-muted-foreground mt-1">
-              {monthly.toLocaleString()} de tu plan + <span className="text-success font-semibold">{purchased.toLocaleString()} comprados</span>
+              {monthly.toLocaleString("es-ES")} de tu plan + <span className="text-success font-semibold">{purchased.toLocaleString("es-ES")} comprados</span>
             </div>
           )}
 
@@ -137,7 +137,10 @@ export function CreditsPage() {
         <div className="card-surface rounded-xl p-6 lg:col-span-2">
           <h3 className="font-display font-bold text-base mb-3">Cuántos créditos gasta cada cosa</h3>
           <div className="grid sm:grid-cols-2 gap-2">
-            {Object.entries(CREDIT_COSTS).filter(([action]) => {
+            {Object.entries(CREDIT_COSTS).filter(([action, cost]) => {
+              // gen_media vale lo que diga el catálogo de cada modelo (no 0) y el asistente es gratis:
+              // mostrarlos aquí confundía (prueba de Hany, 11-oct-2026).
+              if (cost === 0 || action === "chat_message") return false;
               const page = ACTION_PAGE[action as keyof typeof ACTION_LABEL];
               return !page || canSee(page);
             }).map(([action, cost]) => (
@@ -150,6 +153,10 @@ export function CreditsPage() {
             ))}
             <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/40">
               <span className="text-sm text-foreground">Guardar un anuncio</span>
+              <span className="text-success font-bold text-xs">GRATIS</span>
+            </div>
+            <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/40">
+              <span className="text-sm text-foreground">Preguntarle al asistente qué herramienta usar</span>
               <span className="text-success font-bold text-xs">GRATIS</span>
             </div>
             <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/40">
@@ -274,7 +281,7 @@ export function CreditsPage() {
                   <td className="px-5 py-2 text-muted-foreground text-xs">{new Date(h.date).toLocaleString("es-ES")}</td>
                   <td className="px-5 py-2">{h.label}{h.meta && <span className="text-muted-foreground"> · {h.meta.slice(0, 40)}</span>}</td>
                   {h.granted
-                    ? <td className="px-5 py-2 text-right text-success font-bold">+{h.granted.toLocaleString()}</td>
+                    ? <td className="px-5 py-2 text-right text-success font-bold">+{h.granted.toLocaleString("es-ES")}</td>
                     : <td className="px-5 py-2 text-right text-primary font-bold">-{h.cost}</td>}
                 </tr>
               ))}

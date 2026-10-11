@@ -11,6 +11,11 @@ export function CountUp({ value, duration = 800, className, format }: Props) {
     start.current = null;
     const from = 0;
     const to = value;
+    // Pestaña en segundo plano o sin animaciones: el número final de una vez (si no, se quedaba en 0).
+    if (typeof document !== "undefined" && (document.hidden || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)) {
+      setN(to);
+      return;
+    }
     const step = (t: number) => {
       if (start.current === null) start.current = t;
       const elapsed = t - start.current;
@@ -24,5 +29,5 @@ export function CountUp({ value, duration = 800, className, format }: Props) {
     return () => { if (raf.current) cancelAnimationFrame(raf.current); };
   }, [value, duration]);
 
-  return <span className={className}>{format ? format(n) : n.toLocaleString()}</span>;
+  return <span className={className}>{format ? format(n) : n.toLocaleString("es-ES")}</span>;
 }

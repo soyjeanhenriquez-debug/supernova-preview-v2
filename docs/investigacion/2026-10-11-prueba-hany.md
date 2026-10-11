@@ -65,3 +65,45 @@ Ficha de Ofertas + pestaña Números (CPA máximo con datos reales, "ChatGPT no 
 oferta; versión mejorada del Radar; las 3 imágenes de Creativos (nivel Higgsfield en estático, cara latina,
 texto sin faltas); carrusel "Mito contra verdad" en <30 s; order bump con 3 opciones; WhatsApp listo; Contenido
 con búsquedas reales y tracker; ganchos de los guiones del influencer; que lo que falla no se cobra.
+
+---
+
+# Ronda 2 (11-oct-2026, después de los arreglos P0)
+
+| Área | Ronda 1 | Ronda 2 | ¿Pagaría? |
+|---|---|---|---|
+| Encontrar | 6 | 7 | Todavía no: quiere ver el creativo del anuncio en el Radar y búsqueda confiable |
+| Los 5 anuncios | 6 | 6,5 | Todavía no: marca ajena en imágenes, garantía y prueba social inventadas |
+| Producto y venta | 6 | 7 | Probaría con el cupón; se queda cuando Contenido y el saldo funcionen |
+| Video y avatar | 4 | 6 | Recargaría US$20 por Motion y YouTube; US$100 cuando el avatar hable |
+
+Funcionó: Radar sin error, Motion graphics, YouTube de punta a punta, guiones sin "lo probé", textos sin
+"vídeo/móvil" ni "[Insertar precio]", "Compruébalo por mí", Diagnóstico, regla de probador (1 clic = 1 uso).
+
+## Arreglado después de la ronda 2 (en producción salvo lo marcado "pantalla")
+- Contenido roto: la migración content_month nunca se había aplicado (precio + columnas brief/cta/plan_id).
+- "Mejorar esta oferta" sin límite para probadores: la ventana de 3 min ahora solo agrupa herramientas de
+  varias piezas; las de una pieza cuentan cada uso.
+- Primer clic de los 10 guiones del Influencer IA fallaba: products.journey tenía tope de 5 KB → 50 KB.
+- Marca de la competencia en imágenes: el servidor quita "(versión de X)" del pedido y prohíbe marcas.
+- Reglas de honestidad reforzadas: garantía solo como sugerencia si no existe, sin "miles de personas",
+  sin voseo, sin "transforma tu cuerpo", sin inventar formato del producto, precio con moneda, y las MISMAS
+  reglas de medición en todas las herramientas (CTR 0,8 %, apagar a 2 veces el precio, +20 % cada 2 días).
+- Veredicto de ofertas con reglas de honestidad (ya no "curan el acné").
+- Mándala ya no pide garantía si la ficha no la tiene; Andrés ya no es "el que lo prueba".
+- Pantalla: Radar sin resultados viejos ni "Buscando… · 5 créditos" en la búsqueda gratis; Créditos en
+  formato 2.000, contador que no se queda en 0, sin "gen_media = 0" ni asistente con costo; Diagnóstico sin
+  nombres de casos no verificados.
+
+## Para mañana
+- Radar: mostrar el creativo (video/imagen) en la tarjeta; etiquetas que se contradicen; novelas arriba.
+- 326 veredictos guardados con palabras de salud ("cura", "elimina"): revisar cuáles regenerar.
+- Avatar que habla dentro de la app (hoy "PRONTO" con afiliado de Higgsfield): la mayor objeción de Hany.
+- Video del anuncio en un solo archivo y más rápido; escuchar voces antes de elegir.
+- Faltas de ortografía en el texto de las imágenes ("RUTUINAS", "GANA MÚSCLO").
+- "Precio en tu moneda" que convierta; plan que no proponga Mini App a un programa de ejercicio.
+- Bóveda de ganchos en español por nicho; Mini Apps que abren otra ficha; enlace directo a una oferta.
+- "Rellenar con IA" con window.confirm nativo; Validar pregunta 14 automática; VSL que dura lo que dice.
+- Migración pendiente de otra sesión: landing_rate_limit (tope por IP de la landing), revisar con Jean.
+- Tarjeta de suscripción llama a stripe-portal (503 con Stripe apagado).
+- Pack 100 sin cashback sale más caro por crédito que el Nuclear: decisión de Jean.

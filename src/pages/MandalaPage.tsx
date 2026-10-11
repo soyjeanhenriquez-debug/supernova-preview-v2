@@ -69,7 +69,7 @@ const STAGES: Stage[] = [
   },
   {
     id: "convertir", name: "Convertir", color: "#8B5CF6",
-    goal: "Vender a quien está listo para comprar. Oferta clara, precio, garantía y botón.",
+    goal: "Vender a quien está listo para comprar. Oferta clara, precio y botón (garantía solo si tu ficha ya tiene una).",
     audience: "Público amplio optimizado a compra + quienes ya te conocen.",
     setup: {
       meta: "Campaña de ventas optimizada a compra.",
@@ -150,7 +150,7 @@ FORMATO: ${format}
 ${platformHint(platform)}
 LLAMADA A LA ACCIÓN SEGÚN LA ETAPA: ${stage.id === "atraer" || stage.id === "conectar"
     ? "esta etapa NO vende: no menciones precio ni pidas comprar; la llamada es suave (seguir, guardar, ver el video completo, comentar una palabra)."
-    : "esta etapa vende: oferta clara, precio, garantía y botón de compra."}
+    : "esta etapa vende: oferta clara, precio y botón de compra; menciona garantía solo si la ficha trae una."}
 
 Entrega exactamente:
 ## 3 ganchos (primeros 3 segundos o titular)

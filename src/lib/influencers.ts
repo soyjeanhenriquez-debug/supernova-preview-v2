@@ -52,7 +52,7 @@ export const STOCK_INFLUENCERS: StockInfluencer[] = [
   {
     id: "andres", foto: "/avatares/andres.webp", genero: "hombre", edad: "joven", pais: "Colombia", vozId: "alegre",
     personaje: {
-      nombre: "Andrés", rol: "El que lo prueba y te cuenta cómo se usa",
+      nombre: "Andrés", rol: "El que te muestra paso a paso cómo se usa",
       historia: "Curioso y práctico: le gusta mostrar cómo se usan las cosas, sin exagerar ni prometer de más.",
       aspecto: "Hombre colombiano de unos 28 años, piel trigueña clara, cabello oscuro ondulado corto y barba cuidada, camiseta azul marino.",
       voz: "Relajada, amable y directa.",

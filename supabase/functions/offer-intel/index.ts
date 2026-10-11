@@ -16,6 +16,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 import { CHECKOUT_PARSERS, type CheckoutData } from "./checkout_parse.ts";
 import { redact } from "../_shared/redact.ts";
+import { HONESTY_RULES } from "../_shared/honesty.ts";
 
 const FRESH_DAYS = 30;          // una ficha lista vale este tiempo
 const RETRY_AFTER_H = 12;       // una ficha fallida no se reintenta antes
@@ -688,7 +689,7 @@ async function buildVerdict(offer: Row, landing: Landing | null, snap: Snapshot 
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: MODELS_TRY[i], max_tokens: 2600, response_format: { type: "json_object" },
-          messages: [{ role: "system", content: SYSTEM }, { role: "user", content: JSON.stringify(facts) }],
+          messages: [{ role: "system", content: SYSTEM + HONESTY_RULES + "\n- Ganchos y textos de salud, belleza o cuerpo: nunca \"cura\", \"elimina\", \"quema\" ni resultados en el cuerpo; habla de lo que la persona aprende o hace." }, { role: "user", content: JSON.stringify(facts) }],
         }),
       });
       if ([404, 429, 500, 502, 503, 504].includes(r.status) && i < MODELS_TRY.length - 1) { await r.text(); continue; }

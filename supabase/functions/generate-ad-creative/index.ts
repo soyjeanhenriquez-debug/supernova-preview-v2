@@ -127,7 +127,7 @@ async function refundCharge(gate: Gate | null, reason: string): Promise<void> {
 }
 
 // Lo que ningún creativo puede mostrar (manual de SUPERNOVA y políticas de Meta): se añade en el servidor.
-const SAFE_RULES = "Apto para todo público: nada sexual, sin desnudos ni poses o ropa sugerentes; sin cuerpos antes y después ni cambios físicos; sin cifras de dinero, peso o salud; sin logos de otras marcas ni personas famosas (el logo y la foto propios del usuario sí).";
+const SAFE_RULES = "Apto para todo público: nada sexual, sin desnudos ni poses o ropa sugerentes; sin cuerpos antes y después ni cambios físicos; sin cifras de dinero, peso o salud; sin logos, nombres ni empaques de marcas existentes, tampoco de la oferta que se modela, ni personas famosas (el logo y la foto propios del usuario sí); el único nombre de producto que puede aparecer escrito es el del usuario.";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -141,7 +141,9 @@ Deno.serve(async (req) => {
     }
 
     const body = (await readJson(req, 10000).catch(() => ({}))) as Partial<Body>;
-    const prompt = String(body.prompt ?? "").trim().slice(0, 2_000);
+    // "(versión de X)" en el nombre del producto metía la marca de la competencia en la imagen (prueba de
+    // Hany, 11-oct-2026: el logo "MUSCLE BOOSTER" salía en la tablet). Se quita antes de pedir la imagen.
+    const prompt = String(body.prompt ?? "").replace(/\s*\((?:tu |mi )?versi[oó]n de [^)]{1,80}\)/gi, "").trim().slice(0, 2_000);
     if (!prompt) {
       return new Response(JSON.stringify({ error: "prompt requerido" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },

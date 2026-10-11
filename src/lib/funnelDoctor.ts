@@ -86,7 +86,7 @@ export const STAGES: StageDef[] = [
   {
     id: "contact", label: "Te escriben → les respondes", from: "leads", to: "contacted", healthy: 80, downstream: true,
     meaning: "De cada 100 que te escriben, a cuántos les contestas y conversas de verdad.",
-    diagnosis: "Se te enfrían los interesados: tardas en responder o a muchos nunca les contestas. Fue el problema de Brez Scales: creía que le faltaba contenido y solo contactaba al 22 %.",
+    diagnosis: "Se te enfrían los interesados: tardas en responder o a muchos nunca les contestas.",
     actions: [
       "Responde en menos de 1 hora. Pon un mensaje de bienvenida automático en WhatsApp Business.",
       "Etiqueta a cada persona (\"nuevo\", \"preguntó precio\", \"casi compra\") para que nadie se quede sin respuesta.",
@@ -99,7 +99,7 @@ export const STAGES: StageDef[] = [
     meaning: "De cada 100 con los que conversas, cuántos compran.",
     diagnosis: "Hablan contigo pero no compran: la oferta, el precio o el momento en que la presentas no convencen.",
     actions: [
-      "Presenta la oferta y el precio antes: en la primera conversación, no después de varios días (a Iman Gadzhi le funcionó vender el día 2 y no el 4).",
+      "Presenta la oferta y el precio antes: en la primera conversación, no después de varios días.",
       "Responde la duda que más te dicen antes de que te la digan (\"¿y si no me funciona?\" → tu garantía real).",
       "Escríbeles el día 1, 3 y 7 a los que dijeron \"lo pienso\".",
     ],

@@ -171,7 +171,9 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title, fi
       {/* Video real si lo detectamos */}
       {state === "ready" && videoUrl && (
         <video
-          src={videoUrl}
+          // Portada: la imagen del mismo anuncio; sin ella, el cuadro de medio segundo (si no, la tarjeta se veía negra).
+          src={imageUrl ? videoUrl : `${videoUrl}#t=0.5`}
+          poster={imageUrl ?? undefined}
           controls
           playsInline
           preload="metadata"

@@ -34,7 +34,7 @@ const GRID_COLS_CLASS: Record<number, string> = {
 };
 
 // Cache de ads en sessionStorage para carga instantánea entre navegaciones
-const ADS_CACHE_KEY = "supernova:ads-cache-v2";
+const ADS_CACHE_KEY = "supernova:ads-cache-v3"; // v3: idioma por el texto (11-oct-2026)
 const ADS_CACHE_TTL = 5 * 60_000; // 5 min
 type AdsCache = { ads: DemoAd[]; stats: { total: number; unique: number; mega: number; rising: number; solid: number }; ts: number };
 function readAdsCache(): AdsCache | null {
@@ -557,7 +557,7 @@ export function WinningAdsPage() {
           market: adMarket,
           marketLabel: country,
           flag: flagEmoji(country),
-          lang: marketTyped,
+          lang: langFromText(`${title} ${body}`, marketTyped),
           adUrl,
           platforms: it.publisher_platforms,
           countries: [country],
@@ -711,7 +711,7 @@ export function WinningAdsPage() {
           market: adMarket,
           marketLabel: searchCountry,
           flag: flagEmoji(searchCountry),
-          lang: marketTyped,
+          lang: langFromText(`${title} ${body}`, marketTyped),
           adUrl,
           platforms: it.publisher_platforms,
           countries: [searchCountry],

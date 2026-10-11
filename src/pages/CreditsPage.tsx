@@ -127,6 +127,7 @@ export function CreditsPage() {
           {purchased > 0 && (
             <div className="text-[11px] text-muted-foreground mt-1">
               {monthly.toLocaleString("de-DE")} de tu plan + <span className="text-success font-semibold">{purchased.toLocaleString("de-DE")} comprados</span>
+              <div>Se usan primero los de tu plan; los comprados no caducan.</div>
             </div>
           )}
 

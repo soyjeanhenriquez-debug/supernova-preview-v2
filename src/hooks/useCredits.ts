@@ -148,7 +148,7 @@ function checkMilestones(prevBalance: number, nextBalance: number, limit: number
 // una pedía por su cuenta sesión + recarga mensual + saldo + 200 movimientos, dos veces al montar
 // y otra vez cada minuto. Ahora hay UNA carga para todas: se reutiliza 30 s, se refresca cada
 // 5 min solo con la pestaña visible, y la recarga mensual se revisa una vez por sesión.
-interface CreditsSnapshot { balance: number; renewalDate: Date; history: CreditHistoryEntry[] }
+interface CreditsSnapshot { balance: number; purchased: number; renewalDate: Date; history: CreditHistoryEntry[] }
 let snapshot: CreditsSnapshot | null = null;
 let snapshotAt = 0;
 let inflight: Promise<void> | null = null;
@@ -173,16 +173,19 @@ async function loadCredits(): Promise<void> {
 
   // Saldo e historial en paralelo.
   const [{ data: row }, { data: txs }] = await Promise.all([
-    supabase.from("user_credits").select("balance, last_grant_at").eq("user_id", uid).maybeSingle(),
+    // select("*"): purchased (comprados) existe desde el 11-oct-2026; sin la columna no se rompe.
+    supabase.from("user_credits").select("*").eq("user_id", uid).maybeSingle(),
     supabase.from("credit_transactions").select("created_at, action, label, cost, meta")
       .eq("user_id", uid).order("created_at", { ascending: false }).limit(200),
   ]);
 
   const next: CreditsSnapshot = snapshot
     ? { ...snapshot }
-    : { balance: DEFAULT_BALANCE, renewalDate: new Date(Date.now() + 30 * 86400000), history: readHistory() };
+    : { balance: DEFAULT_BALANCE, purchased: 0, renewalDate: new Date(Date.now() + 30 * 86400000), history: readHistory() };
   if (row) {
     next.balance = row.balance;
+    const p = Number((row as { purchased?: number }).purchased);
+    next.purchased = Number.isFinite(p) ? p : Math.max(0, row.balance - DEFAULT_BALANCE);
     next.renewalDate = new Date(new Date(row.last_grant_at).getTime() + 30 * 86400000);
   }
   if (txs) {
@@ -232,13 +235,14 @@ function subscribe(l: (s: CreditsSnapshot) => void): () => void {
 
 export function useCredits() {
   const [balance, setBalance] = useState<number>(() => snapshot?.balance ?? DEFAULT_BALANCE);
+  const [purchasedRaw, setPurchased] = useState<number>(() => snapshot?.purchased ?? 0);
   const [renewalDate, setRenewalDate] = useState<Date>(() => snapshot?.renewalDate ?? new Date(Date.now() + 30 * 86400000));
   const [history, setHistory] = useState<CreditHistoryEntry[]>(() => snapshot?.history ?? readHistory());
 
   const refreshFromDB = useCallback(() => refreshShared(true), []);
 
   useEffect(() => {
-    const unsub = subscribe((s) => { setBalance(s.balance); setRenewalDate(s.renewalDate); setHistory(s.history); });
+    const unsub = subscribe((s) => { setBalance(s.balance); setPurchased(s.purchased); setRenewalDate(s.renewalDate); setHistory(s.history); });
     void refreshShared();
     const onSync = (e: Event) => {
       const b = (e as CustomEvent<{ balance?: number }>).detail?.balance;
@@ -307,8 +311,10 @@ export function useCredits() {
 
   return {
     balance,
-    monthly: Math.min(balance, DEFAULT_BALANCE),
-    purchased: Math.max(0, balance - DEFAULT_BALANCE),
+    // Como Higgsfield: se gastan primero los del mes y después los comprados (servidor, debit_credits).
+    // Por eso lo comprado solo baja cuando ya no quedan del mes: min(comprados, saldo).
+    monthly: balance - Math.min(purchasedRaw, balance),
+    purchased: Math.min(purchasedRaw, balance),
     limit: DEFAULT_LIMIT,
     renewalDate,
     history,

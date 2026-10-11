@@ -45,9 +45,15 @@ interface Props {
   onCreate: () => void;
   onSeeAds: () => void;
   onClose: () => void;
+  /**
+   * Reemplaza el botón principal "Hacer mi versión" (Mini Apps, 10-oct-2026): desde un kit, la ficha
+   * abre o desbloquea ESE kit, para que no haya un camino más barato al lado del precio del kit.
+   */
+  primaryAction?: { label: string; cost?: string; busy?: boolean; onClick: () => void };
 }
 
-export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate, onSeeAds, onClose }: Props) {
+export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate: createVersion, onSeeAds, onClose, primaryAction }: Props) {
+  const onCreate = primaryAction?.onClick ?? createVersion;
   const [tab, setTab] = useState<TabKey>("oferta");
   const [intel, setIntel] = useState<OfferIntel | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
@@ -202,8 +208,12 @@ export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate
               className={`shrink-0 w-12 h-12 rounded-xl border flex items-center justify-center transition-colors ${following ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-primary hover:border-primary/40"}`}>
               <Heart className="w-5 h-5" fill={following ? "currentColor" : "none"} />
             </button>
-            <button onClick={onCreate} className="flex-1 h-12 btn-primary-nova rounded-xl text-[14px] font-semibold flex items-center justify-center gap-2">
-              <Zap className="w-4 h-4" /> Hacer mi versión <span className="opacity-70 font-medium">· {CREDIT_COSTS.gen_master_prompt} ⚡</span>
+            <button onClick={onCreate} disabled={primaryAction?.busy} className="flex-1 h-12 btn-primary-nova rounded-xl text-[14px] font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
+              {primaryAction ? (
+                <>{primaryAction.busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} {primaryAction.label}{primaryAction.cost && <span className="opacity-70 font-medium">· {primaryAction.cost}</span>}</>
+              ) : (
+                <><Zap className="w-4 h-4" /> Hacer mi versión <span className="opacity-70 font-medium">· {CREDIT_COSTS.gen_master_prompt} ⚡</span></>
+              )}
             </button>
             </div>
           </footer>

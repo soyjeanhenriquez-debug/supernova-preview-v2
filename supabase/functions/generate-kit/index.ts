@@ -46,6 +46,12 @@ async function authorizeInternal(req: Request, admin: any): Promise<boolean> {
   return false;
 }
 
+// Lo que trae cada kit (mismas 8 secciones que muestra la app al abrirlo).
+const KIT_INSIDE = [
+  "Por qué funciona y cómo lanzarlo", "Instrucciones para crear tu mini app con IA", "Guion de venta por WhatsApp",
+  "Guion de video de ventas (90 s)", "3 anuncios para Meta", "Texto de tu página de ventas", "5 ganchos para videos", "Precios por país",
+];
+
 const LANG_TO_GROUP: Record<string, string> = { es: "ES", pt: "BR", en: "US", ru: "RU" };
 // De mejor a peor; los lite al final: tienen cuota propia más amplia en el
 // tier gratuito y sostienen la generación cuando los grandes agotan la suya.
@@ -147,7 +153,8 @@ Deno.serve(async (req) => {
       if (!offer) { results.push({ error: "Sin ofertas candidatas" }); break; }
 
       // 2) UNA llamada a Gemini → kit completo en JSON
-      const system = `Eres un estratega senior de direct response marketing y product builder. Conviertes una oferta que YA está vendiendo (probada con dinero real en Meta Ads) en un NEGOCIO DIGITAL LISTO PARA COPIAR por un emprendedor de LATAM que cobra en su moneda. Escribes en español neutro, directo, sin relleno, con el estilo de un copywriter de respuesta directa. Devuelves SOLO un objeto JSON válido (sin markdown alrededor). Dentro de los campos de texto puedes usar markdown.`;
+      const system = `Eres un estratega senior de direct response marketing y product builder. Conviertes una oferta que YA está vendiendo (probada con dinero real en Meta Ads) en un NEGOCIO DIGITAL LISTO PARA COPIAR por un emprendedor de LATAM que cobra en su moneda. Escribes en español neutro, directo, sin relleno, con el estilo de un copywriter de respuesta directa. Devuelves SOLO un objeto JSON válido (sin markdown alrededor). Dentro de los campos de texto puedes usar markdown.
+REGLAS QUE NO SE ROMPEN (manual de SUPERNOVA): nunca prometas ingresos, ganancias, cifras de dinero ("gana $500/mes"), plazos ("en 7 días", "en 48 horas"), resultados de salud o físicos (bajar de peso, quemar grasa, curar), riqueza o "abundancia" garantizada, ni "sin riesgo". No digas que algo "factura", está "validado", "probado" o es de "alta conversión": la única prueba es el tiempo pagando anuncios y eso ya lo muestra la app. En finanzas, inversión o cripto: es educación, no asesoría ni promesa de ganancia. En salud: bienestar general, no reemplaza al médico. Esto vale también para los anuncios, ganchos, guiones y la landing del kit.`;
       const user = `OFERTA FUENTE (real, pagando anuncios ahora):
 - Anunciante: ${offer.page_name}
 - Producto detectado: ${offer.product_name}
@@ -162,10 +169,9 @@ Deno.serve(async (req) => {
 Crea el KIT "Mini App Rentable" para replicar este negocio como producto digital / mini app propia (NO copiar marca ni textos literales: mismo mecanismo y ángulo, versión propia y mejorada). Devuelve un objeto JSON con EXACTAMENTE estas claves:
 {
  "title": "nombre comercial del kit en español, máx 50 caracteres, sin el nombre del anunciante original",
- "tagline": "promesa en una línea, máx 90 caracteres",
+ "tagline": "qué hace el producto, en una línea simple, máx 75 caracteres, sin promesas ni cifras",
  "cover_emoji": "un emoji",
- "summary": "teaser público de 2-3 frases: qué es el negocio, por qué ya está probado y qué vas a poder cobrar. Sin revelar el mecanismo completo",
- "whats_inside": ["6 a 8 entregables concretos, ej: 'Blueprint del negocio', 'Instrucciones para crear tu mini app con cualquier IA', 'Guion de venta por WhatsApp', 'Guion VSL de 90 segundos', '3 anuncios listos para Meta', 'Copy completo de la landing', '5 hooks probados', 'Precios sugeridos por país'"],
+ "summary": "1 o 2 frases cortas (máx 200 caracteres en total): para quién es y qué vendes. Palabras simples, sin jerga, sin cifras ni promesas. Sin revelar el mecanismo completo",
  "pricing": { "modelo": "pago_unico|suscripcion|freemium", "CO": "precio en COP", "MX": "precio en MXN", "DO": "precio en DOP", "US": "precio en USD", "BR": "precio en BRL", "nota": "1 frase de lógica de precio" },
  "blueprint": "markdown ≤ 550 palabras: ## Por qué gana · ## Mecanismo único (tu versión mejorada) · ## Avatar y dolor · ## Oferta irresistible (qué incluye, garantía, bonos) · ## Plan de 7 días para lanzar",
  "miniapp_prompt": "markdown ≤ 650 palabras: MEGA-PROMPT listo para pegar en cualquier herramienta que crea apps con IA o agente de código (Lovable, Bolt, v0, Claude Code, Codex, ChatGPT u otra) que construye la mini app. Sin imponer lenguaje, framework ni proveedor (la herramienta elige la tecnología) y sin números de versión de modelos: nombre, pantallas en orden, qué datos guarda, flujo del usuario, lógica del mecanismo (ej. quiz → plan), cobro con enlace de pago (Stripe, Whop, Hotmart u otro; pago único o suscripción), diseño primero para celular, textos de la interfaz en español. Empieza con una línea que diga que funciona en cualquier herramienta de IA para crear apps",
@@ -245,13 +251,14 @@ Todo en español (excepto nombres propios). Sé específico al nicho y al mecani
       const { data: inserted, error: insErr } = await admin.from("mini_app_kits").insert({
         slug,
         title,
-        tagline: str(kit.tagline, 120) || null,
+        tagline: str(kit.tagline, 90) || null,
         niche: offer.niche ?? "otro",
         market_group: LANG_TO_GROUP[offer.language ?? ""] ?? "ES",
         offer_id: offer.id,
         cover_emoji: str(kit.cover_emoji, 4) || EMOJI_BY_NICHE[offer.niche ?? "otro"] || "🧩",
-        summary: str(kit.summary, 600) || null,
-        whats_inside: Array.isArray(kit.whats_inside) ? kit.whats_inside.slice(0, 10) : [],
+        summary: str(kit.summary, 260) || null,
+        // Lista fija y corta (10-oct-2026): igual en todos los kits, sin "probado" ni "alta conversión".
+        whats_inside: KIT_INSIDE,
         proof: {
           days_active: offer.days_active, active_ads: offer.active_ads, winner_score: offer.winner_score,
           market: offer.market, language: offer.language, source_product: offer.product_name, source_advertiser: offer.page_name,

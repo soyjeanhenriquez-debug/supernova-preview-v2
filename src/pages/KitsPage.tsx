@@ -76,6 +76,9 @@ export function KitsPage({ onNavigate }: { onNavigate?: (page: string) => void }
   const [appsTotal, setAppsTotal] = useState(0);
   const [creating, setCreating] = useState<Offer | null>(null);
   const [detail, setDetail] = useState<Offer | null>(null);
+  // "Ver detalles" de un kit: la misma ficha de Ofertas (video, números, veredicto) de la oferta real.
+  const [kitDetail, setKitDetail] = useState<{ kit: Kit; offer: Offer } | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState<string | null>(null);
   const follows = useOfferFollows();
 
   // Un fallo de red no es "todavía no hay kits": se dice y se deja reintentar.
@@ -111,6 +114,15 @@ export function KitsPage({ onNavigate }: { onNavigate?: (page: string) => void }
 
   const seeAllApps = () => { localStorage.setItem(OFFERS_TAB_KEY, "apps"); onNavigate?.("Ofertas"); };
 
+  const openKitDetail = async (kit: Kit) => {
+    if (!kit.offer_id) { setOpen(kit); return; }
+    setLoadingDetail(kit.id);
+    const { data } = await supabase.from("offers").select("*").eq("id", kit.offer_id).maybeSingle();
+    setLoadingDetail(null);
+    if (data) setKitDetail({ kit, offer: data as Offer });
+    else setOpen(kit);
+  };
+
   const unlock = async (kit: Kit) => {
     setUnlocking(kit.id);
     try {
@@ -128,6 +140,7 @@ export function KitsPage({ onNavigate }: { onNavigate?: (page: string) => void }
       }
       const updated = { ...kit, unlocked: true };
       setKits((prev) => (prev ?? []).map((k) => (k.id === kit.id ? updated : k)));
+      setKitDetail(null);
       setOpen(updated);
     } finally {
       setUnlocking(null);
@@ -182,7 +195,8 @@ export function KitsPage({ onNavigate }: { onNavigate?: (page: string) => void }
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {kits.map((k) => <KitCard key={k.id} kit={k} busy={unlocking === k.id} onUnlock={() => unlock(k)} onOpen={() => setOpen(k)} />)}
+          {kits.map((k) => <KitCard key={k.id} kit={k} busy={unlocking === k.id} onUnlock={() => unlock(k)} onOpen={() => setOpen(k)}
+            onDetails={() => void openKitDetail(k)} loadingDetails={loadingDetail === k.id} />)}
         </div>
       )}
 
@@ -215,6 +229,19 @@ export function KitsPage({ onNavigate }: { onNavigate?: (page: string) => void }
           onCreate={() => setCreating(detail)}
           onSeeAds={() => openOfferAdsInRadar(detail, onNavigate)}
           onClose={() => setDetail(null)}
+        />
+      )}
+      {kitDetail && (
+        <OfferDetailSheet
+          offer={kitDetail.offer}
+          following={follows.isFollowing(kitDetail.offer.id)}
+          onToggleFollow={() => follows.toggle(kitDetail.offer)}
+          onCreate={() => undefined}
+          onSeeAds={() => openOfferAdsInRadar(kitDetail.offer, onNavigate)}
+          onClose={() => setKitDetail(null)}
+          primaryAction={kitDetail.kit.unlocked
+            ? { label: "Abrir mi kit", onClick: () => { const k = kitDetail.kit; setKitDetail(null); setOpen(k); } }
+            : { label: "Desbloquear mi kit", cost: `${kitDetail.kit.price_credits} ⚡`, busy: unlocking === kitDetail.kit.id, onClick: () => void unlock(kitDetail.kit) }}
         />
       )}
       {creating && <MiniAppModal ad={offerToDemoAd(creating)} brief={offerBrief(creating)} onNavigate={onNavigate} onClose={() => setCreating(null)} />}
@@ -257,7 +284,7 @@ function AppCard({ o, onCreate, onOpen }: { o: Offer; onCreate: () => void; onOp
   );
 }
 
-function KitCard({ kit, busy, onUnlock, onOpen }: { kit: Kit; busy: boolean; onUnlock: () => void; onOpen: () => void }) {
+function KitCard({ kit, busy, onUnlock, onOpen, onDetails, loadingDetails }: { kit: Kit; busy: boolean; onUnlock: () => void; onOpen: () => void; onDetails: () => void; loadingDetails: boolean }) {
   const group = kit.market_group ? MARKET_GROUP[kit.market_group] : null;
   const p = kit.proof ?? {};
   return (
@@ -276,14 +303,14 @@ function KitCard({ kit, busy, onUnlock, onOpen }: { kit: Kit; busy: boolean; onU
       <div className="p-4 flex flex-col flex-1">
         <h4 className="font-display font-semibold text-[16px] leading-snug text-foreground">{kit.title}</h4>
         {kit.tagline && <p className="text-[12px] text-primary mt-1">{kit.tagline}</p>}
-        {kit.summary && <p className="text-[12.5px] text-muted-foreground mt-3 leading-relaxed line-clamp-4">{kit.summary}</p>}
+        {kit.summary && <p className="text-[12.5px] text-muted-foreground mt-2.5 leading-relaxed line-clamp-2">{kit.summary}</p>}
 
         {kit.whats_inside.length > 0 && (
           <ul className="mt-3 space-y-1">
-            {kit.whats_inside.slice(0, 4).map((w, i) => (
+            {kit.whats_inside.slice(0, 3).map((w, i) => (
               <li key={i} className="text-[11.5px] text-foreground/85 flex items-start gap-1.5"><Check className="w-3 h-3 text-success mt-0.5 shrink-0" /> {w}</li>
             ))}
-            {kit.whats_inside.length > 4 && <li className="text-[11px] text-muted-foreground pl-4">+{kit.whats_inside.length - 4} entregables más</li>}
+            {kit.whats_inside.length > 3 && <li className="text-[11px] text-muted-foreground pl-4">+{kit.whats_inside.length - 3} más</li>}
           </ul>
         )}
 
@@ -293,16 +320,20 @@ function KitCard({ kit, busy, onUnlock, onOpen }: { kit: Kit; busy: boolean; onU
           {p.market && <span>Se anuncia en {flagFor(p.market)} {MARKET_NAME[p.market] ?? p.market}</span>}
         </div>
 
-        <div className="mt-3">
+        <div className="mt-3 flex gap-2">
           {kit.unlocked ? (
-            <button onClick={onOpen} className="w-full btn-primary-nova py-2.5 rounded-lg text-[13px] font-semibold flex items-center justify-center gap-1.5">
+            <button onClick={onOpen} className="flex-1 btn-primary-nova py-2.5 rounded-lg text-[13px] font-semibold flex items-center justify-center gap-1.5">
               <Unlock className="w-3.5 h-3.5" /> Abrir mi kit
             </button>
           ) : (
-            <button onClick={onUnlock} disabled={busy} className="w-full btn-primary-nova py-2.5 rounded-lg text-[13px] font-semibold flex items-center justify-center gap-1.5">
+            <button onClick={onUnlock} disabled={busy} className="flex-1 btn-primary-nova py-2.5 rounded-lg text-[13px] font-semibold flex items-center justify-center gap-1.5">
               {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />} Desbloquear · {kit.price_credits} ⚡
             </button>
           )}
+          <button onClick={onDetails} disabled={loadingDetails} title="Ver el anuncio real, sus números y el veredicto (gratis)"
+            className="px-3 rounded-lg border border-border text-[12.5px] font-semibold text-foreground hover:border-primary/40 inline-flex items-center justify-center gap-1.5 disabled:opacity-60">
+            {loadingDetails ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />} Ver detalles
+          </button>
         </div>
       </div>
     </article>

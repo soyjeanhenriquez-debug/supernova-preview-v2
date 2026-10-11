@@ -52,6 +52,9 @@ const KIT_INSIDE = [
   "Guion de video de ventas (90 s)", "3 anuncios para Meta", "Texto de tu página de ventas", "5 ganchos para videos", "Precios por país",
 ];
 
+const KIT_SYSTEM = `Eres un estratega senior de direct response marketing y product builder. Conviertes una oferta que YA está vendiendo (probada con dinero real en Meta Ads) en un NEGOCIO DIGITAL LISTO PARA COPIAR por un emprendedor de LATAM que cobra en su moneda. Escribes en español neutro, directo, sin relleno, con el estilo de un copywriter de respuesta directa. Devuelves SOLO un objeto JSON válido (sin markdown alrededor). Dentro de los campos de texto puedes usar markdown.
+REGLAS QUE NO SE ROMPEN (manual de SUPERNOVA): nunca prometas ingresos, ganancias, cifras de dinero ("gana $500/mes"), plazos ("en 7 días", "en 48 horas"), resultados de salud o físicos (bajar de peso, quemar grasa, curar), riqueza o "abundancia" garantizada, ni "sin riesgo". No digas que algo "factura", está "validado", "probado" o es de "alta conversión": la única prueba es el tiempo pagando anuncios y eso ya lo muestra la app. En finanzas, inversión o cripto: es educación, no asesoría ni promesa de ganancia. En salud: bienestar general, no reemplaza al médico. Nunca inventes prueba social ni cifras de clientes ("más de 4.000 personas", testimonios): deja un espacio [TUS RESULTADOS REALES] para que el emprendedor ponga los suyos. Garantía solo como reembolso simple ("si no te sirve, te devuelvo tu dinero en 7 días"), nunca atada a un resultado ("si en 48 horas no notas..."). Esto vale también para los anuncios, ganchos, guiones y la landing del kit.`;
+
 const LANG_TO_GROUP: Record<string, string> = { es: "ES", pt: "BR", en: "US", ru: "RU" };
 // De mejor a peor; los lite al final: tienen cuota propia más amplia en el
 // tier gratuito y sostienen la generación cuando los grandes agotan la suya.
@@ -71,6 +74,33 @@ interface OfferRow {
   sample_title: string | null; sample_body: string | null; days_active: number; active_ads: number; winner_score: number;
 }
 
+// Una llamada a Gemini con respaldo de modelos (para el modo "reescribir").
+// deno-lint-ignore no-explicit-any
+async function askGemini(apiKey: string, system: string, user: string): Promise<{ data: any; model: string } | { error: string }> {
+  let last = "";
+  for (const model of MODELS_TRY) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 120_000);
+    try {
+      const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, max_tokens: 16000, response_format: { type: "json_object" }, messages: [{ role: "system", content: system }, { role: "user", content: user }] }),
+        signal: ctrl.signal,
+      });
+      if (r.ok) return { data: await r.json(), model };
+      last = `AI ${r.status}: ${(await r.text()).slice(0, 160)}`;
+      if (![404, 429, 500, 502, 503, 504].includes(r.status)) break;
+      await new Promise((res) => setTimeout(res, 2000));
+    } catch (e) {
+      last = e instanceof Error ? e.message : "fallo de red";
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  return { error: last || "Sin respuesta" };
+}
+
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
@@ -86,7 +116,52 @@ Deno.serve(async (req) => {
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   if (!(await authorizeInternal(req, admin))) return json({ error: "No autorizado" }, 401);
 
-  const body = (await req.json().catch(() => ({}))) as { count?: number; offer_id?: string; niche?: string; group?: string };
+  const body = (await req.json().catch(() => ({}))) as { count?: number; offer_id?: string; niche?: string; group?: string; rewrite_kit_id?: string };
+
+  // Modo "reescribir" (11-oct-2026): limpia un kit ya publicado con las reglas de KIT_SYSTEM
+  // (sin promesas, sin prueba social inventada, garantía solo como reembolso). Conserva la
+  // estructura, el mecanismo y los precios; no toca título, resumen ni precio en créditos.
+  if (body.rewrite_kit_id) {
+    const { data: kitRow } = await admin.from("mini_app_kits").select("id, title, content").eq("id", body.rewrite_kit_id).maybeSingle();
+    if (!kitRow) return json({ error: "Kit no encontrado" }, 404);
+    const old = (kitRow.content ?? {}) as Record<string, unknown>;
+    const user = `Este es el contenido de un kit "Mini App Rentable" llamado "${kitRow.title}". Reescríbelo para que cumpla TODAS las reglas del sistema.
+Conserva: la misma estructura de cada sección, el mismo mecanismo, el mismo producto, los mismos precios por país y la misma extensión aproximada. Cambia solo lo necesario: quita promesas de ingresos, plazos, resultados de salud o físicos, "garantizado", "sin riesgo", "probado", "validado", "factura", "alta conversión", cifras de clientes o testimonios inventados, y garantías atadas a resultados (déjalas como reembolso simple). Si el nombre de un método o producto contiene una promesa (ej. "48h", "Renta Garantizada"), cámbialo por uno neutro.
+Devuelve un objeto JSON con EXACTAMENTE las mismas claves: blueprint, miniapp_prompt, whatsapp_script, vsl_script, ad_copies (3 objetos con headline y primary_text), landing_copy, hooks (5), pricing (mismo objeto).
+
+CONTENIDO ACTUAL:
+${JSON.stringify({ blueprint: old.blueprint, miniapp_prompt: old.miniapp_prompt, whatsapp_script: old.whatsapp_script, vsl_script: old.vsl_script, ad_copies: old.ad_copies, landing_copy: old.landing_copy, hooks: old.hooks, pricing: old.pricing })}`;
+    const res = await askGemini(apiKey, KIT_SYSTEM, user);
+    if ("error" in res) return json({ error: res.error }, 502);
+    const u = res.data?.usage;
+    if (u) {
+      const input = Number(u.prompt_tokens) || 0;
+      const output = Math.max(Number(u.completion_tokens) || 0, (Number(u.total_tokens) || 0) - input);
+      await admin.rpc("log_ai_usage", { p_user_id: null, p_fn: "generate-kit:rewrite", p_model: res.model, p_input: input, p_output: output, p_images: 0 }).then(() => {}, () => {});
+    }
+    let nk: Record<string, unknown>;
+    try {
+      nk = JSON.parse(String(res.data?.choices?.[0]?.message?.content ?? "{}").replace(/```json?/g, "").replace(/```/g, "").trim());
+    } catch { return json({ error: "JSON inválido" }, 502); }
+    const s2 = (v: unknown, n: number) => (typeof v === "string" ? v.trim().slice(0, n) : "");
+    if (!s2(nk.blueprint, 20) || !s2(nk.miniapp_prompt, 20)) return json({ error: "Reescritura incompleta: no se guardó" }, 502);
+    const content = {
+      ...old,
+      blueprint: s2(nk.blueprint, 12000),
+      miniapp_prompt: s2(nk.miniapp_prompt, 12000),
+      whatsapp_script: s2(nk.whatsapp_script, 8000) || old.whatsapp_script,
+      vsl_script: s2(nk.vsl_script, 8000) || old.vsl_script,
+      ad_copies: Array.isArray(nk.ad_copies) && nk.ad_copies.length ? nk.ad_copies.slice(0, 3) : old.ad_copies,
+      landing_copy: s2(nk.landing_copy, 8000) || old.landing_copy,
+      hooks: Array.isArray(nk.hooks) && nk.hooks.length ? nk.hooks.slice(0, 5) : old.hooks,
+      pricing: typeof nk.pricing === "object" && nk.pricing ? nk.pricing : old.pricing,
+      model: res.model,
+      rewritten_at: new Date().toISOString(),
+    };
+    const { error: upErr } = await admin.from("mini_app_kits").update({ content }).eq("id", kitRow.id);
+    if (upErr) return json({ error: upErr.message }, 500);
+    return json({ rewritten: kitRow.id, title: kitRow.title, model: res.model });
+  }
   const count = Math.min(3, Math.max(1, Number(body.count) || 1));
   const results: Array<{ kit_id?: string; title?: string; offer_id?: string; error?: string }> = [];
 
@@ -153,8 +228,7 @@ Deno.serve(async (req) => {
       if (!offer) { results.push({ error: "Sin ofertas candidatas" }); break; }
 
       // 2) UNA llamada a Gemini → kit completo en JSON
-      const system = `Eres un estratega senior de direct response marketing y product builder. Conviertes una oferta que YA está vendiendo (probada con dinero real en Meta Ads) en un NEGOCIO DIGITAL LISTO PARA COPIAR por un emprendedor de LATAM que cobra en su moneda. Escribes en español neutro, directo, sin relleno, con el estilo de un copywriter de respuesta directa. Devuelves SOLO un objeto JSON válido (sin markdown alrededor). Dentro de los campos de texto puedes usar markdown.
-REGLAS QUE NO SE ROMPEN (manual de SUPERNOVA): nunca prometas ingresos, ganancias, cifras de dinero ("gana $500/mes"), plazos ("en 7 días", "en 48 horas"), resultados de salud o físicos (bajar de peso, quemar grasa, curar), riqueza o "abundancia" garantizada, ni "sin riesgo". No digas que algo "factura", está "validado", "probado" o es de "alta conversión": la única prueba es el tiempo pagando anuncios y eso ya lo muestra la app. En finanzas, inversión o cripto: es educación, no asesoría ni promesa de ganancia. En salud: bienestar general, no reemplaza al médico. Esto vale también para los anuncios, ganchos, guiones y la landing del kit.`;
+      const system = KIT_SYSTEM;
       const user = `OFERTA FUENTE (real, pagando anuncios ahora):
 - Anunciante: ${offer.page_name}
 - Producto detectado: ${offer.product_name}

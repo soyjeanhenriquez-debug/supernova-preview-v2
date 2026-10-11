@@ -7,7 +7,6 @@ import { useBusinessProfile, profileReady } from "@/lib/businessProfile";
 import { useCredits, generatorCost, CREDIT_COSTS } from "@/hooks/useCredits";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import { track } from "@/lib/analytics";
-import { AFFILIATE_NOTE, HIGGSFIELD_URL } from "@/lib/partners";
 import { createVideo, downloadVideo, invokeVideo, loadVideoConfig, waitForVideo, type VideoJob } from "@/components/video/videoApi";
 import { VIDEO_PRICE, buildShots, cleanBrief, hasForbiddenClaim, recommendTemplate, shotPrompt } from "@/lib/videoTemplates";
 import { SPOKEN_MAX, STOCK_INFLUENCERS, VOICES, guessGenero, lineFromGuion, voicePrompt, type Genero, type StockInfluencer } from "@/lib/influencers";
@@ -36,6 +35,18 @@ const PRESALE_DEADLINE = import.meta.env.VITE_VIDEO_PRESALE_DEADLINE as string |
 
 type Step = 1 | 2 | 3;
 const TALK_COST = VIDEO_PRICE[10];
+
+// Avatar que habla con voz real y boca sincronizada (función avatar-talk, 11-oct-2026). Precio por tramo
+// de duración (lo cobra el servidor; aquí solo se muestra). ~2,5 palabras por segundo.
+const AVATAR_PRICES: Record<15 | 30 | 45, number> = { 15: 530, 30: 1060, 45: 1590 };
+const AVATAR_MAX_CHARS = 600;
+const avatarSeconds = (text: string) => Math.ceil((text.trim() ? text.trim().split(/\s+/).length : 0) / 2.5) + 1;
+const avatarTier = (text: string): 15 | 30 | 45 | 0 => { const s = avatarSeconds(text); return s <= 15 ? 15 : s <= 30 ? 30 : s <= 45 ? 45 : 0; };
+async function invokeAvatar<T>(body: Record<string, unknown>): Promise<T> {
+  const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/avatar-talk`, { method: "POST", headers: await fnHeaders(), body: JSON.stringify(body) });
+  if (!resp.ok) throw new Error(await fnErrorMessage(resp, "No se pudo crear el video."));
+  return await resp.json() as T;
+}
 
 async function streamGenerator(generatorId: string, title: string, system: string, user: string): Promise<{ text: string; resp: Response }> {
   const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
@@ -92,6 +103,10 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
   // Video que habla (UGC): abierto según el interruptor del servidor (edge_limits 'video-studio:ugc').
   const [ugcOpen, setUgcOpen] = useState<boolean | null>(null);
   useEffect(() => { let on = true; loadVideoConfig().then(c => { if (on) setUgcOpen(c.ugc); }); return () => { on = false; }; }, []);
+  // Avatar con voz real (avatar-talk): si está abierto, manda sobre el video UGC de Seedance.
+  const [avatarOpen, setAvatarOpen] = useState<boolean | null>(null);
+  useEffect(() => { let on = true; invokeAvatar<{ open?: boolean }>({ action: "config" }).then(c => { if (on) setAvatarOpen(c.open === true); }).catch(() => { if (on) setAvatarOpen(false); }); return () => { on = false; }; }, []);
+  const canTalk: boolean | null = avatarOpen === true ? true : avatarOpen === null || ugcOpen === null ? null : ugcOpen;
   const [line, setLine] = useState("");
   const [talk, setTalk] = useState<{ busy: boolean; progress: number | null; error: string | null }>({ busy: false, progress: null, error: null });
   const [talkJobs, setTalkJobs] = useState<VideoJob[]>([]);
@@ -114,18 +129,19 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
     if (!uid) return;
     const since = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const q = () => (supabase as any).from("video_jobs").select("id,status,prompt,result_url,seconds,created_at,kind")
+    const q = () => (supabase as any).from("video_jobs").select("id,status,prompt,result_url,seconds,created_at,kind,model")
       .eq("user_id", uid).eq("kind", "ugc").gte("created_at", since).order("created_at", { ascending: false }).limit(6);
     const { data } = await q();
     const list = (data ?? []) as VideoJob[];
     const pending = list.filter(j => j.status === "running" || j.status === "queued");
     if (pending.length) {
-      await Promise.all(pending.map(j => invokeVideo({ action: "status", job_id: j.id }).catch(() => null)));
+      await Promise.all(pending.map(j => ((j as VideoJob & { model?: string }).model?.includes("ai-avatar")
+        ? invokeAvatar({ action: "status", job_id: j.id }) : invokeVideo({ action: "status", job_id: j.id })).catch(() => null)));
       const again = await q();
       setTalkJobs((again.data ?? []) as VideoJob[]);
     } else setTalkJobs(list);
   }, [uid]);
-  useEffect(() => { if (step === 3 && ugcOpen) void loadTalkJobs(); }, [step, ugcOpen, loadTalkJobs]);
+  useEffect(() => { if (step === 3 && canTalk) void loadTalkJobs(); }, [step, canTalk, loadTalkJobs]);
 
   const save = (patch: Partial<PersonajeState>) =>
     savePatch({ journey: { ...(profile.journey ?? {}), personaje: { ...state, ...patch, actualizado: new Date().toISOString() } } });
@@ -237,6 +253,27 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
     const said = line.trim();
     if (said.length < 4) { toast.error("Escribe lo que va a decir."); return; }
     if (hasForbiddenClaim(said)) { toast.error("Tu influencer solo presenta o explica: sin testimonios (\"lo compré\", \"me funcionó\"), promesas ni cifras de dinero."); return; }
+    if (avatarOpen) {
+      const tier = avatarTier(said);
+      if (!tier) { toast.error("El guion es muy largo: máximo unos 45 segundos (≈ 110 palabras)."); return; }
+      if (balance < AVATAR_PRICES[tier]) { toast.error(`Te faltan créditos: este video de hasta ${tier} s cuesta ${AVATAR_PRICES[tier]}.`); return; }
+      setTalk({ busy: true, progress: null, error: null });
+      try {
+        const r = await invokeAvatar<{ job: VideoJob; billing?: { charged: number; balance: number | null } }>({
+          action: "create", script: said, image_path: state.foto, genero: guessGenero(pj), voz: pj.vozId ?? "calida", product_id: productId ?? undefined,
+        });
+        if (r.billing) applyServerCharge("gen_media", { charged: r.billing.charged, balance: r.billing.balance ?? 0 }, `Video de ${pj.nombre} hablando`);
+        void loadTalkJobs();
+        const done = await waitForVideo(r.job.id, undefined, { check: b => invokeAvatar(b) });
+        if (done.status !== "done") throw new Error("El video falló. Te devolvimos los créditos.");
+        track("video_generado", { modo: "avatar_habla", voz: pj.vozId ?? "calida", stock: pj.stock ?? null });
+        toast.success(`¡Listo! ${pj.nombre} ya habla en tu video.`);
+        setTalk({ busy: false, progress: null, error: null });
+      } catch (e) {
+        setTalk({ busy: false, progress: null, error: e instanceof Error ? e.message : "No se pudo crear el video." });
+      } finally { void loadTalkJobs(); }
+      return;
+    }
     if (balance < TALK_COST) { toast.error(`Te faltan créditos: el video que habla cuesta ${TALK_COST}.`); return; }
     const brief = cleanBrief({ product: profile.product, who: profile.who, promise: profile.promise });
     const shot = { ...buildShots("ugc", recommendTemplate(brief, "ugc").id, brief)[0], line: said };
@@ -470,11 +507,11 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
         </section>
       )}
 
-      {step === 3 && pj && ugcOpen === null && (
+      {step === 3 && pj && canTalk === null && (
         <div className="h-64 rounded-2xl border border-border bg-card animate-pulse" />
       )}
 
-      {step === 3 && pj && ugcOpen && (
+      {step === 3 && pj && canTalk && (
         <section key="s3v" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
           {!state.foto ? (
             <div className="rounded-2xl border border-border bg-card p-6 text-center space-y-3">
@@ -496,11 +533,11 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
 
                 <div className="space-y-2">
                   <p className="text-[13px] font-semibold text-foreground">1 · Qué dice</p>
-                  <textarea value={line} onChange={e => setLine(e.target.value.slice(0, SPOKEN_MAX))} rows={3} disabled={talk.busy}
+                  <textarea value={line} onChange={e => setLine(e.target.value.slice(0, avatarOpen ? AVATAR_MAX_CHARS : SPOKEN_MAX))} rows={3} disabled={talk.busy}
                     placeholder={`Ej.: ¿Te cuesta empezar? Mira ${profile.product}. Te dejo el enlace abajo.`}
                     className="w-full rounded-xl bg-background border border-border px-3.5 py-2.5 text-[14px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[11px] text-muted-foreground mr-1">{line.length}/{SPOKEN_MAX} · unas 25 palabras caben en 10 s</span>
+                    <span className="text-[11px] text-muted-foreground mr-1">{avatarOpen ? `${line.length}/${AVATAR_MAX_CHARS} · ~${avatarSeconds(line)} s de video (máx. 45 s)` : `${line.length}/${SPOKEN_MAX} · unas 25 palabras caben en 10 s`}</span>
                     {state.guiones?.slice(0, 6).map((g, i) => (
                       <button key={i} onClick={() => setLine(lineFromGuion(g))} disabled={talk.busy}
                         className="text-[12px] rounded-full border border-border px-2.5 py-1 text-foreground/80 hover:border-primary hover:text-primary">Guion {i + 1}</button>
@@ -530,14 +567,14 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
                       </button>
                     ))}
                   </div>
-                  <p className="text-[11px] text-muted-foreground">La IA crea la voz junto con el video, a partir del estilo que elijas. Puede variar un poco de un video a otro; si no te convence, prueba otro estilo.</p>
+                  <p className="text-[11px] text-muted-foreground">{avatarOpen ? "Su voz se crea con el estilo que elijas y la boca se mueve al ritmo de cada palabra." : "La IA crea la voz junto con el video, a partir del estilo que elijas. Puede variar un poco de un video a otro; si no te convence, prueba otro estilo."}</p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 pt-1">
                   <button onClick={() => void crearVideoHablando()} disabled={talk.busy || line.trim().length < 4}
                     className="h-12 px-6 rounded-full btn-primary-nova text-[15px] inline-flex items-center gap-2 disabled:opacity-60">
                     {talk.busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
-                    {talk.busy ? (typeof talk.progress === "number" && talk.progress > 0 ? `Creando… ${talk.progress} %` : "Creando… 1 a 3 min") : `Crear video que habla · ${TALK_COST} ⚡`}
+                    {talk.busy ? (typeof talk.progress === "number" && talk.progress > 0 ? `Creando… ${talk.progress} %` : "Creando… 1 a 3 min") : `Crear video que habla · ${avatarOpen ? (avatarTier(line) ? AVATAR_PRICES[avatarTier(line) as 15 | 30 | 45] : "—") : TALK_COST} ⚡`}
                   </button>
                   {talk.busy && <span className="text-[12px] text-muted-foreground">Puedes seguir usando la app; aparecerá abajo.</span>}
                 </div>
@@ -572,7 +609,7 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
         </section>
       )}
 
-      {step === 3 && ugcOpen === false && (
+      {step === 3 && canTalk === false && (
         <section key="s3" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
           <div className="rounded-2xl border border-primary/30 bg-primary/[0.06] p-6 space-y-4">
             <div className="flex items-center gap-3">
@@ -596,11 +633,8 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
             )}
           </div>
           <div className="rounded-2xl border border-border bg-card p-5 space-y-2">
-            <p className="font-semibold text-foreground">¿No quieres esperar?</p>
-            <p className="text-[14px] text-foreground/85">Tus guiones ya sirven: grábalos con la foto de tu personaje en CapCut o Edits (gratis). Si quieres videos con IA desde hoy, Higgsfield es la herramienta que usamos y recomendamos: sube la foto de tu personaje, pega un guion y te da el video vertical.</p>
-            <a href={HIGGSFIELD_URL} target="_blank" rel="noopener noreferrer sponsored" onClick={() => track("higgsfield_click")}
-              className="inline-flex items-center gap-2 h-10 px-4 rounded-full border border-border text-[13px] font-semibold text-foreground hover:border-foreground/30">Abrir Higgsfield <ArrowRight className="w-4 h-4" /></a>
-            <p className="text-[11px] text-muted-foreground">{AFFILIATE_NOTE}</p>
+            <p className="font-semibold text-foreground">Mientras tanto</p>
+            <p className="text-[14px] text-foreground/85">Tus guiones ya sirven: grábalos con la foto de tu personaje en CapCut o Edits, o úsalos en Video con IA dentro de SUPERNOVA.</p>
           </div>
         </section>
       )}

@@ -75,6 +75,16 @@ export function isValidAdsLibraryUrl(url: string): boolean {
 
 export function normalizeAdsLibraryUrl(url: string, fallbackQuery = "", fallbackMarket: AdMarket = "LATAM"): string {
   if (isValidAdsLibraryUrl(url)) return url;
+  // Los anuncios sembrados guardan /ads/archive/render_ad/?id=…: se pasa a la ficha pública con el MISMO id.
+  // Antes se cambiaba por una búsqueda sin id y la tarjeta del Radar nunca mostraba el creativo (11-oct-2026).
+  try {
+    const u = new URL(url);
+    const id = u.searchParams.get("id");
+    if (u.protocol === "https:" && (u.hostname === "facebook.com" || u.hostname.endsWith(".facebook.com"))
+      && u.pathname.startsWith("/ads/archive/render_ad") && id && /^\d{5,25}$/.test(id)) {
+      return `https://www.facebook.com/ads/library/?id=${id}`;
+    }
+  } catch { /* no es URL: búsqueda */ }
   return buildAdsLibrarySearchUrl(fallbackQuery || "ads", fallbackMarket);
 }
 

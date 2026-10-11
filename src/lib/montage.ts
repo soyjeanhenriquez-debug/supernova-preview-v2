@@ -280,3 +280,32 @@ export async function renderMontage(scenes: MontageScene[], opts: {
     raf = requestAnimationFrame(frame);
   });
 }
+
+/**
+ * Une los clips de un anuncio (con su propio sonido) en UN solo archivo, en el navegador y gratis
+ * (11-oct-2026, prueba de Hany: el anuncio salía en 3 archivos sueltos que caducan en 24 h).
+ * Reusa renderMontage: cada clip es una escena; su audio es el del propio clip.
+ */
+export async function stitchClips(clips: Blob[], opts: {
+  format: Format; onProgress?: (elapsed: number, total: number) => void; signal?: AbortSignal;
+}): Promise<MontageResult> {
+  if (!clips.length) throw new Error("No hay tomas para unir.");
+  const ctx = new AudioContext();
+  const canvas = document.createElement("canvas");
+  try {
+    // Imagen de respaldo (si un clip no abre): un cuadro negro.
+    const blank = document.createElement("canvas"); blank.width = 16; blank.height = 16;
+    const bg = blank.getContext("2d")!; bg.fillStyle = "#000"; bg.fillRect(0, 0, 16, 16);
+    const black = await new Promise<Blob>((res, rej) => blank.toBlob(b => (b ? res(b) : rej(new Error("sin imagen"))), "image/png"));
+    const scenes: MontageScene[] = [];
+    for (const clip of clips) {
+      let audio: AudioBuffer;
+      try { audio = await ctx.decodeAudioData(await clip.arrayBuffer()); }
+      catch { audio = ctx.createBuffer(1, Math.round(ctx.sampleRate * 5), ctx.sampleRate); } // clip sin sonido
+      scenes.push({ image: black, clip, audio, text: "" });
+    }
+    return await renderMontage(scenes, { format: opts.format, subtitles: false, ctx, canvas, onProgress: opts.onProgress, signal: opts.signal });
+  } finally {
+    void ctx.close().catch(() => {});
+  }
+}

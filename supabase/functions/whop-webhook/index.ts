@@ -166,9 +166,11 @@ const PACKS: Array<{ id: string; name: string; credits: number; plan: string; re
   { id: "boost", name: "Boost 500", credits: 500, plan: "plan_ogd3Tq3dhAPU0", re: /boost[\s-]*500/i },
   { id: "power", name: "Power 2,000", credits: 2000, plan: "plan_MmMIIQFDwfLFg", re: /power[\s-]*2[\s.,-]*000/i },
   { id: "nuclear", name: "Nuclear 4,500", credits: 4500, plan: "plan_iLopCOOcLRFGb", re: /nuclear[\s-]*4[\s.,-]*500/i },
-  // US$100 → 11.000 + 1.500 de cashback = 12.500 (US$0,008). US$250 → 27.500 + 3.300 = 30.800 (US$0,0081).
-  { id: "pro100", name: "Pack 100 · 11,000", credits: 11000, plan: "plan_ep1IoU1lqyq2f", cashback: 1500 },
-  { id: "pro250", name: "Pack 250 · 27,500", credits: 27500, plan: "plan_4Grs7qGPHcLCr", cashback: 3300 },
+  // Escalera coherente (11-oct-2026): cada pack más grande sale más barato por crédito que el anterior
+  // (Nuclear US$0,0087) y, con el cashback, ninguno baja del piso de US$0,008.
+  // US$100 → 12.000 + 500 = 12.500 (US$0,008). US$250 → 30.000 + 1.250 = 31.250 (US$0,008).
+  { id: "pro100", name: "Pack 100 · 12,000", credits: 12000, plan: "plan_ep1IoU1lqyq2f", cashback: 500 },
+  { id: "pro250", name: "Pack 250 · 30,000", credits: 30000, plan: "plan_4Grs7qGPHcLCr", cashback: 1250 },
   // Media Credits (video con avatar): saldo aparte. Solo por id de plan: "Starter"/"Pro" son
   // nombres demasiado genéricos para reconocerlos por título (chocarían con los planes).
   { id: "media-starter", name: "Media Starter 50", credits: 50, plan: "plan_Om5ryuOj3N6ny", media: true },

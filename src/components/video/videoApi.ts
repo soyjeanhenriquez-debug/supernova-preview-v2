@@ -39,11 +39,12 @@ export async function waitForVideo(
   jobId: string, onProgress?: (p: number | null) => void,
   opts: { tries?: number; intervalMs?: number; check?: (body: Record<string, unknown>) => Promise<StatusResponse> } = {},
 ): Promise<VideoJob> {
-  const { tries = 60, intervalMs = 6000, check = (b: Record<string, unknown>) => invokeVideo<StatusResponse>(b) } = opts;
+  // Primera consulta a los 2 s y luego cada 4 s (~6 min en total): antes esperaba 6 s cada vez.
+  const { tries = 90, intervalMs = 4000, check = (b: Record<string, unknown>) => invokeVideo<StatusResponse>(b) } = opts;
   let errors = 0;
   let lastError: unknown = null;
   for (let i = 0; i < tries; i++) {
-    await new Promise(r => setTimeout(r, intervalMs));
+    await new Promise(r => setTimeout(r, i === 0 ? Math.min(2000, intervalMs) : intervalMs));
     let r: StatusResponse;
     try {
       r = await check({ action: "status", job_id: jobId });

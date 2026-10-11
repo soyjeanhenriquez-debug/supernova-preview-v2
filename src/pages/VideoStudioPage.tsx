@@ -12,11 +12,12 @@ import { takeSeed, type CreativeSeed } from "@/lib/creativeSeed";
 import {
   SERIE_STYLES, SERIE_TEMPLATES, SPEECH_HINT, VIDEO_PRICE, VIDEO_TEMPLATES,
   buildShots, cleanBrief, hasForbiddenClaim, improvePrompt, parseImprovedLines, planCost, publishText,
-  recommendTemplate, retryFromIndex, serieFromBrief, shotPrompt, videoSizeFor,
+  recommendTemplate, serieFromBrief, shotPrompt, videoSizeFor,
   type Shot, type VideoBrief, type VideoMode, type VideoSize, type VideoTemplateId,
 } from "@/lib/videoTemplates";
 import { PresenterPicker } from "@/components/video/PresenterPicker";
 import { ReadyToPublish } from "@/components/video/ReadyToPublish";
+import { AdFinalVideo } from "@/components/video/AdFinalVideo";
 import { MotionStudio } from "@/components/video/MotionStudio";
 import { isGenjutsuOwner } from "@/lib/genjutsuOwner";
 import {
@@ -213,37 +214,39 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
     void loadRecent();
   };
 
-  /** Crea el anuncio. `from` > 0: rehace desde esa toma, sin volver a cobrar las que ya salieron. */
+  /**
+   * Crea el anuncio. `from` > 0: rehace solo las tomas que faltan, sin volver a cobrar las que ya salieron.
+   * Las tomas se crean A LA VEZ (11-oct-2026, prueba de Hany: en cadena tardaba ~10 min): todas parten de la
+   * misma imagen (presentador o creativo) y el texto de cada una mantiene persona y lugar. Al final se unen
+   * en un solo MP4 en el navegador (ReadyToPublish → "Armar video final").
+   */
   const startAd = async (from = 0) => {
     if (busy || !adMode || !brief || !shots.length) return;
     const bad = shots.find(s => s.line.trim().length < 4 || hasForbiddenClaim(s.line));
     if (bad) { toast.error(`Revisa "${bad.label}": la persona solo presenta o explica, sin testimonios, promesas ni cifras.`); return; }
     if (adMode === "ugc" && ugcOpen === false) { toast.error("Los videos UGC con presentador todavía no están abiertos. Usa el anuncio en video."); return; }
-    const start0 = from > 0 && from === retryFromIndex(run.map(x => ({ done: !!x.job })), shots.length) ? from : 0;
-    const total = planCost(shots.slice(start0));
-    if (balance < total) { toast.error(`Te faltan créditos: ${start0 > 0 ? "lo que falta" : "este video"} cuesta ${total}.`); return; }
+    const retry = from > 0 && run.length === shots.length;
+    const todo = shots.map((_, i) => i).filter(i => !(retry && run[i]?.job));
+    if (!todo.length) return;
+    const total = planCost(todo.map(i => shots[i]));
+    if (balance < total) { toast.error(`Te faltan créditos: ${retry ? "lo que falta" : "este video"} cuesta ${total}.`); return; }
     setBusy(true);
-    setRun(cur => shots.map((s, j) => (j < start0 ? cur[j] : { text: s.line, label: s.label })));
-    let prev: VideoJob | undefined = start0 > 0 ? run[start0 - 1]?.job : undefined;
-    for (let i = start0; i < shots.length; i++) {
+    setRun(cur => shots.map((s, j) => (retry && cur[j]?.job ? cur[j] : { text: s.line, label: s.label })));
+    const usePresenter = adMode === "ugc" && !!presenter;
+    const startImg: Partial<CreateBody> = usePresenter ? { image_path: presenter!, image_bucket: "personajes" }
+      : adMode === "anuncio" && firstFrame ? { image_path: firstFrame, image_bucket: "creativos" } : {};
+    await Promise.allSettled(todo.map(async i => {
       const s = shots[i];
-      const usePresenter = adMode === "ugc" && !!presenter;
-      const start: Partial<CreateBody> = i === 0
-        ? usePresenter ? { image_path: presenter!, image_bucket: "personajes" }
-          : adMode === "anuncio" && firstFrame ? { image_path: firstFrame, image_bucket: "creativos" } : {}
-        : prev?.last_frame_url ? { from_job_id: prev.id } : {};
       try {
         const job = await runOne({
           prompt: shotPrompt(s, adMode, { presenter: usePresenter, hook: brief.hook }),
-          seconds: s.seconds, size, audio: true, kind: adMode, template, ...start,
+          seconds: s.seconds, size, audio: true, kind: adMode, template, ...startImg,
         }, adMode === "ugc" ? "Video UGC" : "Video anuncio", p => setRun(cur => cur.map((x, j) => (j === i ? { ...x, progress: p } : x))));
-        prev = job;
         setRun(cur => cur.map((x, j) => (j === i ? { ...x, job } : x)));
       } catch (e) {
         setRun(cur => cur.map((x, j) => (j === i ? { ...x, error: e instanceof Error ? e.message : "Falló esta toma." } : x)));
-        break; // la siguiente toma sale del último cuadro de esta
       }
-    }
+    }));
     track("video_generado", { modo: adMode, plantilla: template, origen: seed?.source ?? "manual" });
     setBusy(false);
     void loadRecent();
@@ -307,7 +310,8 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
   const adCost = planCost(shots);
   const cost = mode === "clip" ? VIDEO_PRICE[seconds] : mode === "serie" ? serieCount * VIDEO_PRICE[seconds] : adCost;
   const runDone = run.filter(s => s.job?.result_url);
-  const retryFrom = retryFromIndex(run.map(x => ({ done: !!x.job })), shots.length);
+  // Tomas en paralelo: se rehacen solo las que fallaron (las que salieron no se vuelven a cobrar).
+  const missing = run.length === shots.length ? shots.filter((_, i) => !run[i]?.job) : shots;
   const t = TITLES[mode];
 
   return (
@@ -429,10 +433,13 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
             {run.map((s, i) => <VideoCard key={i} s={s} label={s.label ?? `Toma ${i + 1}`} />)}
           </div>
           {!busy && run.some(s => s.error) && (
-            <button onClick={() => void startAd(retryFrom)} className="inline-flex items-center gap-2 h-10 px-4 rounded-full border border-border text-[13px] text-foreground">
+            <button onClick={() => void startAd(1)} className="inline-flex items-center gap-2 h-10 px-4 rounded-full border border-border text-[13px] text-foreground">
               <RefreshCw className="w-4 h-4" />
-              {retryFrom > 0 ? `Rehacer ${retryFrom === shots.length - 1 ? "la toma" : "desde la toma"} ${retryFrom + 1}` : "Intentar de nuevo"} · {planCost(shots.slice(retryFrom))} créditos
+              {missing.length < shots.length ? `Rehacer ${missing.length === 1 ? "la toma que falló" : `las ${missing.length} tomas que fallaron`}` : "Intentar de nuevo"} · {planCost(missing)} créditos
             </button>
+          )}
+          {!busy && runDone.length === run.length && runDone.length > 1 && (
+            <AdFinalVideo jobIds={runDone.map(x => x.job!.id)} size={size} name={adMode === "ugc" ? "ugc" : "anuncio"} />
           )}
           {!busy && runDone.length === run.length && brief && (
             <ReadyToPublish name={adMode === "ugc" ? "ugc" : "anuncio"} text={publishText(brief, adMode)}

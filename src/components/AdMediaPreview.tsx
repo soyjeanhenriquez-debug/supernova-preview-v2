@@ -24,17 +24,20 @@ interface AdMediaPreviewProps {
 // ============================================================
 type CacheEntry = { imageUrl?: string | null; videoUrl?: string | null; failed?: boolean; ts: number };
 const PREVIEW_TTL = 7 * 24 * 60 * 60_000;
-const PREVIEW_KEY = (id: string) => `sn:ad-prev:${id}`;
+// v2 (11-oct-2026): descarta los "sin preview" que quedaron guardados 7 días por errores pasajeros.
+const PREVIEW_KEY = (id: string) => `sn:ad-prev:v2:${id}`;
+/** Un anuncio sin creativo de verdad se vuelve a intentar en 1 hora, no en 7 días. */
+const FAILED_TTL = 60 * 60_000;
 const memCache = new Map<string, CacheEntry>();
 
 function readPreviewCache(id: string): CacheEntry | null {
   const mem = memCache.get(id);
-  if (mem && Date.now() - mem.ts < PREVIEW_TTL) return mem;
+  if (mem && Date.now() - mem.ts < (mem.failed ? FAILED_TTL : PREVIEW_TTL)) return mem;
   try {
     const raw = localStorage.getItem(PREVIEW_KEY(id));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as CacheEntry;
-    if (Date.now() - parsed.ts > PREVIEW_TTL) {
+    if (Date.now() - parsed.ts > (parsed.failed ? FAILED_TTL : PREVIEW_TTL)) {
       localStorage.removeItem(PREVIEW_KEY(id));
       return null;
     }
@@ -105,12 +108,16 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title, fi
     const projectId = (import.meta.env.VITE_SUPABASE_PROJECT_ID as string) || "krfdoofwhtcxbyhkjoik";
     // Con sesión: un anuncio sin caché dispara un scrape de pago y la función
     // solo lo hace para un usuario con acceso (lo cacheado responde igual).
+    // Tope de 20 s: sin él la tarjeta se quedaba "cargando" para siempre si el servicio no respondía.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 20_000);
     fnHeaders()
-      .then((headers) => fetch(`https://${projectId}.supabase.co/functions/v1/meta-ad-proxy?id=${adId}`, { headers }))
-      .then((r) => r.json())
-      .then((data) => {
+      .then((headers) => fetch(`https://${projectId}.supabase.co/functions/v1/meta-ad-proxy?id=${adId}`, { headers, signal: ctrl.signal }))
+      .then(async (r) => ({ status: r.status, data: await r.json().catch(() => null) }))
+      .then(({ status, data }) => {
         if (!data?.success || (!data.imageUrl && !data.videoUrl)) {
-          writePreviewCache(adId, { failed: true });
+          // Solo se recuerda el fallo si de verdad no hay creativo; un 401/429 o un error pasajero, no.
+          if (status === 200) writePreviewCache(adId, { failed: true });
           setState("failed");
           return;
         }
@@ -119,10 +126,8 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title, fi
         setVideoUrl(data.videoUrl || null);
         setState("ready");
       })
-      .catch(() => {
-        writePreviewCache(adId, { failed: true });
-        setState("failed");
-      });
+      .catch(() => setState("failed"))
+      .finally(() => clearTimeout(timer));
   }, [visible, adId, state]);
 
   return (

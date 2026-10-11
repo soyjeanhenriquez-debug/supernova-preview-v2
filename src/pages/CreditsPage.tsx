@@ -15,8 +15,8 @@ const PACKS = [
   { id: "nuclear", name: "PACK NUCLEAR", credits: 4500, price: 39, tagline: "Para quien crea muchos anuncios cada semana", save: "57%" },
   // Packs grandes con cashback (10-oct-2026): el regalo llega solo cuando ya usaste los créditos del pack
   // (credit_cashback, servidor). Con el regalo quedan en el piso de la regla de margen.
-  { id: "pro100", name: "PACK 100", credits: 11000, price: 100, cashback: 1500, tagline: "Para crear todas las semanas: videos, creativos y tu producto", save: "60% con el cashback," },
-  { id: "pro250", name: "PACK 250", credits: 27500, price: 250, cashback: 3300, tagline: "Para quien ya vende y produce anuncios sin parar", save: "59% con el cashback," },
+  { id: "pro100", name: "PACK 100", credits: 12000, price: 100, cashback: 500, tagline: "Para crear todas las semanas: videos, creativos y tu producto", save: "58%" },
+  { id: "pro250", name: "PACK 250", credits: 30000, price: 250, cashback: 1250, tagline: "Para quien ya vende y produce anuncios sin parar", save: "58%" },
 ] as { id: string; name: string; credits: number; price: number; tagline: string; save: string | null; popular?: boolean; cashback?: number }[];
 
 // Pool separado del de texto: el costo real de video con avatar IA (HeyGen,
@@ -119,14 +119,14 @@ export function CreditsPage() {
             </svg>
             <div>
               <div className="text-4xl font-display font-extrabold text-primary"><CountUp value={balance} /></div>
-              <div className="text-xs text-muted-foreground">/ {limit.toLocaleString("es-ES")}</div>
+              <div className="text-xs text-muted-foreground">/ {limit.toLocaleString("de-DE")}</div>
             </div>
           </div>
           <div className="text-sm text-foreground mt-3">Créditos disponibles</div>
           <div className="text-xs text-primary mt-1">Se recargan en {renewDays} días ({renewFormatted})</div>
           {purchased > 0 && (
             <div className="text-[11px] text-muted-foreground mt-1">
-              {monthly.toLocaleString("es-ES")} de tu plan + <span className="text-success font-semibold">{purchased.toLocaleString("es-ES")} comprados</span>
+              {monthly.toLocaleString("de-DE")} de tu plan + <span className="text-success font-semibold">{purchased.toLocaleString("de-DE")} comprados</span>
             </div>
           )}
 
@@ -187,7 +187,7 @@ export function CreditsPage() {
               )}
               <div className="font-display font-extrabold text-lg tracking-wide">{p.name}</div>
               <div className="flex items-baseline gap-2 mt-3">
-                <span className="text-3xl font-display font-bold text-primary tabular-nums">{p.credits.toLocaleString("es-ES")}</span>
+                <span className="text-3xl font-display font-bold text-primary tabular-nums">{p.credits.toLocaleString("de-DE")}</span>
                 <span className="text-xs text-muted-foreground">créditos</span>
               </div>
               <div className="flex items-baseline gap-2 mt-3">
@@ -195,7 +195,7 @@ export function CreditsPage() {
                 {p.save && <span className="text-[11px] text-success font-semibold">{p.save} más barato por crédito</span>}
               </div>
               {p.cashback && (
-                <p className="text-[12px] text-primary mt-2">+{p.cashback.toLocaleString("es-ES")} créditos de cashback cuando uses los {p.credits.toLocaleString("es-ES")} del pack</p>
+                <p className="text-[12px] text-primary mt-2">+{p.cashback.toLocaleString("de-DE")} créditos de cashback cuando uses los {p.credits.toLocaleString("de-DE")} del pack</p>
               )}
               <p className="text-[13px] text-muted-foreground mt-3 leading-relaxed flex-1">{p.tagline}</p>
               <button onClick={() => handleRecharge(p.id)} disabled={buyingPack !== null} className="btn-primary-nova w-full py-2.5 rounded-lg text-sm mt-5 disabled:opacity-60">
@@ -239,7 +239,7 @@ export function CreditsPage() {
               )}
               <div className="font-display font-extrabold text-lg tracking-wide">{p.name}</div>
               <div className="flex items-baseline gap-2 mt-3">
-                <span className="text-3xl font-display font-bold text-primary tabular-nums">{p.credits.toLocaleString("es-ES")}</span>
+                <span className="text-3xl font-display font-bold text-primary tabular-nums">{p.credits.toLocaleString("de-DE")}</span>
                 <span className="text-xs text-muted-foreground">Media Credits</span>
               </div>
               <div className="flex items-baseline gap-2 mt-3">
@@ -278,10 +278,10 @@ export function CreditsPage() {
             <tbody>
               {history.slice(0, 20).map((h, i) => (
                 <tr key={i} className="border-b border-border/40">
-                  <td className="px-5 py-2 text-muted-foreground text-xs">{new Date(h.date).toLocaleString("es-ES")}</td>
+                  <td className="px-5 py-2 text-muted-foreground text-xs">{new Date(h.date).toLocaleString("de-DE")}</td>
                   <td className="px-5 py-2">{h.label}{h.meta && <span className="text-muted-foreground"> · {h.meta.slice(0, 40)}</span>}</td>
                   {h.granted
-                    ? <td className="px-5 py-2 text-right text-success font-bold">+{h.granted.toLocaleString("es-ES")}</td>
+                    ? <td className="px-5 py-2 text-right text-success font-bold">+{h.granted.toLocaleString("de-DE")}</td>
                     : <td className="px-5 py-2 text-right text-primary font-bold">-{h.cost}</td>}
                 </tr>
               ))}

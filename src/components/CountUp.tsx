@@ -29,5 +29,5 @@ export function CountUp({ value, duration = 800, className, format }: Props) {
     return () => { if (raf.current) cancelAnimationFrame(raf.current); };
   }, [value, duration]);
 
-  return <span className={className}>{format ? format(n) : n.toLocaleString("es-ES")}</span>;
+  return <span className={className}>{format ? format(n) : n.toLocaleString("de-DE")}</span>;
 }

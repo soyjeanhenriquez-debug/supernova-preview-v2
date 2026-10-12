@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanChannels, cleanGoals, freshChannels, kindFromPlatform, progressOf, statusFromChannels, weekSummary, DEFAULT_GOALS } from "./contentTracker";
+import { cleanChannels, cleanGoals, freshChannels, kindFromPlatform, nextPiece, progressOf, publishAll, statusFromChannels, weekSummary, DEFAULT_GOALS } from "./contentTracker";
 
 describe("tracker de publicaciones", () => {
   it("cada tipo trae sus redes de fábrica sin publicar", () => {
@@ -36,5 +36,20 @@ describe("tracker de publicaciones", () => {
     expect(kindFromPlatform("youtube")).toBe("largo");
     expect(kindFromPlatform("blog")).toBe("texto");
     expect(kindFromPlatform("reels")).toBe("corto");
+  });
+});
+
+describe("nextPiece y publishAll", () => {
+  const it0 = (id: string, due: string | null, status = "idea") => ({ id, due, status });
+  it("elige la de hoy, si no la atrasada más reciente, si no la próxima", () => {
+    expect(nextPiece([it0("a", "2026-10-10"), it0("b", "2026-10-12"), it0("c", "2026-10-15")], "2026-10-12")).toMatchObject({ item: { id: "b" }, when: "hoy" });
+    expect(nextPiece([it0("a", "2026-10-09"), it0("b", "2026-10-11"), it0("c", "2026-10-15")], "2026-10-12")).toMatchObject({ item: { id: "b" }, when: "atrasada" });
+    expect(nextPiece([it0("a", "2026-10-10", "publicado"), it0("c", "2026-10-15")], "2026-10-12")).toMatchObject({ item: { id: "c" }, when: "proxima" });
+    expect(nextPiece([it0("a", null)], "2026-10-12")).toBeNull();
+  });
+  it("publishAll marca todas las redes y respeta la fecha que ya tenían", () => {
+    const ch = publishAll({ reels: { done: true, at: "2026-10-10" }, tiktok: { done: false } }, "corto", "2026-10-12");
+    expect(ch).toEqual({ reels: { done: true, at: "2026-10-10" }, tiktok: { done: true, at: "2026-10-12" } });
+    expect(Object.keys(publishAll({}, "carrusel", "2026-10-12"))).toEqual(["instagram"]);
   });
 });

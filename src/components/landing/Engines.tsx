@@ -7,15 +7,15 @@ const MINER_ROWS: Row[] = [
     num: "/01",
     title: "Palabras clave elegidas a mano",
     body: "Llevamos meses juntando las frases que usan los anuncios que llevan tiempo pagando: los problemas concretos que mencionan, cómo explican su solución y las palabras que se repiten.",
-    stat: "458",
+    stat: "A mano",
     statLabel: "Palabras clave",
   },
   {
     num: "/02",
     title: "Búsqueda diaria",
-    body: "Cada día buscamos esas palabras en la Biblioteca de Anuncios de Meta (Facebook e Instagram), en Estados Unidos, Latinoamérica y Brasil. Hoy hay 114.000 anuncios reales guardados, 43.500 nuevos en los últimos 30 días.",
-    stat: "114.000",
-    statLabel: "Anuncios en el Radar",
+    body: "Cada día buscamos esas palabras en la Biblioteca de Anuncios de Meta (Facebook e Instagram), en Estados Unidos, Latinoamérica y Brasil. Hoy hay más de 140.000 anuncios reales guardados (12-oct-2026).",
+    stat: "+140.000",
+    statLabel: "Anuncios guardados",
   },
   {
     num: "/03",
@@ -27,9 +27,9 @@ const MINER_ROWS: Row[] = [
   {
     num: "/04",
     title: "Ordenado por señales reales",
-    body: "Cada oferta que pasa el filtro se mide por cuántos días lleva pagando anuncios, cuántas versiones tiene activas y cuánto tiempo lleva viva su página. De 7.517 ofertas analizadas, 300 están marcadas como ganadoras.",
-    stat: "300",
-    statLabel: "Ofertas ganadoras",
+    body: "Cada oferta que pasa el filtro se mide por cuántos días lleva pagando anuncios, cuántas versiones tiene activas y cuánto tiempo lleva viva su página. De más de 12.000 ofertas analizadas, más de 6.000 llevan más de 90 días pagando anuncios (12-oct-2026).",
+    stat: "+6.000",
+    statLabel: "Con más de 90 días pagando",
   },
 ];
 
@@ -43,17 +43,17 @@ const BUILDER_ROWS: Row[] = [
   },
   {
     num: "/02",
-    title: "El Oráculo descifra el negocio completo",
-    body: "Pegas el link de una página de ventas y te dice a quién le habla, qué promete, a qué precio y cómo está armada. En unos 25 segundos.",
-    stat: "25 s",
-    statLabel: "Análisis completo",
+    title: "Tus piezas de anuncio, dentro de la app",
+    body: "Imagen de anuncio en 32 formatos, carrusel y video con IA (5 o 10 segundos, o un anuncio en 3 tomas), hechos con tu producto.",
+    stat: "32",
+    statLabel: "Formatos de imagen",
   },
   {
     num: "/03",
-    title: "26 generadores de textos con IA",
-    body: "Textos de anuncios, página de ventas, correos y guiones de video de venta, escritos a partir de la oferta que elegiste. Y la Mándala Creativa te da 72 anuncios posibles por oferta, la ruta para tus primeros 5 y, con tus números, si apagar, esperar o escalar. Sin diseñador, redactor ni programador.",
-    stat: "29",
-    statLabel: "Generadores con IA",
+    title: "Textos que venden",
+    body: "Textos de anuncios, ganchos, página de ventas y mensajes de WhatsApp, escritos a partir de la oferta que elegiste. Y con tus números, la app te dice cuánto puedes pagar por cada venta y si apagar, esperar o subir el presupuesto. Sin diseñador, redactor ni programador.",
+    stat: "ES",
+    statLabel: "Español latino",
   },
   {
     num: "/04",

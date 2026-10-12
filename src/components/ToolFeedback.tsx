@@ -3,13 +3,21 @@ import { Loader2, ThumbsDown, ThumbsUp } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { sendFeedback } from "@/lib/creationFeedback";
+import { useCredits } from "@/hooks/useCredits";
+import { emitSoftRecharge, trackFeedback } from "@/lib/analytics";
 
 /**
  * "¿Te sirvió?" al final de una herramienta. Un toque basta; si dice que no, se le pregunta qué faltó
  * (opcional). Lo lee el admin en Aprendizaje para encontrar los muros. Gratis.
+ *
+ * Prueba 9 de 10 (R2-10, 12-oct-2026): cada voto va a PostHog como te_sirvio { herramienta, si }
+ * (sin la nota escrita). Tras un "Sí" con saldo bajo (< 300) avisa "sn:soft-recharge" { balance, tool }
+ * para que la recarga suave de R2-03 aparezca justo cuando la persona ya vio el valor.
+ * Nombres de herramienta del embudo: "mi-version", "creativos", "carrusel", "video", "textos".
  */
 export function ToolFeedback({ tool, refId, context, question = "¿Te sirvió?" }: { tool: string; refId?: string | null; context?: Record<string, unknown>; question?: string }) {
   const { user } = useAuth();
+  const { balance } = useCredits();
   const [id, setId] = useState<string | null>(null);
   const [vote, setVote] = useState<boolean | null>(null);
   const [note, setNote] = useState("");
@@ -26,6 +34,9 @@ export function ToolFeedback({ tool, refId, context, question = "¿Te sirvió?" 
     setBusy(false);
     if (!got) { toast.error("No se pudo guardar tu opinión."); return; }
     setId(got);
+    // Solo el voto (no la nota) y solo la primera vez o si cambia: nada de texto escrito a PostHog.
+    if (!withNote && vote !== helpful) trackFeedback(tool, helpful);
+    if (helpful && !withNote) emitSoftRecharge(balance, tool);
     if (withNote || helpful) { setSent(true); toast.success("Gracias: con esto mejoramos la app."); }
   };
 

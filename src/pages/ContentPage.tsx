@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, CalendarRange, Check, ChevronDown, ChevronLeft, ChevronRight, Layers, Link2, List, Loader2, Minus, PenLine, Plus, Search, Sparkles, Target, Trash2 } from "lucide-react";
+import { ArrowRight, CalendarDays, CalendarRange, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Layers, Link2, List, Loader2, Minus, PenLine, Plus, Search, Sparkles, Target, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,9 +12,10 @@ import { CREDIT_COSTS, useCredits } from "@/hooks/useCredits";
 import { fnErrorMessage, fnHeaders, readBilling } from "@/lib/fnAuth";
 import { setSeed as setCreativeSeed } from "@/lib/creativeSeed";
 import {
-  DEFAULT_GOALS, EXTRA_NETWORKS, KINDS, NETWORK_LABEL, cleanChannels, freshChannels, kindFromPlatform, loadGoals, progressOf, saveGoals, statusFromChannels, weekSummary,
+  DEFAULT_GOALS, EXTRA_NETWORKS, KINDS, NETWORK_LABEL, cleanChannels, freshChannels, kindFromPlatform, loadGoals, nextPiece, progressOf, publishAll, saveGoals, statusFromChannels, weekSummary,
   type Channels, type Goals, type Kind, type Network,
 } from "@/lib/contentTracker";
+import { seedFromProduct } from "@/lib/contentText";
 
 /**
  * Etapa 5 del recorrido "Mi negocio": calendario de contenido orgánico.
@@ -31,6 +32,10 @@ import {
  * function content-month, que cobra en el servidor y guarda hasta 30 días de piezas (gancho, qué
  * decir, llamado a la acción y palabra clave) para Instagram y TikTok. Sirve para vender y para
  * marca personal. Cada pieza abre la herramienta que la produce con todo cargado.
+ *
+ * Que la gente publique (12-oct-2026): arriba "Hoy publica esto" con la pieza que toca, "Hacer esta
+ * pieza" / "Ya lo publiqué" / "Pasar a mañana" y reagendar las atrasadas; la semana se navega con
+ * un resumen de las próximas semanas; "Buscar ideas" parte del tema real del producto activo.
  */
 
 type Stage = "atraer" | "conectar" | "convertir";
@@ -84,13 +89,6 @@ const mondayOf = (d: Date) => { const x = new Date(d.getFullYear(), d.getMonth()
 const prettyDate = (s: string) => new Date(`${s}T12:00:00`).toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" });
 const stageOf = (s: Stage) => STAGES.find(x => x.id === s) ?? STAGES[0];
 
-/** Seed por defecto: las primeras palabras del producto (o de a quién ayuda). */
-function defaultSeed(product: string, who: string) {
-  const words = (product || who).replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim().split(" ").slice(0, 3);
-  while (words.length > 1 && /^(de|del|la|el|los|las|para|y|en|con|a|un|una)$/i.test(words[words.length - 1])) words.pop();
-  return words.join(" ").toLowerCase();
-}
-
 export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { user } = useAuth();
   const { activeId } = useProducts();
@@ -121,10 +119,13 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const [monthFace, setMonthFace] = useState(true);
   const [monthBusy, setMonthBusy] = useState(false);
   const [lastPlan, setLastPlan] = useState<{ id: string; count: number; end: string } | null>(null);
+  const [justPublished, setJustPublished] = useState<Item | null>(null);
 
-  useEffect(() => {
-    if (loaded && !seedTouched && !seed) setSeed(defaultSeed(profile.product, profile.who));
-  }, [loaded, profile.product, profile.who, seed, seedTouched]);
+  // El tema sale del producto ACTIVO ("ejercicio en casa", no "programa digital"). Al cambiar de
+  // producto se vuelve a deducir y se limpian las ideas del producto anterior.
+  const autoSeed = useMemo(() => seedFromProduct(profile.product, profile.who), [profile.product, profile.who]);
+  useEffect(() => { setSeedTouched(false); setIdeas([]); setSearches([]); setAdded(new Set()); setJustPublished(null); }, [activeId]);
+  useEffect(() => { if (loaded && !seedTouched) setSeed(autoSeed); }, [loaded, autoSeed, seedTouched]);
 
   const load = useCallback(async () => {
     if (!user || !activeId) return;
@@ -159,7 +160,7 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
     setSearching(true);
     try {
       const { data, error } = await supabase.functions.invoke<{ ideas?: Idea[]; searches?: SearchHit[]; error?: string }>("content-ideas", {
-        body: { seed: q, platform: platform || undefined },
+        body: { seed: q, platform: platform || undefined, product_id: activeId || undefined },
       });
       if (error || !data?.ideas) {
         // El cuerpo del error trae el mensaje en español (tope, sesión, etc.).
@@ -171,7 +172,7 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
       setIdeas(data.ideas);
       setSearches(data.searches ?? []);
       setAdded(new Set());
-      if (!data.searches?.length) toast.message("Hoy no pudimos leer las búsquedas de Google; estas ideas las armó la IA.");
+      if (!data.searches?.length) toast.message(`No encontramos búsquedas de Google sobre "${q}"; estas ideas las armó la IA. Prueba con otras palabras de tu tema.`);
     } finally {
       setSearching(false);
     }
@@ -246,6 +247,24 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
   };
   const bump = (it: Item, field: "leads" | "sales", d: number) => void update(it.id, { [field]: Math.max(0, Math.min(100000, (it[field] || 0) + d)) } as Partial<Item>);
   const persistGoals = async (g: Goals) => { setGoals(g); if (user && activeId && !(await saveGoals(user.id, activeId, g))) toast.error("No se pudo guardar tu meta"); };
+
+  /** "Ya lo publiqué": todas sus redes con check hoy. Si salió de SUPERNOVA, puede ganar el bono. */
+  const markPublished = (it: Item) => {
+    const ch = publishAll(it.channels, it.kind ?? "corto", today0);
+    void update(it.id, { channels: ch, status: "publicado" });
+    setJustPublished({ ...it, channels: ch, status: "publicado" });
+    toast.success("¡Publicada!", { description: "Pega el enlace en cada red (ícono de cadena) y anota aquí a quienes te escriban." });
+  };
+  const moveTo = (it: Item, due: string) => { void update(it.id, { due }); toast(`Movida al ${prettyDate(due)}`); };
+  /** Las atrasadas sin publicar pasan a los próximos días libres, una por día, desde hoy. */
+  const rescheduleLate = async (late: Item[]) => {
+    const others = items.filter(i => !late.some(l => l.id === i.id)).map(i => i.due).filter(Boolean) as string[];
+    const taken = new Set(others);
+    const days: string[] = [];
+    for (let d = new Date(today); days.length < late.length; d = addDays(d, 1)) { const k = ymd(d); if (!taken.has(k)) { days.push(k); taken.add(k); } }
+    await Promise.all(late.map((it, i) => update(it.id, { due: days[i] })));
+    toast.success(`${late.length} piezas reagendadas, una por día desde hoy`);
+  };
 
   const remove = async (id: string) => {
     const before = items;
@@ -430,43 +449,83 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
             <PenLine className="w-3 h-3" /> Escribir guion
           </button>
         )}
+        {it.status !== "publicado" && (
+          <button type="button" onClick={() => markPublished(it)} title="Marca todas sus redes como publicadas hoy"
+            className="inline-flex items-center gap-1 rounded-md border border-emerald-500/40 px-2 py-1 text-[11px] font-semibold text-emerald-400 hover:bg-emerald-500/10">
+            <CheckCircle2 className="w-3 h-3" /> Ya lo publiqué
+          </button>
+        )}
         <button onClick={() => remove(it.id)} className="ml-auto p-1 text-muted-foreground hover:text-red-400" aria-label="Borrar"><Trash2 className="w-3.5 h-3.5" /></button>
       </div>
     </div>
   );
 
-  const weekView = () => (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <button onClick={() => setWeekOffset(w => w - 1)} className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground" aria-label="Semana anterior"><ChevronLeft className="w-4 h-4" /></button>
-        <p className="text-sm text-foreground font-medium">
-          {weekOffset === 0 ? "Esta semana" : weekOffset === 1 ? "La próxima semana" : `Semana del ${prettyDate(weekDays[0])}`}
-          <span className="text-muted-foreground font-normal"> · {prettyDate(weekDays[0])} – {prettyDate(weekDays[6])}</span>
-        </p>
-        <button onClick={() => setWeekOffset(w => w + 1)} className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground" aria-label="Semana siguiente"><ChevronRight className="w-4 h-4" /></button>
-      </div>
-      <div className="grid gap-2 lg:grid-cols-7">
-        {weekDays.map((d, i) => {
-          const dayItems = items.filter(it => it.due === d);
-          const isToday = d === ymd(today);
-          return (
-            <div key={d} className={`rounded-xl border p-2 min-h-[90px] space-y-2 ${isToday ? "border-primary/60 bg-primary/5" : "border-border"}`}>
-              <p className={`text-[11px] font-semibold uppercase tracking-wider ${isToday ? "text-primary" : "text-muted-foreground"}`}>
-                {DAY_NAMES[i]} {new Date(`${d}T12:00:00`).getDate()}{isToday && " · hoy"}
-              </p>
-              {dayItems.length ? dayItems.map(it => itemCard(it, true)) : <p className="text-[11px] text-muted-foreground/60">Libre</p>}
-            </div>
-          );
-        })}
-      </div>
-      {items.some(i => !i.due) && (
-        <div className="space-y-2">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">Sin fecha</p>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{items.filter(i => !i.due).map(it => itemCard(it, false))}</div>
+  /** Piezas con fecha dentro de la semana que empieza en `off` semanas desde la actual. */
+  const weekRange = (off: number) => { const m = addDays(mondayOf(today), off * 7); return [ymd(m), ymd(addDays(m, 6))] as const; };
+  const countWeek = (off: number) => { const [a, b] = weekRange(off); return items.filter(i => i.due && i.due >= a && i.due <= b).length; };
+  const weekLabel = (off: number) => (off === 0 ? "Esta semana" : off === 1 ? "La próxima" : off === -1 ? "La pasada" : new Date(`${weekRange(off)[0]}T12:00:00`).toLocaleDateString("es", { day: "numeric", month: "short" }));
+
+  const weekView = () => {
+    const [from, to] = weekRange(weekOffset);
+    const inWeek = items.filter(i => i.due && i.due >= from && i.due <= to).length;
+    const after = items.filter(i => i.due && i.due > to).sort((a, b) => (a.due as string).localeCompare(b.due as string))[0];
+    const goTo = (due: string) => setWeekOffset(Math.round((mondayOf(new Date(`${due}T12:00:00`)).getTime() - mondayOf(today).getTime()) / (7 * 86_400_000)));
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <button onClick={() => setWeekOffset(w => w - 1)} className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground" aria-label="Semana anterior"><ChevronLeft className="w-4 h-4" /></button>
+          <div className="text-center min-w-0">
+            <p className="text-sm text-foreground font-medium">
+              {weekOffset === 0 ? "Esta semana" : weekOffset === 1 ? "La próxima semana" : weekOffset === -1 ? "La semana pasada" : `Semana del ${prettyDate(weekDays[0])}`}
+              <span className="text-muted-foreground font-normal"> · {inWeek} {inWeek === 1 ? "pieza" : "piezas"}</span>
+            </p>
+            <p className="text-[11px] text-muted-foreground">{prettyDate(weekDays[0])} – {prettyDate(weekDays[6])}
+              {weekOffset !== 0 && <button type="button" onClick={() => setWeekOffset(0)} className="ml-2 text-primary hover:underline">Volver a hoy</button>}
+            </p>
+          </div>
+          <button onClick={() => setWeekOffset(w => w + 1)} className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground" aria-label="Semana siguiente"><ChevronRight className="w-4 h-4" /></button>
         </div>
-      )}
-    </div>
-  );
+        {/* Las próximas semanas de un vistazo: así se ve lo agendado más adelante */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Semanas">
+          {[0, 1, 2, 3, 4].map(off => {
+            const n = countWeek(off);
+            return (
+              <button key={off} type="button" role="tab" aria-selected={weekOffset === off} onClick={() => setWeekOffset(off)}
+                className={`shrink-0 rounded-full border px-3 py-1 text-[11px] ${weekOffset === off ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
+                {weekLabel(off)} · <span className="tabular-nums">{n}</span>
+              </button>
+            );
+          })}
+        </div>
+        {!inWeek && (
+          <div className="rounded-xl border border-dashed border-border p-3 text-[12px] text-muted-foreground flex flex-wrap items-center gap-2">
+            Nada agendado esta semana.
+            {after && <button type="button" onClick={() => goTo(after.due as string)} className="inline-flex items-center gap-1 text-primary hover:underline">Ver tu próxima pieza ({prettyDate(after.due as string)}) <ArrowRight className="w-3 h-3" /></button>}
+          </div>
+        )}
+        <div className="grid gap-2 lg:grid-cols-7">
+          {weekDays.map((d, i) => {
+            const dayItems = items.filter(it => it.due === d);
+            const isToday = d === ymd(today);
+            return (
+              <div key={d} className={`rounded-xl border p-2 min-h-[90px] space-y-2 ${isToday ? "border-primary/60 bg-primary/5" : "border-border"} ${!dayItems.length && !isToday ? "hidden lg:block" : ""}`}>
+                <p className={`text-[11px] font-semibold uppercase tracking-wider ${isToday ? "text-primary" : "text-muted-foreground"}`}>
+                  {DAY_NAMES[i]} {new Date(`${d}T12:00:00`).getDate()}{isToday && " · hoy"}
+                </p>
+                {dayItems.length ? dayItems.map(it => itemCard(it, true)) : <p className="text-[11px] text-muted-foreground/60">Libre</p>}
+              </div>
+            );
+          })}
+        </div>
+        {items.some(i => !i.due) && (
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Sin fecha</p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{items.filter(i => !i.due).map(it => itemCard(it, false))}</div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const listView = () => (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -488,6 +547,86 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
     </div>
   );
 
+  // ── "Hoy publica esto": el siguiente paso evidente ──
+  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const late = items.filter(i => i.due && i.due < today0 && i.status !== "publicado");
+  const pick = nextPiece(items, today0);
+  const netsOf = (it: Item) => (Object.keys(it.channels) as Network[]).map(n => NETWORK_LABEL[n]).join(" · ");
+  const todayCard = () => {
+    if (!itemsLoaded) return null;
+    if (!items.length) {
+      return (
+        <div className="card-surface rounded-2xl p-5 space-y-3">
+          <p className="text-xs uppercase tracking-wider text-primary font-semibold">Tu primer paso</p>
+          <p className="font-display text-lg text-foreground">Llena tu calendario y publica hoy tu primera pieza</p>
+          <p className="text-[13px] text-muted-foreground">Arma tu mes de un toque o busca ideas gratis sobre "{seed || "tu tema"}". Luego aquí verás qué publicar cada día.</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => scrollTo("mes-contenido")} className="inline-flex items-center gap-2 rounded-lg gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground"><CalendarRange className="w-4 h-4" /> Armar mi mes</button>
+            <button type="button" onClick={() => scrollTo("buscar-ideas")} className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm text-foreground hover:border-foreground/40"><Search className="w-4 h-4" /> Buscar ideas gratis</button>
+          </div>
+        </div>
+      );
+    }
+    const it = pick?.item;
+    return (
+      <div className="card-surface rounded-2xl p-5 space-y-3">
+        {justPublished && (
+          <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-3 flex flex-wrap items-center gap-2 text-[13px]">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span className="text-foreground">Publicaste “{(justPublished.title ?? justPublished.topic).slice(0, 60)}”.</span>
+            <ClaimBonusButton item={justPublished} />
+            <button type="button" onClick={() => setJustPublished(null)} className="ml-auto text-[11px] text-muted-foreground hover:text-foreground">Cerrar</button>
+          </div>
+        )}
+        {it ? (
+          <>
+            <p className="text-xs uppercase tracking-wider text-primary font-semibold">
+              {pick.when === "hoy" ? "Hoy publica esto" : pick.when === "atrasada" ? `Pendiente desde el ${prettyDate(it.due as string)}` : `Tu próxima pieza · ${prettyDate(it.due as string)}`}
+            </p>
+            <p className="font-display text-lg text-foreground leading-snug">{it.title || it.topic}</p>
+            <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
+              {stageChip(it.stage)}
+              <span>{KINDS[it.kind ?? "corto"].label}</span>
+              {netsOf(it) && <span>· {netsOf(it)}</span>}
+              {it.keyword && <span>· palabra clave {it.keyword}</span>}
+            </div>
+            {it.brief && <ul className="list-disc pl-5 space-y-0.5 text-[12px] text-muted-foreground">{it.brief.split(" · ").slice(0, 3).map((b, i) => <li key={i}>{b}</li>)}</ul>}
+            <div className="flex flex-wrap gap-2">
+              {it.status === "grabado" ? (
+                <button type="button" onClick={() => markPublished(it)} className="inline-flex items-center gap-2 rounded-lg gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground"><CheckCircle2 className="w-4 h-4" /> Ya lo publiqué</button>
+              ) : (
+                <>
+                  <button type="button" onClick={() => makePiece(it)} className="inline-flex items-center gap-2 rounded-lg gradient-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground">
+                    {it.kind === "carrusel" ? <Layers className="w-4 h-4" /> : <PenLine className="w-4 h-4" />} Hacer esta pieza
+                  </button>
+                  <button type="button" onClick={() => markPublished(it)} className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/40 px-4 py-2.5 text-sm text-emerald-400 hover:bg-emerald-500/10"><CheckCircle2 className="w-4 h-4" /> Ya lo publiqué</button>
+                </>
+              )}
+              {pick.when !== "proxima" && (
+                <button type="button" onClick={() => moveTo(it, ymd(addDays(today, 1)))} className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground">Pasar a mañana</button>
+              )}
+            </div>
+            {late.length > 1 && (
+              <p className="text-[12px] text-muted-foreground">
+                Tienes {late.length} piezas atrasadas sin publicar.{" "}
+                <button type="button" onClick={() => void rescheduleLate(late)} className="text-primary hover:underline">Reagendarlas una por día desde hoy</button>
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="text-xs uppercase tracking-wider text-emerald-400 font-semibold">Estás al día</p>
+            <p className="text-[13px] text-muted-foreground">No tienes piezas pendientes con fecha. Agenda la siguiente para no perder el ritmo.</p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => scrollTo("buscar-ideas")} className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:border-foreground/40"><Search className="w-4 h-4" /> Buscar ideas gratis</button>
+              <button type="button" onClick={() => scrollTo("mes-contenido")} className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:border-foreground/40"><CalendarRange className="w-4 h-4" /> Armar mi mes</button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
   const googleHits = searches.filter(s => s.source === "google");
   const ytHits = searches.filter(s => s.source === "youtube");
   const hitChips = (list: SearchHit[]) => (
@@ -506,6 +645,9 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
           line="Ideas con búsquedas reales, publícalas en todas tus redes con un check y anota quién te escribe."
           details={STAGES.map(s => `${s.label}: ${s.desc}.`)} />
       </div>
+
+      {/* El siguiente paso evidente: qué publicar hoy */}
+      {todayCard()}
 
       {/* Bono por publicar lo que se hizo con una herramienta (50 créditos, 1 al día, 1.000 al mes) */}
       <PublishBonusCard />
@@ -541,11 +683,11 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
           <span><span className="text-foreground font-semibold tabular-nums">{week.sales}</span> compraron</span>
           {week.best && <span>Lo que más te trae clientes: <span className="text-foreground">{KINDS[week.best.kind].label.toLowerCase()}</span> ({week.best.leads} en total)</span>}
         </div>
-        <p className="text-[11px] text-muted-foreground/80">Una pieza cuenta como publicada cuando tiene el check en todas sus redes. Los leads y las ventas los anotas tú en cada pieza: solo números reales.</p>
+        <p className="text-[11px] text-muted-foreground/80">Una pieza cuenta como publicada cuando está marcada en todas sus redes. Las personas que te escriben y las ventas las anotas tú en cada pieza: solo números reales.</p>
       </div>
 
       {/* Tu mes de contenido: hasta 30 días armados de un toque (cobra el servidor) */}
-      <div className="card-surface rounded-2xl p-5 space-y-4">
+      <div id="mes-contenido" className="card-surface rounded-2xl p-5 space-y-4 scroll-mt-20">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="font-semibold text-foreground flex items-center gap-2"><CalendarRange className="w-4 h-4 text-primary" /> Arma tu mes de contenido</p>
@@ -633,7 +775,7 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
       </div>
 
       {/* Buscar ideas con demanda real */}
-      <div className="card-surface rounded-2xl p-5 space-y-4">
+      <div id="buscar-ideas" className="card-surface rounded-2xl p-5 space-y-4 scroll-mt-20">
         <div>
           <p className="font-semibold text-foreground flex items-center gap-2"><Search className="w-4 h-4 text-primary" /> Buscar ideas con demanda real</p>
           <p className="text-xs text-muted-foreground mt-0.5">Miramos lo que la gente escribe en Google y YouTube sobre tu tema y lo convertimos en ideas para tu negocio. Es gratis.</p>
@@ -703,7 +845,7 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="inline-flex rounded-lg border border-border p-0.5">
             <button onClick={() => setView("semana")} className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold ${view === "semana" ? "bg-primary/15 text-primary" : "text-muted-foreground"}`}>
-              <CalendarDays className="w-3.5 h-3.5" /> Esta semana
+              <CalendarDays className="w-3.5 h-3.5" /> Semana
             </button>
             <button onClick={() => setView("lista")} className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold ${view === "lista" ? "bg-primary/15 text-primary" : "text-muted-foreground"}`}>
               <List className="w-3.5 h-3.5" /> Lista

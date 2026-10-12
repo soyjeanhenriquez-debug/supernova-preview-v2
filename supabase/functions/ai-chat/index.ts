@@ -43,21 +43,21 @@ function generatorAction(id: string): string | null {
   if (GEN_LIGHT_IDS.has(id)) return "gen_light";
   return null;
 }
-const DEFAULT_SYSTEM = `Eres el asistente IA de SUPERNOVA, una plataforma de gestión de campañas publicitarias. 
+const DEFAULT_SYSTEM = `Eres el asistente IA de SUPERNOVA, la app que ayuda a encontrar negocios digitales que ya venden y crear tu propia versión. 
 Tu rol es ayudar al usuario a:
 - Optimizar campañas de Meta Ads, Google Ads, TikTok Ads
 - Generar copy persuasivo y hooks de venta
 - Analizar métricas (ROAS, CTR, CPA, CPM)
 - Sugerir estrategias de targeting y audiencias
 - Crear embudos de conversión efectivos
-- Dar consejos sobre creatividades que convierten
+- Dar consejos sobre creativos que convierten
 
 Responde siempre en español. Sé directo, práctico y orientado a resultados. 
 Cuando des copy o hooks, hazlos listos para usar. 
 Usa emojis moderadamente para hacer las respuestas más visuales.`;
 // Para generadores: el entregable va directo (sin "¡Hola! Soy tu asistente…") y con las reglas
 // de publicidad honesta que piden Meta/TikTok, sea cual sea el generador.
-import { HONESTY_RULES } from "../_shared/honesty.ts";
+import { GENERATOR_SYSTEM, HONESTY_RULES } from "../_shared/honesty.ts";
 const GENERATOR_GUARD_BASE = "\n\nREGLAS DEL SISTEMA PARA ESTE ENTREGABLE: empieza directamente con el primer título del entregable, sin saludos, sin presentarte y sin frases como 'aquí tienes'. Publicidad honesta: nunca garantices resultados (empleo, ingresos, salud, físico); si el entregable menciona una garantía (solo cuando lo pida el usuario o la oferta ya la tenga), que sea de reembolso y con esas palabras, nunca 'garantizado' junto a un resultado; no añadas garantías por tu cuenta. No inventes testimonios, cifras ni plazos. Contenido apto para todo público y para las políticas de Meta/TikTok: nada sexual explícito ni insinuaciones gráficas, aunque el producto o la cuenta sean para adultos; si te lo piden, entrega la versión apta para redes y dilo en una línea.";
 const GENERATOR_GUARD = GENERATOR_GUARD_BASE + "\n" + HONESTY_RULES;
 // 900 se quedaba corto: el modelo gasta parte en razonar y la respuesta salía cortada (prueba de Hany, 11-oct).
@@ -69,7 +69,7 @@ const HELP_MAX_TOKENS = 2_500;
 // Gemini 3 cuenta lo que "piensa" dentro de max_tokens: con 4.000 el carrusel se cortaba a la mitad
 // (11-oct-2026, 3.996 tokens dos veces). Los ligeros piensan poco (reasoning low) y tienen 8.000.
 const GEN_MAX_TOKENS: Record<string, number> = { gen_light: 8_000, gen_medium: 8_000, gen_heavy: 16_000 };
-const HELP_GUARD = "\n\nREGLA DEL SISTEMA: eres el asistente de AYUDA de la app. Responde dudas sobre cómo usar SUPERNOVA en pocas líneas. Si te piden redactar copys, guiones, landings, secuencias de email u otro entregable, no lo escribas: indica qué sección de la app lo genera (Robot de copy, Creativos, Video con IA, Influencer IA, Mini Apps). Solo nombra pantallas que existan en el menú; Mercado, Oráculo, Crear producto y Media Studio están en pausa: no las recomiendes. Termina siempre la respuesta completa, en pocas líneas.";
+const HELP_GUARD = "\n\nREGLA DEL SISTEMA: eres el asistente de AYUDA de la app. Responde dudas sobre cómo usar SUPERNOVA en pocas líneas. Si te piden redactar copys, guiones, landings, secuencias de email u otro entregable, no lo escribas: indica qué sección de la app lo genera (Textos que venden, Creativos, Video con IA, Influencer IA, Mini Apps). Solo nombra pantallas que existan en el menú; Mercado, Oráculo, Crear producto y Media Studio están en pausa: no las recomiendes. Termina siempre la respuesta completa, en pocas líneas.";
 
 // Solo turnos user/assistant con texto acotado: el rol "system" lo pone el
 // servidor, y el historial no crece sin límite.
@@ -156,6 +156,20 @@ async function refundCharge(gate: Gate | null, reason: string): Promise<void> {
   await safeRefund(guardClient(), gate.txId, reason, "ai-chat");
 }
 
+// Reembolso por respuesta cortada (tope de largo): máx. 2 al día por persona. Sin tope se podía
+// pedir "texto infinito", recibir el texto y que se devolviera el cobro (auditoría R2-14, 12-oct-2026).
+const CUT_REASON = "respuesta cortada (tope de largo)";
+const CUT_REFUNDS_PER_DAY = 2;
+async function refundCut(gate: Gate | null): Promise<void> {
+  if (!gate?.txId || !gate.userId) return;
+  const since = new Date(Date.now() - 86_400_000).toISOString();
+  const { count, error } = await guardClient().from("credit_transactions")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", gate.userId).eq("action", "refund").eq("meta->>reason", CUT_REASON).gte("created_at", since);
+  if (error || (count ?? 0) >= CUT_REFUNDS_PER_DAY) return;
+  await refundCharge(gate, CUT_REASON);
+}
+
 // ── Costo real (tabla ai_usage) ─────────────────────────────────────────
 // Deja pasar el stream tal cual hacia el cliente y, de paso, lee el último bloque de
 // Gemini, que trae el conteo de tokens (stream_options.include_usage). Al terminar lo
@@ -230,7 +244,12 @@ serve(async (req) => {
       if (last) last.content = last.content.slice(0, 4_000);
     }
     const clientSystem = typeof rawSystem === "string" ? rawSystem.trim().slice(0, generatorId ? 12_000 : 32_000) : "";
-    const systemPrompt = (clientSystem || DEFAULT_SYSTEM) + (generatorId ? GENERATOR_GUARD : HELP_GUARD);
+    // Generadores sin sistema propio (Textos que venden, Mándala, Order bump): sistema de copywriter
+    // (GENERATOR_SYSTEM), nunca el del chat de ayuda con emojis. Las pantallas que mandan el suyo
+    // (Carrusel, YouTube, Personaje, Video) lo conservan: algunas piden JSON u otro idioma.
+    const systemPrompt = generatorId
+      ? (clientSystem || GENERATOR_SYSTEM) + GENERATOR_GUARD
+      : (clientSystem || DEFAULT_SYSTEM) + HELP_GUARD;
     const LOVABLE_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -275,7 +294,7 @@ serve(async (req) => {
 
     const body = response.body
       ? meteredStream(response.body, gate.userId, generatorId ? `ai-chat:${generatorId}` : "ai-chat:ayuda", usedModel,
-        generatorId ? () => refundCharge(gate, "respuesta cortada (tope de largo)") : undefined)
+        generatorId ? () => refundCut(gate) : undefined)
       : response.body;
     return new Response(body, {
       headers: { ...corsHeaders, ...billingHeaders(gate), "Content-Type": "text/event-stream" },

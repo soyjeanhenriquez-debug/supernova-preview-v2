@@ -3,6 +3,10 @@ import App from "./App.tsx";
 import "./index.css";
 import "./i18n";
 import { isChunkLoadError, reloadOnceForNewVersion } from "@/components/ErrorBoundary";
+import { loadAppFonts } from "@/lib/loadFonts";
+
+// Sora y Manrope: index.html solo las precarga (no bloquea el pintado); aquí se activan.
+loadAppFonts();
 
 // Traductores del navegador (Chrome, Safari, extensiones) cambian los nodos de texto por
 // debajo de React; al actualizar la pantalla React intenta quitar un nodo que ya no está y

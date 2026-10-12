@@ -14,7 +14,7 @@ interface RisingAd {
   old_duplicates: number;
 }
 
-const LEVEL_NAMES = ["", "TIBIO", "CALENTANDO", "HOT", "MUY HOT", "ARDIENTE", "NUCLEAR"];
+const LEVEL_NAMES = ["", "TIBIO", "CALENTANDO", "CALIENTE", "MUY CALIENTE", "ARDIENTE", "AL ROJO VIVO"];
 
 function fires(level: number) {
   return "🔥".repeat(Math.max(0, Math.min(6, level)));
@@ -52,7 +52,7 @@ export function RisingTemperatureWidget({ onSeeAll }: Props) {
             <Flame className="w-3 h-3" /> Últimas 48h
           </div>
           <h3 className="font-display font-semibold text-lg text-foreground">🚀 Subiendo de temperatura</h3>
-          <p className="text-[12px] text-muted-foreground mt-1">Anuncios que escalaron más rápido en el mercado.</p>
+          <p className="text-[12px] text-muted-foreground mt-1">Anuncios que más crecieron en el mercado.</p>
         </div>
         {onSeeAll && (
           <button onClick={onSeeAll} className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">

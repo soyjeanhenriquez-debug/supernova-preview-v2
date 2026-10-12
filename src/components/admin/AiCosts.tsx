@@ -36,7 +36,7 @@ export function AiCosts() {
         <div>
           <h2 className="font-display text-lg">Costo real de la IA (30 días)</h2>
           <p className="text-[12px] text-muted-foreground">
-            Lo que Google nos cobra por cada cliente, frente a los {usd(NET_PER_USER)} que nos deja un PRO después de Whop.
+            Lo que nos cobran los proveedores de IA (Google, APIMart, fal, Apify) por cada cliente, frente a los {usd(NET_PER_USER)} que nos deja un PRO después de Whop.
             {data?.since && ` Medido desde el ${new Date(data.since).toLocaleDateString("es")}.`}
           </p>
         </div>

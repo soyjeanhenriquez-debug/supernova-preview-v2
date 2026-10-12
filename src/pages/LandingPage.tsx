@@ -3,7 +3,6 @@ import { Hero } from "@/components/landing/Hero";
 import { SocialProof } from "@/components/landing/SocialProof";
 import { Insight } from "@/components/landing/Insight";
 import { MinerEngine, BuilderEngine } from "@/components/landing/Engines";
-import { VslSection } from "@/components/landing/VslSection";
 import { FinalCta } from "@/components/landing/FinalCta";
 import { loadEditorialFonts } from "@/lib/loadFonts";
 
@@ -25,7 +24,6 @@ export default function LandingPage() {
         </div>
         <MinerEngine />
         <BuilderEngine />
-        <VslSection />
         <FinalCta />
       </main>
       <footer className="border-t border-[#ffffff10] py-10 text-center font-[Inter,sans-serif] text-xs tracking-[0.2em] text-[#86868B]">

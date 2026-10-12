@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   VIDEO_PRICE, VIDEO_TEMPLATES, buildShots, cleanBrief, hasForbiddenClaim, improvePrompt, parseImprovedLines,
   planCost, publishText, recommendTemplate, retryFromIndex, serieFromBrief, shortPhrase, shotPrompt, videoSizeFor, VIDEO_RULES, type VideoBrief,
+  adBusyLabel, shotReceiptLabel, SKIPPED_SHOT,
 } from "./videoTemplates";
 
 const brief: VideoBrief = {
@@ -53,7 +54,7 @@ describe("retryFromIndex", () => {
 describe("planCost", () => {
   it("costo total = tomas × precio", () => {
     expect(planCost(buildShots("anuncio", "problema_solucion", brief))).toBe(3 * VIDEO_PRICE[5]);
-    expect(planCost(buildShots("anuncio", "demostracion", brief))).toBe(165);
+    expect(planCost(buildShots("anuncio", "demostracion", brief))).toBe(225);
     expect(planCost(buildShots("ugc", "tres_razones", brief))).toBe(VIDEO_PRICE[10]);
     expect(planCost([])).toBe(0);
   });
@@ -176,5 +177,24 @@ describe("formato y publicación", () => {
     const t = publishText(brief, "ugc");
     expect(t).toMatch(/Personaje creado con IA/);
     expect(hasForbiddenClaim(t)).toBe(false);
+  });
+});
+
+// Misión R2-05 (12-oct-2026): estados que se entienden y recibos legibles.
+describe("estados del anuncio", () => {
+  const st = (done: boolean, failed = false) => ({ done, failed });
+  it("primero dice toma 1 de 3; luego las que se crean a la vez", () => {
+    expect(adBusyLabel([st(false), st(false), st(false)])).toBe("Creando toma 1 de 3…");
+    expect(adBusyLabel([st(true), st(false), st(false)])).toBe("Creando tomas 2 y 3 de 3…");
+    expect(adBusyLabel([st(true), st(true), st(false)])).toBe("Creando toma 3 de 3…");
+    expect(adBusyLabel([st(true), st(false, true), st(false)])).toBe("Creando toma 3 de 3…");
+    expect(adBusyLabel([st(false)])).toBe("Creando tu video…");
+  });
+  it("el recibo de cada toma dice cuál es", () => {
+    expect(shotReceiptLabel(0, 3, "Gancho")).toBe("Toma 1 de 3 · Gancho");
+    expect(shotReceiptLabel(0, 1, "Presentador")).toBe("Presentador");
+  });
+  it("una toma no creada por la toma 1 dice que no se cobró", () => {
+    expect(SKIPPED_SHOT).toMatch(/No se te cobró/);
   });
 });

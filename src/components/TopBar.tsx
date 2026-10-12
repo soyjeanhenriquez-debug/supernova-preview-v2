@@ -61,15 +61,18 @@ export function TopBar({ activePage, onOpenMobileNav, onSearch }: TopBarProps) {
   const dateStr = now.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" });
 
   return (
-    <header className="flex items-center justify-between gap-3 px-4 md:px-8 py-3.5 border-b border-border/70 bg-background/70 backdrop-blur-xl sticky top-0 z-30">
-      <div className="flex items-center gap-3 min-w-0">
+    <header className="flex items-center justify-between gap-3 px-3 md:px-8 py-1.5 md:py-3.5 border-b border-border/70 bg-background/70 backdrop-blur-xl sticky top-0 z-30">
+      <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
         {onOpenMobileNav && (
           <button
             onClick={onOpenMobileNav}
             aria-label="Abrir el menú"
-            className="lg:hidden -ml-1 w-9 h-9 rounded-full border border-border/70 text-muted-foreground hover:text-foreground hover:border-foreground/30 flex items-center justify-center transition-colors"
+            className="group lg:hidden -ml-1 w-11 h-11 shrink-0 rounded-full text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
           >
-            <Menu className="w-[15px] h-[15px]" strokeWidth={1.8} />
+            {/* Toque de 44 px; el círculo visible sigue de 36 px. */}
+            <span className="w-9 h-9 rounded-full border border-border/70 group-hover:border-foreground/30 flex items-center justify-center transition-colors">
+              <Menu className="w-[15px] h-[15px]" strokeWidth={1.8} />
+            </span>
           </button>
         )}
         <div className="min-w-0">
@@ -94,10 +97,12 @@ export function TopBar({ activePage, onOpenMobileNav, onSearch }: TopBarProps) {
         </button>
       )}
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-0.5 md:gap-2 shrink-0">
         {onSearch && (
-          <button onClick={onSearch} aria-label="Buscar" data-tour="search" className="md:hidden w-8 h-8 rounded-full border border-border/70 text-muted-foreground hover:text-foreground flex items-center justify-center">
-            <Search className="w-[14px] h-[14px]" strokeWidth={1.8} />
+          <button onClick={onSearch} aria-label="Buscar" data-tour="search" className="group md:hidden w-11 h-11 rounded-full text-muted-foreground hover:text-foreground flex items-center justify-center">
+            <span className="w-9 h-9 rounded-full border border-border/70 group-hover:border-foreground/30 flex items-center justify-center">
+              <Search className="w-[14px] h-[14px]" strokeWidth={1.8} />
+            </span>
           </button>
         )}
         <CreditRing isAdmin={isAdmin} />

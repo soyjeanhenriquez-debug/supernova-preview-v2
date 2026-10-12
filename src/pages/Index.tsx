@@ -110,6 +110,24 @@ const Index = () => {
 
   useVersionCheck();
 
+  // Radar y Ofertas son a donde va casi todo el mundo desde el Inicio (botón flotante, "Encontrar"):
+  // su código se baja en un momento libre tras abrir, así el clic abre al instante en vez de mostrar
+  // el spinner mientras llegan ~50 KB. No en modo ahorro de datos ni en vitrina (no los puede abrir).
+  const { locked } = useVitrina();
+  useEffect(() => {
+    if (locked) return;
+    try {
+      const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+      if (conn?.saveData || /(^|-)2g$/.test(conn?.effectiveType ?? "")) return;
+    } catch { /* sin API de red: se precarga igual */ }
+    const run = () => { void import("@/pages/WinningAdsPage"); void import("@/pages/OfertasPage"); };
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+    const t = window.setTimeout(() => {
+      if (w.requestIdleCallback) w.requestIdleCallback(run, { timeout: 4000 }); else run();
+    }, 2500);
+    return () => window.clearTimeout(t);
+  }, [locked]);
+
   useEffect(() => {
     const sync = () => setActivePageState(pageFromHash());
     window.addEventListener("popstate", sync);
@@ -119,7 +137,6 @@ const Index = () => {
 
   const { canSee, loading: accessLoading } = useFeatureAccess();
   const { productKey } = useProducts();
-  const { locked } = useVitrina();
   const renderPage = () => {
     // Secciones en pausa (src/lib/features.ts): un cliente que llega por un enlace viejo va al inicio.
     // Secciones en pausa (src/lib/features.ts): antes mandaban al Inicio sin decir nada (prueba de Hany,

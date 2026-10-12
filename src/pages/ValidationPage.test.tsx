@@ -10,6 +10,7 @@ let profile: Record<string, unknown>;
 vi.mock("@/lib/businessProfile", () => ({
   useBusinessProfile: () => ({ profile, loaded: true, savePatch }),
   profileReady: () => true,
+  priceLabel: (p: { price?: string }) => p.price ?? "",
 }));
 
 import { ValidationPage } from "./ValidationPage";

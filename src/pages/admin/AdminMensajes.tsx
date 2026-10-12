@@ -27,11 +27,11 @@ const TEMPLATES: { id: string; label: string; subject: string; body: string }[] 
   { id: "blank", label: "En blanco", subject: "", body: "Hola {{nombre}}.\n\n\n\nJean" },
   {
     id: "bienvenida", label: "Bienvenida", subject: "{{nombre}}, lo primero que harías si fueras yo",
-    body: `Hola {{nombre}}.\n\nYa estás dentro. Ahora viene la parte donde casi todo el mundo se equivoca.\n\nSe ponen a pensar qué producto inventar.\n\nNo lo hagas.\n\nEntra a **Mi negocio** y mira las ofertas que llevan más días pagando anuncios. Esa es la única prueba que importa: nadie paga anuncios durante meses por algo que no se vende.\n\nElige una. Clónala en 3 toques. Es gratis.\n\n${APP}\n\nEso es todo por hoy. Un paso.\n\nJean\n\nP.D. Si te atascas, responde este correo. Lo leo yo, no un robot.`,
+    body: `Hola {{nombre}}.\n\nYa estás dentro. Ahora viene la parte donde casi todo el mundo se equivoca.\n\nSe ponen a pensar qué producto inventar.\n\nNo lo hagas.\n\nEntra a **Mi negocio** y mira las ofertas que llevan más días pagando anuncios. Esa es la única prueba que importa: nadie paga anuncios durante meses por algo que no se vende.\n\nElige una. Haz tu versión en 3 toques. Es gratis.\n\n${APP}\n\nEso es todo por hoy. Un paso.\n\nJean\n\nP.D. Si te atascas, responde este correo. Lo leo yo, no un robot.`,
   },
   {
     id: "vence", label: "Tu prueba vence pronto", subject: "{{nombre}}, antes de que decidas",
-    body: `Hola {{nombre}}.\n\nTu prueba termina pronto y no te voy a presionar. Solo quiero que decidas con la información completa.\n\nSi todavía no lo hiciste, haz esto hoy (10 minutos):\n\n1. En **Mi negocio**, elige una oferta que ya vende y clónala.\n2. Mira a qué precio venderla en tu moneda y cuánto puedes pagar por venta en anuncios sin perder.\n3. Pide a la IA tus primeros anuncios en la Mándala (te guía con los primeros 5).\n\n${APP}\n\nSi después de eso sientes que no es para ti, cancelas con un clic y no pasa nada.\n\nJean\n\nP.D. Si decides quedarte y en 30 días no terminas tu producto, te devolvemos el 100 %. Así, sin letra chica.`,
+    body: `Hola {{nombre}}.\n\nTu prueba termina pronto y no te voy a presionar. Solo quiero que decidas con la información completa.\n\nSi todavía no lo hiciste, haz esto hoy (10 minutos):\n\n1. En **Mi negocio**, elige una oferta que ya vende y haz tu versión.\n2. Mira a qué precio venderla en tu moneda y cuánto puedes pagar por venta en anuncios sin perder.\n3. Pide a la IA tus primeros anuncios en la Mándala (te guía con los primeros 5).\n\n${APP}\n\nSi después de eso sientes que no es para ti, cancelas con un clic y no pasa nada.\n\nJean\n\nP.D. Si decides quedarte y en 30 días no terminas tu producto, te devolvemos el 100 %. Así, sin letra chica.`,
   },
   {
     id: "atascado", label: "¿Te atascaste?", subject: "¿En qué paso te quedaste?",
@@ -47,7 +47,7 @@ const TEMPLATES: { id: string; label: string; subject: string; body: string }[] 
   },
   {
     id: "sinplan", label: "Activa tu prueba", subject: "{{nombre}}, te quedaste en la puerta",
-    body: `Hola {{nombre}}.\n\nCreaste tu cuenta en SUPERNOVA pero no entraste.\n\nTe cuento lo que hay del otro lado: ofertas que llevan meses vendiendo, la forma de clonar una en 3 toques y la IA que te escribe tus primeros anuncios. Todo en español.\n\nLos primeros 3 días son gratis y con todo abierto.\n\n${APP}\n\nUsa este mismo correo y tu acceso se activa solo.\n\nJean\n\nP.D. Si no es para ti, cancelas antes del día 4 y no pagas nada.`,
+    body: `Hola {{nombre}}.\n\nCreaste tu cuenta en SUPERNOVA pero no entraste.\n\nTe cuento lo que hay del otro lado: ofertas que llevan meses vendiendo, la forma de hacer tu versión de una en 3 toques y la IA que te escribe tus primeros anuncios. Todo en español.\n\nLos primeros 3 días son gratis y con todo abierto.\n\n${APP}\n\nUsa este mismo correo y tu acceso se activa solo.\n\nJean\n\nP.D. Si no es para ti, cancelas antes del día 4 y no pagas nada.`,
   },
   {
     id: "extrañamos", label: "Te extrañamos", subject: "¿Qué te faltó?",

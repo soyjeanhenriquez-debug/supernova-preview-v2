@@ -97,6 +97,29 @@ export const MARKET_GROUP: Record<string, { label: string; flag: string; markets
   RU: { label: "Mercado ruso", flag: "🇷🇺", markets: ["RU", "KZ"], lang: "ru" },
 };
 
+/**
+ * Filtro "En español": por IDIOMA del anuncio, en cualquier país (12-oct-2026). Con MARKET_GROUP.ES solo
+ * entraban ES/MX/AR/CO (50 ganadoras); por idioma son 85, incluidas las que se anuncian en Brasil o EE. UU.
+ * en español. Es un filtro que la persona ve y quita en un toque: no cambia el orden ni el puntaje.
+ */
+export const LANG_ES_FILTER = "lang:es";
+
+/** Países donde se vende en español (código ISO de user_age_country). EE. UU. entra: el público es hispano. */
+export const SPANISH_COUNTRIES = new Set([
+  "AR", "BO", "CL", "CO", "CR", "CU", "DO", "EC", "ES", "GQ", "GT", "HN", "MX", "NI", "PA", "PE", "PR", "PY", "SV", "US", "UY", "VE",
+]);
+
+/**
+ * Filtro de mercado con el que abre Ofertas según el país de la persona (la app no pregunta lo que ya
+ * sabe). Español → ofertas en español; Brasil/Portugal → mercado brasileño; el resto, todas.
+ */
+export function defaultOfferFilter(countryIso: string | null | undefined): string {
+  const c = (countryIso ?? "").toUpperCase();
+  if (SPANISH_COUNTRIES.has(c)) return LANG_ES_FILTER;
+  if (c === "BR" || c === "PT") return "BR";
+  return "all";
+}
+
 export const MARKET_FLAG: Record<string, string> = {
   US: "🇺🇸", GB: "🇬🇧", ES: "🇪🇸", MX: "🇲🇽", AR: "🇦🇷", CO: "🇨🇴", PE: "🇵🇪", CL: "🇨🇱",
   BR: "🇧🇷", PT: "🇵🇹", DE: "🇩🇪", AT: "🇦🇹", CH: "🇨🇭", RU: "🇷🇺", KZ: "🇰🇿", FR: "🇫🇷", IT: "🇮🇹",

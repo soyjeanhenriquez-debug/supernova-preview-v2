@@ -47,28 +47,28 @@ export function calculateTemperature(
     level: 1, fires: '🩶', label: 'FRÍO',
     color: '#374151', glowColor: 'rgba(55,65,81,0)',
     isPulsing: false, isNuclear: false,
-    marketReading: 'Sin validación de mercado. Nadie está escalando esto.',
+    marketReading: 'Nadie lo está copiando ni le está metiendo más dinero todavía.',
     userAction: 'Ignora este anuncio.',
     moneyWindow: 'Sin señal de dinero.',
   };
   if (heatScore < 20) return {
-    level: 2, fires: '🔥', label: 'TESTING',
+    level: 2, fires: '🔥', label: 'EN PRUEBA',
     color: '#6B7280', glowColor: 'rgba(107,114,128,0.15)',
     isPulsing: false, isNuclear: false,
     marketReading: 'Alguien lo está probando. Aún no hay señal de dinero real.',
-    userAction: 'Ponlo en watchlist. Vuelve en 7 días.',
+    userAction: 'Guárdalo con la estrella y vuelve en 7 días.',
     moneyWindow: 'Demasiado pronto para saber.',
   };
   if (heatScore < 60) return {
     level: 3, fires: '🔥🔥', label: 'CALENTANDO',
     color: '#F59E0B', glowColor: 'rgba(245,158,11,0.2)',
     isPulsing: false, isNuclear: false,
-    marketReading: 'El anunciante está viendo retorno. Empieza a escalar.',
-    userAction: 'Analiza el mecanismo. Prepara tu versión.',
+    marketReading: 'Al anunciante le está funcionando: empieza a meterle más dinero.',
+    userAction: 'Mira cómo lo vende. Prepara tu versión.',
     moneyWindow: 'Buen momento para preparar tu versión.',
   };
   if (heatScore < 150) return {
-    level: 4, fires: '🔥🔥🔥', label: 'HOT',
+    level: 4, fires: '🔥🔥🔥', label: 'CALIENTE',
     color: '#F97316', glowColor: 'rgba(249,115,22,0.25)',
     isPulsing: false, isNuclear: false,
     marketReading: 'Lo sigue pagando con varias copias: señal de que le funciona.',
@@ -76,19 +76,19 @@ export function calculateTemperature(
     moneyWindow: 'Puedes armar tu versión esta semana.',
   };
   if (heatScore < 400) return {
-    level: 5, fires: '🔥🔥🔥🔥', label: 'ON FIRE',
+    level: 5, fires: '🔥🔥🔥🔥', label: 'EN LLAMAS',
     color: '#EF4444', glowColor: 'rgba(239,68,68,0.3)',
     isPulsing: true, isNuclear: false,
-    marketReading: 'Escala masiva. El ángulo está siendo validado por el mercado.',
-    userAction: 'Entra con diferenciación. El ángulo funciona.',
-    moneyWindow: 'Uno de los ángulos más probados del radar.',
+    marketReading: 'Le meten mucho dinero: el mercado ya confirmó que esta idea vende.',
+    userAction: 'La idea funciona: haz tu versión con algo propio.',
+    moneyWindow: 'Una de las ideas más probadas del radar.',
   };
   return {
-    level: 6, fires: '🔥🔥🔥🔥🔥', label: '☢️ NUCLEAR',
+    level: 6, fires: '🔥🔥🔥🔥🔥', label: '☢️ AL ROJO VIVO',
     color: '#F97316', glowColor: 'rgba(249,115,22,0.5)',
     isPulsing: true, isNuclear: true,
     marketReading: 'Muchísimas copias y muchos días pagando: de las pruebas de venta más fuertes del radar.',
-    userAction: 'Modela este ángulo: misma idea, tu versión en español.',
+    userAction: 'Modela esta idea: lo mismo que vende, en tu versión en español.',
     moneyWindow: 'Prioridad alta para estudiar y modelar.',
   };
 }
@@ -96,8 +96,8 @@ export function calculateTemperature(
 export function getMarketSignal(uniquePages: number, allPageNames: string[]): MarketSignal {
   if (uniquePages <= 1) return {
     type: 'solo_operator', badge: '👤 UN VENDEDOR',
-    explanation: 'Una operación escalando su winner personal.',
-    opportunity: 'Entra con diferenciación de producto o ángulo.',
+    explanation: 'Un solo vendedor haciendo crecer su anuncio ganador.',
+    opportunity: 'Entra con un producto o un enfoque distinto al suyo.',
     cloneRisk: 'medium',
   };
   const firstWords = allPageNames.map(n => (n || '').toLowerCase().split(/[\s\-_]/)[0]);
@@ -105,42 +105,42 @@ export function getMarketSignal(uniquePages: number, allPageNames: string[]): Ma
   const nameVariety = allPageNames.length ? uniqueFirstWords / allPageNames.length : 1;
 
   if (uniquePages <= 3 || nameVariety < 0.5) return {
-    type: 'multi_account', badge: '⚡ MULTI-CUENTA',
-    explanation: 'Un vendedor profesional escalando con múltiples páginas.',
-    opportunity: 'Este vendedor sabe lo que hace. Estudia su ángulo.',
+    type: 'multi_account', badge: '⚡ VARIAS PÁGINAS',
+    explanation: 'Un vendedor con experiencia que anuncia desde varias páginas.',
+    opportunity: 'Este vendedor sabe lo que hace. Estudia cómo lo vende.',
     cloneRisk: 'medium',
   };
   if (uniquePages <= 6 || nameVariety < 0.8) return {
-    type: 'multi_seller', badge: '🌍 MULTI-VENDEDOR',
-    explanation: 'Diferentes vendedores encontraron que este ángulo convierte.',
-    opportunity: 'El ángulo está probado por varios vendedores: modelarlo es más seguro.',
+    type: 'multi_seller', badge: '🌍 VARIOS VENDEDORES',
+    explanation: 'Varios vendedores distintos ya comprobaron que esta idea vende.',
+    opportunity: 'La idea ya la probaron varios vendedores: modelarla es más seguro.',
     cloneRisk: 'low',
   };
   return {
     type: 'market_phenomenon', badge: '☢️ FENÓMENO DE MERCADO',
-    explanation: 'El mercado entero está validando este ángulo. No es un vendedor — es una tendencia.',
-    opportunity: '⚡ MÁXIMA OPORTUNIDAD — Cualquiera que entre con este ángulo convierte.',
+    explanation: 'Muchos vendedores distintos pagan por esta idea. No es uno solo: es una tendencia.',
+    opportunity: '⚡ Oportunidad alta: muchos ya venden con esta idea. Haz tu versión.',
     cloneRisk: 'low',
   };
 }
 
 export function getVelocityWindow(duplicates: number, daysActive: number) {
   const velocity = duplicates / Math.max(1, daysActive);
-  if (velocity >= 5) return { ratio: velocity, label: '🚀 EXPLOSIVO', urgency: 'critical' as const, timeToAct: 'Actúa HOY — está explotando ahora mismo' };
+  if (velocity >= 5) return { ratio: velocity, label: '🚀 EXPLOSIVO', urgency: 'critical' as const, timeToAct: 'Muévete hoy: está creciendo ahora mismo' };
   if (velocity >= 2) return { ratio: velocity, label: '⚡ ESCALANDO', urgency: 'high' as const, timeToAct: 'Esta semana es tu ventana' };
   if (velocity >= 0.5) return { ratio: velocity, label: '📈 CRECIENDO', urgency: 'medium' as const, timeToAct: 'Tienes este mes para prepararte' };
-  if (velocity >= 0.1) return { ratio: velocity, label: '➡️ ESTABLE', urgency: 'low' as const, timeToAct: 'Evergreen — funciona cuando quieras entrar' };
-  return { ratio: velocity, label: '📉 MADURO', urgency: 'low' as const, timeToAct: 'El peak ya pasó — úsalo con cautela' };
+  if (velocity >= 0.1) return { ratio: velocity, label: '➡️ ESTABLE', urgency: 'low' as const, timeToAct: 'Sigue vigente: puedes entrar cuando quieras' };
+  return { ratio: velocity, label: '📉 MADURO', urgency: 'low' as const, timeToAct: 'Lo mejor ya pasó: úsalo con cuidado' };
 }
 
 export function temperatureFromLevel(level: TemperatureLevel): Pick<Temperature, 'fires' | 'label' | 'color'> {
   const map: Record<TemperatureLevel, Pick<Temperature, 'fires' | 'label' | 'color'>> = {
     1: { fires: '🩶', label: 'FRÍO', color: '#374151' },
-    2: { fires: '🔥', label: 'TESTING', color: '#6B7280' },
+    2: { fires: '🔥', label: 'EN PRUEBA', color: '#6B7280' },
     3: { fires: '🔥🔥', label: 'CALENTANDO', color: '#F59E0B' },
-    4: { fires: '🔥🔥🔥', label: 'HOT', color: '#F97316' },
-    5: { fires: '🔥🔥🔥🔥', label: 'ON FIRE', color: '#EF4444' },
-    6: { fires: '🔥🔥🔥🔥🔥', label: '☢️ NUCLEAR', color: '#F97316' },
+    4: { fires: '🔥🔥🔥', label: 'CALIENTE', color: '#F97316' },
+    5: { fires: '🔥🔥🔥🔥', label: 'EN LLAMAS', color: '#EF4444' },
+    6: { fires: '🔥🔥🔥🔥🔥', label: '☢️ AL ROJO VIVO', color: '#F97316' },
   };
   return map[level];
 }

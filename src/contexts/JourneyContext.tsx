@@ -8,8 +8,11 @@ import { track } from "@/lib/analytics";
 /**
  * En qué etapa va el producto activo, calculado UNA vez y compartido por la barra de etapa, el menú
  * y "Mi ficha" (misma regla que el recorrido del Inicio: src/lib/journey.ts). Se recalcula al
- * cambiar de producto, al cambiar de pantalla y cuando alguien avisa con notifyJourneyChanged()
- * (p. ej. al guardar la ficha o crear un anuncio). Tres lecturas pequeñas por producto.
+ * cambiar de producto, cuando alguien avisa con notifyJourneyChanged() (p. ej. al guardar la ficha o
+ * crear un anuncio) y, al cambiar de pantalla, solo si la última lectura tiene más de 60 s.
+ * Tres lecturas pequeñas por producto. (12-oct-2026: antes se releía en CADA cambio de pantalla y
+ * era la consulta más repetida de la base: ~1.000 lecturas de products/mandala_ads/product_builds
+ * al día cada una.)
  */
 export const JOURNEY_EVENT = "supernova:journey-changed";
 export const notifyJourneyChanged = () => window.dispatchEvent(new Event(JOURNEY_EVENT));
@@ -31,11 +34,13 @@ export function JourneyProvider({ page, children }: { page: string; children: Re
   const { activeId } = useProducts();
   const [state, setState] = useState<Omit<JourneyState, "refresh">>({ loaded: false, done: EMPTY, doneCount: 0, next: 1 });
   const seq = useRef(0);
+  const loadedAt = useRef(0);
   const prevDone = useRef<{ id: string; done: boolean[] } | null>(null);
 
   const load = useCallback(async () => {
     if (!user || !activeId) return;
     const my = ++seq.current;
+    loadedAt.current = Date.now(); // se marca al pedir: dos cambios de pantalla seguidos no repiten
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const db = supabase as any;
     const [prod, ads, builds] = await Promise.all([
@@ -44,7 +49,7 @@ export function JourneyProvider({ page, children }: { page: string; children: Re
       db.from("product_builds").select("status,pieces_done,pieces_total").eq("product_id", activeId).limit(30),
     ]);
     if (my !== seq.current) return; // llegó una respuesta más nueva (cambio de producto)
-    if (prod.error) { console.error("journey:", prod.error.message); return; }
+    if (prod.error) { loadedAt.current = 0; console.error("journey:", prod.error.message); return; }
     const list = (ads.data ?? []) as { spend: number | null; sales: number | null; status: string }[];
     const r = journeyStages(
       (prod.data ?? {}) as JourneyProduct,
@@ -63,10 +68,12 @@ export function JourneyProvider({ page, children }: { page: string; children: Re
   // Cambio de producto: se empieza de cero para no mostrar la etapa del producto anterior.
   useEffect(() => { setState(s => ({ ...s, loaded: false })); load(); }, [load]);
 
-  // Cambio de pantalla o aviso de otra pantalla: recalcular, agrupando avisos seguidos.
+  // Aviso de otra pantalla (JOURNEY_EVENT): recalcular siempre, agrupando avisos seguidos.
+  // Cambio de pantalla: solo si la última lectura tiene más de 60 s (las pantallas que cambian una
+  // etapa ya avisan con el evento, así que "Tu camino" se sigue actualizando al instante).
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const soon = useCallback(() => { clearTimeout(timer.current); timer.current = setTimeout(load, 400); }, [load]);
-  useEffect(() => { soon(); }, [page, soon]);
+  useEffect(() => { if (Date.now() - loadedAt.current > 60_000) soon(); }, [page, soon]);
   useEffect(() => {
     window.addEventListener(JOURNEY_EVENT, soon);
     return () => { window.removeEventListener(JOURNEY_EVENT, soon); clearTimeout(timer.current); };

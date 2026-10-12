@@ -168,8 +168,8 @@ export function IdeasWhatsApp({ onNavigate }: { onNavigate?: (page: string) => v
       proof: "",
     };
     // La Mándala lee la ficha de "Mi negocio" (business_profile): se guarda ahí, sin perder el tipo de negocio.
-    if (!(await saveBusiness(brief))) { toast.error("No se pudo cargar la oferta en la Mándala. Intenta de nuevo."); return; }
-    toast.success("Idea cargada en la Mándala", { description: "Si vas a vender sin pagar anuncios, elige “Sin pagar anuncios (orgánico)”." });
+    if (!(await saveBusiness(brief))) { toast.error("No se pudo cargar la idea en «Tus primeros 5 anuncios». Inténtalo de nuevo."); return; }
+    toast.success("Idea cargada en «Tus primeros 5 anuncios»", { description: "Si vas a vender sin pagar anuncios, elige “Sin pagar anuncios (orgánico)”." });
     if (onNavigate) onNavigate("Mándala"); else window.location.hash = "#/mandala";
   };
 

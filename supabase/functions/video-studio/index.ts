@@ -33,7 +33,7 @@ const APIMART = "https://api.apimart.ai/v1";
 const MODEL = "seedance-2.0-mini";
 const COST_PER_SEC = 0.0217; // US$ (720p, lista de APIMart del 03-oct-2026)
 const RULES = "Sin contenido sexual ni violento. Sin logotipos, marcas, personajes con derechos ni personas famosas reales. Sin dinero, billetes ni cifras de ingresos.";
-const AD_RULES = "No es un testimonio: la persona presenta o explica, nunca dice que compró, que le funcionó ni que obtuvo resultados. Si alguien habla, habla en español latino. Personaje creado con IA. Sin texto en pantalla.";
+const AD_RULES = "No es un testimonio: la persona presenta o explica, nunca dice que compró, que le funcionó ni que obtuvo resultados. Si alguien habla, habla en español latino. Personaje creado con IA. Sin texto en pantalla. La misma persona, con la misma cara, ropa, peinado y lugar en todas las tomas del anuncio.";
 const SPEECH_RULE = "Si alguien habla, habla en español latino.";
 const SIZES = new Set(["9:16", "16:9", "1:1"]);
 const KINDS = new Set(["clip", "serie", "anuncio", "ugc", "yt_scene"]);
@@ -50,6 +50,11 @@ const TESTIMONIAL = [
   w("me\\s+(?:funcion[oó]|sirvi[oó]|cambi[oó])"), w("compré|lo\\s+compre"), w("gané"),
   w("(?:baj[eé]|perd[ií])\\s+\\d"), w("cambi[oó]\\s+mi\\s+vida"),
 ];
+
+/** Texto corto y limpio para el recibo (lo manda el cliente; nunca decide precio ni acceso). */
+export function receiptLabel(v: unknown): string {
+  return typeof v === "string" ? v.replace(/[^\p{L}\p{N} ·()/-]/gu, "").replace(/\s+/g, " ").trim().slice(0, 40) : "";
+}
 
 /** ¿El host está en la lista de APIMart (o en la extra del secreto)? Exacto o subdominio. */
 export function hostAllowed(host: string, extra: string | undefined = Deno.env.get("APIMART_MEDIA_HOSTS")): boolean {
@@ -324,7 +329,9 @@ Deno.serve(async (req) => {
     if (image === undefined) return json({ error: "No encontramos la imagen inicial. Elige otra." }, 400);
     const presenterPhoto = !!image && body.image_bucket === "personajes";
 
-    const g = await charge(uid, seconds === 10 ? "vid_mini_10" : "vid_mini_5", `${isAd ? (kind === "ugc" ? "Video UGC" : "Video anuncio") : "Video IA"} ${seconds} s · ${prompt.slice(0, 50)}`);
+    // Etiqueta del recibo en Historial (misión R2-05): "Video anuncio 5 s · Toma 1 de 3 · Gancho" en vez del
+    // inicio del prompt ("Primer plano: una persona latina…"). Solo es texto del recibo: no toca precio ni acceso.
+    const g = await charge(uid, seconds === 10 ? "vid_mini_10" : "vid_mini_5", `${isAd ? (kind === "ugc" ? "Video UGC" : "Video anuncio") : "Video IA"} ${seconds} s · ${receiptLabel(body.label) || prompt.slice(0, 50)}`);
     if (g instanceof Response) return g;
     txId = g.txId;
 

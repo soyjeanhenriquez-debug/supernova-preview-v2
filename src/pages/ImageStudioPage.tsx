@@ -29,7 +29,7 @@ import { CarouselStudio } from "@/components/image/CarouselStudio";
  * de creativeSeed), sin escribir prompts. La IA elige el formato ("Formato: X · cambiar").
  *
  * Cobro: generate-ad-creative cobra en el servidor ANTES de generar (acción gen_ad_image de
- * credit_prices: 6 créditos, ≈ 5,9× el costo real con APIMart GPT Image 2) y devuelve el crédito si la
+ * credit_prices: 7 créditos, ≈ 4,9× el costo real medido con APIMart GPT Image 2) y devuelve el crédito si la
  * IA falla. Aquí solo se muestra el precio y se refleja el saldo. Con `autostart` (el botón que trajo la
  * semilla ya mostraba el costo) la generación arranca sola; sin eso, nunca se gasta nada solo.
  *
@@ -46,7 +46,7 @@ const MODE_ICON: Record<StudioMode, typeof ImageIcon> = {
 };
 const MODES: StudioMode[] = ["creativo", "carrusel", "miniatura", "foto_ugc", "foto_producto", "variar"];
 const SHORT_TITLE: Record<StudioMode, string> = {
-  creativo: "Creativos", carrusel: "Carrusel", miniatura: "Miniaturas", foto_ugc: "Fotos UGC", foto_producto: "Foto de producto", variar: "Variar",
+  creativo: "Creativos", carrusel: "Carrusel", miniatura: "Miniaturas", foto_ugc: "Fotos tipo cliente (UGC)", foto_producto: "Foto de producto", variar: "Variar",
 };
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -210,6 +210,12 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
     } catch { toast.error("No se pudo descargar. Intenta de nuevo."); }
   };
   const done = slots.filter(s => s.status === "done" && s.url);
+  // "Publicar" de cada tarjeta: lleva a "Listo para publicar" (texto del anuncio + pasos para Meta).
+  const goPublish = () => {
+    const el = document.getElementById("listo-para-publicar");
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    else toast("Espera a que terminen todas las imágenes", { description: "Luego te mostramos el texto del anuncio y cómo subirlas." });
+  };
   const downloadAll = async () => {
     for (const [i, s] of done.entries()) { await download(s.url!, `supernova-${mode}-${i + 1}.webp`); await sleep(350); }
   };
@@ -319,6 +325,7 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
               onDownload={() => void download(s.url!, `supernova-${mode}-${s.id}.webp`)}
               onRedo={() => void runSlot(s)}
               onVary={() => void vary(s)}
+              onPublish={goPublish}
               onAnimate={mode === "carrusel" ? undefined : () => handOff(s, "video_anuncio")}
               onYoutube={mode === "miniatura" ? () => handOff(s, "youtube") : undefined} />
           ))}

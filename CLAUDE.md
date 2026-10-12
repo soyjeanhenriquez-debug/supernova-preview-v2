@@ -66,7 +66,14 @@ su moneda.
 - NUNCA poner un precio por debajo de **costo real × 5** (piso absoluto 3× en el peor caso),
   calculado con el crédito más barato (~US$0,008). Vigilar con `admin_margin`.
 - NUNCA cambiar precios de planes, packs o créditos sin que Jean lo decida.
-- NUNCA dar acceso de pago por registrarse: el acceso lo dan SOLO los webhooks de pago de Whop.
+- NUNCA dar acceso de pago por registrarse: el plan PRO (2.000 créditos al mes, sin tope de
+  pruebas) lo dan SOLO los webhooks de pago de Whop.
+- **Prueba gratis (decisión de Jean, 12-oct-2026, "como Higgsfield"):** toda cuenta con el correo
+  confirmado entra a la app y prueba todas las herramientas: 5 usos por herramienta, tope de US$2
+  de costo real de IA por cuenta, ninguna acción de más de US$1 y freno global de 1.000 pruebas al
+  día. Lo decide el servidor (`private.free_trial_user`, `edge_guard_charge`, `my_trial_state`);
+  una cuenta gratis nunca gasta créditos de regalo (`debit_credits`). Al llegar al tope: "Activar
+  PRO" con un clic a Whop. No subir el tope sin el OK de Jean.
 - El cobro es **Whop**. Stripe está APAGADO (`STRIPE_ENABLED`); no encenderlo sin arreglar antes
   sus fallos anotados en `stripe-*` ni sin el OK de Jean.
 - Créditos mensuales no se acumulan por encima de 3.000; los comprados sí se acumulan y no caducan.

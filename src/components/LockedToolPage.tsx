@@ -6,6 +6,8 @@ import { TOOLS, ADMIN_EXTRA_TOOLS } from "@/lib/tools";
 import { tutorialFor } from "@/lib/tutorials";
 import { TutorialDialog } from "@/components/TutorialButton";
 import { MARKET_NAME, NICHE_LABEL, flagFor } from "@/lib/offers";
+import { GuaranteeLine } from "@/components/PlanFeatures";
+import { creditEquivalentsLine } from "@/components/CreditRing";
 
 /**
  * Lo que ve en una herramienta quien tiene cuenta pero no plan (vitrina). Dice qué hace la
@@ -18,7 +20,7 @@ const EXTRA_PAGES: Record<string, { title: string; desc: string }> = {
   "Productos": { title: "Mis productos", desc: "Todos tus productos y cuánto avanzó cada uno." },
   "Proyectos": { title: "Lo que creaste", desc: "Todo lo que creas y guardas queda aquí para retomarlo." },
   "Mi negocio": { title: "Mi ficha", desc: "Qué vendes, para quién y qué logra. La usan todas las herramientas." },
-  "Créditos": { title: "Mis créditos", desc: "PRO trae 2.000 créditos al mes para lo que hace la IA. Mirar ofertas, el radar y los ganchos es gratis." },
+  "Créditos": { title: "Mis créditos", desc: `PRO trae 2.000 créditos al mes para lo que hace la IA (${creditEquivalentsLine(2000, { withOr: true })}). Mirar ofertas, el radar y los ganchos es gratis.` },
 };
 
 /** Una muestra compartida por la sesión: se pide una vez. */
@@ -82,6 +84,8 @@ export function LockedToolPage({ page }: { page: string }) {
           <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground inline-flex items-center gap-1.5"><Lock className="w-3 h-3" /> Incluido en PRO</p>
           <h1 className="mt-1 font-display font-bold text-[22px] md:text-[26px] text-foreground leading-tight">{info.title}</h1>
           {info.desc && <p className="mt-1 text-sm text-muted-foreground">{info.desc}</p>}
+          {/* Lo que quita el miedo a pagar, justo al lado del botón (misión "pagar y recargar"). */}
+          <GuaranteeLine className="mt-3" />
         </div>
         <div className="flex flex-col sm:flex-row md:flex-col gap-2 shrink-0">
           <button onClick={unlock} className="btn-primary-nova rounded-xl px-5 py-3 text-[14px] font-semibold">Empezar mis 3 días gratis</button>
@@ -106,7 +110,7 @@ export function LockedToolPage({ page }: { page: string }) {
           ) : rows.length > 0 ? (
             <SampleOffers rows={rows} visible={3} onLocked={unlock} />
           ) : null}
-          <p className="mt-3 text-[12px] text-muted-foreground">Con PRO ves el catálogo completo, el detalle de cada oferta, su checkout y cuánto vale un cliente.</p>
+          <p className="mt-3 text-[12px] text-muted-foreground">Con PRO ves el catálogo completo, el detalle de cada oferta, su página de pago y cuánto vale un cliente.</p>
         </section>
       )}
 

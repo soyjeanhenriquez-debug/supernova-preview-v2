@@ -90,8 +90,8 @@ export function useAdHistory() {
       supabase.from("ad_favorites").select("*").eq("user_id", userId)
         .order("created_at", { ascending: false }),
     ]);
-    setHistory((hist ?? []).map((r: unknown) => rowToItem(r, r.visited_at)));
-    setFavorites((favs ?? []).map((r: unknown) => rowToItem(r, r.created_at)));
+    setHistory(((hist ?? []) as (Row & { visited_at: string })[]).map((r) => rowToItem(r, r.visited_at)));
+    setFavorites(((favs ?? []) as (Row & { created_at: string })[]).map((r) => rowToItem(r, r.created_at)));
   }, [userId]);
 
   useEffect(() => { refresh(); }, [refresh]);

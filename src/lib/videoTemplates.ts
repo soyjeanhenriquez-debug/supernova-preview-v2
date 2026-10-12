@@ -20,7 +20,7 @@ export type VideoBrief = { product: string; who: string; promise: string; angle?
 export type Shot = { role: ShotRole; label: string; seconds: 5 | 10; scene: string; line: string };
 
 /** Créditos por clip (credit_prices: vid_mini_5 / vid_mini_10). Lo cobra el servidor. */
-export const VIDEO_PRICE = { 5: 55, 10: 110 } as const;
+export const VIDEO_PRICE = { 5: 75, 10: 150 } as const;
 
 export const VIDEO_TEMPLATES: { id: VideoTemplateId; label: string; desc: string }[] = [
   { id: "problema_solucion", label: "Problema y solución", desc: "Muestra el problema y presenta tu producto como la salida." },
@@ -66,13 +66,18 @@ export function hasForbiddenClaim(text: string): boolean {
 }
 
 const tidy = (s: unknown, max: number) => (typeof s === "string" ? s.replace(/\s+/g, " ").trim() : "").slice(0, max);
-/** Corta en palabra completa y sin punto final, para meterlo dentro de una frase. */
+// Palabras que no pueden cerrar una frase hablada ("…ejercicio en por dentro", prueba Hany 11-oct-2026).
+const DANGLING = /\s+(?:de|del|en|para|con|sin|por|a|al|y|o|u|e|que|el|la|los|las|un|una|unos|unas|tu|tus|su|sus|mi|mis)$/iu;
+/** Corta en palabra completa, sin punto final ni preposición colgando, para meterlo dentro de una frase. */
 export function shortPhrase(s: string, max: number): string {
   const t = tidy(s, 400).replace(/[.!?¡¿]+$/g, "").trim();
   if (t.length <= max) return t;
   const cut = t.slice(0, max);
   const i = cut.lastIndexOf(" ");
-  return (i > max * 0.5 ? cut.slice(0, i) : cut).replace(/[,;:]+$/, "").trim();
+  let out = (i > max * 0.5 ? cut.slice(0, i) : cut).replace(/[,;:]+$/, "").trim();
+  // Si queda "…ejercicio en", se quita la palabra suelta (hasta dos veces: "…curso para la").
+  for (let k = 0; k < 2 && DANGLING.test(out) && out.includes(" "); k++) out = out.replace(DANGLING, "").replace(/[,;:]+$/, "").trim();
+  return out;
 }
 const lower1 = (s: string) => (s ? s.charAt(0).toLowerCase() + s.slice(1) : s);
 
@@ -169,7 +174,8 @@ function adScenes(id: VideoTemplateId, b: VideoBrief): [string, string, string] 
   return [
     hook[id],
     `La misma persona ${showIt}. Movimiento de cámara suave hacia el producto.`,
-    "La misma persona sonríe a cámara y señala hacia abajo, invitando a tocar el enlace. Fondo limpio, luz cálida.",
+    // "Fondo limpio" cambiaba el lugar en la toma 3 (misión R2-05): ahora sigue en el mismo sitio.
+    "La misma persona, en el mismo lugar, sonríe a cámara y señala hacia abajo, invitando a tocar el enlace. Luz cálida.",
   ];
 }
 
@@ -209,6 +215,28 @@ export function retryFromIndex(run: { done: boolean }[], shotCount: number): num
   const i = run.findIndex(r => !r.done);
   if (i <= 0) return 0;
   return run.slice(0, i).every(r => r.done) ? i : 0;
+}
+
+/** Recibo de cada toma en Historial: "Toma 1 de 3 · Gancho" (misión R2-05, 12-oct-2026). */
+export function shotReceiptLabel(i: number, total: number, label: string): string {
+  return total > 1 ? `Toma ${i + 1} de ${total} · ${label}` : label;
+}
+
+/** Lo que dice una toma que no se creó porque falló la toma 1 (de ella salen persona y lugar). */
+export const SKIPPED_SHOT = "No se creó: falló la toma 1, que fija a la persona y el lugar. No se te cobró.";
+
+/**
+ * Texto del botón mientras se crea el anuncio. La toma 1 va sola y luego las demás A LA VEZ, así que
+ * "Creando toma 2 de 3" mentía cuando se creaban la 2 y la 3 juntas.
+ */
+export function adBusyLabel(run: { done: boolean; failed: boolean }[]): string {
+  const n = run.length;
+  if (n <= 1) return "Creando tu video…";
+  const pending = run.map((r, i) => (!r.done && !r.failed ? i + 1 : 0)).filter(Boolean);
+  if (!pending.length) return "Terminando…";
+  if (pending.length === 1) return `Creando toma ${pending[0]} de ${n}…`;
+  if (pending[0] === 1) return `Creando toma 1 de ${n}…`;
+  return `Creando tomas ${pending.slice(0, -1).join(", ")} y ${pending[pending.length - 1]} de ${n}…`;
 }
 
 /** Prompt final de una toma. `presenter`: la imagen inicial es la foto del presentador. */

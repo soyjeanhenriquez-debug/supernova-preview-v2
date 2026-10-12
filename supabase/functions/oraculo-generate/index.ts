@@ -4,8 +4,11 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 import { HONESTY_RULES } from "../_shared/honesty.ts";
 import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2.117.1";
 import { safeRefund } from "../_shared/refund.ts";
+import { apimartImage } from "../_shared/apimart.ts";
+import { MI_VERSION_SYSTEM, miVersionPrompt, normalizeMiVersion } from "./miVersion.ts";
 
-type Kind = "creativos" | "landing" | "avatar" | "funnel" | "master_prompt" | "whatsapp_script" | "vsl_prompt";
+type Kind = "creativos" | "landing" | "avatar" | "funnel" | "master_prompt" | "whatsapp_script" | "vsl_prompt"
+  | "mi_version" | "mi_version_image";
 
 interface Body {
   kind: Kind;
@@ -17,6 +20,9 @@ interface Body {
   currency?: string;
   /** Recibo de un cobro de "Mi App": cubre master_prompt, whatsapp_script y vsl_prompt. */
   receipt?: string;
+  /** Solo para mi_version_image: la escena y el texto corto que salieron de mi_version. */
+  image_prompt?: string;
+  image_text?: string;
 }
 
 // Qué acción de la lista de precios cobra cada generador. Los dos guiones de
@@ -25,9 +31,27 @@ interface Body {
 const KIND_ACTION: Record<Kind, string> = {
   creativos: "gen_ad_copies", landing: "gen_landing", avatar: "gen_avatar", funnel: "gen_funnel",
   master_prompt: "gen_master_prompt", whatsapp_script: "gen_light", vsl_prompt: "gen_medium",
+  // "Hacer mi versión" dentro de la app (12-oct-2026): mi_version cobra los 50 de siempre y emite el
+  // recibo; la imagen va cubierta por ese recibo. Si el recibo ya no la cubre (vencido o 3 usos), se cobra
+  // como una imagen de anuncio normal (gen_ad_image), nunca otra vez los 50.
+  mi_version: "gen_master_prompt", mi_version_image: "gen_ad_image",
 };
 
-const PROMPTS: Record<Kind, { system: string; user: (b: Body) => string }> = {
+// Clase de uso que se descuenta del recibo. edge_guard_charge (SQL) solo cubre estas cuatro:
+// blueprint, master_prompt, whatsapp_script y vsl_prompt (hasta 3 usos cada una, 2 horas). Las piezas
+// nuevas usan dos de ellas para no tocar la base: el texto cuenta como master_prompt y la imagen como
+// vsl_prompt (el guion de video ya no se pide dentro de Mi versión). Migración propuesta en el reporte
+// R2-12 para darles nombre propio.
+const RECEIPT_KIND: Record<Kind, string> = {
+  creativos: "creativos", landing: "landing", avatar: "avatar", funnel: "funnel",
+  master_prompt: "master_prompt", whatsapp_script: "whatsapp_script", vsl_prompt: "vsl_prompt",
+  mi_version: "master_prompt", mi_version_image: "vsl_prompt",
+};
+
+// Lo que ninguna imagen puede mostrar (mismo texto que generate-ad-creative; se añade en el servidor).
+const SAFE_RULES = "Apto para todo público: nada sexual, sin desnudos ni poses o ropa sugerentes; sin cuerpos antes y después ni cambios físicos; sin cifras de dinero, peso o salud; sin logos, nombres ni empaques de marcas existentes, tampoco de la oferta que se modela, ni personas famosas; el único nombre de producto que puede aparecer escrito es el del usuario.";
+
+const PROMPTS: Record<Exclude<Kind, "mi_version" | "mi_version_image">, { system: string; user: (b: Body) => string }> = {
   creativos: {
     system:
       "Eres un copywriter senior de direct response en español latinoamericano. Devuelve SOLO Markdown limpio, sin preámbulos.",
@@ -495,45 +519,88 @@ async function refundCharge(gate: Gate | null, reason: string): Promise<void> {
   await safeRefund(guardClient(), gate.txId, reason, "oraculo-generate");
 }
 
+const json = (status: number, payload: unknown, extra: Record<string, string> = {}) =>
+  new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, ...extra, "Content-Type": "application/json" } });
+
+async function logUsage(userId: string, fn: string, model: string, input: number, output: number, images: number) {
+  try {
+    const { error } = await guardClient().rpc("log_ai_usage", { p_user_id: userId, p_fn: fn, p_model: model, p_input: input, p_output: output, p_images: images });
+    if (error) console.error("log_ai_usage:", error.message);
+  } catch (e) { console.error("log_ai_usage:", e instanceof Error ? e.message : e); }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   let gate: Gate | null = null;
   try {
     const apiKey = (Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
-    if (!apiKey) {
-      return new Response(JSON.stringify({ error: "Missing LOVABLE_API_KEY" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (!apiKey) return json(500, { error: "Missing LOVABLE_API_KEY" });
 
     const body = (await readJson(req, 80000).catch(() => ({}))) as Body;
-    if (!body.kind || !PROMPTS[body.kind]) {
-      return new Response(JSON.stringify({ error: "kind inválido" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (!body.analysis || body.analysis.trim().length < 80) {
-      return new Response(JSON.stringify({ error: "analysis requerido" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (!body.kind || !Object.prototype.hasOwnProperty.call(KIND_ACTION, body.kind)) return json(400, { error: "kind inválido" });
 
     // Topes por campo: todo esto se interpola en el prompt.
     const clip = (v: unknown, n: number) => (typeof v === "string" ? v.slice(0, n) : undefined);
-    body.analysis = String(body.analysis).slice(0, 40_000);
     body.brand = clip(body.brand, 200);
     body.url = clip(body.url, 500);
     body.country = clip(body.country, 40);
     body.currency = clip(body.currency, 40);
 
+    // ── Imagen de "Mi versión": va cubierta por el recibo del cobro de mi_version ──────────────
+    if (body.kind === "mi_version_image") {
+      const scene = String(clip(body.image_prompt, 1200) ?? "").trim();
+      const text = String(clip(body.image_text, 60) ?? "").replace(/["“”]/g, "").trim();
+      if (scene.length < 10) return json(400, { error: "Falta la descripción de la imagen." });
+      if (typeof body.receipt !== "string") return json(400, { error: "Primero haz tu versión: la imagen va incluida en ella." });
+      const g = await requireUser(req, "oraculo-generate", 40, 200, {
+        action: KIND_ACTION.mi_version_image, kind: RECEIPT_KIND.mi_version_image, receipt: body.receipt,
+        label: `Imagen de Mi versión${body.brand ? ` · ${body.brand}` : ""}`.slice(0, 80),
+      });
+      if (g instanceof Response) return g;
+      gate = g;
+      const fullPrompt = `${scene}${text ? `\nTexto grande y legible en la imagen, en español, escrito exactamente así: "${text}". Ningún otro texto.` : "\nSin texto en la imagen."}\n\nFormato: square 1:1 format, Instagram/Facebook feed ad. Estilo publicitario profesional, alta calidad, listo para usar como creativo de anuncio en redes sociales. ${SAFE_RULES}`;
+      const am = await apimartImage(fullPrompt, "1:1");
+      if (am) {
+        await logUsage(gate.userId, "oraculo-generate:mi_version_image", "apimart/gpt-image-2", 0, 0, 1);
+        return json(200, { kind: body.kind, image: `data:${am.mime};base64,${am.b64}`, billing: { charged: gate.charged, balance: gate.balance, receipt: gate.receipt } }, billingHeaders(gate));
+      }
+      // Respaldo: Gemini directo (más caro, mismo resultado para la persona).
+      const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/images/generations", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "gemini-2.5-flash-image", prompt: fullPrompt, response_format: "b64_json", n: 1 }),
+      });
+      if (!r.ok) {
+        await refundCharge(gate, `imagen IA ${r.status}`);
+        console.error("oraculo-generate imagen:", r.status, (await r.text()).slice(0, 300));
+        return json(r.status === 429 ? 429 : 502, { error: "No se pudo crear la imagen. No se te cobró: toca Reintentar." });
+      }
+      const data = await r.json();
+      const b64 = data?.data?.[0]?.b64_json;
+      await logUsage(gate.userId, "oraculo-generate:mi_version_image", "gemini-2.5-flash-image", 0, 0, b64 ? 1 : 0);
+      if (!b64) {
+        await refundCharge(gate, "sin imagen");
+        return json(502, { error: "La IA no devolvió la imagen. No se te cobró: toca Reintentar." });
+      }
+      return json(200, { kind: body.kind, image: `data:image/png;base64,${b64}`, billing: { charged: gate.charged, balance: gate.balance, receipt: gate.receipt } }, billingHeaders(gate));
+    }
+
+    if (!body.analysis || body.analysis.trim().length < 80) return json(400, { error: "analysis requerido" });
+    body.analysis = String(body.analysis).slice(0, 40_000);
+    const isMi = body.kind === "mi_version";
+
     const g = await requireUser(req, "oraculo-generate", 40, 200, {
-      action: KIND_ACTION[body.kind], kind: body.kind, receipt: body.receipt,
-      label: body.brand ? `${body.kind} · ${body.brand}`.slice(0, 80) : undefined,
+      action: KIND_ACTION[body.kind], kind: RECEIPT_KIND[body.kind], receipt: body.receipt,
+      label: isMi
+        ? `Mi versión${body.brand ? ` · ${body.brand}` : ""}`.slice(0, 80)
+        : body.brand ? `${body.kind} · ${body.brand}`.slice(0, 80) : undefined,
     });
     if (g instanceof Response) return g;
     gate = g;
 
-    const p = PROMPTS[body.kind];
+    const kind = body.kind as Exclude<Kind, "mi_version" | "mi_version_image">;
+    const system = isMi ? MI_VERSION_SYSTEM : PROMPTS[kind].system;
+    const user = isMi ? miVersionPrompt(body.analysis, paymentHint(body.country, body.currency)) : PROMPTS[kind].user(body);
 
     const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
@@ -544,30 +611,23 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: "gemini-3-flash-preview",
         messages: [
-          { role: "system", content: p.system + HONESTY_RULES },
-          { role: "user", content: p.user(body) },
+          { role: "system", content: system + HONESTY_RULES },
+          { role: "user", content: user },
         ],
+        ...(isMi ? { response_format: { type: "json_object" } } : {}),
       }),
     });
 
     if (!r.ok) await refundCharge(gate, `IA ${r.status}`);
-    if (r.status === 429) {
-      return new Response(JSON.stringify({ error: "La IA está saturada. No se te cobró: intenta en un momento." }), {
-        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (r.status === 429) return json(429, { error: "La IA está saturada. No se te cobró: intenta en un momento." });
     if (r.status === 402) {
       console.error("oraculo-generate: el proveedor de IA respondió 402 (saldo prepago agotado)");
-      return new Response(JSON.stringify({ error: "La IA no está disponible en este momento. No se te cobró: inténtalo más tarde." }), {
-        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json(503, { error: "La IA no está disponible en este momento. No se te cobró: inténtalo más tarde." });
     }
     if (!r.ok) {
       const t = await r.text();
       console.error("oraculo-generate IA:", r.status, t.slice(0, 300));
-      return new Response(JSON.stringify({ error: "La IA no respondió. No se te cobró: inténtalo de nuevo." }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json(502, { error: "La IA no respondió. No se te cobró: inténtalo de nuevo." });
     }
 
     const data = await r.json();
@@ -576,29 +636,27 @@ Deno.serve(async (req) => {
     if (u) {
       const input = Number(u.prompt_tokens) || 0;
       const output = Math.max(Number(u.completion_tokens) || 0, (Number(u.total_tokens) || 0) - input);
-      try {
-        const { error: logErr } = await guardClient().rpc("log_ai_usage", { p_user_id: gate.userId, p_fn: `oraculo-generate:${body.kind}`, p_model: "gemini-3-flash-preview", p_input: input, p_output: output, p_images: 0 });
-        if (logErr) console.error("log_ai_usage:", logErr.message);
-      } catch (e) { console.error("log_ai_usage:", e instanceof Error ? e.message : e); }
+      await logUsage(gate.userId, `oraculo-generate:${body.kind}`, "gemini-3-flash-preview", input, output, 0);
     }
     const content = data?.choices?.[0]?.message?.content ?? "";
     if (!String(content).trim()) {
       await refundCharge(gate, "respuesta vacía");
-      return new Response(JSON.stringify({ error: "La IA devolvió una respuesta vacía. No se te cobró: inténtalo de nuevo." }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json(502, { error: "La IA devolvió una respuesta vacía. No se te cobró: inténtalo de nuevo." });
     }
 
-    return new Response(JSON.stringify({
-      kind: body.kind, content,
-      billing: { charged: gate.charged, balance: gate.balance, receipt: gate.receipt },
-    }), {
-      headers: { ...corsHeaders, ...billingHeaders(gate), "Content-Type": "application/json" },
-    });
+    const billing = { charged: gate.charged, balance: gate.balance, receipt: gate.receipt };
+    if (isMi) {
+      const mi = normalizeMiVersion(String(content), body.brand);
+      if (!mi) {
+        await refundCharge(gate, "mi_version sin JSON válido");
+        console.error("oraculo-generate mi_version JSON:", String(content).slice(0, 300));
+        return json(502, { error: "La IA no armó bien tu versión. No se te cobró: toca Reintentar." });
+      }
+      return json(200, { kind: body.kind, content: JSON.stringify(mi), data: mi, billing }, billingHeaders(gate));
+    }
+    return json(200, { kind: body.kind, content, billing }, billingHeaders(gate));
   } catch (e) {
     await refundCharge(gate, "excepción");
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json(500, { error: e instanceof Error ? e.message : "Unknown" });
   }
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildDescription, chapters, checkLimits, estimateCost, MAX_NARRATION, parseScenes, pickAnimated, scriptMeta,
-  splitText, subtitleChunks, suggestVoice, tagsFrom, timecode,
+  buildDescription, chapters, CHARS_PER_SECOND, checkLimits, estimateCost, fitScenes, fullVideoCost, MAX_NARRATION, MAX_SCENES,
+  parseScenes, pickAnimated, PRICES, sceneSeconds, scenesFor, scriptMeta, splitText, subtitleChunks, suggestVoice, tagsFrom, timecode,
 } from "./ytScenes";
 
 const scene = (n: number, narr = `Esta es la narración de la escena ${n}. Tiene una idea clara y corta.`) =>
@@ -70,9 +70,9 @@ describe("splitText", () => {
 
 describe("estimateCost y pickAnimated", () => {
   const sixteen = Array.from({ length: 16 }, () => ({}));
-  it("16 escenas al 20 % = 80 + 96 + 165 = 341", () => {
+  it("16 escenas al 20 % = 80 + 96 + 225 = 401 (clip de 5 s = 75, igual a vid_mini_5)", () => {
     const c = estimateCost(sixteen, 20);
-    expect(c).toEqual({ voice: 80, images: 96, clips: 165, total: 341, animated: 3 });
+    expect(c).toEqual({ voice: 80, images: 96, clips: 225, total: 401, animated: 3 });
   });
   it("sin animación cuesta 176", () => {
     expect(estimateCost(sixteen, 0).total).toBe(176);
@@ -155,5 +155,45 @@ describe("límites, voz, título y etiquetas", () => {
     expect(d).toContain("00:00 Inicio");
     expect(d).toContain("IA");
     expect(d).toContain("#perrofeliz");
+  });
+});
+
+describe("duración, escenas y costo del video completo", () => {
+  it("un video largo no pasa del tope de escenas", () => {
+    for (const m of [1, 3, 8, 12, 15, 20]) {
+      expect(scenesFor(m)).toBeLessThanOrEqual(MAX_SCENES);
+      // la narración de cada escena cabe en una voz (≤ 600 caracteres ≈ 41 s)
+      expect(sceneSeconds(m) * CHARS_PER_SECOND).toBeLessThanOrEqual(MAX_NARRATION);
+    }
+    expect(sceneSeconds(1)).toBe(10);
+    expect(sceneSeconds(12)).toBe(20);
+  });
+  it("12 min: guion 30 + 36 escenas (voz 5 + imagen 6) + 7 animadas × 75", () => {
+    const f = fullVideoCost(12, 30);
+    expect(f.scenes).toBe(36);
+    expect(f.produce).toEqual({ voice: 180, images: 216, clips: 525, total: 921, animated: 7 });
+    expect(f.total).toBe(951);
+    expect(f.totalStill).toBe(426);
+    expect(PRICES.clip).toBe(75);
+  });
+});
+
+describe("fitScenes", () => {
+  const mk = (n: number, len = 145) => Array.from({ length: n }, (_, i) => ({ n: String(i + 1), visual: `v${i + 1}`, narration: "a".repeat(len) }));
+  it("une escenas cortas hasta quedar en el tope, sin perder texto", () => {
+    const src = mk(72);
+    const out = fitScenes(src);
+    expect(out.length).toBeLessThanOrEqual(MAX_SCENES);
+    expect(out.every(s => s.narration.length <= MAX_NARRATION)).toBe(true);
+    expect(out.map(s => s.narration.replace(/ /g, "")).join("")).toBe(src.map(s => s.narration).join(""));
+    expect(out.map(s => s.n)).toEqual(out.map((_, i) => String(i + 1)));
+  });
+  it("no toca un guion que ya cabe", () => {
+    const src = mk(10);
+    expect(fitScenes(src)).toEqual(src);
+  });
+  it("si no se puede unir sin pasar una voz, lo deja como está", () => {
+    const src = mk(45, 400);
+    expect(fitScenes(src)).toHaveLength(45);
   });
 });

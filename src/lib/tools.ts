@@ -49,30 +49,30 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
   // ---------- Estudio IA ----------
   T({ id: "creativos", key: "Creativos", icon: Image, title: "Creativos y fotos", nav: "Creativos y fotos", cost: cr(C.gen_ad_image * 3),
     desc: "Anuncios para Meta, una persona usando tu producto o fotos de estudio: eliges el estilo arriba.",
-    keywords: "creativo creativos imagen imagenes anuncio ads banner meta facebook instagram fotos ugc celular selfie persona lifestyle foto producto mockup estudio packshot tienda catalogo" }),
+    keywords: "creativo creativos imagen imagenes anuncio ads banner meta facebook instagram fotos ugc celular selfie persona lifestyle foto producto mockup estudio packshot tienda catalogo post publicacion portada diseño ebook curso primer anuncio" }),
   T({ id: "videoanuncio", key: "Video anuncio", icon: Megaphone, title: "Video con IA", nav: "Video con IA", cost: `desde ${cr(C.vid_mini_5)}`,
     desc: "Anuncio de 3 tomas, motion graphics, una escena libre o una serie: eliges el modo arriba.",
-    keywords: "video videos ia anuncio ads reels tiktok meta gancho demo llamada comercial clip escena faceless sin cara serie series novela novelas dibujos animados anime historia capitulos motion graphics texto animado" }),
+    keywords: "video videos ia anuncio ads reels tiktok meta facebook instagram gancho demo llamada comercial clip escena faceless sin cara serie series novela novelas dibujos animados anime historia capitulos motion graphics texto animado ebook curso" }),
   T({ id: "motion", key: "Motion graphics", icon: Shapes, title: "Motion graphics", cost: `desde ${cr(C.motion_ad)}`,
     desc: "Texto animado con el estilo de un video que ya funciona: pega tu guion y descárgalo.",
     keywords: "motion graphics motion grafics animacion texto animado tipografia kinetic estilo referencia guion reels tiktok shorts motivacional anuncio faceless sin cara plantilla" }),
   T({ id: "carrusel", key: "Carrusel", icon: LayoutTemplate, title: "Carrusel que vende", cost: cr(C.gen_light),
-    desc: "3 portadas a elegir y láminas con tu marca, texto perfecto.", keywords: "carrusel carruseles laminas slides instagram post" }),
+    desc: "3 portadas a elegir y láminas con tu marca, texto perfecto.", keywords: "carrusel carruseles laminas slides instagram post publicacion imagen imagenes diseño ebook curso vender" }),
   T({ id: "fotosugc", key: "Fotos UGC", icon: Smartphone, title: "Fotos estilo UGC", nav: "Fotos estilo UGC", cost: cr(C.gen_ad_image * 3),
     desc: "Fotos como hechas con el celular: una persona usando tu producto.", keywords: "fotos ugc celular selfie persona producto natural lifestyle" }),
   T({ id: "fotoproducto", key: "Foto de producto", icon: Camera, title: "Foto de producto", cost: cr(C.gen_ad_image * 3),
     desc: "De estudio, en mockup y en uso.", keywords: "foto producto mockup estudio packshot tienda catalogo" }),
   T({ id: "personaje", key: "Sin mostrar tu cara", icon: UserRound, title: "Influencer IA", nav: "Influencer IA (sin tu cara)",
     desc: "Elige o crea tu influencer, dale una voz y hazlo hablar en video por ti.", keywords: "personaje avatar influencer ia sin cara reels tiktok ugc presentador habla camara voz video" }),
-  T({ id: "copy", key: "Generadores", icon: FileText, title: "Robot de copy", nav: "Robot de copy", cost: `desde ${cr(C.gen_light)}`,
+  T({ id: "copy", key: "Generadores", icon: FileText, title: "Textos que venden", nav: "Textos que venden", cost: `desde ${cr(C.gen_light)}`,
     desc: "Página de ventas, VSL, correos, DM, Reels y textos de posts, en 3 kits de pasos.",
-    keywords: "copy copys textos guion guiones correo correos email secuencia pagina de venta landing generador vsl dm setter mensajes ascension high ticket reels tiktok shorts captions descripcion post" }),
+    keywords: "robot de copy copy copys textos texto guion guiones correo correos email secuencia pagina de venta pagina web sitio landing generador vsl dm setter mensajes ascension high ticket reels tiktok shorts captions descripcion post ebook curso vender whatsapp" }),
   T({ id: "anuncios", key: "Mándala", icon: Orbit, title: "Tus primeros 5 anuncios", nav: "Tus primeros 5 anuncios",
-    desc: "Créalos en el orden que conviene y mide cuál apagar o escalar.", keywords: "anuncio anuncios ads mandala campaña resultados metricas medir escalar apagar ctr gasto ventas" }),
+    desc: "Créalos en el orden que conviene y mide cuál apagar o escalar.", keywords: "anuncio anuncios ads mandala campaña resultados metricas medir escalar apagar ctr gasto ventas facebook instagram meta primer anuncio ebook curso vender" }),
   T({ id: "miniaturas", key: "Miniaturas", icon: MonitorPlay, title: "Miniaturas", cost: cr(C.gen_ad_image * 2),
     desc: "Portadas para YouTube y Reels que se leen en pequeño.", keywords: "miniatura miniaturas thumbnail portada youtube" }),
   T({ id: "ganchos", key: "Hooks", icon: Quote, title: "Ganchos que atrapan", nav: "Ganchos (hooks)",
-    desc: "Primeras frases de anuncios reales, listas para adaptar.", keywords: "ganchos hooks frases titulares atencion" }),
+    desc: "Primeras frases de anuncios reales, listas para adaptar.", keywords: "ganchos hooks frase frases titulo titulos titulares atencion inicio video reels" }),
   T({ id: "videoia", key: "Video IA", icon: Video, title: "Video con IA", nav: "Video con IA", cost: `desde ${cr(C.vid_mini_5)}`,
     desc: "Describe la escena y la IA la graba, con sonido.", keywords: "video videos ia clip reels tiktok youtube faceless sin cara anuncio ugc" }),
   T({ id: "series", key: "Series", icon: Clapperboard, title: "Series de video", nav: "Series de video", cost: `${C.vid_mini_5} por escena`,
@@ -84,31 +84,31 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
     desc: "Del guion al video terminado (o solo el guion): voz, imágenes y subtítulos, para canales sin cara.", keywords: "youtube faceless sin cara canal video largo guion guiones creador documental animado" }),
 
   // ---------- Encontrar ----------
-  T({ id: "ideas", key: "Ideas", icon: Lightbulb, featured: true, title: "Ideas de side hustle", nav: "Ideas de side hustle", cost: FREE,
+  T({ id: "ideas", key: "Ideas", icon: Lightbulb, title: "Ideas de side hustle", nav: "Ideas de side hustle", cost: FREE,
     desc: "6 caminos para empezar de cero, con ejemplos reales y la primera acción.", keywords: "ideas side hustle negocio empezar cero emprender caminos faceless ugc low ticket" }),
   T({ id: "radar", key: "Buscar Ofertas Winner", icon: Trophy, title: "Espiar anuncios ganadores", nav: "Radar de anuncios", cost: FREE,
-    desc: "Los que llevan más días pagándose: la mejor prueba de que venden.", keywords: "radar anuncios ganadores espiar facebook instagram meta winner" }),
-  T({ id: "ofertas", key: "Ofertas", icon: Gem, title: "Ofertas que venden", nav: "Ofertas ganadoras", cost: FREE,
-    desc: "Negocios digitales que ya venden, con su precio y su embudo.", keywords: "ofertas negocios productos digitales embudo checkout precio" }),
+    desc: "Los que llevan más días pagándose: la mejor prueba de que venden.", keywords: "radar anuncios ganadores espiar facebook instagram meta winner competencia biblioteca que vender ideas" }),
+  T({ id: "ofertas", key: "Ofertas", icon: Gem, featured: true, title: "Ofertas que venden", nav: "Ofertas ganadoras", cost: FREE,
+    desc: "Negocios digitales que ya venden, con su precio y su embudo.", keywords: "ofertas negocios productos digitales embudo checkout precio que vender idea ideas empezar cero curso cursos ebook guia programa reto infoproducto modelar version mi version hacer mi version" }),
   T({ id: "nichosyt", key: "Nichos YouTube", icon: Radar, title: "Nichos de YouTube", nav: "Nichos de YouTube", cost: FREE,
     desc: "Los videos que más crecieron este mes y su ingreso estimado.", keywords: "nichos youtube canales virales tendencias shorts largos rpm monetizar" }),
   T({ id: "miniapps", key: "Mini Apps", icon: Boxes, title: "Mini Apps listas", cost: "Ver es gratis",
-    desc: "Kits basados en ofertas reales para lanzar tu versión.", keywords: "mini apps kits app saas plantilla" }),
+    desc: "Kits basados en ofertas reales para lanzar tu versión.", keywords: "mini apps kits app saas plantilla version idea ideas negocio que vender" }),
   T({ id: "dolores", key: "Crear", icon: Lightbulb, title: "Descubrir dolores",
-    desc: "Problemas que la gente quiere resolver y por los que paga.", keywords: "dolores problemas ideas nicho necesidades" }),
+    desc: "Problemas que la gente quiere resolver y por los que paga.", keywords: "dolores problemas ideas nicho necesidades que vender" }),
 
   // ---------- Tu negocio ----------
   T({ id: "producto", key: "Crear producto", icon: BookOpen, title: "Crear mi producto", nav: "Crear producto",
-    desc: "Ebook, curso o reto, capítulo por capítulo.", keywords: "producto ebook curso reto libro pdf crear" }),
+    desc: "Ebook, curso o reto, capítulo por capítulo.", keywords: "producto ebook curso reto libro pdf crear infoproducto guia escribir" }),
   T({ id: "validar", key: "Validar", icon: ClipboardCheck, title: "Validar mi idea",
     desc: "14 preguntas con cómo saberlo, para ver si se vende.", keywords: "validar validacion matriz idea" }),
   T({ id: "precio", key: "Precio", icon: Calculator, title: "Precio y ganancia",
-    desc: "Cuánto te queda por venta y cuánto pagar en anuncios.", keywords: "precio ganancia margen cpa calculadora cuanto cobrar" }),
+    desc: "Cuánto te queda por venta y cuánto pagar en anuncios.", keywords: "precio precios ganancia margen cpa calculadora cuanto cobrar cuanto vale dolares pesos" }),
   // Pantalla propia (04-oct-2026): antes abría Robot de copy; el generador "order-bump" sigue allí.
   T({ id: "bump", key: "Order bump", icon: ShoppingBag, title: "Order bump", nav: "Order bump", cost: "Ideas gratis",
     desc: "El extra de un clic antes de pagar: ideas gratis y el texto listo aquí mismo.", keywords: "order bump upsell oferta extra ticket promedio" }),
   T({ id: "recuperar", key: "Recuperar", icon: MessageCircle, title: "Recuperar ventas",
-    desc: "Mensajes de WhatsApp para quien casi compra.", keywords: "recuperar ventas whatsapp carrito abandonado mensajes" }),
+    desc: "Mensajes de WhatsApp para quien casi compra.", keywords: "recuperar ventas whatsapp carrito abandonado mensaje mensajes cliente clientes" }),
   T({ id: "diagnostico", key: "Diagnóstico", icon: Stethoscope, title: "¿Dónde se me escapan las ventas?", nav: "Diagnóstico del embudo", cost: FREE,
     desc: "Anota tus números: te decimos qué paso frena todo y los 3 cambios que más mueven.", keywords: "diagnostico embudo metricas conversion cuello de botella consultor numeros ventas leads whatsapp por que no vendo" }),
   T({ id: "resultados", key: "Resultados", icon: BarChart3, title: "¿Qué anuncio apago o escalo?", nav: "Resultados de anuncios",
@@ -132,7 +132,7 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
   T({ id: "paginas", key: "Generadores", generator: "landing-copy", icon: PanelsTopLeft, title: "Página de ventas", nav: "Página de ventas", cost: cr(C.gen_medium),
     desc: "Todo el texto de tu página, del titular al botón de compra.", keywords: "pagina paginas landing pagina de ventas web sitio textos titular" }),
   T({ id: "contenido", key: "Contenido", icon: CalendarDays, title: "Calendario de contenido",
-    desc: "Ideas con demanda real para publicar sin pagar anuncios.", keywords: "contenido calendario publicaciones organico posts reels" }),
+    desc: "Ideas con demanda real para publicar sin pagar anuncios.", keywords: "contenido calendario publicaciones publicar organico posts reels instagram tiktok gratis sin anuncios" }),
 
   // ---------- Solo admin (en pausa) ----------
   T({ id: "mercado", key: "Mercado", icon: Store, title: "Mercado: qué vender",
@@ -155,12 +155,26 @@ export const FIND_TOOLS = pick(["radar", "ofertas", "nichosyt", "miniapps"]);
 export const ADMIN_EXTRA_TOOLS = pick(["mercado", "oraculo", "video"]);
 
 /**
+ * Menú de una sola puerta (decisión de Jean, 12-oct-2026; docs/agentes/2026-10-11-mision-10-juez.md):
+ * Hoy · Radar · Ofertas · Mis versiones · Crear · Créditos · Ayuda. Lo demás va en "Más herramientas"
+ * (plegado): NO se borra nada, su dirección sigue abriendo y el buscador lo encuentra.
+ */
+export const MENU_FIND_TOOLS = pick(["radar", "ofertas"]);
+/** "Crear" en el menú lateral y en el botón Crear del teléfono. */
+export const MENU_CREATE_TOOLS = pick(["creativos", "carrusel", "videoanuncio", "copy", "personaje"]);
+/** "Siguiente paso" del Inicio: lo que se hace con tu versión (ahí viven las recargas). */
+export const NEXT_STEP_TOOLS = pick(["creativos", "carrusel", "videoanuncio", "copy"]);
+const MENU_IDS = new Set([...MENU_FIND_TOOLS, ...MENU_CREATE_TOOLS].map(t => t.id));
+
+/**
  * Panel de herramientas del Inicio (estructura tomada de LanzaYa, 04-oct-2026): pestañas por lo que
  * quieres hacer. "Lo esencial" son las 12 que abren el panel; "Todo" las muestra todas. Solo
  * herramientas que ya funcionan: nada de tarjetas de cosas que no existen.
  */
 export const HOME_CATEGORIES: { id: string; label: string; tools: Tool[] }[] = [
-  { id: "esencial", label: "Lo esencial", tools: pick(["ofertas", "radar", "creativos", "videoanuncio", "carrusel", "copy", "anuncios", "miniaturas", "personaje", "producto", "precio", "contenido"]) },
+  // Orden (11-oct-2026, misión "primeros 5 minutos"): primero lo que deja una pieza real en minutos
+  // (una oferta modelada, una imagen, un carrusel, los 5 anuncios); mirar el radar y lo demás después.
+  { id: "esencial", label: "Lo esencial", tools: pick(["ofertas", "creativos", "carrusel", "anuncios", "copy", "radar", "videoanuncio", "miniaturas", "personaje", "producto", "precio", "contenido"]) },
   { id: "ideas", label: "Ideas que venden", tools: pick(["radar", "ofertas", "nichosyt", "miniapps", "ganchos", "dolores"]) },
   { id: "imagenes", label: "Imágenes", tools: pick(["creativos", "carrusel", "miniaturas"]) },
   { id: "video", label: "Video", tools: pick(["videoanuncio", "creadoryt", "personaje", "video"]) },
@@ -200,6 +214,77 @@ export const HIDDEN_PAGES = new Set(["Ideas"]);
 export const TOOLS: Tool[] = Object.values(TOOL_BY_ID).filter(t => !ADMIN_EXTRA_TOOLS.includes(t) && !HIDDEN_TOOL_IDS.has(t.id));
 /** Lo que se ve en las cuadrículas ("Todo" del Inicio): sin las que viven dentro de otra. */
 export const GRID_TOOLS: Tool[] = TOOLS.filter(t => !MERGED_INTO[t.id]);
+/** "Más herramientas" del menú (plegado): todas las tarjetas que no están en el menú principal. */
+export const MORE_TOOLS: Tool[] = GRID_TOOLS.filter(t => !MENU_IDS.has(t.id));
+
+// ---------- Buscador para principiantes (Inicio y buscador de arriba) ----------
+/** Sin tildes ni mayúsculas, para que "pagina" encuentre "Página". */
+export const normText = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/**
+ * Palabras de relleno que no dicen qué busca (11-oct-2026, misión "primeros 5 minutos"): con ellas,
+ * "quiero vender un curso" no encontraba nada porque exigía "quiero" y "un" en la ficha.
+ */
+const STOP_WORDS = new Set([
+  "quiero", "quisiera", "necesito", "tengo", "busco", "puedo", "hacer", "hago", "crear", "creo", "como", "que",
+  "para", "por", "con", "sin", "una", "uno", "unos", "unas", "mi", "mis", "tu", "tus", "su", "sus", "de", "del",
+  "al", "el", "la", "los", "las", "un", "en", "es", "se", "no", "si", "y", "o", "a", "me", "te", "le", "lo",
+  "ya", "mas", "muy", "hay", "ser", "algo", "donde", "cual", "cuales", "cuanto", "cuantos", "cuanta", "ayuda",
+  "ayudame", "dame", "app", "supernova", "the", "and", "quiere", "queria", "gustaria", "empiezo",
+]);
+/** Raíz corta: "anuncios" → "anunc", "vender" → "vende", "imágenes" → "image", "fotos" → "foto". */
+function stem(w: string) {
+  let s = w;
+  if (s.length > 4 && s.endsWith("s")) s = s.slice(0, -1);
+  if (s.length > 5) s = s.slice(0, 5);
+  return s;
+}
+/** Las palabras con las que se busca, ya normalizadas; vacío si la frase solo trae relleno. */
+export function searchWords(query: string): string[] {
+  const words = normText(query).split(/[^a-z0-9]+/).filter(w => w.length >= 2 && !STOP_WORDS.has(w)).map(stem);
+  return [...new Set(words)];
+}
+/**
+ * Herramientas para una frase: primero las que tienen todas las palabras; si ninguna las tiene todas,
+ * las que tienen alguna. Título y menú pesan 3; descripción y palabras clave, 1. En empate gana el
+ * orden de la lista que llega (por eso el Inicio pone primero lo esencial).
+ */
+export function searchTools<T extends Pick<Tool, "title" | "nav" | "desc" | "keywords">>(query: string, tools: T[]): T[] {
+  const words = searchWords(query);
+  if (words.length === 0) {
+    const q = normText(query.trim());
+    return q ? tools.filter(t => normText(`${t.title} ${t.nav} ${t.desc} ${t.keywords}`).includes(q)) : [];
+  }
+  const scored = tools.map((t, i) => {
+    const title = normText(`${t.title} ${t.nav}`);
+    const rest = normText(`${t.desc} ${t.keywords}`);
+    let hits = 0, pts = 0;
+    for (const w of words) {
+      if (title.includes(w)) { hits++; pts += 3; } else if (rest.includes(w)) { hits++; pts += 1; }
+    }
+    return { t, i, hits, pts };
+  }).filter(s => s.hits > 0);
+  const complete = scored.filter(s => s.hits === words.length);
+  return (complete.length > 0 ? complete : scored).sort((a, b) => b.pts - a.pts || a.i - b.i).map(s => s.t);
+}
+
+/** Palabras que dicen "qué quiero hacer", no "de qué trata la oferta": no sirven para buscar ofertas. */
+const OFFER_SKIP = new Set(["vende", "venta", "negoc", "empez", "cero", "idea", "ideas", "ofert", "produ", "digit", "ganar"]);
+/**
+ * La palabra con la que se buscan OFERTAS (nombre, página o nicho) a partir de una frase:
+ * "quiero vender un curso" → "curso". Vacío si no queda ninguna útil.
+ */
+export function offerSearchTerm(query: string): string {
+  const words = searchWords(query).filter(w => !OFFER_SKIP.has(w));
+  return words.sort((a, b) => b.length - a.length)[0] ?? "";
+}
+
+/** Orden para buscar: el menú principal primero (en un empate como "vender" gana Ofertas, que es gratis). */
+export function rankForSearch(tools: Tool[]): Tool[] {
+  const first = [...MENU_FIND_TOOLS, ...MENU_CREATE_TOOLS].map(t => t.id);
+  const rank = (t: Tool) => { const i = first.indexOf(t.id); return i === -1 ? 999 : i; };
+  return tools.map((t, i) => ({ t, k: rank(t) * 1000 + i })).sort((a, b) => a.k - b.k).map(x => x.t);
+}
 
 /**
  * Abre una herramienta. Las que son un generador concreto dejan dicho cuál abrir (GeneradoresPage

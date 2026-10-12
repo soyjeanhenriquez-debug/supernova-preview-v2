@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, Coins, FileText, BookOpen, Orbit, FolderKanban, Lock, PlayCircle, Image as ImageIcon, Video, Search, X, LayoutGrid, List, Sparkles, Send, Gem, Compass } from "lucide-react";
+import { ChevronRight, Coins, FileText, BookOpen, Orbit, FolderKanban, Lock, PlayCircle, Image as ImageIcon, Video, Search, X, LayoutGrid, List, Sparkles, Send } from "lucide-react";
 import { useCredits } from "@/hooks/useCredits";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProducts } from "@/contexts/ProductContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureAccess } from "@/lib/features";
-import { TOOLS, ADMIN_EXTRA_TOOLS, HOME_CATEGORIES, MERGED_INTO, MODELS, openTool, useBusinessModel, type Tool } from "@/lib/tools";
+import { TOOLS, ADMIN_EXTRA_TOOLS, HOME_CATEGORIES, MERGED_INTO, MODELS, NEXT_STEP_TOOLS, openTool, useBusinessModel, searchTools, normText, type Tool } from "@/lib/tools";
 import { ToolThumb } from "@/components/dashboard/ToolThumb";
 import { ASK_ASSISTANT_EVENT } from "@/components/HelpAssistant";
-import { IdeaOfTheDay } from "@/components/create/IdeaOfTheDay";
 import { track } from "@/lib/analytics";
-import { DailyPicksHero } from "@/components/dashboard/DailyPicksHero";
+import { TodayOffers } from "@/components/dashboard/TodayOffers";
 import { RoiHunterWidget } from "@/components/dashboard/RoiHunterWidget";
 import { BusinessJourney } from "@/components/journey/BusinessJourney";
 import { OPEN_TOUR_EVENT } from "@/components/OnboardingTour";
@@ -20,15 +19,18 @@ import { TUTORIALS } from "@/lib/tutorials";
 import { ResultsCheckIn } from "@/components/dashboard/ResultsCheckIn";
 
 /**
- * Inicio = "¿Qué quieres crear hoy?" (navegación por intención, decisión de Jean del 03-oct-2026;
- * panel de herramientas estilo LanzaYa del 04-oct-2026): buscador, pestañas por lo que quieres
- * hacer y tarjetas con miniatura que abren la herramienta de un toque; debajo lo último que creó,
- * "Tu idea de hoy", las herramientas de su negocio y, plegado, el recorrido de 6 etapas. En pantallas
- * grandes, columna derecha con créditos y el asistente.
+ * Inicio = "Hoy" (una sola puerta, decisión de Jean del 12-oct-2026): arriba la frase de la app; debajo
+ * 3 ofertas que llevan más de 90 días pagando anuncios, con su creativo y el botón «Hacer mi versión»;
+ * luego "Siguiente paso" (Creativos, Carrusel, Video, Textos que venden) y "Tus creaciones". Todo lo
+ * demás (las pestañas de herramientas, los modelos de negocio, el camino de 6 etapas y las ofertas que
+ * sigues) queda plegado en "Más herramientas y tu camino": nada se borró. En pantallas grandes, columna
+ * derecha con créditos y el asistente.
  */
+const HOME_PHRASE = "Elige un negocio digital que lleva más de 90 días pagando anuncios y haz tu versión en español.";
 interface Props { onNavigate: (p: string) => void; }
 
 const JOURNEY_OPEN_KEY = "supernova:home-journey-open";
+const MORE_OPEN_KEY = "supernova:home-more-open";
 
 type Recent = { id: string; title: string; kind: string; at: string; icon: typeof FileText; open: () => void };
 
@@ -132,8 +134,7 @@ function ago(iso: string) {
 const VIEW_KEY = "supernova:home-view";
 const CAT_KEY = "supernova:home-cat";
 
-/** Sin tildes ni mayúsculas, para que "pagina" encuentre "Página". */
-const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const norm = normText;
 
 /** Preguntas de un toque para el asistente (es gratis, con tope diario en el servidor). */
 const ASK_SUGGESTIONS = [
@@ -142,27 +143,31 @@ const ASK_SUGGESTIONS = [
   "¿Qué negocio digital me conviene vender por WhatsApp?",
 ];
 
-function CardBadge({ tool, locked }: { tool: Tool; locked?: boolean }) {
+function CardBadge({ tool, locked, featured }: { tool: Tool; locked?: boolean; featured?: boolean }) {
   if (locked) return <span className="inline-flex items-center gap-1 rounded-full bg-background/80 border border-border px-2 py-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground"><Lock className="w-3 h-3" /> PRO</span>;
-  if (tool.featured) return <span className="rounded-full bg-primary text-primary-foreground px-2 py-0.5 text-[10px] font-semibold tracking-wide">Empieza aquí</span>;
+  if (featured ?? tool.featured) return <span className="rounded-full bg-primary text-primary-foreground px-2 py-0.5 text-[10px] font-semibold tracking-wide">Empieza aquí</span>;
   return null;
 }
 
-/** Tarjeta con miniatura: se toca y se empieza. */
-function ToolCard({ tool, onOpen, locked }: { tool: Tool; onOpen: () => void; locked?: boolean }) {
+/**
+ * Tarjeta con miniatura: se toca y se empieza. `featured` fuerza el "Empieza aquí". `tour` = false
+ * cuando la misma herramienta sale dos veces (el recorrido de 1 minuto apunta a la de "Siguiente paso").
+ */
+function ToolCard({ tool, onOpen, locked, featured, tour = true }: { tool: Tool; onOpen: () => void; locked?: boolean; featured?: boolean; tour?: boolean }) {
   const Icon = tool.icon;
+  const hot = featured || tool.featured;
   return (
     <button
       onClick={onOpen}
-      data-tour={`home-${tool.id}`}
+      data-tour={tour ? `home-${tool.id}` : undefined}
       className={`group relative text-left rounded-2xl border overflow-hidden flex flex-col transition-colors ${
-        tool.featured ? "border-primary/50 bg-primary/[0.04] hover:border-primary" : "border-border bg-card/40 hover:border-foreground/30 hover:bg-card/70"
+        hot ? "border-primary/50 bg-primary/[0.04] hover:border-primary" : "border-border bg-card/40 hover:border-foreground/30 hover:bg-card/70"
       }`}
     >
       <ToolThumb toolId={tool.id} className="aspect-[16/9] border-b border-border/70 transition-transform duration-300 group-hover:scale-[1.03] origin-bottom" />
-      <span className="absolute top-2.5 right-2.5"><CardBadge tool={tool} locked={locked} /></span>
+      <span className="absolute top-2.5 right-2.5"><CardBadge tool={tool} locked={locked} featured={hot} /></span>
       <span className="relative px-3.5 md:px-4 pb-3.5 md:pb-4 flex flex-col flex-1">
-        <span className={`-mt-[18px] mb-2.5 w-9 h-9 rounded-xl border bg-background flex items-center justify-center ${tool.featured ? "border-primary/50 text-primary" : "border-border text-foreground"}`}>
+        <span className={`-mt-[18px] mb-2.5 w-9 h-9 rounded-xl border bg-background flex items-center justify-center ${hot ? "border-primary/50 text-primary" : "border-border text-foreground"}`}>
           <Icon className="w-[17px] h-[17px]" strokeWidth={1.7} />
         </span>
         <span className="block font-display font-semibold text-[13.5px] md:text-[15px] leading-snug text-foreground">{tool.title}</span>
@@ -179,18 +184,19 @@ function ToolCard({ tool, onOpen, locked }: { tool: Tool; onOpen: () => void; lo
 }
 
 /** La misma herramienta en modo lista (más compacto, cómodo en el teléfono). */
-function ToolRow({ tool, onOpen, locked }: { tool: Tool; onOpen: () => void; locked?: boolean }) {
+function ToolRow({ tool, onOpen, locked, featured }: { tool: Tool; onOpen: () => void; locked?: boolean; featured?: boolean }) {
   const Icon = tool.icon;
+  const hot = featured || tool.featured;
   return (
     <button onClick={onOpen} className={`group w-full flex items-center gap-3 text-left rounded-xl border px-2.5 py-2.5 transition-colors ${
-      tool.featured ? "border-primary/50 bg-primary/[0.04] hover:border-primary" : "border-border bg-card/40 hover:border-foreground/30"
+      hot ? "border-primary/50 bg-primary/[0.04] hover:border-primary" : "border-border bg-card/40 hover:border-foreground/30"
     }`}>
       <ToolThumb toolId={tool.id} className="w-[72px] h-[44px] rounded-lg border border-border/70 shrink-0" />
-      <Icon className={`w-4 h-4 shrink-0 hidden sm:block ${tool.featured ? "text-primary" : "text-muted-foreground"}`} strokeWidth={1.7} />
+      <Icon className={`w-4 h-4 shrink-0 hidden sm:block ${hot ? "text-primary" : "text-muted-foreground"}`} strokeWidth={1.7} />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className="font-display font-semibold text-[13.5px] text-foreground truncate">{tool.title}</span>
-          <CardBadge tool={tool} locked={locked} />
+          <CardBadge tool={tool} locked={locked} featured={hot} />
         </span>
         <span className="block text-[11.5px] text-muted-foreground truncate">{tool.desc}</span>
       </span>
@@ -212,6 +218,15 @@ export function DashboardPage({ onNavigate }: Props) {
   const firstName = (user?.user_metadata?.display_name || user?.email?.split("@")[0] || "")
     .toString().split(/[\s.@]/)[0].replace(/^./, (c: string) => c.toUpperCase());
 
+  // "Más herramientas y tu camino": plegado por defecto (se recuerda en este navegador). Dentro, el
+  // camino de 6 etapas también va plegado: nunca un camino obligatorio.
+  const [moreOpen, setMoreOpen] = useState(() => {
+    try { return localStorage.getItem(MORE_OPEN_KEY) === "1"; } catch { return false; }
+  });
+  const toggleMore = () => setMoreOpen(o => {
+    try { localStorage.setItem(MORE_OPEN_KEY, o ? "0" : "1"); } catch { /* sin almacenamiento */ }
+    return !o;
+  });
   const [journeyOpen, setJourneyOpen] = useState(() => {
     try { return localStorage.getItem(JOURNEY_OPEN_KEY) === "1"; } catch { return false; }
   });
@@ -220,7 +235,7 @@ export function DashboardPage({ onNavigate }: Props) {
     return !o;
   });
 
-  // Panel de herramientas: pestaña, cuadrícula o lista y buscador (pestaña y vista se recuerdan aquí).
+  // Panel de herramientas (dentro de "Más"): pestaña, cuadrícula o lista y buscador.
   const [view, setView] = useState<"grid" | "list">(() => {
     try { return localStorage.getItem(VIEW_KEY) === "list" ? "list" : "grid"; } catch { return "grid"; }
   });
@@ -235,7 +250,12 @@ export function DashboardPage({ onNavigate }: Props) {
   // El buscador encuentra todas (también las que viven dentro de otra); "Todo" muestra solo las tarjetas.
   const visibleAll = useMemo(() => {
     const extra = ADMIN_EXTRA_TOOLS.filter(t => canSee(t.key));
-    return [...TOOLS, ...extra].filter(t => canSee(t.key));
+    // "Lo esencial" va primero: en una búsqueda con empate (p. ej. "vender") gana Ofertas, no una
+    // herramienta que cuesta créditos.
+    const rank = new Map(HOME_CATEGORIES[0].tools.map((t, i) => [t.id, i]));
+    return [...TOOLS, ...extra].filter(t => canSee(t.key))
+      .map((t, i) => ({ t, k: (rank.get(t.id) ?? 999) * 1000 + i }))
+      .sort((a, b) => a.k - b.k).map(x => x.t);
   }, [canSee]);
   const gridAll = useMemo(() => visibleAll.filter(t => !MERGED_INTO[t.id]), [visibleAll]);
   const tabs = useMemo(() => [
@@ -244,11 +264,12 @@ export function DashboardPage({ onNavigate }: Props) {
   ].filter(t => t.tools.length > 0), [canSee, gridAll]);
   const q = norm(query.trim());
   const shown = q
-    ? visibleAll.filter(t => norm(`${t.title} ${t.nav} ${t.desc} ${t.keywords}`).includes(q))
+    ? searchTools(query, visibleAll)
     : (tabs.find(t => t.id === cat) ?? tabs[0])?.tools ?? [];
+  const nextSteps = NEXT_STEP_TOOLS.filter(t => canSee(t.key));
 
-  const open = (tool: Tool) => {
-    track("home_card_click", { card: tool.id, vitrina: locked, modelo: model, pestana: q ? "busqueda" : cat });
+  const open = (tool: Tool, from: string) => {
+    track("home_card_click", { card: tool.id, vitrina: locked, modelo: model, pestana: from });
     openTool(tool, onNavigate);
   };
   const ask = (text: string) => {
@@ -257,38 +278,16 @@ export function DashboardPage({ onNavigate }: Props) {
   };
   const usedPct = limit > 0 ? Math.max(0, Math.min(100, Math.round((balance / limit) * 100))) : 0;
 
-  // Recomendaciones al final: plegadas. Si pasan 40 s en el Inicio sin tocar nada (se quedó pensando),
-  // aparece un aviso discreto que lleva a ellas. Nunca gasta nada ni cambia de pantalla solo.
-  const [recsOpen, setRecsOpen] = useState(false);
-  const [nudge, setNudge] = useState(false);
-  useEffect(() => {
-    if (locked || recsOpen) return;
-    let t = window.setTimeout(() => setNudge(true), 40_000);
-    const reset = () => { window.clearTimeout(t); setNudge(false); t = window.setTimeout(() => setNudge(true), 40_000); };
-    window.addEventListener("pointerdown", reset);
-    window.addEventListener("keydown", reset);
-    return () => { window.clearTimeout(t); window.removeEventListener("pointerdown", reset); window.removeEventListener("keydown", reset); };
-  }, [locked, recsOpen]);
-  const goToRecs = () => {
-    setNudge(false); setRecsOpen(true);
-    requestAnimationFrame(() => document.getElementById("home-recomendaciones")?.scrollIntoView({ behavior: "smooth", block: "start" }));
-  };
-
   return (
     <div className="max-w-[1400px] mx-auto py-4">
-      {nudge && !recsOpen && (
-        <button onClick={goToRecs}
-          className="fixed z-30 left-1/2 -translate-x-1/2 bottom-[calc(80px+env(safe-area-inset-bottom))] lg:bottom-6 inline-flex items-center gap-2 h-11 px-4 rounded-full border border-border bg-card shadow-lg text-[13px] text-foreground hover:border-foreground/30">
-          <Compass className="w-4 h-4 text-primary" strokeWidth={1.8} /> ¿No sabes qué hacer? Te recomendamos algo
-        </button>
-      )}
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0 space-y-8">
-          <div className="flex items-end justify-between gap-4 flex-wrap">
-            <div>
+          {/* La frase de la app: se entiende en 5 segundos qué hacer aquí. */}
+          <header className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="min-w-0 max-w-[760px]">
               {firstName && <p className="text-sm text-muted-foreground mb-1" data-ph-mask>Hola, {firstName}</p>}
-              <h1 className="font-display font-bold text-[26px] md:text-[32px] tracking-[-0.02em] text-foreground">¿Qué quieres hacer hoy?</h1>
-              <p className="mt-1 text-[13px] md:text-[14px] text-muted-foreground">Toca una herramienta y empieza ya.</p>
+              <h1 className="font-display font-bold text-[24px] md:text-[30px] leading-[1.15] tracking-[-0.02em] text-foreground">{HOME_PHRASE}</h1>
+              <p className="mt-2 text-[13px] md:text-[14px] text-muted-foreground">Mirar es gratis. Elige uno de abajo, toca «Hacer mi versión» y la armamos en 1 o 2 minutos.</p>
               <button onClick={() => window.dispatchEvent(new Event(OPEN_TOUR_EVENT))} className="xl:hidden mt-1 text-[12px] text-muted-foreground hover:text-foreground underline-offset-4 hover:underline">Ver cómo funciona (1 minuto)</button>
             </div>
             {locked ? (
@@ -301,7 +300,7 @@ export function DashboardPage({ onNavigate }: Props) {
                 {isAdmin ? <span className="text-foreground font-semibold">Créditos ilimitados</span> : <><span className="tabular-nums text-foreground font-semibold">{balance.toLocaleString("es")}</span> de {limit.toLocaleString("es")} créditos</>}
               </button>
             )}
-          </div>
+          </header>
 
           {locked && (
             <div className="rounded-2xl border border-primary/40 bg-primary/[0.05] px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -314,182 +313,194 @@ export function DashboardPage({ onNavigate }: Props) {
             </div>
           )}
 
-          {/* Una pregunta corta sobre lo que hizo, como mucho una vez por semana (feedback real, sin agobiar). */}
-          {!locked && <ResultsCheckIn />}
-
-          {/* Panel de herramientas: buscador, pestañas por lo que quieres hacer y tarjetas con miniatura. */}
-          <section className="space-y-4" aria-label="Herramientas">
-            <div className="flex items-center gap-2">
-              <label className="relative flex-1 min-w-0">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                <input
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
-                  placeholder="Busca: carrusel, video, página de ventas…"
-                  aria-label="Buscar herramienta"
-                  className="w-full h-11 rounded-xl border border-border bg-card/40 pl-10 pr-9 text-[14px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground/30"
-                />
-                {query && (
-                  <button onClick={() => setQuery("")} aria-label="Borrar búsqueda" className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground">
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </label>
-              <div className="hidden sm:flex items-center rounded-xl border border-border p-1" role="group" aria-label="Vista">
-                {([["grid", LayoutGrid, "Cuadrícula"], ["list", List, "Lista"]] as const).map(([v, Icon, label]) => (
-                  <button key={v} onClick={() => chooseView(v)} aria-pressed={view === v} aria-label={label} title={label}
-                    className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${view === v ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-                    <Icon className="w-4 h-4" strokeWidth={1.8} />
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {!q && (
-              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none]" role="tablist" aria-label="Qué quieres hacer">
-                {tabs.map(t => (
-                  <button key={t.id} role="tab" aria-selected={cat === t.id} onClick={() => chooseCat(t.id)}
-                    className={`shrink-0 h-9 px-3.5 rounded-full border text-[13px] inline-flex items-center gap-1.5 transition-colors ${
-                      cat === t.id ? "border-primary/60 text-foreground bg-primary/[0.07]" : "border-border text-muted-foreground hover:text-foreground"
-                    }`}>
-                    {t.label}
-                    <span className={`tabular-nums text-[11px] ${cat === t.id ? "text-primary" : "text-muted-foreground/70"}`}>{t.tools.length}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {q && <p className="text-[12px] text-muted-foreground">{shown.length === 0 ? `Nada con "${query.trim()}". Prueba con otra palabra o pregúntale al asistente.` : `${shown.length} ${shown.length === 1 ? "herramienta" : "herramientas"} para "${query.trim()}"`}</p>}
-
-            {view === "grid" ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 2xl:grid-cols-4 gap-3">
-                {shown.map(t => <ToolCard key={t.id} tool={t} locked={locked} onOpen={() => open(t)} />)}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                {shown.map(t => <ToolRow key={t.id} tool={t} locked={locked} onOpen={() => open(t)} />)}
-              </div>
-            )}
-
-            {!q && cat !== "todo" && (
-              <button onClick={() => chooseCat("todo")} className="text-[12px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-                Ver todas las herramientas ({visibleAll.length}) <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </section>
-
+          {/* HOY: 3 ofertas con creativo, días pagando y un solo botón. Sin plan: la muestra real con candado. */}
           {locked ? (
             sample && sample.length > 0 && (
-              <section>
-                <div className="flex items-baseline justify-between gap-3 mb-3">
-                  <h2 className="text-[11px] uppercase tracking-[0.18em] font-semibold text-foreground">Muestra real de hoy</h2>
-                  <span className="text-[12px] text-muted-foreground">Ofertas ganadoras con más días pagando anuncios</span>
+              <section aria-labelledby="hoy-titulo">
+                <div className="mb-3">
+                  <h2 id="hoy-titulo" className="font-display font-semibold text-[18px] text-foreground">Hoy</h2>
+                  <p className="text-[12.5px] text-muted-foreground">Ofertas ganadoras con más días pagando anuncios. Con PRO haces tu versión de cualquiera.</p>
                 </div>
                 <SampleOffers rows={sample} visible={3} onLocked={() => openPlans("Ofertas que venden")} />
               </section>
             )
           ) : (
-            <>
-            {/* Lo último que creó, para retomarlo. */}
-            <section>
+            <TodayOffers onNavigate={onNavigate} />
+          )}
+
+          {/* SIGUIENTE PASO: lo que se hace con tu versión (ahí se usan los créditos). */}
+          <section aria-labelledby="siguiente-titulo">
+            <div className="mb-3">
+              <h2 id="siguiente-titulo" className="font-display font-semibold text-[18px] text-foreground">Siguiente paso</h2>
+              <p className="text-[12.5px] text-muted-foreground">Con tu versión lista, crea lo que la vende. Cada pieza usa los datos de tu versión.</p>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {nextSteps.map(t => <ToolCard key={t.id} tool={t} locked={locked} onOpen={() => open(t, "siguiente")} />)}
+            </div>
+          </section>
+
+          {/* TUS CREACIONES: lo último que hizo, en una fila que se desliza. */}
+          {!locked && (
+            <section aria-labelledby="creaciones-titulo">
               <div className="flex items-baseline justify-between gap-3 mb-3">
                 <div className="flex items-baseline gap-2 min-w-0">
-                  <h2 className="text-[11px] uppercase tracking-[0.18em] font-semibold text-foreground shrink-0">Tus proyectos recientes</h2>
+                  <h2 id="creaciones-titulo" className="font-display font-semibold text-[18px] text-foreground shrink-0">Tus creaciones</h2>
                   {active?.name && <span className="text-[12px] text-muted-foreground truncate">{active.name}</span>}
                 </div>
                 <button onClick={() => onNavigate("Proyectos")} className="text-[12px] text-muted-foreground hover:text-foreground shrink-0">Ver todo</button>
               </div>
               {recent === null ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {[0, 1, 2].map(i => <div key={i} className="h-[68px] rounded-xl border border-border/60 bg-card/30 animate-pulse" />)}
+                <div className="flex gap-3 overflow-hidden">
+                  {[0, 1, 2].map(i => <div key={i} className="shrink-0 w-[220px] h-[68px] rounded-xl border border-border/60 bg-card/30 animate-pulse" />)}
                 </div>
               ) : recent.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-border px-4 py-5 text-[13px] text-muted-foreground">
-                  Aquí aparecerá lo que crees: tus imágenes, tus videos de hoy, tus anuncios y tu producto.
-                </p>
+                <div className="rounded-xl border border-dashed border-border px-4 py-5 text-[13px] text-muted-foreground">
+                  Todavía no has creado nada. Empieza arriba con «Hacer mi versión»: aquí aparecerán tu versión, tus imágenes, tus videos y tus anuncios.
+                </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="-mx-4 px-4 md:mx-0 md:px-0 flex gap-3 overflow-x-auto pb-1 snap-x [scrollbar-width:none]" role="list">
                   {recent.map(r => {
                     const Icon = r.icon;
                     return (
-                      <button key={r.id} onClick={r.open} className="flex items-center gap-3 text-left rounded-xl border border-border bg-card/40 hover:border-foreground/30 px-4 py-3 transition-colors">
+                      <button key={r.id} role="listitem" onClick={r.open} className="shrink-0 w-[240px] snap-start flex items-center gap-3 text-left rounded-xl border border-border bg-card/40 hover:border-foreground/30 px-4 py-3 transition-colors">
                         <Icon className="w-4 h-4 text-muted-foreground shrink-0" strokeWidth={1.7} />
                         <span className="min-w-0 flex-1">
                           <span className="block text-[13px] font-medium text-foreground truncate">{r.title}</span>
-                          <span className="block text-[11px] text-muted-foreground">{r.kind} · {ago(r.at)}</span>
+                          <span className="block text-[11px] text-muted-foreground truncate">{r.kind} · {ago(r.at)}</span>
                         </span>
-                        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                       </button>
                     );
                   })}
                 </div>
               )}
             </section>
-
-            {/* Atajo a Ofertas ganadoras. */}
-            <button onClick={() => onNavigate("Ofertas")} className="w-full rounded-2xl border border-border bg-card/40 hover:border-foreground/30 px-5 py-4 flex items-center gap-4 text-left transition-colors">
-              <span className="w-10 h-10 rounded-xl border border-border flex items-center justify-center text-foreground shrink-0"><Gem className="w-5 h-5" strokeWidth={1.7} /></span>
-              <span className="min-w-0 flex-1">
-                <span className="block font-display font-semibold text-[15px] text-foreground">Ofertas que están vendiendo hoy</span>
-                <span className="block text-[12px] text-muted-foreground">Negocios digitales que llevan semanas pagando anuncios, con su precio y su embudo. Mirar es gratis.</span>
-              </span>
-              <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-            </button>
-
-            {/* 3 · Publica y mide: las herramientas de su negocio (low / high / marca, se recuerda en este navegador). */}
-            <section className="space-y-3">
-              <div className="flex items-baseline gap-2 min-w-0">
-                <h2 className="text-[11px] uppercase tracking-[0.18em] font-semibold text-foreground shrink-0">Para tu negocio · {modelInfo.short}</h2>
-                <span className="text-[12px] text-muted-foreground truncate">{modelInfo.line}</span>
-              </div>
-              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none]" role="group" aria-label="¿Qué estás construyendo?">
-                {MODELS.map(m => (
-                  <button key={m.id} onClick={() => setModel(m.id)} aria-pressed={model === m.id}
-                    className={`shrink-0 h-9 px-4 rounded-full border text-[13px] transition-colors ${model === m.id ? "border-primary/60 text-foreground bg-primary/[0.07]" : "border-border text-muted-foreground hover:text-foreground"}`}>
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                {modelInfo.tools.filter(t => canSee(t.key)).map(t => <ToolRow key={t.id} tool={t} onOpen={() => open(t)} />)}
-              </div>
-            </section>
-
-            {/* El recorrido de 6 etapas y Tu semana: ayuda opcional, plegada; nunca un camino obligatorio. */}
-            <section className="rounded-2xl border border-border">
-              <button onClick={toggleJourney} aria-expanded={journeyOpen} className="w-full flex items-center gap-3 px-5 py-4 text-left">
-                <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${journeyOpen ? "rotate-90" : ""}`} />
-                <span className="min-w-0">
-                  <span className="block font-display font-semibold text-[15px] text-foreground">Tu camino <span className="text-muted-foreground font-normal">(opcional)</span></span>
-                  <span className="block text-[12px] text-muted-foreground">Si quieres que te guiemos, aquí están las 6 etapas de tu negocio y tus tareas de la semana.</span>
-                </span>
-              </button>
-              {journeyOpen && <div className="px-3 md:px-5 pb-5"><BusinessJourney onNavigate={onNavigate} /></div>}
-            </section>
-
-            {/* Ofertas que sigue. */}
-            <RoiHunterWidget onNavigate={onNavigate} />
-
-            {/* Recomendaciones al final (05-oct-2026, Jean): para quien no sabe qué elegir o se queda
-                pensando. Plegado; si pasa un rato sin tocar nada, aparece un aviso que lo trae aquí. */}
-            <section id="home-recomendaciones" className="rounded-2xl border border-border">
-              <button onClick={() => setRecsOpen(o => !o)} aria-expanded={recsOpen} className="w-full flex items-center gap-3 px-5 py-4 text-left">
-                <span className="w-9 h-9 rounded-xl border border-border flex items-center justify-center text-primary shrink-0"><Compass className="w-4 h-4" strokeWidth={1.8} /></span>
-                <span className="min-w-0 flex-1">
-                  <span className="block font-display font-semibold text-[15px] text-foreground">¿No sabes por dónde empezar?</span>
-                  <span className="block text-[12px] text-muted-foreground">Te recomendamos una idea de hoy y 3 negocios que ya están vendiendo. Mirar es gratis.</span>
-                </span>
-                <ChevronRight className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform ${recsOpen ? "rotate-90" : ""}`} />
-              </button>
-              {recsOpen && (
-                <div className="px-3 md:px-5 pb-5 space-y-6">
-                  <IdeaOfTheDay />
-                  <DailyPicksHero onNavigate={onNavigate} />
-                </div>
-              )}
-            </section>
-            </>
           )}
+
+          {/* Una pregunta corta sobre lo que hizo, como mucho una vez por semana (feedback real, sin agobiar). */}
+          {!locked && <ResultsCheckIn />}
+
+          {/* MÁS: todo lo que antes llenaba el Inicio, plegado. Nada se borró. */}
+          <section className="rounded-2xl border border-border">
+            <button onClick={toggleMore} aria-expanded={moreOpen} className="w-full flex items-center gap-3 px-5 py-4 text-left">
+              <ChevronRight className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform ${moreOpen ? "rotate-90" : ""}`} />
+              <span className="min-w-0">
+                <span className="block font-display font-semibold text-[15px] text-foreground">Más herramientas y tu camino</span>
+                <span className="block text-[12px] text-muted-foreground">Todas las herramientas, las de tu tipo de negocio, las ofertas que sigues y las 6 etapas (opcional).</span>
+              </span>
+            </button>
+            {moreOpen && (
+              <div className="px-3 md:px-5 pb-5 space-y-8">
+                {/* Panel de herramientas: buscador, pestañas y tarjetas. */}
+                <section className="space-y-4" aria-label="Herramientas">
+                  <div className="flex items-center gap-2">
+                    <label className="relative flex-1 min-w-0">
+                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                      <input
+                        value={query}
+                        onChange={e => setQuery(e.target.value)}
+                        placeholder="Busca: carrusel, video, quiero vender un curso…"
+                        aria-label="Buscar herramienta"
+                        className="w-full h-11 rounded-xl border border-border bg-card/40 pl-10 pr-9 text-[14px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground/30"
+                      />
+                      {query && (
+                        <button onClick={() => setQuery("")} aria-label="Borrar búsqueda" className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground">
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </label>
+                    <div className="hidden sm:flex items-center rounded-xl border border-border p-1" role="group" aria-label="Vista">
+                      {([["grid", LayoutGrid, "Cuadrícula"], ["list", List, "Lista"]] as const).map(([v, Icon, label]) => (
+                        <button key={v} onClick={() => chooseView(v)} aria-pressed={view === v} aria-label={label} title={label}
+                          className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${view === v ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                          <Icon className="w-4 h-4" strokeWidth={1.8} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {!q && (
+                    <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none]" role="tablist" aria-label="Qué quieres hacer">
+                      {tabs.map(t => (
+                        <button key={t.id} role="tab" aria-selected={cat === t.id} onClick={() => chooseCat(t.id)}
+                          className={`shrink-0 h-9 px-3.5 rounded-full border text-[13px] inline-flex items-center gap-1.5 transition-colors ${
+                            cat === t.id ? "border-primary/60 text-foreground bg-primary/[0.07]" : "border-border text-muted-foreground hover:text-foreground"
+                          }`}>
+                          {t.label}
+                          <span className={`tabular-nums text-[11px] ${cat === t.id ? "text-primary" : "text-muted-foreground/70"}`}>{t.tools.length}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {q && (shown.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-border px-4 py-4 text-[13px] text-muted-foreground space-y-2">
+                      <p>Nada con "{query.trim()}". Prueba con una palabra más corta (carrusel, anuncio, video, precio) o pregúntale a la IA: es gratis.</p>
+                      <div className="flex flex-wrap gap-2">
+                        <button onClick={() => ask(query.trim())} className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border border-primary/50 text-[12.5px] font-semibold text-foreground hover:bg-primary/[0.07]">
+                          <Sparkles className="w-3.5 h-3.5 text-primary" strokeWidth={1.8} /> Preguntarle a la IA
+                        </button>
+                        <button onClick={() => setQuery("")} className="h-9 px-3.5 rounded-full border border-border text-[12.5px] text-muted-foreground hover:text-foreground">Ver todas las herramientas</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-[12px] text-muted-foreground">{shown.length} {shown.length === 1 ? "herramienta" : "herramientas"} para "{query.trim()}"</p>
+                  ))}
+
+                  {view === "grid" ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 2xl:grid-cols-4 gap-3">
+                      {shown.map(t => <ToolCard key={t.id} tool={t} locked={locked} tour={false} onOpen={() => open(t, q ? "busqueda" : cat)} />)}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                      {shown.map(t => <ToolRow key={t.id} tool={t} locked={locked} onOpen={() => open(t, q ? "busqueda" : cat)} />)}
+                    </div>
+                  )}
+
+                  {!q && cat !== "todo" && (
+                    <button onClick={() => chooseCat("todo")} className="text-[12px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+                      Ver todas las herramientas ({gridAll.length}) <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </section>
+
+                {!locked && (<>
+                  {/* Las herramientas de su negocio (low / high / marca, se recuerda en este navegador). */}
+                  <section className="space-y-3">
+                    <div className="flex items-baseline gap-2 min-w-0">
+                      <h2 className="text-[11px] uppercase tracking-[0.18em] font-semibold text-foreground shrink-0">Para tu negocio · {modelInfo.short}</h2>
+                      <span className="text-[12px] text-muted-foreground truncate">{modelInfo.line}</span>
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none]" role="group" aria-label="¿Qué estás construyendo?">
+                      {MODELS.map(m => (
+                        <button key={m.id} onClick={() => setModel(m.id)} aria-pressed={model === m.id}
+                          className={`shrink-0 h-9 px-4 rounded-full border text-[13px] transition-colors ${model === m.id ? "border-primary/60 text-foreground bg-primary/[0.07]" : "border-border text-muted-foreground hover:text-foreground"}`}>
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                      {modelInfo.tools.filter(t => canSee(t.key)).map(t => <ToolRow key={t.id} tool={t} onOpen={() => open(t, "modelo")} />)}
+                    </div>
+                  </section>
+
+                  {/* Ofertas que sigue. */}
+                  <RoiHunterWidget onNavigate={onNavigate} />
+
+                  {/* El recorrido de 6 etapas y Tu semana: ayuda opcional, plegada; nunca un camino obligatorio. */}
+                  <section className="rounded-2xl border border-border">
+                    <button onClick={toggleJourney} aria-expanded={journeyOpen} className="w-full flex items-center gap-3 px-5 py-4 text-left">
+                      <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${journeyOpen ? "rotate-90" : ""}`} />
+                      <span className="min-w-0">
+                        <span className="block font-display font-semibold text-[15px] text-foreground">Tu camino <span className="text-muted-foreground font-normal">(opcional)</span></span>
+                        <span className="block text-[12px] text-muted-foreground">Si quieres que te guiemos, aquí están las 6 etapas de tu negocio y tus tareas de la semana.</span>
+                      </span>
+                    </button>
+                    {journeyOpen && <div className="px-3 md:px-5 pb-5"><BusinessJourney onNavigate={onNavigate} /></div>}
+                  </section>
+                </>)}
+              </div>
+            )}
+          </section>
         </div>
 
         {/* Columna derecha (pantallas grandes): créditos, asistente y cómo funciona. En el teléfono,

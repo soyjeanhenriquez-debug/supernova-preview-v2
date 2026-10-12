@@ -17,7 +17,9 @@ export function PageHeader({ stage, title, line, icon, details, right }: {
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
         {stage && <p className="text-xs uppercase tracking-wider text-primary font-semibold">{stage}</p>}
-        <h1 className="font-display font-bold text-2xl text-foreground flex items-center gap-2">{icon}{title}</h1>
+        {/* items-start + icono fijo: en el teléfono el título ocupa 2 o 3 líneas y el icono se quedaba
+            flotando a media altura. */}
+        <h1 className="font-display font-bold text-[22px] sm:text-2xl leading-tight text-foreground flex items-start gap-2 [&>svg]:shrink-0 [&>svg]:mt-1">{icon}{title}</h1>
         <p className="text-sm text-muted-foreground mt-1 max-w-2xl">{line}</p>
         {details && details.length > 0 && (
           <details className="mt-1.5 text-xs text-muted-foreground max-w-2xl group">

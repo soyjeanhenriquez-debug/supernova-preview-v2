@@ -937,7 +937,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                     <button type="button" role="radio" aria-checked={!!current.refOff} disabled={posterBusy} onClick={() => editSlide(sel, { refOff: true })}
                       className={`rounded-lg border px-3 py-2 text-left min-h-[44px] ${current.refOff ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
                       <span className="block text-[13px] text-foreground">Una plantilla de SUPERNOVA</span>
-                      <span className="block text-[11px] text-muted-foreground">{current.kind === "llamada" ? "CTA: acción de fondo y una tarjeta de cristal con tu palabra clave." : "Hero, Editorial o Cinemática, la misma en todo el carrusel."}</span>
+                      <span className="block text-[11px] text-muted-foreground">{current.kind === "llamada" ? "Cierre (CTA, la lámina que pide actuar): acción de fondo y una tarjeta de cristal con tu palabra clave." : "Hero, Editorial o Cinemática, la misma en todo el carrusel."}</span>
                     </button>
                   </div>
                 </div>
@@ -956,7 +956,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                     ))}
                   </div>
                 </div>
-              ) : <p className="text-[12px] text-muted-foreground">Plantilla CTA: acción de fondo y una tarjeta de cristal con tu palabra clave.</p>}
+              ) : <p className="text-[12px] text-muted-foreground">Plantilla de cierre (CTA, la lámina que pide actuar): acción de fondo y una tarjeta de cristal con tu palabra clave.</p>}
               <label className="block space-y-1">
                 <span className="text-[12px] text-foreground">{current.kind === "galeria" ? "Lo que tienen en común todas las fotos" : "Escena"}</span>
                 <input value={current.scene ?? ""} maxLength={300} onChange={e => editSlide(sel, { scene: e.target.value })} placeholder="Ej.: una mujer cocinando de noche en una cocina pequeña, luz cálida" aria-label="Escena de la foto" className={input} />

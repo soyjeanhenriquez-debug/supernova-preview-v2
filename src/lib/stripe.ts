@@ -2,8 +2,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { checkoutUrl } from "@/lib/plans";
 
-// Cobro principal: Stripe. Esta lib solo pide URLs al backend y redirige —
-// precios y validación viven en las edge functions (stripe-checkout / stripe-portal).
+// Cobro principal: Whop. Stripe está APAGADO (secreto STRIPE_ENABLED en el servidor; manual §2).
+// Esta lib solo pide URLs al backend o arma el enlace de Whop y redirige: precios y validación
+// viven en el servidor (stripe-checkout / stripe-portal / whop-webhook).
+
+/**
+ * Espejo en el navegador del interruptor del servidor (12-oct-2026, misión "pagar y recargar"):
+ * mientras Stripe esté apagado no se le pregunta nada. Antes cada "Comprar" llamaba a
+ * stripe-checkout, esperaba a que fallara (1-2 s de "Abriendo el pago…") y recién ahí iba a Whop;
+ * y Mis créditos mostraba "Cargando tu suscripción…" por la misma llamada. Para encender Stripe hay
+ * que poner VITE_STRIPE_ENABLED=true en Vercel ADEMÁS del secreto del servidor (y el OK de Jean).
+ */
+export const STRIPE_ON = import.meta.env.VITE_STRIPE_ENABLED === "true";
 
 const WHOP_PACKS: Record<string, string> = {
   boost: "https://whop.com/checkout/plan_ogd3Tq3dhAPU0",
@@ -20,10 +30,19 @@ type CheckoutBody =
   | { action: "subscribe"; plan: "pro" }
   | { action: "pack"; pack_id: string };
 
+/** Enlace de Whop de un pack (con el correo puesto si lo hay). null si el pack no existe en Whop. */
+export function whopPackUrl(packId: string, email?: string | null): string | null {
+  const base = WHOP_PACKS[packId];
+  if (!base) return null;
+  return email ? `${base}?email=${encodeURIComponent(email)}` : base;
+}
+
 export async function startCheckout(body: CheckoutBody): Promise<boolean> {
-  const { data, error } = await supabase.functions.invoke("stripe-checkout", {
-    body: { ...body, return_url: window.location.origin + "/" },
-  });
+  const { data, error } = STRIPE_ON
+    ? await supabase.functions.invoke("stripe-checkout", {
+        body: { ...body, return_url: window.location.origin + "/" },
+      })
+    : { data: null, error: new Error("stripe_off") };
   if (error || !data?.url) {
     // Respaldo: si Stripe no está disponible (falta la llave o falla), la membresía se cobra
     // por Whop. Su webhook activa el acceso por CORREO, por eso el checkout va con el correo
@@ -34,11 +53,9 @@ export async function startCheckout(body: CheckoutBody): Promise<boolean> {
       return true;
     }
     // Recargas de créditos de texto: también existen en Whop (el webhook las acredita por correo).
-    const whopPack = body.action === "pack" ? WHOP_PACKS[body.pack_id] : undefined;
-    if (whopPack) {
+    if (body.action === "pack" && WHOP_PACKS[body.pack_id]) {
       const { data: u } = await supabase.auth.getUser();
-      const email = u.user?.email;
-      window.location.href = email ? `${whopPack}?email=${encodeURIComponent(email)}` : whopPack;
+      window.location.href = whopPackUrl(body.pack_id, u.user?.email) as string;
       return true;
     }
     toast.error("No se pudo abrir el pago", {
@@ -50,7 +67,7 @@ export async function startCheckout(body: CheckoutBody): Promise<boolean> {
   return true;
 }
 
-/** Muestra el resultado del checkout si venimos de Stripe (?checkout=...). */
+/** Muestra el resultado del checkout si venimos de Stripe (?checkout=...). Con Whop no se usa. */
 export function consumeCheckoutResult() {
   const params = new URLSearchParams(window.location.search);
   const result = params.get("checkout");

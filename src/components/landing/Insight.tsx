@@ -34,8 +34,8 @@ export function Insight() {
                 <span className="font-normal text-[#F5F5F7]">
                 lleva meses pagando anuncios
                 </span>{" "}
-                en Estados Unidos, Brasil, España y Latinoamérica: 300 ofertas
-                ganadoras de 7.517 analizadas. Tú haces tu versión, la adaptas
+                en Estados Unidos, Brasil, España y Latinoamérica: más de 6.000
+                ofertas con más de 90 días pagando anuncios. Tú haces tu versión, la adaptas
                 a tu país y la cobras en tu moneda.
               </p>
               <p className="mt-6 text-[#C5A880]">

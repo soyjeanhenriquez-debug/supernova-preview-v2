@@ -74,10 +74,10 @@ export function ResultsCheckIn() {
     const s = none ? 0 : Math.max(0, Math.min(100000, Math.round(Number(sales) || 0)));
     if (l || s) {
       const { error } = await db().from("content_items").update({ leads: l, sales: s }).eq("id", q.refId).eq("user_id", user.id);
-      if (error) { toast.error("No se pudo anotar en tu tracker."); return; }
+      if (error) { toast.error("No se pudo anotar en tu calendario de Contenido."); return; }
     }
     await record(l > 0 || s > 0, none ? "ninguna-todavia" : "anotado", { leads: l, ventas: s });
-    if (l || s) toast.success("Anotado en tu tracker de Contenido");
+    if (l || s) toast.success("Anotado en tu calendario de Contenido");
   };
   const num = "w-24 h-10 rounded-lg border border-border bg-transparent px-3 text-[13px] text-foreground";
   const btn = "min-h-[40px] rounded-lg border border-border px-3 text-[12px] text-foreground hover:border-foreground/40 disabled:opacity-60";

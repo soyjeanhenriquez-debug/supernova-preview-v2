@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ExternalLink, Search, Sparkles, TrendingUp, Users, Eye, Clock, Smartphone } from "lucide-react";
+import { ExternalLink, Search, Sparkles, TrendingUp, Users, Eye, Clock, Smartphone, Clapperboard, HelpCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { CreateFromIdeaSheet } from "@/components/create/CreateFromIdeaSheet";
 import { ideaFromYt } from "@/lib/recommendTarget";
@@ -23,6 +23,8 @@ type Kind = "long" | "short";
 const NICHES = ["Historia", "Curiosidades", "Finanzas personales", "Mascotas", "Espiritualidad", "Salud", "Misterio", "Motivación", "Biografías", "Religión", "Tecnología", "Cocina fácil"];
 export const YT_REF_KEY = "supernova.yt.ref";
 
+/** 1977 → "1.977" (toLocaleString("es") no agrupa números de 4 cifras). */
+const num = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 const fmt = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toLocaleString("es", { maximumFractionDigits: 1 })} M` : n >= 1000 ? `${Math.round(n / 1000).toLocaleString("es")} mil` : n.toLocaleString("es");
 const ago = (iso: string) => { const d = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)); return d === 0 ? "hoy" : d === 1 ? "ayer" : `hace ${d} días`; };
 const dur = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -50,6 +52,22 @@ export function YouTubeRadarPage({ onNavigate }: { onNavigate: (p: string) => vo
   }, [q, lang, kind]);
   useEffect(() => { void load(); }, [load]);
 
+  // "Crear un video de este nicho": el Creador se abre con la idea puesta (no gasta nada solo;
+  // la persona ve el precio del guion y decide). Contrato de src/lib/creativeSeed.ts.
+  const createFromNiche = () => {
+    const top = items?.[0];
+    try {
+      sessionStorage.setItem("supernova.seed", JSON.stringify({
+        v: 1, source: "nicho_yt", target: "youtube", at: Date.now(), autostart: false,
+        title: `Un video de ${q.toLowerCase()} con un ángulo propio`.slice(0, 80),
+        product: `Video de ${q}`, who: `Personas que ven videos de ${q} en YouTube`, promise: "",
+        ...(top ? { hook: top.title.slice(0, 140) } : {}),
+        aspect: kind === "short" ? "9:16" : "16:9",
+      }));
+    } catch { /* sin almacenamiento: abre el Creador vacío */ }
+    onNavigate("Creador YouTube");
+  };
+
   const createVersion = (it: YtItem) => {
     try { sessionStorage.setItem(YT_REF_KEY, JSON.stringify({ ...it, lang, kind })); } catch { /* sin almacenamiento */ }
     onNavigate("Creador YouTube");
@@ -61,8 +79,18 @@ export function YouTubeRadarPage({ onNavigate }: { onNavigate: (p: string) => vo
     <div className="max-w-[1280px] mx-auto space-y-5 py-4">
       <div>
         <h1 className="font-display font-bold text-2xl text-foreground">Nichos de YouTube</h1>
-        <p className="text-sm text-muted-foreground mt-1">Los videos que más crecieron en los últimos 30 días, con datos oficiales de YouTube. Mirar es gratis.</p>
+        <p className="text-sm text-muted-foreground mt-1">Los videos con más vistas de los últimos 30 días en cada tema, con datos oficiales de YouTube. Elige un nicho, mira qué funciona y haz tu propia versión. Mirar es gratis.</p>
       </div>
+
+      <details className="rounded-xl border border-border/70 px-4 py-3 text-[12px] text-muted-foreground max-w-3xl">
+        <summary className="cursor-pointer text-[13px] text-foreground inline-flex items-center gap-1.5"><HelpCircle className="w-4 h-4 text-muted-foreground" /> Cómo leer estos datos</summary>
+        <ul className="mt-2 space-y-1.5">
+          <li><span className="text-foreground">Vistas:</span> las que cuenta YouTube hoy para ese video, publicado en los últimos 30 días.</li>
+          <li><span className="text-foreground">Veces sus suscriptores:</span> vistas divididas entre los suscriptores del canal. Si un canal de 700 suscriptores tiene 490 mil vistas, YouTube lo está mostrando a gente nueva: ese tema le abre la puerta a canales pequeños.</li>
+          <li><span className="text-foreground">Pago aproximado de YouTube:</span> un rango estimado de lo que YouTube paga por esas vistas en ese idioma, solo si el canal cobra anuncios. Cada canal cobra distinto y no es lo que tú vas a ganar.</li>
+          <li><span className="text-foreground">Qué hacer:</span> toca "Crear mi versión" para modelar la estructura de un video (tu guion es original, nunca su texto) o "Crear un video de este nicho" para empezar desde tu propia idea.</li>
+        </ul>
+      </details>
 
       <div className="flex flex-wrap items-center gap-2">
         <button onClick={() => setKind("long")} className={chip(kind === "long")}>Videos largos</button>
@@ -107,13 +135,13 @@ export function YouTubeRadarPage({ onNavigate }: { onNavigate: (p: string) => vo
                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-muted-foreground">
                   <span className="inline-flex items-center gap-1"><Eye className="w-3.5 h-3.5" /> {fmt(it.views)} vistas</span>
                   {it.x_subs !== null && it.x_subs >= 1 && (
-                    <span className="inline-flex items-center gap-1 text-foreground" title="Vistas de este video divididas entre los suscriptores del canal">
-                      <TrendingUp className="w-3.5 h-3.5 text-primary" /> {it.x_subs.toLocaleString("es")}× sus suscriptores
+                    <span className="inline-flex items-center gap-1 text-foreground" title="Vistas de este video divididas entre los suscriptores del canal: más alto = YouTube lo muestra a gente nueva">
+                      <TrendingUp className="w-3.5 h-3.5 text-primary" /> {it.x_subs >= 1000 ? num(it.x_subs) : it.x_subs.toLocaleString("es")} veces sus suscriptores
                     </span>
                   )}
                 </div>
-                <div className="rounded-lg bg-secondary/40 px-3 py-2 text-[11px] text-muted-foreground" title="Rango aproximado de lo que paga YouTube por cada 1.000 vistas en este idioma. No es un dato del canal.">
-                  Ingreso estimado de este video: <span className="text-foreground font-medium">US${it.income_est[0].toLocaleString("es")}–{it.income_est[1].toLocaleString("es")}</span>
+                <div className="rounded-lg bg-secondary/40 px-3 py-2 text-[11px] text-muted-foreground" title="Rango aproximado de lo que paga YouTube por cada 1.000 vistas en este idioma, si el canal cobra anuncios. No es un dato del canal ni lo que tú vas a ganar.">
+                  Pago aproximado de YouTube por estas vistas: <span className="text-foreground font-medium">US${num(it.income_est[0])}–{num(it.income_est[1])}</span> <span className="whitespace-nowrap">(estimado)</span>
                 </div>
                 <div className="mt-auto flex gap-2 pt-1">
                   <button onClick={() => createVersion(it)} className="btn-primary-nova flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-semibold">
@@ -132,9 +160,19 @@ export function YouTubeRadarPage({ onNavigate }: { onNavigate: (p: string) => vo
         </div>
       )}
 
+      {!loading && !error && (items?.length ?? 0) > 0 && (
+        <div className="rounded-2xl border border-border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[14px] text-foreground font-medium">¿Te gusta el nicho "{q}"?</p>
+            <p className="text-[12px] text-muted-foreground">Abre el Creador con este tema listo: escribe tu idea, ves el precio del guion antes de gastar y luego lo conviertes en video.</p>
+          </div>
+          <button onClick={createFromNiche} className="btn-primary-nova h-11 px-5 rounded-xl text-[14px] font-semibold inline-flex items-center justify-center gap-2 shrink-0"><Clapperboard className="w-4 h-4" /> Crear un video de este nicho</button>
+        </div>
+      )}
+
       {shortOf && <CreateFromIdeaSheet idea={ideaFromYt(shortOf, q, true)} input={SHORT_INPUT} onClose={() => setShortOf(null)} />}
 
-      <p className="text-[11px] text-muted-foreground flex items-center gap-1.5"><Users className="w-3 h-3" /><Clock className="w-3 h-3" /> Datos de la API oficial de YouTube, actualizados cada 6 horas. El ingreso es un estimado con rangos aproximados de pago por idioma; cada canal cobra distinto.</p>
+      <p className="text-[11px] text-muted-foreground flex items-center gap-1.5"><Users className="w-3 h-3" /><Clock className="w-3 h-3" /> Datos de la API oficial de YouTube; cada búsqueda se actualiza cada 6 horas. El pago es un estimado con rangos aproximados por idioma: cada canal cobra distinto y no es una promesa de ingresos.</p>
     </div>
   );
 }

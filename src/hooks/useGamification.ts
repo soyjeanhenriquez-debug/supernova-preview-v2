@@ -20,11 +20,13 @@ export function useGamification() {
   const [levelUpTo, setLevelUpTo] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) { setState(s => ({ ...s, loading: false })); return; }
+    // getSession: id de la sesión guardada, sin viaje a /auth/v1/user (RLS filtra igual).
+    const { data: { session } } = await supabase.auth.getSession();
+    const uid = session?.user?.id;
+    if (!uid) { setState(s => ({ ...s, loading: false })); return; }
     const { data } = await supabase.from("user_gamification")
       .select("xp,level,streak_days,last_login_date,badges")
-      .eq("user_id", auth.user.id).maybeSingle();
+      .eq("user_id", uid).maybeSingle();
     if (data) {
       setState({
         xp: data.xp, level: data.level, streak: data.streak_days,
@@ -39,10 +41,10 @@ export function useGamification() {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user) { setState(s => ({ ...s, loading: false })); return; }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) { setState(s => ({ ...s, loading: false })); return; }
       const { data: login } = await supabase.rpc("register_daily_login");
-      const result = login as unknown;
+      const result = login as { milestone?: string; reward?: number; broke?: boolean } | null;
       if (result?.milestone && STREAK_MILESTONES[result.milestone]) {
         const opts = result?.reward
           ? { description: `+${result.reward} ⚡ créditos añadidos a tu cuenta`, duration: 8000 }
@@ -61,7 +63,7 @@ export function useGamification() {
     if (amount <= 0) return;
     const prevLevel = state.level;
     const { data } = await supabase.rpc("add_xp", { p_amount: amount });
-    const result = data as unknown;
+    const result = data as { error?: unknown; xp: number; level: number; badges?: string[]; leveled_up?: boolean } | null;
     if (result && !result.error) {
       const newLevel = result.level;
       setState(s => ({ ...s, xp: result.xp, level: newLevel, badges: result.badges ?? s.badges }));
@@ -74,7 +76,7 @@ export function useGamification() {
   const unlockBadge = useCallback(async (badge: string) => {
     if (state.badges.includes(badge)) return;
     const { data } = await supabase.rpc("unlock_badge", { p_badge: badge });
-    const result = data as unknown;
+    const result = data as { new?: boolean; badges: string[] } | null;
     if (result?.new) {
       setState(s => ({ ...s, badges: result.badges }));
     }

@@ -45,7 +45,7 @@ export function BrainPage({ onNavigate }: { onNavigate?: (page: string) => void 
           <h2 className="page-heading font-display text-2xl text-foreground flex items-center gap-2">
             <Brain className="w-6 h-6 text-primary" /> Lo que creaste
           </h2>
-          <p className="text-xs uppercase tracking-wider text-primary font-semibold mt-1">Mi negocio · Etapa 4</p>
+          <p className="text-xs uppercase tracking-wider text-primary font-semibold mt-1">Lo que creaste</p>
           <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
             Aquí queda todo lo que creas y guardas: tu mini app de "Hacer mi versión" con sus instrucciones, tu guion de venta y los planes de negocio.
             Ábrelo cuando lo necesites y sigue con tu plan de lanzamiento.
@@ -143,7 +143,7 @@ function ProjectDetail({ proj, onClose, onNavigate }: { proj: BrainProject; onCl
           {onNavigate && (
             <div className="rounded-xl border border-border bg-secondary/30 p-4 space-y-2">
               <p className="text-sm font-semibold text-foreground">Siguiente paso</p>
-              <p className="text-xs text-muted-foreground">Construye y lanza con tu plan de 14 días; cuando esté listo, crea tus anuncios en la Mándala.</p>
+              <p className="text-xs text-muted-foreground">Construye y lanza con tu plan de 14 días; cuando esté listo, crea tus anuncios en «Tus primeros 5 anuncios».</p>
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => { onClose(); onNavigate("Plan"); }} className="inline-flex items-center gap-2 rounded-lg gradient-brand px-4 py-2 text-sm font-semibold text-primary-foreground">Mi plan de lanzamiento <ArrowRight className="w-4 h-4" /></button>
                 <button onClick={() => { onClose(); onNavigate("Mándala"); }} className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground">Crear mis anuncios</button>
@@ -169,12 +169,12 @@ function SavedAssets({ context }: { context: unknown }) {
     toast.success("Copiado. Pégalo en Claude, ChatGPT o la IA que uses.");
   };
 
-  const ventaLabel = ctx.salesPath === "whatsapp" ? "📱 Guion de WhatsApp · cobro manual" : "🎥 Guion de VSL · cobro automático";
+  const ventaLabel = ctx.salesPath === "whatsapp" ? "📱 Guion de WhatsApp · cobro manual" : "🎥 Guion de video de ventas · cobro automático";
 
   const items = [
     { key: "vender" as const, label: ventaLabel, content: ctx.salesScript },
-    { key: "miniapp" as const, label: "🧬 Mega-Prompt para crear tu mini app y su embudo", content: ctx.miniapp },
-    { key: "blueprint" as const, label: "🎯 Por qué funciona esta oferta (blueprint)", content: ctx.blueprint },
+    { key: "miniapp" as const, label: "🧬 Instrucciones completas (prompt) para crear tu mini app y su camino de venta", content: ctx.miniapp },
+    { key: "blueprint" as const, label: "🎯 Por qué funciona esta oferta", content: ctx.blueprint },
   ].filter((i) => i.content);
 
   return (
@@ -200,7 +200,7 @@ function SavedAssets({ context }: { context: unknown }) {
       {ctx.adImage && (
         <div className="border border-primary/25 rounded-lg overflow-hidden bg-primary/5 p-3">
           <div className="text-xs font-semibold text-primary mb-2">🖼️ Imagen para tu anuncio</div>
-          <img src={ctx.adImage} alt="Creativo de anuncio" className="w-40 rounded-lg border border-border" />
+          <img src={ctx.adImage} alt="Imagen de anuncio" className="w-40 rounded-lg border border-border" />
         </div>
       )}
     </div>

@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Loader2, Rocket } from "lucide-react";
 import { toast } from "sonner";
 import { track } from "@/lib/analytics";
 import { supabase } from "@/integrations/supabase/client";
 import type { BusinessProfile, BusinessType } from "@/lib/businessProfile";
-import { copyLabel, NICHE_LABEL, OFFER_TYPE_LABEL, type Offer } from "@/lib/offers";
+import { copyLabel, NICHE_LABEL, OFFER_TYPE_LABEL, offerToDemoAd, type Offer } from "@/lib/offers";
+import { offerBrief } from "@/lib/sellThis";
+import { CREDIT_COSTS } from "@/hooks/useCredits";
+import { MiniAppModal } from "@/components/MiniAppModal";
+import { SellConfirmBar } from "@/components/offers/SellConfirmBar";
+import { needsReplaceConfirm } from "@/components/offers/useSellOffer";
 import { FUNNEL_LABEL, loadOfferIntel, type OfferIntel } from "@/lib/offerIntel";
 import {
   COUNTRIES, LANG_LABEL, QUICK_NICHES, cpaMaxUsd, originalPrice, toLocal,
@@ -26,6 +31,8 @@ type Props = {
 type Step = "pick" | "clone" | "done";
 
 const PAGE = 6;
+/** País del gemelo (RD/CO/MX) → código ISO que usa "Hacer mi versión". */
+const ISO: Record<CountryCode, string> = { RD: "DO", CO: "CO", MX: "MX" };
 // Solo lo que se pinta: pedir sample_body y enlaces largos subía la consulta de ~1 ms a ~230 ms (25-sep).
 const COLS = "id,page_name,sample_title,product_name,niche,offer_type,language,price_hint,mechanism,why_wins,target_audience,copy_score,days_active,winner_score";
 const TYPE_TO_BUSINESS: Record<string, BusinessType> = { infoproducto: "infoproducto", ecommerce: "ecommerce", servicio: "servicios" };
@@ -48,6 +55,10 @@ export function GemeloFlow({ profile, savePatch, onNavigate, onKeep }: Props) {
   const [promise, setPromise] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  // Sin window.confirm (R2-12): si la ficha ya tiene otro producto se pregunta en línea.
+  const [confirmReplace, setConfirmReplace] = useState(false);
+  // "Hacer mi versión": el mismo recibo que en Ofertas (oferta, precio, anuncio, imagen y WhatsApp).
+  const [miVersion, setMiVersion] = useState(false);
 
   // Las ganadoras con más días pagando anuncios: la mejor prueba de que venden.
   useEffect(() => {
@@ -91,13 +102,12 @@ export function GemeloFlow({ profile, savePatch, onNavigate, onKeep }: Props) {
     setStep("clone");
   };
 
-  const clone = async () => {
+  const clone = async (confirmed = false) => {
     if (!sel || saving) return;
     if (who.trim().length < 3 || promise.trim().length < 3) { setErr("Completa para quién es y qué promete."); return; }
     const product = nameOf(sel);
-    const current = profile.product.trim();
-    if (current && current !== product
-      && !window.confirm(`Tu ficha ya tiene un producto: «${current.slice(0, 80)}». ¿Reemplazarlo por este gemelo?`)) return;
+    if (!confirmed && needsReplaceConfirm(profile.product, product)) { setConfirmReplace(true); return; }
+    setConfirmReplace(false);
     setSaving(true);
     setErr("");
     const gemelo: Gemelo = {
@@ -133,7 +143,7 @@ export function GemeloFlow({ profile, savePatch, onNavigate, onKeep }: Props) {
           )}
         </div>
         <ol className="flex items-center gap-1.5" aria-label="Pasos">
-          {["Elige", "Clona", "Cobra"].map((l, i) => {
+          {["Elige", "Modela", "Cobra"].map((l, i) => {
             const on = step !== "done" && i === stepIdx;
             const done = step === "done" ? i < 2 : i < stepIdx;
             return (
@@ -154,7 +164,7 @@ export function GemeloFlow({ profile, savePatch, onNavigate, onKeep }: Props) {
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
             <div>
               <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">¿Qué quieres vender?</h2>
-              <p className="text-sm sm:text-[15px] text-muted-foreground mt-1.5 max-w-xl">Estas ofertas llevan más días pagando anuncios. Nadie paga tanto tiempo por algo que no vende.</p>
+              <p className="text-sm sm:text-[15px] text-muted-foreground mt-1.5 max-w-xl">Estas ofertas llevan más días pagando anuncios: nadie paga tanto tiempo por algo que no vende. Toca una y en 2 toques tienes tu versión, gratis.</p>
             </div>
             <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-1" role="tablist" aria-label="Nicho">
               {QUICK_NICHES.map(n => (
@@ -187,7 +197,7 @@ export function GemeloFlow({ profile, savePatch, onNavigate, onKeep }: Props) {
         <div key="clone" className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
           <div>
             <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">Tu negocio gemelo</h2>
-            <p className="text-sm sm:text-[15px] text-muted-foreground mt-1.5">Copiamos lo que ya funciona de «{nameOf(sel)}» y lo adaptamos a tu país.</p>
+            <p className="text-sm sm:text-[15px] text-muted-foreground mt-1.5">Tomamos lo que ya funciona de «{nameOf(sel)}» y lo adaptamos a tu país: mismo producto, mismo precio, en tu idioma y con tus pagos.</p>
           </div>
           <div className="grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] gap-3">
             <CloneTable o={sel} intel={intel} reading={reading} priceText={price?.text ?? null}
@@ -245,25 +255,39 @@ export function GemeloFlow({ profile, savePatch, onNavigate, onKeep }: Props) {
             <p className="text-sm sm:text-[15px] text-muted-foreground mt-1.5 max-w-lg">Tu ficha ya tiene «{nameOf(sel)}», para quién es, qué promete{price?.usd != null ? ` y su precio (${toLocal(price.usd, country)} aprox.)` : ""}.</p>
           </div>
           <div className="flex flex-wrap justify-center gap-2">
-            <button onClick={() => finish()} className="h-12 px-5 rounded-full border border-border bg-card text-[14px] font-semibold text-foreground hover:border-foreground/30">Ver mi negocio</button>
-            <button onClick={() => finish("Validar")} className="h-12 px-6 rounded-full btn-primary-nova text-[15px] inline-flex items-center gap-2">Siguiente: comprueba que se vende <ArrowRight className="w-4 h-4" /></button>
+            <button onClick={() => setMiVersion(true)} className="h-12 px-6 rounded-full btn-primary-nova text-[15px] inline-flex items-center gap-2">
+              <Rocket className="w-4 h-4" /> Hacer mi versión completa <span className="opacity-75 font-medium">· {CREDIT_COSTS.gen_master_prompt} créditos</span>
+            </button>
+            <button onClick={() => finish("Validar")} className="h-12 px-5 rounded-full border border-border bg-card text-[14px] font-semibold text-foreground hover:border-foreground/30 inline-flex items-center gap-2">Comprobar que se vende <ArrowRight className="w-4 h-4" /></button>
+            <button onClick={() => finish()} className="h-12 px-5 rounded-full text-[14px] text-muted-foreground hover:text-foreground">Ver mi negocio</button>
           </div>
+          <p className="text-[12.5px] text-muted-foreground max-w-md">«Hacer mi versión» te da en un solo recibo la oferta en español, el anuncio, la imagen y el mensaje de WhatsApp para cobrar.</p>
         </div>
+      )}
+
+      {miVersion && sel && (
+        <MiniAppModal ad={offerToDemoAd(sel)} brief={offerBrief(sel)} offer={sel} intel={intel} country={ISO[country]} origin="gemelo"
+          onNavigate={(p) => finish(p)} onClose={() => setMiVersion(false)} />
+      )}
+
+      {step === "clone" && confirmReplace && sel && (
+        <SellConfirmBar current={profile.product.trim()} next={nameOf(sel)} busy={saving}
+          onConfirm={() => void clone(true)} onCancel={() => setConfirmReplace(false)} />
       )}
 
       {step !== "done" && (
         <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-border">
           <p className={`text-[13px] ${err ? "text-destructive" : "text-muted-foreground"}`} role={err ? "alert" : undefined}>
             {err || (step === "pick"
-              ? sel ? "Buena elección. Ahora la clonamos, gratis." : "Toca la oferta que te guste."
-              : "Revisa lo que se copia. Cambia el país o las mejoras si quieres.")}
+              ? sel ? "Buena elección. Ahora la modelamos, gratis." : "Toca la oferta que te guste."
+              : "Revisa lo que se toma de la original. Cambia el país o las mejoras si quieres.")}
           </p>
           {step === "pick" ? (
             <button onClick={next} className={`h-12 px-6 rounded-full text-[15px] font-semibold inline-flex items-center justify-center gap-2 transition-all duration-300 ${sel ? "btn-primary-nova" : "bg-card border border-border text-muted-foreground"}`}>
-              Clonar esta oferta <ArrowRight className="w-4 h-4" />
+              Modelar esta oferta <ArrowRight className="w-4 h-4" />
             </button>
           ) : (
-            <button onClick={clone} disabled={saving} className="h-12 px-6 rounded-full btn-primary-nova text-[15px] inline-flex items-center justify-center gap-2">
+            <button onClick={() => void clone()} disabled={saving} className="h-12 px-6 rounded-full btn-primary-nova text-[15px] inline-flex items-center justify-center gap-2">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Guardar mi gemelo <span className="opacity-70 font-medium">· gratis</span>
             </button>
           )}

@@ -43,7 +43,7 @@ export function RecompensasPage({ onNavigate }: { onNavigate: (p: string) => voi
         <div className="rounded-2xl border border-border bg-card/40 p-5 flex flex-col gap-2">
           <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground flex items-center gap-1.5"><Gift className="w-3.5 h-3.5" /> Si usas la app</span>
           <h2 className="font-display font-semibold text-[17px] text-foreground">Publica lo que creaste</h2>
-          <p className="text-[13px] text-muted-foreground">Un carrusel o un video que hiciste con SUPERNOVA, ya publicado: 50 créditos por post, uno al día.</p>
+          <p className="text-[13px] text-muted-foreground">Un carrusel o un video que hiciste con SUPERNOVA, ya publicado: 50 créditos por publicación, una al día.</p>
           <button onClick={() => onNavigate("Contenido")} className="mt-auto self-start text-[12px] font-semibold text-primary hover:underline">Ir a Contenido →</button>
         </div>
         <div className="rounded-2xl border border-primary/40 bg-card/40 p-5 flex flex-col gap-2">

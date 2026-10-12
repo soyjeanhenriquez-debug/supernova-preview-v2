@@ -140,11 +140,9 @@ serve(async (req) => {
     scrapeErr = e.message;
   }
 
-  // Lo recién guardado entra con una nota provisional: se re-puntúa ya con la fórmula real.
-  if (scrapeOk) {
-    const { error: scoreErr } = await admin.rpc("score_unscored_ads");
-    if (scoreErr) console.error("score_unscored_ads:", scoreErr.message);
-  }
+  // Lo recién guardado entra con una nota provisional y lo re-puntúa el cron
+  // "supernova-score-ads-hourly" (cada 10 min, statement_timeout 240 s). Antes se llamaba también
+  // aquí por PostgREST y siempre moría a los 8 s (24 de 24 al día, 12-oct-2026): solo cargaba la base.
 
   // compute deltas & update per-keyword stats
   let totalNew = 0;

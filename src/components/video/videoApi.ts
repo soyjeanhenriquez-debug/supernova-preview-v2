@@ -13,6 +13,8 @@ export type VideoJob = {
 export type CreateBody = {
   prompt: string; seconds: 5 | 10; size: "9:16" | "16:9" | "1:1"; audio?: boolean; kind: VideoKind; template?: string | null;
   product_id?: string; from_job_id?: string; image_path?: string; image_bucket?: "creativos" | "personajes";
+  /** Texto del recibo en Historial ("Toma 1 de 3 · Gancho"). No cambia precio ni acceso. */
+  label?: string;
 };
 
 export async function invokeVideo<T = { job: VideoJob; billing?: { charged: number; balance: number | null }; error?: string; progress?: number | null }>(

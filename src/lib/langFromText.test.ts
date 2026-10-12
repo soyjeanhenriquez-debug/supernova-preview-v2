@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { langFromText } from "@/lib/demo-winning-ads";
+import { langFromText, LANG_LABEL } from "@/lib/demo-winning-ads";
 
 describe("langFromText", () => {
   it("reconoce español", () => {
@@ -25,5 +25,12 @@ describe("langFromText con textos largos", () => {
   it("español largo sigue siendo español", () => {
     const es = "Si quieres empezar a vender por internet pero no sabes por dónde empezar, esta guía es para ti. Aprende paso a paso cómo crear tu primer producto digital, cómo ponerle precio y cómo conseguir tus primeros clientes por WhatsApp, sin experiencia y con lo que ya tienes en casa.";
     expect(langFromText(es, "pt")).toBe("es");
+  });
+});
+
+describe("LANG_LABEL", () => {
+  it("dice el idioma en español llano", () => {
+    expect(LANG_LABEL[langFromText("Get the guide now and learn how to build your first online course with this method", "es")]).toBe("Inglés");
+    expect(LANG_LABEL.otro).toBe("Otro idioma");
   });
 });

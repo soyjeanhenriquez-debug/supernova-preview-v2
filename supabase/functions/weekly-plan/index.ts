@@ -99,6 +99,55 @@ function weekStart(): string {
 
 const clip = (v: unknown, n: number) => (typeof v === "string" ? v.slice(0, n) : "");
 
+// ── JSON tolerante · COPIA de parseLooseJson en src/lib/contentText.ts (probada allí) ──
+type Obj = Record<string, unknown>;
+const tryParse = (s: string): unknown => {
+  try { return JSON.parse(s); } catch { /* sigue */ }
+  try { return JSON.parse(s.replace(/,\s*([}\]])/g, "$1")); } catch { return undefined; }
+};
+
+/**
+ * Lee la respuesta de la IA. Devuelve el objeto completo (si se pudo) y la lista bajo `key`.
+ * Si el JSON viene roto o cortado, rescata uno por uno los objetos completos de la lista.
+ */
+function parseLooseJson(text: unknown, key: string): { obj: Obj | null; items: Obj[] } {
+  const t = String(text ?? "").replace(/```(?:json)?/gi, "").trim();
+  const isObj = (x: unknown): x is Obj => !!x && typeof x === "object" && !Array.isArray(x);
+  const pick = (v: unknown): { obj: Obj | null; items: Obj[] } | null => {
+    if (Array.isArray(v)) return { obj: null, items: v.filter(isObj) };
+    if (isObj(v) && Array.isArray(v[key])) return { obj: v, items: (v[key] as unknown[]).filter(isObj) };
+    return null;
+  };
+  const a = t.indexOf("{");
+  const b = t.lastIndexOf("}");
+  for (const cand of [t, a >= 0 && b > a ? t.slice(a, b + 1) : ""]) {
+    if (!cand) continue;
+    const got = pick(tryParse(cand));
+    if (got) return got;
+  }
+  // Rescate: objetos completos dentro del arreglo de `key` (o del primer arreglo).
+  const k = t.indexOf(`"${key}"`);
+  const from = k >= 0 ? t.indexOf("[", k) : t.indexOf("[");
+  const items: Obj[] = [];
+  if (from >= 0) {
+    let depth = 0, start = -1, inStr = false, esc = false;
+    for (let i = from + 1; i < t.length; i++) {
+      const c = t[i];
+      if (inStr) { if (esc) esc = false; else if (c === "\\") esc = true; else if (c === '"') inStr = false; continue; }
+      if (c === '"') { inStr = true; continue; }
+      if (c === "{") { if (depth === 0) start = i; depth++; continue; }
+      if (c === "}") {
+        depth--;
+        if (depth === 0 && start >= 0) { const o = tryParse(t.slice(start, i + 1)); if (isObj(o)) items.push(o); start = -1; }
+        if (depth < 0) break;
+        continue;
+      }
+      if (c === "]" && depth === 0) break;
+    }
+  }
+  return { obj: null, items };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: "Método no permitido" });
@@ -207,8 +256,9 @@ SEMANA PASADA: ${prev ? `foco "${clip(prev.focus, 120)}"; ${prevDone.filter((t) 
       const { error: logErr } = await admin.rpc("log_ai_usage", { p_user_id: gate.userId, p_fn: "weekly-plan", p_model: MODEL, p_input: input, p_output: output, p_images: 0 });
       if (logErr) console.error("log_ai_usage:", logErr.message);
     }
-    const raw = String(out?.choices?.[0]?.message?.content ?? "").replace(/^```(?:json)?\s*|\s*```$/g, "");
-    parsed = JSON.parse(raw);
+    // JSON tolerante: con ```, comas de más o cortado, se rescatan las tareas completas.
+    const loose = parseLooseJson(out?.choices?.[0]?.message?.content, "tasks");
+    parsed = { focus: typeof loose.obj?.focus === "string" ? loose.obj.focus : undefined, tasks: loose.items as { title?: string; why?: string; page?: string; minutes?: number }[] };
   } catch (e) {
     console.error("weekly-plan:", e instanceof Error ? e.name : e);
     return json(502, { error: "No se pudo armar tu semana. Intenta de nuevo." });

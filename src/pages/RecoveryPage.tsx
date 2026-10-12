@@ -22,8 +22,9 @@ type Channel = "whatsapp" | "email";
 const HOW_TO = [
   "Guarda el número (o el correo) de cada persona que pregunta, hace clic o empieza a pagar y no termina.",
   "En WhatsApp Business ponle la etiqueta \"casi compra\" para encontrarla rápido.",
-  "Envía cada mensaje el día que toca. Cambia {nombre} por su nombre y {link} por tu enlace de pago.",
+  "Envía cada mensaje el día que toca. Cambia {nombre} por su nombre y {link} por tu enlace de pago. Si cobras por transferencia o por WhatsApp, cambia {link} por \"respóndeme QUIERO y te paso los datos\".",
   "Si alguien responde, deja la secuencia y conversa con esa persona. Si te pide que no le escribas más, no le escribas.",
+  "Antes de enviar, lee cada mensaje en voz alta: si suena a anuncio y no a ti, cámbialo con tus palabras. Se guarda solo.",
 ];
 
 const dayLabel = (d: number) => (d === 0 ? "Día 0 · hoy" : `Día ${d}`);
@@ -196,9 +197,9 @@ export function RecoveryPage({ onNavigate }: { onNavigate?: (page: string) => vo
               </div>
             </div>
             <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-              <span className="text-foreground font-medium">¿Qué duda o excusa te dicen más? <span className="text-muted-foreground font-normal">(opcional)</span></span>
+              <span className="text-foreground font-medium">¿Qué duda o excusa te dicen más? <span className="text-muted-foreground font-normal">(opcional, pero cambia mucho el día 1)</span></span>
               <input value={objection} onChange={e => setObjection(e.target.value.slice(0, 300))} maxLength={300}
-                placeholder='Ej.: "Está caro", "No tengo tiempo", "¿Y si no me funciona?"'
+                placeholder='Ej.: "Está caro", "No tengo tiempo", "¿Cómo lo recibo?", "Lo pienso y te aviso"'
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary/60" />
             </label>
             <details className="group">

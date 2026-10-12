@@ -3,7 +3,7 @@ import { QuickBrief } from "@/components/QuickBrief";
 import { ArrowRight, Check, CircleHelp, ClipboardCheck, Loader2, Pencil, Printer, RotateCcw, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { profileReady, useBusinessProfile, type Validation } from "@/lib/businessProfile";
+import { profileReady, useBusinessProfile, type Validation, priceLabel } from "@/lib/businessProfile";
 import { PageHeader } from "@/components/PageHeader";
 import {
   QUESTIONS, TOTAL, PAGE_LABEL, normalizeAnswers, blockScore, overallScore, byAnswer, verdict, nextStep,
@@ -320,7 +320,7 @@ export function ValidationPage({ onNavigate }: { onNavigate?: (page: string) => 
   const questionCard = (q: Question, n: number) => {
     const v = answers[q.id];
     const extra = q.id === "p_frase" ? ` Tu frase: «${profile.product} para ${profile.who}».`
-      : q.id === "p_precio_valor" && profile.price?.trim() ? ` Tu precio en la ficha: ${profile.price.trim()}.`
+      : q.id === "p_precio_valor" && priceLabel(profile) ? ` Tu precio: ${priceLabel(profile)}.`
       : "";
     return (
       <li key={q.id} className="card-surface rounded-2xl p-4 space-y-3">

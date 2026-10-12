@@ -18,9 +18,9 @@ export const OPEN_TOUR_EVENT = "supernova:open-tour";
 const STEPS: Step[] = [
   {
     target: "home-creativos",
-    title: "Toca lo que quieres crear",
+    title: "Empieza por Hoy",
     page: "1 de 3",
-    body: "Cada botón hace el trabajo desde tu producto: <strong>creativos, carruseles, tu influencer IA o el copy</strong>. Más abajo eliges qué estás construyendo y ves las herramientas de tu negocio. ¿No sabes qué vender? <strong>Espía los anuncios ganadores</strong>: mirar es gratis.",
+    body: "En <strong>Hoy</strong> ves negocios digitales que llevan meses pagando anuncios: la mejor prueba de que venden. Elige uno y toca <strong>Mi versión</strong>: te da tu oferta en español, el anuncio, la imagen y los mensajes de WhatsApp. Mirar es gratis.",
     placement: "bottom",
   },
   {
@@ -34,7 +34,7 @@ const STEPS: Step[] = [
     target: "nav-Proyectos",
     title: "Todo lo que creas queda guardado",
     page: "3 de 3",
-    body: "Tus anuncios, tu producto y lo que guardes quedan en <strong>Lo que creaste</strong> y en el Inicio, para retomarlos. ¿Dudas? El botón 💬 de abajo a la derecha te responde gratis.",
+    body: "Tus versiones y lo que guardes quedan en <strong>Mis versiones</strong> y en <strong>Lo que creaste</strong> (en Más herramientas), para retomarlos. ¿Dudas? El botón 💬 de abajo a la derecha te responde gratis.",
     placement: "right",
   },
 ];

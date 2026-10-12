@@ -125,11 +125,11 @@ export function CampaignModal({ onClose, onSuccess, editCampaign }: CampaignModa
               <label className={labelClass}>Objetivo *</label>
               <select {...register("objective")} className={inputClass}>
                 <option value="conversions">Conversiones</option>
-                <option value="awareness">Awareness</option>
+                <option value="awareness">Que te conozcan (reconocimiento)</option>
                 <option value="traffic">Tráfico</option>
-                <option value="leads">Leads</option>
-                <option value="engagement">Engagement</option>
-                <option value="app_installs">App Installs</option>
+                <option value="leads">Contactos (leads)</option>
+                <option value="engagement">Interacción (me gusta, comentarios)</option>
+                <option value="app_installs">Instalaciones de app</option>
               </select>
             </div>
           </div>

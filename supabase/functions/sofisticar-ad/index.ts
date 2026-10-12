@@ -49,8 +49,8 @@ Genera el análisis SOFISTICAR siguiendo EXACTAMENTE este formato (incluye los h
 ## 👤 QUIÉN LO ESTÁ COMPRANDO
 (Avatar específico — edad, situación, dolor)
 
-## 💰 ESTIMADO DE LO QUE ESTÁ GENERANDO
-(Estimación basada en días activo + duplicados + impresiones)
+## 💰 SEÑALES DE QUE VENDE
+(Qué dicen los días activo y los duplicados. Sin cifras de dinero ni de ventas: no se pueden saber desde afuera.)
 
 ## ⚡ CÓMO SOFISTICARLO — TU VERSIÓN MEJORADA
 (Producto específico que puedes crear. Más simple pero más valioso.)
@@ -58,7 +58,7 @@ Genera el análisis SOFISTICAR siguiendo EXACTAMENTE este formato (incluye los h
 ## 🚀 TU OFERTA SOFISTICADA EN 30 DÍAS
 **Nombre del producto:** [nombre específico]
 **Formato:** [SaaS / App / Herramienta / Curso intensivo]
-**Precio recomendado:** $X
+**Precio recomendado (propuesta):** US$X
 **Por qué es MEJOR que el original:** [razón específica]
 **Cómo construirlo:** [3 pasos concretos]
 
@@ -66,14 +66,14 @@ Genera el análisis SOFISTICAR siguiendo EXACTAMENTE este formato (incluye los h
 (Listo para copiar y pegar)
 
 ## ⚠️ NO HAGAS ESTO
-(Errores comunes al clonar este tipo de oferta)`,
+(Errores comunes al modelar este tipo de oferta: copiar el texto en el mismo idioma, usar sus fotos, su nombre o su marca)`,
     };
   }
 
   if (p.action === "adaptar") {
-    const targetLang = p.adaptTo === "en" ? "inglés (USA)" : "español (LATAM/España)";
+    const targetLang = p.adaptTo === "en" ? "inglés (USA)" : "español latino neutro (RD, Colombia, México), de tú";
     return {
-      system: `Eres un copywriter experto en Direct Response que adapta culturalmente anuncios entre mercados. NO traduces literal — recreas el ángulo emocional con referencias culturales locales, expresiones nativas y prueba social adecuada al mercado destino.`,
+      system: `Eres un copywriter experto en Direct Response que adapta culturalmente anuncios entre mercados. NO traduces literal — recreas el ángulo emocional con referencias culturales locales y expresiones nativas. Nunca inventas prueba social, testimonios ni cifras, y no usas el nombre ni la marca del original.`,
       user: `${adInfo}
 
 Adapta culturalmente este anuncio al ${targetLang}. NO es una traducción literal. Recrea el ángulo emocional con elementos culturales del mercado destino.
@@ -84,11 +84,11 @@ Entrega el output con este formato:
 **Título:**
 (nuevo título adaptado)
 
-**Body:**
-(nuevo body adaptado, listo para publicar)
+**Texto:**
+(nuevo texto adaptado, listo para publicar, con UNA llamada a la acción; en LATAM, por WhatsApp si no hay enlace de pago)
 
 ## 🔑 DECISIONES DE ADAPTACIÓN
-(3-5 bullets explicando qué cambiaste y por qué — referencias culturales, modismos, prueba social local)
+(3-5 viñetas explicando qué cambiaste y por qué: referencias culturales, modismos, llamada a la acción)
 
 ## 💡 VARIANTE ALTERNATIVA
 (una segunda versión con un ángulo distinto)`,
@@ -116,8 +116,8 @@ Genera un BLUEPRINT COMPLETO con este formato exacto:
 ## 🧠 ESTRUCTURA DE LA OFERTA
 - Promesa central
 - Mecanismo único (USP)
-- Stack de bonos sugerido
-- Garantía
+- Bonos sugeridos (propuesta para el dueño)
+- Garantía (propuesta, como reembolso; nunca "garantizado" junto a un resultado)
 - Precio óptimo
 
 ## 📐 CÓMO MODELARLO (PASO A PASO)

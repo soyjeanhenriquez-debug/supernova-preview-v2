@@ -5,6 +5,7 @@ import { useProducts } from "@/contexts/ProductContext";
 import { notifyJourneyChanged } from "@/contexts/JourneyContext";
 import type { Gemelo } from "@/lib/gemelo";
 import type { PersonajeState } from "@/lib/personaje";
+import { currentScenario, fmtMoney, parseAmount } from "@/lib/pricing";
 
 /**
  * "Mi negocio" (tabla business_profile): lo que vende cada usuario, guardado una vez y usado en
@@ -97,13 +98,31 @@ export const PRICE_MAX = 40;
 export const profileReady = (p: BusinessProfile) =>
   p.product.trim().length > 2 && p.who.trim().length > 2 && p.promise.trim().length > 2;
 
+/**
+ * El precio del producto listo para leer, con su moneda: "RD$1.500", "US$27". Sale de la ficha
+ * (products.price) con la moneda de la calculadora; si la ficha está vacía, del escenario de la
+ * calculadora (el elegido o el que tiene abierto). Un precio escrito con texto ("US$9/mes · reto
+ * US$5") se respeta tal cual. "" si no hay precio.
+ */
+export function priceLabel(p: BusinessProfile): string {
+  const raw = (p.price ?? "").trim();
+  const cur = p.pricing?.currency || "US$";
+  if (raw) {
+    if (/[^\d.,\s]/.test(raw)) return raw;
+    const n = parseAmount(raw);
+    return n !== null && n > 0 ? fmtMoney(n, cur, { short: true }) : "";
+  }
+  const s = currentScenario(p.pricing);
+  return s && s.scenario.price > 0 ? fmtMoney(s.scenario.price, cur, { short: true }) : "";
+}
+
 /** Texto de la ficha para mandarlo a la IA. */
 export function profileText(p: BusinessProfile) {
   const type = BUSINESS_TYPES.find(t => t.id === p.business_type)?.label;
   return [
     type && `Tipo de negocio: ${type}${p.business_type === "ecommerce" ? " (productos físicos con envío)" : ""}`,
     `Producto: ${p.product}`, `Para quién: ${p.who}`, `Resultado que promete: ${p.promise}`,
-    p.price && `Precio: ${p.price} USD`, p.proof && `Prueba o garantía: ${p.proof}`,
+    priceLabel(p) && `Precio: ${priceLabel(p)}`, p.proof && `Prueba o garantía: ${p.proof}`,
     p.store_url && `Tienda: ${p.store_url}`,
   ].filter(Boolean).join("\n");
 }

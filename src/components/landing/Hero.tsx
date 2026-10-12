@@ -25,7 +25,7 @@ export function Hero() {
             transition={{ duration: 1, ease }}
             className="mb-8 font-[Inter,sans-serif] text-[11px] uppercase tracking-[0.4em] text-[#86868B]"
           >
-            · 7.517 ofertas analizadas · 300 ganadoras · En español ·
+            · Anuncios reales de Meta · Más de 90 días pagando · Tu versión en español ·
           </motion.p>
 
           <motion.h1
@@ -34,11 +34,11 @@ export function Hero() {
             transition={{ duration: 1, delay: 0.15, ease }}
             className="font-['Playfair_Display',serif] text-5xl font-medium leading-[1.06] tracking-tight text-[#F5F5F7] sm:text-6xl xl:text-7xl"
           >
-            Descubre qué vender,
+            Elige un negocio digital
             <br />
-            valídalo con datos
+            que lleva más de 90 días pagando anuncios.
             <br />
-            <span className="italic text-[#C5A880]">y crea tus anuncios paso a paso.</span>
+            <span className="italic text-[#C5A880]">Haz tu versión en español.</span>
           </motion.h1>
 
           <motion.p
@@ -47,13 +47,12 @@ export function Hero() {
             transition={{ duration: 1, delay: 0.35, ease }}
             className="mx-auto mt-8 max-w-xl font-[Inter,sans-serif] text-base font-light leading-relaxed text-[#86868B] lg:mx-0"
           >
-            Analizamos 7.517 ofertas digitales y marcamos 300 como ganadoras
-            porque llevan meses pagando anuncios. Desde ahí, SUPERNOVA te lleva
-            hasta tu propia versión: la nota de venta de cada oferta, cómo
-            hacerla tuya, 72 anuncios posibles por oferta y qué hacer con tus
-            números.{" "}
+            Nadie paga anuncios tres meses por algo que no vende. SUPERNOVA te
+            muestra esos negocios con datos reales de la Biblioteca de Anuncios de
+            Meta y te lleva hasta tu versión: la oferta, el precio en tu moneda,
+            tus primeros anuncios y qué hacer con tus números.{" "}
             <span className="text-[#F5F5F7]">
-              En español y paso a paso, aunque nunca hayas vendido nada por internet.
+              Paso a paso y en español, aunque empieces de cero.
             </span>
           </motion.p>
 
@@ -63,9 +62,9 @@ export function Hero() {
             transition={{ duration: 1, delay: 0.55, ease }}
             className="mt-12 flex flex-col items-center gap-4 sm:flex-row lg:justify-start"
           >
-            <LuxButton to="/signup">Probar 3 días gratis</LuxButton>
+            <LuxButton to="/signup">Ver qué ya se vende · 3 días gratis</LuxButton>
             <LuxButton to="#como-funciona" variant="ghost">
-              Ver cómo funciona
+              Cómo funciona
             </LuxButton>
           </motion.div>
 

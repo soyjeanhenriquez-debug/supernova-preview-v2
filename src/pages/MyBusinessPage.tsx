@@ -1,7 +1,8 @@
 import { ArrowRight, Briefcase } from "lucide-react";
 import { useBusinessProfile, profileReady } from "@/lib/businessProfile";
 import { BusinessProfileForm } from "@/components/BusinessProfileForm";
-import { calcScenario } from "@/lib/pricing";
+import { calcScenario, currentScenario, fmtMoney } from "@/lib/pricing";
+import { useLocalCurrency } from "@/lib/pricingCurrency";
 import { useJourney } from "@/contexts/JourneyContext";
 import { STAGES } from "@/lib/journey";
 
@@ -12,12 +13,15 @@ import { STAGES } from "@/lib/journey";
 export function MyBusinessPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { profile, setProfile, savePatch, loaded } = useBusinessProfile();
   const journey = useJourney();
+  const local = useLocalCurrency();
   if (!loaded) return <div className="text-sm text-muted-foreground p-6">Cargando…</div>;
 
   const ready = profileReady(profile);
-  const chosen = profile.pricing?.scenarios?.find(s => s.id === profile.pricing?.chosen);
-  const priceInfo = chosen ? calcScenario(chosen) : null;
-  const cur = profile.pricing?.currency ?? "US$";
+  // El escenario que vale: el elegido o, si aún no eligió, el que tiene la calculadora.
+  const current = currentScenario(profile.pricing);
+  const priceInfo = current && current.scenario.price > 0 ? calcScenario(current.scenario) : null;
+  const cur = profile.pricing?.currency || local.currency;
+  const money = (n: number) => fmtMoney(n, cur, { short: true });
   const answered = Object.keys(profile.validation?.answers ?? {}).length;
   const tasks = profile.launch_plan?.tasks ?? [];
   const tasksDone = tasks.filter(t => t.done).length;
@@ -30,7 +34,9 @@ export function MyBusinessPage({ onNavigate }: { onNavigate?: (page: string) => 
 
   const summary: { stage: string; label: string; value: string; page: string }[] = [
     { stage: "2 · Validar", label: "Matriz de validación", value: profile.validation?.completed_at ? "Completa" : answered ? `${answered} respuestas` : "Sin empezar", page: "Validar" },
-    { stage: "3 · Precio", label: "Precio y ganancia", value: chosen && priceInfo ? `${cur}${chosen.price} · te quedan ${cur}${priceInfo.perSale.toFixed(2)} por venta` : "Sin números todavía", page: "Precio" },
+    { stage: "3 · Precio", label: "Precio y ganancia", value: current && priceInfo
+      ? `${money(current.scenario.price)} · ${priceInfo.perSale > 0 ? `te quedan ${money(priceInfo.perSale)} por venta` : `pierdes ${money(-priceInfo.perSale)} por venta`}${current.chosen ? "" : " · sin confirmar"}`
+      : "Sin números todavía", page: "Precio" },
     { stage: "4 · Construir", label: "Plan de lanzamiento", value: tasks.length ? `${tasksDone} de ${tasks.length} tareas` : "Sin plan todavía", page: "Plan" },
     { stage: "6 · Recuperar", label: "Mensajes para quien casi compra", value: recovery ? `${recovery} mensajes listos` : "Sin crear", page: "Recuperar" },
   ];
@@ -46,7 +52,7 @@ export function MyBusinessPage({ onNavigate }: { onNavigate?: (page: string) => 
       </div>
 
       <div className="card-surface rounded-2xl p-5">
-        <BusinessProfileForm profile={profile} setProfile={setProfile} savePatch={savePatch} />
+        <BusinessProfileForm profile={profile} setProfile={setProfile} savePatch={savePatch} currency={local.currency} />
       </div>
 
       {ready && (

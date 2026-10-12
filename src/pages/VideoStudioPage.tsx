@@ -10,9 +10,9 @@ import { QuickBrief } from "@/components/QuickBrief";
 import { track } from "@/lib/analytics";
 import { takeSeed, type CreativeSeed } from "@/lib/creativeSeed";
 import {
-  SERIE_STYLES, SERIE_TEMPLATES, SPEECH_HINT, VIDEO_PRICE, VIDEO_TEMPLATES,
-  buildShots, cleanBrief, hasForbiddenClaim, improvePrompt, parseImprovedLines, planCost, publishText,
-  recommendTemplate, serieFromBrief, shotPrompt, videoSizeFor,
+  SERIE_STYLES, SERIE_TEMPLATES, SKIPPED_SHOT, SPEECH_HINT, VIDEO_PRICE, VIDEO_TEMPLATES,
+  adBusyLabel, buildShots, cleanBrief, hasForbiddenClaim, improvePrompt, parseImprovedLines, planCost, publishText,
+  recommendTemplate, serieFromBrief, shotPrompt, shotReceiptLabel, videoSizeFor,
   type Shot, type VideoBrief, type VideoMode, type VideoSize, type VideoTemplateId,
 } from "@/lib/videoTemplates";
 import { PresenterPicker } from "@/components/video/PresenterPicker";
@@ -30,7 +30,7 @@ import {
  * en APIMart, vía la función video-studio (cobra el servidor antes de generar y devuelve si falla):
  * - Clip: una escena suelta (55 / 110 créditos).
  * - Serie: escenas encadenadas por el último cuadro (novela, dibujos, short).
- * - Anuncio: 3 tomas de 5 s (gancho, demo, llamada) = 165. La IA elige la plantilla.
+ * - Anuncio: 3 tomas de 5 s (gancho, demo, llamada) = 225. La IA elige la plantilla.
  * - UGC: un presentador IA habla a cámara 10 s en español = 110. Nunca testimonio.
  * - Genjutsu (08-oct-2026): botón SOLO para la cuenta de Jean que abre /genjutsu (Seedance 2.0). La
  *   compuerta real está en el servidor; para los demás el botón no existe.
@@ -185,7 +185,7 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
 
   const runOne = async (body: CreateBody, label: string, onProgress?: (p: number | null) => void): Promise<VideoJob> => {
     const r = await createVideo({ ...body, product_id: productId ?? undefined });
-    if (r.billing) applyServerCharge(body.seconds >= 10 ? "vid_mini_10" : "vid_mini_5", r.billing, `${label} ${body.seconds} s`);
+    if (r.billing) applyServerCharge(body.seconds >= 10 ? "vid_mini_10" : "vid_mini_5", r.billing, `${label} ${body.seconds} s${body.label ? ` · ${body.label}` : ""}`);
     const done = await waitForVideo(r.job.id, onProgress);
     if (done.status !== "done") throw new Error("El video falló. Te devolvimos los créditos.");
     return done;
@@ -234,9 +234,9 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
 
   /**
    * Crea el anuncio. `from` > 0: rehace solo las tomas que faltan, sin volver a cobrar las que ya salieron.
-   * Las tomas se crean A LA VEZ (11-oct-2026, prueba de Hany: en cadena tardaba ~10 min): todas parten de la
-   * misma imagen (presentador o creativo) y el texto de cada una mantiene persona y lugar. Al final se unen
-   * en un solo MP4 en el navegador (ReadyToPublish → "Armar video final").
+   * Sin imagen inicial: la toma 1 va sola y las demás salen A LA VEZ desde su último cuadro (misma persona y
+   * lugar; 3 a 5 min). Si la toma 1 falla, las demás no se crean ni se cobran. Con presentador o creativo,
+   * todas parten de esa imagen y van a la vez. Al final se unen en un solo MP4 en el navegador ("Armar video final").
    */
   const startAd = async (from = 0) => {
     if (busy || !adMode || !brief || !shots.length) return;
@@ -253,18 +253,41 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
     const usePresenter = adMode === "ugc" && !!presenter;
     const startImg: Partial<CreateBody> = usePresenter ? { image_path: presenter!, image_bucket: "personajes" }
       : adMode === "anuncio" && firstFrame ? { image_path: firstFrame, image_bucket: "creativos" } : {};
-    await Promise.allSettled(todo.map(async i => {
+    const makeShot = async (i: number, extra: Partial<CreateBody>): Promise<VideoJob | null> => {
       const s = shots[i];
       try {
         const job = await runOne({
-          prompt: shotPrompt(s, adMode, { presenter: usePresenter, hook: brief.hook }),
-          seconds: s.seconds, size, audio: true, kind: adMode, template, ...startImg,
+          prompt: shotPrompt(s, adMode, { presenter: usePresenter || !!extra.from_job_id, hook: brief.hook }),
+          seconds: s.seconds, size, audio: true, kind: adMode, template, label: shotReceiptLabel(i, shots.length, s.label), ...extra,
         }, adMode === "ugc" ? "Video UGC" : "Video anuncio", p => setRun(cur => cur.map((x, j) => (j === i ? { ...x, progress: p } : x))));
         setRun(cur => cur.map((x, j) => (j === i ? { ...x, job } : x)));
+        return job;
       } catch (e) {
         setRun(cur => cur.map((x, j) => (j === i ? { ...x, error: e instanceof Error ? e.message : "Falló esta toma." } : x)));
+        return null;
       }
-    }));
+    };
+    // Sin imagen inicial, las tomas en paralelo salían con TRES personas distintas (misión 05, 11-oct-2026:
+    // cara, ropa y casa cambiaban en cada toma). Ahora la toma 1 va primero y las demás parten de su último
+    // cuadro (como la serie): misma persona y mismo lugar. Con presentador o creativo, todas parten de esa imagen.
+    let anchor: Partial<CreateBody> = startImg;
+    let rest = todo;
+    if (!("image_path" in startImg) && todo[0] === 0 && todo.length > 1) {
+      const first = await makeShot(0, {});
+      rest = todo.slice(1);
+      if (first?.last_frame_url) anchor = { from_job_id: first.id };
+      else if (!first) {
+        // Sin la toma 1 no hay a quién seguir: las demás NO se crean ni se cobran, y lo dicen (antes se
+        // quedaban girando "Creando…" para siempre). Se rehacen todas desde "Intentar de nuevo".
+        const skipped = rest; // copia: el actualizador corre después de "rest = []"
+        setRun(cur => cur.map((x, j) => (skipped.includes(j) && !x.job ? { ...x, error: SKIPPED_SHOT, progress: null } : x)));
+        rest = [];
+      }
+    } else if (!("image_path" in startImg) && retry) {
+      const base = run.find(x => x.job?.last_frame_url)?.job; // rehacer: seguir a una toma que ya salió
+      if (base) anchor = { from_job_id: base.id };
+    }
+    await Promise.allSettled(rest.map(i => makeShot(i, anchor)));
     track("video_generado", { modo: adMode, plantilla: template, origen: seed?.source ?? "manual" });
     setBusy(false);
     void loadRecent();
@@ -306,12 +329,23 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
 
   const chip = (on: boolean) => `h-9 px-3 rounded-full border text-[12px] transition-colors ${on ? "border-foreground/40 text-foreground bg-card" : "border-border text-muted-foreground hover:text-foreground"}`;
   const aspectCls = size === "16:9" ? "aspect-video" : size === "1:1" ? "aspect-square" : "aspect-[9/16] max-h-[520px] mx-auto";
-  const VideoCard = ({ s, label }: { s: Scene; label: string }) => (
+  // `step`: "Toma 2 de 3" en vez de un spinner mudo (misión 05, 11-oct-2026). Si falla, dice qué hacer.
+  const VideoCard = ({ s, label, step }: { s: Scene; label: string; step?: { n: number; total: number } }) => (
     <div className="rounded-2xl border border-border overflow-hidden bg-card/40 min-w-0">
       <div className={`relative bg-black ${aspectCls}`}>
         {s.job?.result_url ? <video src={s.job.result_url} controls playsInline className="w-full h-full object-contain" />
-          : s.error ? <p className="absolute inset-0 m-auto h-fit px-4 text-center text-[12px] text-muted-foreground">{s.error}</p>
-          : <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin" /><span className="text-[11px]">{typeof s.progress === "number" && s.progress > 0 ? `Creando… ${s.progress} %` : "Creando… 1 a 3 min"}</span></div>}
+          : s.error ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 px-4 text-center">
+              <p className="text-[12px] text-muted-foreground">{s.error}</p>
+              {step && s.error !== SKIPPED_SHOT && run.some(x => x.job) && <p className="text-[11px] text-muted-foreground/80">Abajo puedes rehacer solo esta toma: las que salieron no se cobran otra vez.</p>}
+            </div>
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground px-4 text-center">
+              <Loader2 className="w-6 h-6 animate-spin" />
+              {step && <span className="text-[12px] font-semibold text-foreground">Toma {step.n} de {step.total}</span>}
+              <span className="text-[11px]">{typeof s.progress === "number" && s.progress > 0 ? `Creando… ${s.progress} %` : "Creando… 1 a 3 min"}</span>
+            </div>
+          )}
       </div>
       <div className="p-3 flex items-center gap-2">
         <span className="text-[12px] text-foreground truncate flex-1">{label}</span>
@@ -380,7 +414,7 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
               </div>
               {showTemplates && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {VIDEO_TEMPLATES.map(x => (
+                  {[...VIDEO_TEMPLATES].sort((a, b) => Number(b.id === pick?.id) - Number(a.id === pick?.id)).map(x => (
                     <button key={x.id} onClick={() => { setTemplateId(x.id === pick?.id ? null : x.id); setShowTemplates(false); }}
                       className={`text-left rounded-xl border px-3 py-2.5 min-h-[44px] ${x.id === template ? "border-foreground/40 bg-card" : "border-border hover:border-foreground/30"}`}>
                       <span className="block text-[13px] text-foreground">{x.label}{x.id === pick?.id ? " · recomendada" : ""}</span>
@@ -437,7 +471,7 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
               <button onClick={() => void startAd()} disabled={busy || (adMode === "ugc" && ugcOpen === false)}
                 className="btn-primary-nova inline-flex items-center justify-center gap-2 rounded-xl px-5 h-12 text-[14px] font-semibold disabled:opacity-60 w-full sm:w-auto">
                 {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                {busy ? "Creando tu video…" : `${adMode === "ugc" ? "Crear video UGC" : "Crear anuncio"} · ${adCost} créditos`}
+                {busy ? adBusyLabel(run.map(x => ({ done: !!x.job, failed: !!x.error }))) : `${adMode === "ugc" ? "Crear video UGC" : "Crear anuncio"} · ${adCost} créditos`}
               </button>
               <p className="text-[11px] text-muted-foreground">{creditsLeft}. Si una toma falla, te devolvemos sus créditos.</p>
             </div>
@@ -448,8 +482,14 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
       {adMode && run.length > 0 && (
         <section className="space-y-4">
           <div className={`grid gap-3 ${size === "16:9" ? "sm:grid-cols-2" : run.length === 1 ? "max-w-sm" : "grid-cols-2 lg:grid-cols-3"}`}>
-            {run.map((s, i) => <VideoCard key={i} s={s} label={s.label ?? `Toma ${i + 1}`} />)}
+            {run.map((s, i) => <VideoCard key={i} s={s} label={s.label ?? `Toma ${i + 1}`} step={{ n: i + 1, total: run.length }} />)}
           </div>
+          {busy && (
+            <p className="text-[12px] text-muted-foreground">
+              {runDone.length ? `${runDone.length} de ${run.length} tomas listas. ` : `Primero sale la toma 1 (fija a la persona y el lugar) y las otras siguen de ahí: unos 3 a 5 min en total. `}
+              Puedes seguir usando la app: si cierras esta pantalla, las encuentras en "Tus videos de hoy".
+            </p>
+          )}
           {!busy && run.some(s => s.error) && (
             <button onClick={() => void startAd(1)} className="inline-flex items-center gap-2 h-10 px-4 rounded-full border border-border text-[13px] text-foreground">
               <RefreshCw className="w-4 h-4" />

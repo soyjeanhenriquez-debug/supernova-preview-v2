@@ -6,7 +6,7 @@
  * entra solo como REFERENCIA ("escribe otro con la misma idea"), nunca literal.
  */
 import type { SeedTarget } from "@/lib/creativeSeed";
-import { CONCEPT_BY_ID, MAX_CONCEPTS, levelConcepts, type ConceptGroup } from "@/lib/adConcepts";
+import { CONCEPT_BY_ID, MAX_CONCEPTS, levelConcepts, type AdConcept, type ConceptGroup } from "@/lib/adConcepts";
 
 export type StudioMode = "creativo" | "carrusel" | "miniatura" | "foto_ugc" | "foto_producto" | "variar";
 export type Aspect = "1:1" | "4:5" | "9:16" | "16:9";
@@ -44,40 +44,83 @@ export function missingRealTexts(ctx: Pick<PromptCtx, "concepts" | "realTexts">)
 }
 
 /**
+ * Qué texto lleva cada concepto cuando el usuario no escribió el suyo (11-oct-2026). Antes todos
+ * recibían "Sin texto en la imagen" y la IA entregaba Beneficios, Razones o Cuánto tiempo toma sin
+ * una sola palabra (o con la pregunta sí, por pura suerte). Ahora:
+ *  - texto real del usuario (testimonio, dato…): exacto;
+ *  - texto escrito por el usuario: exacto;
+ *  - gancho de referencia: un titular NUEVO con la misma idea;
+ *  - concepto de foto (native, problema → solución): sin texto;
+ *  - lo demás: la IA escribe el titular o las etiquetas, cortos y fieles al concepto.
+ */
+function conceptText(c: Pick<AdConcept, "text" | "words">, ctx: PromptCtx, real: string): string {
+  if (real) return `Texto en la imagen, exactamente y sin cambiar nada: «${real}».`;
+  const words = c.words ?? 6;
+  if (clean(ctx.headline, 60) || clean(ctx.hook, 140)) return textLine(ctx.headline, ctx.hook, words);
+  if (c.text === "none") return "Sin texto en la imagen: solo la foto.";
+  if (c.text === "lista") return `Escribe tú el titular (máximo ${words} palabras) y las etiquetas cortas (máximo 5 palabras cada una), en español latino con palabras simples, sobre este producto; cada icono o número lleva su texto y no hay más texto que ese.`;
+  return `Escribe tú el titular: máximo ${words} palabras, en español latino con palabras simples, fiel al concepto y a este producto; es el único texto de la imagen.`;
+}
+
+/**
+ * Dirección de arte distinta por imagen (11-oct-2026): las 3 imágenes salían con la misma mujer, la
+ * misma camiseta rosa y el mismo tapete, porque cada imagen es una llamada aparte y la IA cae en su
+ * "foto de stock" por defecto. Cada espacio recibe una luz, una composición y un tipo de persona
+ * distintos. 12-oct-2026 (R2-04): en la prueba las 3 seguían en rosa; sin kit de marca, cada imagen
+ * lleva además su propia paleta. Con kit, manda la paleta de la marca (no se pisa).
+ */
+const ART_DIRECTION: { look: string; palette: string }[] = [
+  { look: "luz de día suave, textura natural; persona (si la hay) de 25 a 35 años, ropa de casa sobria, nada de ropa deportiva rosa ni pose de modelo",
+    palette: "paleta terracota, crema y verde oliva" },
+  { look: "diseño gráfico limpio, el texto ocupa al menos un tercio; persona (si la hay) de 35 a 50 años, cuerpo real, ropa lisa",
+    palette: "fondo liso azul profundo o mostaza, nada de rosa" },
+  { look: "luz cálida de tarde, encuadre cerrado, fondo desenfocado; persona (si la hay) con tono de piel, peinado y edad distintos a los de stock",
+    palette: "paleta neutra (arena, gris cálido) con un solo acento de color fuerte" },
+];
+function artLine(i: number, kit: KitStyle): string {
+  const a = ART_DIRECTION[i % ART_DIRECTION.length];
+  return `Dirección de arte: ${a.look}${kitLine(kit) ? "" : `; ${a.palette}`}.`;
+}
+
+/**
  * Espacios de "Creativos": siempre 3 conceptos DISTINTOS (nunca 3 versiones del mismo estático).
  * Primero los que eligió y su estilo escrito; si faltan, se completan con otros conceptos del mismo
  * nivel de conciencia que no piden datos reales. Sin nivel ni elección: los 3 de siempre (null).
  */
-function conceptSlots(ctx: PromptCtx, text: string, t: string): SlotSpec[] | null {
+function conceptSlots(ctx: PromptCtx, t: string): SlotSpec[] | null {
   const custom = clean(ctx.customStyle, 160);
   // Con "otro estilo" escrito entran 2 conceptos: siempre son 3 imágenes.
   const ids = (ctx.concepts ?? []).filter(id => CONCEPT_BY_ID[id]).slice(0, custom ? MAX_CONCEPTS - 1 : MAX_CONCEPTS);
-  const picks: { label: string; scene: string; real?: string }[] = ids.map(id => {
+  const picks: { label: string; scene: string; text: string }[] = ids.map(id => {
     const c = CONCEPT_BY_ID[id];
     const real = c.needsReal ? clean(ctx.realTexts?.[id], 160) : "";
-    return { label: c.name, scene: c.scene, real };
+    return { label: c.name, scene: c.scene, text: conceptText(c, ctx, real) };
   });
-  if (custom) picks.push({ label: "Tu estilo", scene: `Estilo pedido por el usuario (adáptalo a un anuncio que cumpla las reglas): ${custom}.` });
+  if (custom) picks.push({ label: "Tu estilo", scene: `Estilo pedido por el usuario (adáptalo a un anuncio que cumpla las reglas): ${custom}.`, text: conceptText({ words: 8 }, ctx, "") });
   // Sin nivel, se completa con el nivel del primer concepto elegido.
   const lvl = ctx.level ?? (ids[0] ? CONCEPT_BY_ID[ids[0]].group : undefined);
   if (lvl) {
     for (const c of levelConcepts(lvl)) {
       if (picks.length >= MAX_CONCEPTS) break;
       if (c.needsReal || ids.includes(c.id)) continue;
-      picks.push({ label: c.name, scene: c.scene });
+      picks.push({ label: c.name, scene: c.scene, text: conceptText(c, ctx, "") });
     }
   }
   if (!picks.length) return null;
-  return picks.slice(0, MAX_CONCEPTS).map((p, i) => {
-    const txt = p.real ? `Texto en la imagen, exactamente y sin cambiar nada: «${p.real}».` : text;
-    return {
-      id: `k${i}`, label: p.label, aspect: ctx.aspect,
-      prompt: `Anuncio de Facebook e Instagram. Concepto: ${p.label}. ${p.scene} ${txt} ${t}`,
-    };
-  });
+  return picks.slice(0, MAX_CONCEPTS).map((p, i) => ({
+    id: `k${i}`, label: p.label, aspect: ctx.aspect,
+    prompt: `Anuncio de Facebook e Instagram. Concepto: ${p.label}. ${p.scene} ${p.text} ${artLine(i, ctx.kit)} ${t}`,
+  }));
 }
 
-export const RULES = "Personas latinas, naturales y creíbles. Sin logotipos, marcas ni personas famosas reales, ni personajes con derechos de autor. No muestres dinero, billetes, cifras de ingresos ni promesas de resultados. Nada sexual ni sugerente. Si hay texto, que sea en español, corto, grande, legible y escrito exactamente como se indica, sin otras palabras.";
+/**
+ * Reglas del manual en TODO prompt de imagen. Las de texto nacen de la prueba del 11-oct-2026: salió
+ * "EJERCCIO", carteles de fondo con frases ("Disciplina, hoy una vida más feliz") y textos diminutos.
+ * 12-oct-2026 (R2-04): la IA seguía agregando un cierre que nadie pidió ("Es momento de un cambio" y
+ * un párrafo que copiaba "Lo que logra" de la ficha), un cuadro con frase en la pared, un cuaderno con
+ * otra frase y una mancha borrosa en el borde. Se le dice que la ficha es contexto, no texto.
+ */
+export const RULES = "Personas latinas, reales y creíbles (sin aspecto plástico ni de stock). Sin logotipos, marcas, famosos ni personajes con derechos. No muestres dinero, billetes, cifras de ingresos ni promesas de resultados. Nada sexual ni sugerente. Texto: solo el pedido, en español con ortografía perfecta (tildes, ¿ ¡), corto, grande, legible en celular, letra gruesa de alto contraste sobre fondo liso o franja; sin frases de cierre, párrafos, carteles ni cuadros con frases. La ficha del producto es contexto, no texto para copiar. Imagen nítida, sin manchas ni bordes borrosos.";
 
 export const MODE_COUNT: Record<StudioMode, number> = {
   creativo: 3, carrusel: 5, miniatura: 2, foto_ugc: 3, foto_producto: 3, variar: 3,
@@ -121,10 +164,13 @@ export function aiAspect(mode: StudioMode, seedAspect?: Aspect): { aspect: Aspec
 const clean = (s: string | undefined, n: number) => (s ?? "").replace(/[«»"]/g, "'").replace(/\s+/g, " ").trim().slice(0, n);
 export const short = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1).trim()}…` : s);
 
-export function describe(b: Brief): string {
-  const parts = [`Producto: ${clean(b.product, 200)}.`];
-  if (clean(b.who, 200)) parts.push(`Para: ${clean(b.who, 200)}.`);
-  if (clean(b.promise, 200)) parts.push(`Lo que logra: ${clean(b.promise, 200)}.`);
+/** `max` acorta cada campo (las imágenes usan 140 para que el prompt quepa en los 2.000 del servidor). */
+export function describe(b: Brief, max = 200): string {
+  const parts = [`Producto: ${clean(b.product, max)}.`];
+  if (clean(b.who, max)) parts.push(`Para: ${clean(b.who, max)}.`);
+  if (clean(b.promise, max)) parts.push(`Lo que logra: ${clean(b.promise, max)}.`);
+  // El precio entra solo si existe: así "Oferta", "Todo incluido" y "Así llega tu compra" no lo inventan.
+  if (clean(b.price ?? "", 30)) parts.push(`Precio: ${clean(b.price, 30)} (si se escribe, exactamente este).`);
   return parts.join(" ");
 }
 
@@ -150,13 +196,18 @@ export function textLine(headline?: string, hook?: string, maxWords = 6): string
   return "Sin texto en la imagen.";
 }
 
+/**
+ * Cola de todo prompt de imagen. 12-oct-2026 (R2-04): con una ficha larga el prompt pasaba de 2.000
+ * caracteres y el servidor lo corta por el final, justo donde iban las REGLAS. Ahora las reglas van
+ * primero y la ficha y el ángulo al final, más cortos: si algo se corta, es contexto, no una regla.
+ */
 function tail(ctx: PromptCtx): string {
   return [
-    describe(ctx.brief),
-    clean(ctx.angle, 200) ? `Por qué funciona la idea: ${clean(ctx.angle, 200)}.` : "",
+    RULES,
     kitLine(ctx.kit),
     ctx.hasRefs ? REFS_LINE : "",
-    RULES,
+    describe(ctx.brief, 140),
+    clean(ctx.angle, 140) ? `Por qué funciona la idea: ${clean(ctx.angle, 140)}.` : "",
   ].filter(Boolean).join(" ");
 }
 
@@ -171,13 +222,21 @@ export function carruselTexts(b: Brief, hook?: string): string[] {
   ];
 }
 
+/** Límite del servidor (generate-ad-creative corta el prompt en 2.000 caracteres). */
+export const MAX_PROMPT = 2000;
+
 export function buildSlots(mode: StudioMode, ctx: PromptCtx): SlotSpec[] {
+  // Se corta aquí igual que en el servidor: como las reglas van antes que la ficha, nunca se pierden.
+  return buildSlotsRaw(mode, ctx).map(s => ({ ...s, prompt: s.prompt.length > MAX_PROMPT ? s.prompt.slice(0, MAX_PROMPT - 1).trim() + "…" : s.prompt }));
+}
+
+function buildSlotsRaw(mode: StudioMode, ctx: PromptCtx): SlotSpec[] {
   const t = tail(ctx);
   const a = ctx.aspect;
   const text = textLine(ctx.headline, ctx.hook);
   switch (mode) {
     case "creativo":
-      return conceptSlots(ctx, text, t) ?? [
+      return conceptSlots(ctx, t) ?? [
         { id: "a", label: "Problema → solución", aspect: a,
           prompt: `Anuncio de Facebook e Instagram. Escena realista: una persona del público objetivo vive el problema que resuelve el producto y se ve el alivio de encontrar la solución. ${text} ${t}` },
         { id: "b", label: "El resultado deseado", aspect: a,

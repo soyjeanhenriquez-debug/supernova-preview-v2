@@ -115,10 +115,10 @@ export function BusinessMap({ o, intel, working }: { o: Offer; intel: OfferIntel
       {/* 1) Lo que se ve en su checkout */}
       <section className="rounded-2xl border border-border bg-secondary/20 p-3 sm:p-4 space-y-3">
         <h5 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground flex items-center gap-1.5">
-          <ShoppingCart className="w-3.5 h-3.5" /> {co?.app ? "Lo que vimos en su tienda de apps" : "Lo que vimos en su checkout"}
+          <ShoppingCart className="w-3.5 h-3.5" /> {co?.app ? "Lo que vimos en su tienda de apps" : "Lo que vimos en su página de pago"}
         </h5>
         {working && !co ? (
-          <div className="flex items-center gap-2.5 text-[13px] text-muted-foreground py-1"><Loader2 className="w-4 h-4 animate-spin text-primary" /> Buscando su checkout…</div>
+          <div className="flex items-center gap-2.5 text-[13px] text-muted-foreground py-1"><Loader2 className="w-4 h-4 animate-spin text-primary" /> Buscando su página de pago…</div>
         ) : co?.app ? (
           <div className="space-y-2.5">
             <Row label="App" value={co.product_name ?? "—"} />
@@ -154,7 +154,7 @@ export function BusinessMap({ o, intel, working }: { o: Offer; intel: OfferIntel
             {!!co.public_sales && <Row label="Ventas que muestra" value={co.public_sales.toLocaleString("es-ES")} strong />}
             {!!co.members && <Row label="Miembros de la comunidad" value={co.members.toLocaleString("es-ES")} strong />}
             {!!co.rating && <Row label="Valoración" value={`${co.rating.toLocaleString("es-ES", { maximumFractionDigits: 1 })} ★ · ${(co.ratings_count ?? 0).toLocaleString("es-ES")} reseñas`} />}
-            <Row label="Upsell después de pagar" value={co.upsell_visible === false ? "No se ve desde este checkout" : co.has_upsell ? "Sí, tiene uno (su precio solo se ve comprando)" : "No tiene"} icon={<ArrowUpRight className="w-3.5 h-3.5" />} />
+            <Row label="Oferta extra después de pagar (upsell)" value={co.upsell_visible === false ? "No se ve desde su página de pago" : co.has_upsell ? "Sí, tiene uno (su precio solo se ve comprando)" : "No tiene"} icon={<ArrowUpRight className="w-3.5 h-3.5" />} />
             <div>
               <div className="text-[12px] text-muted-foreground mb-1.5">Order bumps en el mismo pago {co.bumps.length ? `(${co.bumps.length})` : ""}</div>
               {co.bumps.length ? (
@@ -175,10 +175,10 @@ export function BusinessMap({ o, intel, working }: { o: Offer; intel: OfferIntel
         ) : (
           <p className="text-[12.5px] text-foreground/80">
             {intel?.checkout_platform && !READABLE_CHECKOUTS.includes(intel.checkout_platform)
-              ? `Cobra con ${intel.checkout_platform}: su checkout no deja ver el precio desde afuera. `
+              ? `Cobra con ${intel.checkout_platform}: su página de pago no deja ver el precio desde afuera. `
               : intel?.funnel_type
-                ? `No vimos su checkout: esta oferta lo esconde detrás de ${(FUNNEL_LABEL[intel.funnel_type] ?? "otro paso").toLowerCase()}. `
-                : "No vimos su checkout. "}
+                ? `No vimos su página de pago: esta oferta la esconde detrás de ${(FUNNEL_LABEL[intel.funnel_type] ?? "otro paso").toLowerCase()}. `
+                : "No vimos su página de pago. "}
             Pon abajo el precio que veas y calculamos igual.
           </p>
         )}
@@ -266,11 +266,11 @@ export function BusinessMap({ o, intel, working }: { o: Offer; intel: OfferIntel
         <div className="grid grid-cols-2 gap-2">
           <Num label="Precio principal" value={inp.price} onChange={set("price")} prefix={cur} real={co?.price != null} />
           <Num label="Reembolsos" value={inp.refundPct} onChange={set("refundPct")} suffix="%" />
-          <Num label={co?.bumps.length ? `Bump (prom. de ${co.bumps.length})` : "Order bump"} value={inp.bumpPrice} onChange={set("bumpPrice")} prefix={cur} real={!!co?.bumps.length} />
+          <Num label={co?.bumps.length ? `Casilla extra (promedio de ${co.bumps.length})` : "Casilla extra (order bump)"} value={inp.bumpPrice} onChange={set("bumpPrice")} prefix={cur} real={!!co?.bumps.length} />
           <Num label="% que lo agrega" value={inp.bumpTakePct} onChange={set("bumpTakePct")} suffix="%" />
-          <Num label="Upsell" value={inp.upsellPrice} onChange={set("upsellPrice")} prefix={cur} proposed={!!co?.has_upsell} />
+          <Num label="Extra después de pagar (upsell)" value={inp.upsellPrice} onChange={set("upsellPrice")} prefix={cur} proposed={!!co?.has_upsell} />
           <Num label="% que lo compra" value={inp.upsellTakePct} onChange={set("upsellTakePct")} suffix="%" />
-          <Num label="Downsell" value={inp.downsellPrice} onChange={set("downsellPrice")} prefix={cur} proposed={!!co?.has_upsell} />
+          <Num label="Opción más barata si dice no (downsell)" value={inp.downsellPrice} onChange={set("downsellPrice")} prefix={cur} proposed={!!co?.has_upsell} />
           <Num label="% de los que dijeron no" value={inp.downsellTakePct} onChange={set("downsellTakePct")} suffix="%" />
           <Num label="Suscripción mensual" value={inp.subPrice} onChange={set("subPrice")} prefix={cur} />
           <Num label="% que se suscribe" value={inp.subTakePct} onChange={set("subTakePct")} suffix="%" />
@@ -299,8 +299,8 @@ export function BusinessMap({ o, intel, working }: { o: Offer; intel: OfferIntel
       <section className="rounded-2xl border border-border bg-secondary/20 p-3 sm:p-4 space-y-1.5 text-[12.5px]">
         <h5 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-1">De dónde sale cada cliente</h5>
         <Line label="Producto principal" v={r.parts.main} money={money} />
-        <Line label="Order bump" v={r.parts.bump} money={money} />
-        <Line label="Upsell" v={r.parts.upsell} money={money} />
+        <Line label="Casilla extra (order bump)" v={r.parts.bump} money={money} />
+        <Line label="Extra después de pagar" v={r.parts.upsell} money={money} />
         <Line label="Downsell" v={r.parts.downsell} money={money} />
         <Line label="Suscripción" v={r.parts.subscription} money={money} />
         <Line label="Comisión de la plataforma" v={-r.fees} money={money} />
@@ -326,7 +326,7 @@ interface Ladder {
   advertencias: string[];
 }
 const STEP_LABEL: Record<StepType, string> = {
-  principal: "Producto principal", bump: "Order bump", upsell: "Upsell", downsell: "Downsell", suscripcion: "Suscripción mensual",
+  principal: "Producto principal", bump: "Casilla extra (order bump)", upsell: "Extra después de pagar", downsell: "Opción más barata", suscripcion: "Suscripción mensual",
 };
 
 function Row({ label, value, strong, icon }: { label: string; value: string; strong?: boolean; icon?: React.ReactNode }) {

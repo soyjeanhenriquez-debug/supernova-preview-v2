@@ -54,11 +54,11 @@ async function requireUser(req: Request, fn: string, maxHour: number, maxDay: nu
 const FORMS: Record<string, { ask: string; shape: string }> = {
   "mandala-brief": {
     ask: "La ficha de su oferta para crear anuncios.",
-    shape: `{"product":"qué vende, ≤ 80 caracteres","who":"para quién, ≤ 80","promise":"resultado concreto que promete, ≤ 80","price":"solo el número, y SOLO si el usuario o la oferta que modela ya lo traen en Ya escrito o CONTEXTO; si no, cadena vacía","proof":"cadena vacía salvo que el usuario ya haya escrito una garantía o prueba real: NUNCA inventes garantías, plazos de devolución, cifras ni testimonios"}`,
+    shape: `{"product":"qué vende, ≤ 80 caracteres","who":"para quién, ≤ 80","promise":"lo que la persona aprende o logra hacer, dicho como lo diría ella en una frase concreta (\"mover el cuerpo 20 minutos al día en la sala, sin pesas\"), ≤ 80; nunca \"hábitos de movimiento\", \"bienestar\" ni \"transformación\"","price":"solo el número, y SOLO si el usuario o la oferta que modela ya lo traen en Ya escrito o CONTEXTO; si no, cadena vacía","proof":"cadena vacía salvo que el usuario ya haya escrito una garantía o prueba real: NUNCA inventes garantías, plazos de devolución, cifras ni testimonios"}`,
   },
   "generator": {
-    ask: "La descripción de su producto que se usará en el generador indicado en CONTEXTO (producto, precio, público, resultado, diferencia).",
-    shape: `{"text":"2-3 frases, ≤ 350 caracteres"}`,
+    ask: "La descripción de su producto que se usará en el generador indicado en CONTEXTO (producto, precio solo si ya lo tiene, público, qué aprende o logra en palabras concretas, diferencia y CÓMO SE COMPRA: por WhatsApp, por mensaje directo o con un enlace de pago; si no se sabe, \"se pide por WhatsApp\").",
+    shape: `{"text":"2-4 frases, ≤ 400 caracteres; la última dice cómo se compra"}`,
   },
   "media-script": {
     ask: "Un guion hablado para un video vertical con avatar (45-60 segundos): gancho, problema, solución, llamada a la acción, sobre EL PRODUCTO DEL USUARIO. Sin indicaciones de escena ni marcas de tiempo. Si \"Ya escrito\" trae gancho_referencia (una frase de un anuncio ajeno, a veces en otro idioma y de otro producto), úsala SOLO como estructura y tono: reescribe ese gancho para el producto del usuario, en el idioma pedido, y nunca la copies tal cual ni la dejes en su idioma original.",
@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
 Devuelves SOLO un objeto JSON con esta forma exacta: ${spec.shape}
 Reglas:
 - Idioma: si "Ya escrito" trae "idioma", TODO el texto va en ese idioma (natural, como lo diría un nativo, no traducido palabra por palabra). Si no, español neutro y simple (salvo lo que se pida en inglés). Concreto, nada genérico.
-- Productos de salud (diabetes, peso, dolor, presión, piel, etc.): nunca prometas curar, tratar, prevenir ni resultados médicos o en un plazo; no afirmes que quien mira tiene la condición ("¿Tienes diabetes?" → "Para quienes quieren cuidar su azúcar…"); habla de hábitos, información, apoyo o comodidad. Así lo exigen Meta, TikTok y Google.
+- Productos de salud (diabetes, peso, dolor, presión, piel, etc.): nunca prometas curar, tratar, prevenir ni resultados médicos o en un plazo; no afirmes que quien mira tiene la condición ("¿Tienes diabetes?" → "Para quienes quieren cuidar su azúcar…"); habla de lo que la persona aprende, practica o tiene a mano (información, rutinas, apoyo, comodidad), con palabras concretas. Nunca escribas "hábitos de movimiento", "hábitos saludables", "bienestar" ni "transformación": son muletillas que luego se repiten en todos los anuncios. Así lo exigen Meta, TikTok y Google.
 - Si el usuario ya describió su oferta o ya escribió algo en el formulario, respétalo y complétalo en esa línea. Si el tipo de negocio elegido ahora no encaja con la ficha guardada (p. ej. la ficha es un curso y ahora eligió tienda online), ignora la ficha y crea un ejemplo del tipo nuevo. Si no hay datos suficientes, inventa un ejemplo realista y vendible que encaje con su encuesta (si "aún no lo tiene claro", propone un producto digital sencillo).
 - Nunca inventes testimonios, cifras de clientes ni resultados garantizados. Nada de promesas de salud, dinero rápido o cuerpo que las plataformas de anuncios rechacen: no prometas transformar el físico, bajar de peso, curar ni ganar dinero, y NUNCA con plazos ("en solo semanas", "en 30 días"). En fitness, salud o dinero habla de lo que el producto enseña o ayuda a practicar ("rutinas de calistenia en casa, sin equipo, para tu nivel"), no del resultado en el cuerpo o el bolsillo.
 - ${toneRule} En cualquier tono: sin trucos para esquivar la revisión de las plataformas (letras cambiadas, antes/después de cuerpos) y sin sugerir dejar un tratamiento.

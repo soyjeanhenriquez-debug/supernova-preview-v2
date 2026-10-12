@@ -19,7 +19,7 @@ const categories = [
   { icon: Heart, label: "Recomendados", id: "recommended" },
   { icon: Star, label: "Favoritos", id: "favorites" },
   { divider: true },
-  { icon: Layers, label: "Embudo de ventas", id: "funnel" },
+  { icon: Layers, label: "Camino de venta (embudo)", id: "funnel" },
   { icon: Globe, label: "Anuncios y redes", id: "social" },
   { icon: FileText, label: "Página de ventas", id: "copywriting" },
   { icon: ShoppingBag, label: "Producto", id: "product" },

@@ -44,7 +44,7 @@ describe("DiagnosticoPage", () => {
 
   it("trae leads y ventas del tracker con un toque", async () => {
     render(<DiagnosticoPage onNavigate={vi.fn()} />);
-    const btn = await screen.findByRole("button", { name: /Usar mi tracker: 40 te escribieron · 3 compraron/ });
+    const btn = await screen.findByRole("button", { name: /Usar mis números de Contenido: 40 te escribieron · 3 compraron/ });
     fireEvent.click(btn);
     expect((screen.getByLabelText("Te escribieron") as HTMLInputElement).value).toBe("40");
     expect((screen.getByLabelText("Te compraron") as HTMLInputElement).value).toBe("3");

@@ -6,22 +6,40 @@ import { AssistButton } from "@/components/AssistButton";
 import {
   profileReady, BUSINESS_TYPES, COPY_LEVELS, PROFILE_EXAMPLES, PRICE_MAX, type BusinessProfile,
 } from "@/lib/businessProfile";
+import { currentScenario, parseAmount } from "@/lib/pricing";
 
 /**
  * Formulario de "Mi negocio" (una sola vez; lo usan todas las herramientas). Vive en la página
  * Mi negocio (src/pages/MyBusinessPage.tsx). Guarda SOLO sus campos con savePatch, así no pisa lo
  * que guardan la calculadora, la matriz o el plan. Se guarda solo: 0,8 s después de dejar de escribir,
  * al salir del campo y al cerrar la pestaña.
+ * El precio va con la moneda de la calculadora (o la del país de la persona) y, si ya hizo números
+ * en "Precio y ganancia", cambiarlo aquí cambia también el escenario de la calculadora: un solo
+ * precio en toda la app.
  */
 const TEXT_KEYS = ["product", "who", "promise", "price", "proof"] as const;
 type TextKey = typeof TEXT_KEYS[number];
 const inputCls = "rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary/60";
 
-export function BusinessProfileForm({ profile, setProfile, savePatch }: {
+export function BusinessProfileForm({ profile, setProfile, savePatch, currency }: {
   profile: BusinessProfile;
   setProfile: (updater: (p: BusinessProfile) => BusinessProfile) => void;
   savePatch: (patch: Partial<BusinessProfile>, opts?: { typing?: boolean }) => Promise<boolean>;
+  /** Moneda por defecto (la del país de la persona) si todavía no usó la calculadora. */
+  currency?: string;
 }) {
+  const cur = profile.pricing?.currency || currency || "US$";
+  const pricingRef = useRef(profile.pricing);
+  pricingRef.current = profile.pricing;
+  /** Si el patch cambia el precio y hay calculadora, el escenario que vale toma el mismo precio. */
+  const withPricing = (patch: Partial<BusinessProfile>): Partial<BusinessProfile> => {
+    if (typeof patch.price !== "string" || !/^[\d.,\s]+$/.test(patch.price.trim())) return patch;
+    const n = parseAmount(patch.price);
+    const pr = pricingRef.current;
+    const c = currentScenario(pr);
+    if (!pr || !c || n === null || n <= 0 || n === c.scenario.price) return patch;
+    return { ...patch, pricing: { ...pr, scenarios: pr.scenarios.map(s => (s.id === c.scenario.id ? { ...s, price: n } : s)) } };
+  };
   const assist = useFormAssist("mandala-brief");
   const [saved, setSaved] = useState(false);
   const savedTimer = useRef<number | null>(null);
@@ -31,20 +49,22 @@ export function BusinessProfileForm({ profile, setProfile, savePatch }: {
     savedTimer.current = window.setTimeout(() => setSaved(false), 2000);
   };
   const persist = (patch: Partial<BusinessProfile>) =>
-    savePatch(patch).then(ok => { if (!ok) toast.error("No se pudo guardar tu negocio"); else showSaved(); return ok; });
+    savePatch(withPricing(patch)).then(ok => { if (!ok) toast.error("No se pudo guardar tu negocio"); else showSaved(); return ok; });
 
   // ---------- Autoguardado mientras se escribe ----------
   const pending = useRef<Partial<BusinessProfile>>({});
   const timer = useRef<number | null>(null);
   const savePatchRef = useRef(savePatch);
   savePatchRef.current = savePatch;
+  const withPricingRef = useRef(withPricing);
+  withPricingRef.current = withPricing;
   const flush = useCallback(() => {
     if (timer.current) window.clearTimeout(timer.current);
     timer.current = null;
     const patch = pending.current;
     if (!Object.keys(patch).length) return;
     pending.current = {};
-    void savePatchRef.current(patch, { typing: true }).then(ok => {
+    void savePatchRef.current(withPricingRef.current(patch), { typing: true }).then(ok => {
       if (!ok) toast.error("No se pudo guardar tu negocio");
       else showSaved();
     });
@@ -143,7 +163,7 @@ export function BusinessProfileForm({ profile, setProfile, savePatch }: {
           {text("product", ecommerce ? "Qué producto vendes" : "Qué vendes")}
           {text("who", "Para quién")}
           {text("promise", ecommerce ? "Qué problema resuelve o qué logra" : "Qué resultado promete")}
-          {text("price", "Precio (USD)", { inputMode: "decimal" })}
+          {text("price", `Precio (${cur})`, { inputMode: "decimal" })}
         </div>
         {text("proof", ecommerce ? "Envío, garantía o pago contra entrega (opcional)" : "Prueba o garantía (opcional)")}
         {ecommerce && text("store_url", "Enlace de tu tienda o del producto (opcional)", { placeholder: "https://tutienda.myshopify.com/products/…", inputMode: "url" })}

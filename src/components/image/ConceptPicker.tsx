@@ -28,7 +28,7 @@ function Preview({ c }: { c: AdConcept }) {
   return (
     <div className="relative w-full h-full">
       <img src={exampleSrc(c.id)} alt={`Ejemplo de ${c.name}`} loading="lazy" onError={() => setBroken(true)}
-        className="w-full h-full object-cover opacity-[0.88] saturate-[0.85] transition duration-300 group-hover:opacity-100 group-hover:saturate-100" />
+        className="w-full h-full object-cover opacity-95 saturate-[0.92] transition duration-300 group-hover:opacity-100 group-hover:saturate-100" />
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-black/5 shadow-[inset_0_0_40px_rgba(0,0,0,0.55)] ring-1 ring-inset ring-white/10" />
     </div>
   );
@@ -72,7 +72,8 @@ export function ConceptPicker({ level, onLevel, value, onChange, custom, onCusto
         {(value.length > 0 || custom.trim()) && <button type="button" onClick={() => { onChange([]); onCustom(""); }} disabled={disabled} className="ml-2 underline underline-offset-2 hover:text-foreground">usar los recomendados</button>}
       </p>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+      {/* 12-oct-2026 (R2-04): miniaturas grandes, máximo 3 por fila, para elegir con los ojos. */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
         {levelConcepts(group).map(c => {
           const on = value.includes(c.id);
           return (

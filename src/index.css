@@ -203,9 +203,17 @@
 
 /* ===== UTILITY CLASSES ===== */
 
-/* Gradient brand — now a tasteful white→gray text gradient, not orange */
+/* `.gradient-brand` — R2-08 (12-oct-2026): UN solo botón principal en toda la app, el ámbar.
+ * Antes era un degradado blanco→gris y convivía con el ámbar de `.btn-primary-nova` y de
+ * `bg-primary`: tres botones "principales" distintos. Hoy los ~40 botones con esta clase (más el
+ * paso activo de los recorridos, las barras de progreso y el logo de carga) usan el mismo ámbar
+ * plano, sin degradado. Para botones nuevos: `.btn-primary-nova` o <Button> (src/components/ui). */
 .gradient-brand {
-  background: linear-gradient(180deg, hsl(0 0% 100%), hsl(240 4% 65%));
+  background: hsl(var(--primary));
+}
+button.gradient-brand:not(:disabled):hover,
+a.gradient-brand:hover {
+  background: hsl(35 92% 64%);
 }
 
 .gradient-text {
@@ -438,3 +446,110 @@
   to   { opacity: 1; }
 }
 .animate-flicker { animation: flicker 1.5s ease-in-out infinite alternate; }
+
+/* ===== Teléfono (misión 08, 11-oct-2026) — reglas solo para pantallas chicas =====
+ * Comprobado en 390 px con la app en producción: estas reglas quitan el scroll
+ * horizontal de Mis productos (879 px) y Calendario de contenido (407 px) sin tocar
+ * las pantallas de escritorio. */
+@media (max-width: 639px) {
+  /* Un `grid` que solo define columnas desde sm: (grid sm:grid-cols-2) queda en el
+     teléfono con una columna `auto`: un hijo con texto en una sola línea (truncate)
+     la estira a lo ancho del texto y la página se desborda. Columna única con mínimo 0. */
+  main .grid:not([class*=" grid-cols-"]):not([class^="grid-cols-"]) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* Un input dentro de una fila flex no se encoge por debajo de su tamaño nativo
+     (~20 caracteres) y empuja el botón de al lado fuera de la pantalla. */
+  main .flex > input:not([type="checkbox"]):not([type="radio"]) {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 767px) and (pointer: coarse) {
+  /* iOS hace zoom a toda la página al enfocar un campo con letra menor de 16 px.
+     Solo en pantallas táctiles: en escritorio los campos siguen con su tamaño.
+     R2-08: también fuera de <main> (buscador ⌘K, chat de ayuda, menú lateral, ventanas y hojas,
+     que se montan en <body>). */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+  select,
+  textarea {
+    font-size: max(1em, 16px);
+  }
+}
+
+/* ===== Teléfono, ronda 2 (R2-08, 12-oct-2026) ===== */
+@media (max-width: 639px) {
+  /* Botones principales: 44 px de alto mínimo para el pulgar (guía de Apple y de Google).
+     Solo <button> y enlaces flex: el contenido queda centrado aunque crezca el alto. */
+  button.btn-primary-nova,
+  a.btn-primary-nova.inline-flex,
+  a.btn-primary-nova.flex,
+  button.gradient-brand,
+  a.gradient-brand.inline-flex,
+  a.gradient-brand.flex,
+  main button.bg-primary.text-primary-foreground {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 767px) {
+  /* Red de seguridad: si algo se pasa del ancho, se recorta en vez de mover TODA la página de lado.
+     `clip` (no `hidden`) para no crear un contenedor de scroll y no romper los `sticky`. */
+  html, body {
+    overflow-x: clip;
+  }
+  /* Sin el destello gris de iOS/Android al tocar; el estado activo lo dan las clases de cada botón. */
+  button, a, [role="button"], summary {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Fila que se desliza de lado (chips, pestañas, filtros) — para usar en cualquier pantalla:
+ *   <div className="scroll-row gap-2">…chips…</div>
+ * En el teléfono se desliza sin barra visible y se desvanece en el borde derecho: así se nota que
+ * hay más (antes "N1 Conoc" se cortaba sin pista). Cada hijo conserva su ancho. */
+.scroll-row {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.scroll-row::-webkit-scrollbar { display: none; }
+.scroll-row > * { flex-shrink: 0; scroll-snap-align: start; }
+@media (max-width: 639px) {
+  .scroll-row {
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+    padding-right: 28px;
+  }
+}
+
+/* Filas que se deslizan de lado y YA existen en las pantallas (`overflow-x-auto`: pestañas de
+ * Creativos, chips N0/N1/N2, pestañas de Mándala, nichos de YouTube, lista de generadores…).
+ * En el teléfono se desvanecen en el borde derecho SOLO mientras queda contenido por ver: la
+ * animación va atada al scroll de la propia fila y, si la fila cabe entera, no hay animación ni
+ * desvanecido. Navegadores sin `animation-timeline` (Safari < 26) quedan igual que antes. */
+@property --row-fade {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes row-fade-out {
+  from { --row-fade: 32px; }
+  to { --row-fade: 0px; }
+}
+@supports (animation-timeline: scroll()) {
+  @media (max-width: 639px) {
+    main .overflow-x-auto:not(table):not(pre),
+    main .scroll-row {
+      -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - var(--row-fade)), transparent);
+      mask-image: linear-gradient(90deg, #000 calc(100% - var(--row-fade)), transparent);
+      animation: row-fade-out linear both;
+      animation-timeline: scroll(self inline);
+    }
+    main .scroll-row { padding-right: 0; }
+  }
+}

@@ -10,12 +10,14 @@ export function useActivitySeries(actions?: string[], days = 7) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user) { setLoading(false); return; }
+      // getSession: el id sale de la sesión guardada, sin viaje a /auth/v1/user (RLS filtra igual).
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user?.id;
+      if (!uid) { setLoading(false); return; }
       const since = new Date(Date.now() - days * 86400000).toISOString();
       let q = supabase.from("credit_transactions")
         .select("created_at, action")
-        .eq("user_id", auth.user.id)
+        .eq("user_id", uid)
         .gte("created_at", since)
         .limit(2000);
       if (actions && actions.length) q = q.in("action", actions);

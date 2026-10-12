@@ -158,7 +158,7 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
       <div className="max-w-2xl mx-auto py-16 text-center space-y-4">
         <UserRound className="w-10 h-10 mx-auto text-primary" />
         <h1 className="font-display text-2xl font-semibold text-foreground">Primero, elige qué vas a vender</h1>
-        <p className="text-muted-foreground">Tu personaje necesita una oferta que contar. Elige y clona una en Mi negocio (es gratis) y vuelve aquí.</p>
+        <p className="text-muted-foreground">Tu personaje necesita una oferta que contar. Elige y modela una en Mi negocio (es gratis) y vuelve aquí.</p>
         <button onClick={() => onNavigate("Dashboard")} className="h-12 px-6 rounded-full btn-primary-nova inline-flex items-center gap-2">Ir a Mi negocio <ArrowRight className="w-4 h-4" /></button>
       </div>
     );
@@ -337,7 +337,7 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
       </div>
 
       <ol className="flex flex-wrap gap-2" aria-label="Pasos">
-        {([[1, "Tu influencer", !!pj], [2, "Sus 10 guiones", !!state.guiones?.length], [3, "Su video hablando", talkReady.length > 0]] as const).map(([n, label, done]) => (
+        {([[1, "Tu influencer", !!pj], [2, "Sus 10 guiones", !!state.guiones?.length], [3, canTalk === false ? "Su video hablando · pronto" : "Su video hablando", talkReady.length > 0]] as const).map(([n, label, done]) => (
           <li key={n}>
             <button onClick={() => (n === 1 || pj) && setStep(n)} disabled={n !== 1 && !pj}
               className={`h-9 pl-1.5 pr-4 rounded-full border text-[13px] font-semibold inline-flex items-center gap-2 transition-colors disabled:opacity-50 ${step === n ? "bg-card border-foreground/15 text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
@@ -360,7 +360,7 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
                     : busy === "foto" ? <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                     : <ImageIcon className="w-8 h-8 text-muted-foreground" />}
                 </div>
-                {state.foto && (
+                {state.foto && canTalk !== false && (
                   <button onClick={() => setStep(3)} disabled={busy !== ""} className="w-full h-11 border-t border-border text-[13px] font-semibold text-primary hover:bg-secondary/40 inline-flex items-center justify-center gap-2 disabled:opacity-50">
                     <Mic className="w-4 h-4" /> Hazlo hablar en video
                   </button>
@@ -393,8 +393,10 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
                 </div>
                 <p className="text-[12px] text-muted-foreground flex gap-2"><ShieldCheck className="w-4 h-4 shrink-0 text-success" /> Es un personaje, no un experto: nunca le pongas títulos, edades o resultados inventados. Instagram y TikTok piden marcar el contenido como hecho con IA; hazlo al publicar.</p>
                 <div className="flex flex-wrap gap-2">
-                  {state.foto && <button onClick={() => setStep(3)} className="h-11 px-5 rounded-full btn-primary-nova text-[14px] inline-flex items-center gap-2"><Mic className="w-4 h-4" /> Hazlo hablar en video</button>}
-                  <button onClick={() => setStep(2)} className={`h-11 px-5 rounded-full text-[14px] inline-flex items-center gap-2 ${state.foto ? "border border-border font-semibold text-foreground hover:border-foreground/30" : "btn-primary-nova"}`}>Sus 10 guiones <ArrowRight className="w-4 h-4" /></button>
+                  {/* Misión R2-05 (12-oct-2026): si el video que habla está en "pronto", no se invita con un botón ámbar a una pared. */}
+                  {state.foto && canTalk !== false && <button onClick={() => setStep(3)} className="h-11 px-5 rounded-full btn-primary-nova text-[14px] inline-flex items-center gap-2"><Mic className="w-4 h-4" /> Hazlo hablar en video</button>}
+                  <button onClick={() => setStep(2)} className={`h-11 px-5 rounded-full text-[14px] inline-flex items-center gap-2 ${state.foto && canTalk !== false ? "border border-border font-semibold text-foreground hover:border-foreground/30" : "btn-primary-nova"}`}>Sus 10 guiones <ArrowRight className="w-4 h-4" /></button>
+                  {state.foto && canTalk === false && <span className="inline-flex items-center h-11 px-4 rounded-full border border-border text-[13px] text-muted-foreground"><Lock className="w-4 h-4 mr-2" /> Su video hablando: pronto</span>}
                 </div>
               </div>
             </div>
@@ -489,7 +491,7 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
                   <p className="text-[14px] text-foreground/85 leading-relaxed">{g.guion}</p>
                   <p className="text-[12px] text-muted-foreground"><b className="text-foreground/80">Texto en pantalla:</b> {g.pantalla}</p>
                   <p className="text-[12px] text-muted-foreground"><b className="text-foreground/80">Cierre:</b> {g.cta}</p>
-                  <button onClick={() => { setLine(lineFromGuion(g)); setStep(3); }} className="text-[12px] font-semibold text-primary inline-flex items-center gap-1"><Mic className="w-3.5 h-3.5" /> Que lo diga en video</button>
+                  {canTalk !== false && <button onClick={() => { setLine(lineFromGuion(g)); setStep(3); }} className="text-[12px] font-semibold text-primary inline-flex items-center gap-1"><Mic className="w-3.5 h-3.5" /> Que lo diga en video</button>}
                 </div>
               ))}
             </div>
@@ -498,12 +500,14 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
             <div className="rounded-2xl border border-border bg-card p-5 text-[14px] text-foreground/85 space-y-1.5">
               <p className="font-semibold text-foreground">Cómo publicarlos esta semana</p>
               <p>1. Crea la cuenta con el nombre y la bio de {pj.nombre}, y su foto de perfil.</p>
-              <p>2. Toca «Que lo diga en video» en cualquier guion y {pj.nombre} lo dice a cámara. También puedes grabarlos con la foto en CapCut o Edits (gratis).</p>
+              <p>2. {canTalk === false ? `Grábalos con la foto de ${pj.nombre} en CapCut o Edits (gratis). El video que habla dentro de SUPERNOVA llega pronto.` : `Toca «Que lo diga en video» en cualquier guion y ${pj.nombre} lo dice a cámara. También puedes grabarlos con la foto en CapCut o Edits (gratis).`}</p>
               <p>3. Publica 1 o 2 al día. En 10 días mira cuál tuvo más vistas y guardados, y haz más de ese tipo.</p>
               <p className="text-[12px] text-muted-foreground pt-1">Consejo: prueba 2 o 3 personajes a la vez. En la prueba pública que estudiamos, el que parecía ganador no fue el que más creció.</p>
             </div>
           )}
-          <button onClick={() => setStep(3)} className="h-11 px-5 rounded-full btn-primary-nova text-[14px] inline-flex items-center gap-2"><Mic className="w-4 h-4" /> Siguiente: su video hablando</button>
+          {canTalk === false
+            ? <button onClick={() => setStep(3)} className="h-11 px-5 rounded-full border border-border text-[14px] text-muted-foreground inline-flex items-center gap-2"><Lock className="w-4 h-4" /> Su video hablando: pronto</button>
+            : <button onClick={() => setStep(3)} className="h-11 px-5 rounded-full btn-primary-nova text-[14px] inline-flex items-center gap-2"><Mic className="w-4 h-4" /> Siguiente: su video hablando</button>}
         </section>
       )}
 
@@ -619,7 +623,7 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
                 <p className="font-display text-xl font-semibold text-foreground">Tu personaje en video, sin salir de SUPERNOVA</p>
               </div>
             </div>
-            <p className="text-[14px] text-foreground/85 max-w-2xl">Eliges un guion y la app hace el video vertical con la foto de tu personaje, listo para subir. Con los mejores modelos de video del mercado, sin pagar otra suscripción: pagas solo los videos que haces, con tus créditos, y los créditos que compras no caducan.</p>
+            <p className="text-[14px] text-foreground/85 max-w-2xl">Eliges un guion y la app hace el video vertical con la foto de tu personaje, listo para subir. Con modelos de video actuales, sin pagar otra suscripción: pagas solo los videos que haces, con tus créditos, y los créditos que compras no caducan.</p>
             {PRESALE_URL && PRESALE_DEADLINE ? (
               <div className="rounded-xl bg-card border border-border p-4 space-y-2">
                 <p className="font-semibold text-foreground">Reserva tus créditos de video y recibe 50 % más al abrir</p>

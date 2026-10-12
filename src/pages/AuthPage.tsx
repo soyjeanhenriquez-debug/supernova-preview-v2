@@ -1,42 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { clearNewPasswordOffer, offerNewPasswordAfterLogin } from "@/lib/setPassword";
-import { Sparkles, Mail, KeyRound, Loader2, ArrowLeft, Lock, Send, CheckCircle2 } from "lucide-react";
+import { Sparkles, Mail, KeyRound, Loader2, ArrowLeft, Lock, Send, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Turnstile } from "@/components/Turnstile";
+import { authErrorMessage, linkErrorNotice } from "@/lib/authErrors";
 
 type Step = "password" | "email" | "code" | "denied" | "requested";
 
 const CAPTCHA_ENABLED = Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY);
+/** Segundos antes de ofrecer "pedir otro código": cada código nuevo anula el anterior. */
+const RESEND_AFTER_S = 60;
 
-/**
- * Errores de Supabase Auth en español y con lo que hay que HACER. El primer usuario real
- * (22-sep) se quedó fuera por "email rate limit exceeded": el correo integrado de Supabase
- * solo manda 2 correos por hora para todo el proyecto, y cada código nuevo anula el anterior.
- */
-export function authErrorMessage(err: unknown): string {
-  const raw = err instanceof Error ? err.message : String((err as { message?: string })?.message ?? err ?? "");
-  if (/rate limit|over_email_send_rate_limit|429/i.test(raw))
-    return "El correo está saturado ahora mismo. Entra con tu correo y tu contraseña (no necesita correo), o prueba el código en una hora.";
-  if (/email not confirmed/i.test(raw))
-    return "Tu correo aún no está confirmado. Abre el ÚLTIMO correo que te llegó (cada correo nuevo anula el anterior) o escríbenos por WhatsApp y te activamos al momento.";
-  if (/invalid login credentials/i.test(raw))
-    return "Correo o contraseña incorrectos. Si no recuerdas la contraseña, entra con un código por correo.";
-  if (/token has expired|otp.*expired|invalid.*token|token.*invalid/i.test(raw))
-    return "Ese código ya no vale. Usa el del último correo que te llegó.";
-  if (/captcha/i.test(raw)) return "La verificación de seguridad caducó. Márcala de nuevo y vuelve a intentarlo.";
-  return raw || "Algo falló. Inténtalo de nuevo.";
-}
-
-/** Si venimos de un enlace de correo caducado, Supabase deja el error en el hash o la query. */
-function linkErrorNotice(): string | null {
-  const s = `${window.location.hash} ${window.location.search}`;
-  if (/error_code=otp_expired|link is invalid or has expired/i.test(decodeURIComponent(s.replace(/\+/g, " "))))
-    return "Ese enlace ya no vale: cada correo nuevo anula al anterior. No hace falta otro enlace: entra aquí con tu correo y tu contraseña.";
-  if (/error_code=/.test(s)) return "Ese enlace no funcionó. Entra aquí con tu correo y tu contraseña.";
-  return null;
-}
+// Los errores de Supabase Auth en español viven en src/lib/authErrors.ts (R2-19, 12-oct-2026).
 
 export function AuthPage() {
   const [step, setStep] = useState<Step>("password");
@@ -48,7 +24,17 @@ export function AuthPage() {
   const [requestMessage, setRequestMessage] = useState("");
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaResetKey, setCaptchaResetKey] = useState(0);
-  const [notice] = useState(linkErrorNotice);
+  const [notice] = useState(() => linkErrorNotice());
+  const [showPw, setShowPw] = useState(false);
+  // Cuándo se mandó el último código: "pedir otro" sale después de RESEND_AFTER_S segundos.
+  const [sentAt, setSentAt] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (step !== "code") return;
+    const iv = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(iv);
+  }, [step]);
+  const waitLeft = Math.max(0, RESEND_AFTER_S - Math.floor((now - sentAt) / 1000));
 
   const resetCaptcha = () => { setCaptchaToken(""); setCaptchaResetKey((k) => k + 1); };
 
@@ -70,7 +56,7 @@ export function AuthPage() {
       if (window.location.hash) window.history.replaceState({}, "", window.location.pathname);
       toast.success("¡Bienvenido! 🚀");
     } catch (err: unknown) {
-      toast.error(authErrorMessage(err), { duration: 8000 });
+      toast.error(authErrorMessage(err, "login"), { duration: 9000 });
       resetCaptcha();
     } finally {
       setLoading(false);
@@ -100,11 +86,14 @@ export function AuthPage() {
         },
       });
       if (error) throw error;
-      toast.success("Código enviado. Revisa tu correo 📩 — usa solo el último que te llegue.");
+      toast.success("Código enviado. Revisa tu correo: usa solo el último que te llegue.");
       setEmail(normalized);
+      setCode("");
+      setSentAt(Date.now());
+      setNow(Date.now());
       setStep("code");
     } catch (err: unknown) {
-      toast.error(authErrorMessage(err), { duration: 8000 });
+      toast.error(authErrorMessage(err, "code"), { duration: 9000 });
       resetCaptcha();
     } finally {
       setLoading(false);
@@ -127,7 +116,7 @@ export function AuthPage() {
       toast.success("¡Acceso concedido! 🚀");
     } catch (err: unknown) {
       clearNewPasswordOffer();
-      toast.error(authErrorMessage(err), { duration: 8000 });
+      toast.error(authErrorMessage(err, "verify"), { duration: 9000 });
     } finally {
       setLoading(false);
     }
@@ -146,7 +135,7 @@ export function AuthPage() {
       if (error && error.code !== "23505") throw error;
       setStep("requested");
     } catch (err: unknown) {
-      toast.error(authErrorMessage(err) || "No se pudo enviar la solicitud");
+      toast.error(authErrorMessage(err, "login"));
     } finally {
       setLoading(false);
     }
@@ -154,9 +143,6 @@ export function AuthPage() {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute top-4 right-4 z-20">
-        <LanguageSwitcher variant="ghost" />
-      </div>
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full bg-primary/5 blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-64 h-64 rounded-full bg-accent/5 blur-3xl" />
@@ -189,7 +175,8 @@ export function AuthPage() {
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
-                    type="email" autoComplete="email" placeholder="tu@email.com" value={email}
+                    type="email" autoComplete="email" inputMode="email" autoCapitalize="none" placeholder="tu@email.com" value={email}
+                    aria-label="Tu correo"
                     onChange={(e) => setEmail(e.target.value)} required autoFocus
                     className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                   />
@@ -197,10 +184,15 @@ export function AuthPage() {
                 <div className="relative">
                   <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
-                    type="password" autoComplete="current-password" placeholder="Tu contraseña" value={password}
+                    type={showPw ? "text" : "password"} autoComplete="current-password" placeholder="Tu contraseña" value={password}
+                    aria-label="Tu contraseña"
                     onChange={(e) => setPassword(e.target.value)} required
-                    className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                    className="w-full bg-secondary border border-border rounded-lg pl-10 pr-10 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                   />
+                  <button type="button" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? "Ocultar contraseña" : "Mostrar contraseña"}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
                 {CAPTCHA_ENABLED && (
                   <Turnstile onVerify={setCaptchaToken} resetKey={captchaResetKey} />
@@ -235,14 +227,15 @@ export function AuthPage() {
               </button>
               <h2 className="font-display font-semibold text-xl text-foreground mb-1">Entrar con un código</h2>
               <p className="text-sm text-muted-foreground mb-6">
-                Te mandamos un código de 6 dígitos. Pídelo una sola vez: cada código nuevo anula el anterior.
+                Te mandamos un código de 6 dígitos (sirve también si olvidaste tu contraseña). Pídelo una sola vez: cada código nuevo anula el anterior.
               </p>
 
               <form onSubmit={handleSendCode} className="space-y-4">
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
-                    type="email" placeholder="tu@email.com" value={email}
+                    type="email" autoComplete="email" inputMode="email" autoCapitalize="none" placeholder="tu@email.com" value={email}
+                    aria-label="Tu correo"
                     onChange={(e) => setEmail(e.target.value)} required autoFocus
                     className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                   />
@@ -268,9 +261,10 @@ export function AuthPage() {
               >
                 <ArrowLeft className="w-3 h-3" /> Cambiar correo
               </button>
-              <h2 className="font-display font-semibold text-xl text-foreground mb-1">Introduce tu código</h2>
+              <h2 className="font-display font-semibold text-xl text-foreground mb-1">Escribe tu código</h2>
               <p className="text-sm text-muted-foreground mb-6">
-                Hemos enviado un código a <span className="text-foreground font-medium">{email}</span>
+                Te mandamos un código a <span className="text-foreground font-medium">{email}</span>. Puede tardar
+                1 o 2 minutos: mira también en Spam o Promociones. Si el correo trae un enlace, también puedes tocarlo.
               </p>
 
               <form onSubmit={handleVerifyCode} className="space-y-4">
@@ -287,9 +281,18 @@ export function AuthPage() {
                   type="submit" disabled={loading || code.length < 6}
                   className="w-full gradient-brand text-primary-foreground py-3 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 glow-primary disabled:opacity-60"
                 >
-                  {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Verificando...</> : "Acceder"}
+                  {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Verificando...</> : "Entrar"}
                 </button>
               </form>
+              <p className="mt-4 text-center text-xs text-muted-foreground">
+                {waitLeft > 0 ? (
+                  <>¿No te llegó? Podrás pedir otro en {waitLeft} s.</>
+                ) : (
+                  <button type="button" onClick={() => { setStep("email"); setCode(""); resetCaptcha(); }} className="text-primary hover:underline">
+                    ¿No te llegó? Pedir otro código
+                  </button>
+                )}
+              </p>
             </>
           )}
 
@@ -366,7 +369,7 @@ export function AuthPage() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground/50 mt-6">
-          © 2026 SUPERNOVA · Plataforma privada · Solo miembros
+          © 2026 SUPERNOVA · <a href="/legal/terminos.html" className="hover:underline">Términos</a> · <a href="/legal/privacidad.html" className="hover:underline">Privacidad</a>
         </p>
       </div>
     </div>

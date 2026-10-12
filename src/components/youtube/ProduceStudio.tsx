@@ -11,7 +11,7 @@ import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import { track } from "@/lib/analytics";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
-  buildDescription, chapters, checkLimits, estimateCost, parseScenes, pickAnimated, PRICES, suggestVoice, tagsFrom,
+  buildDescription, chapters, checkLimits, DEFAULT_ANIMATED_PCT, estimateCost, fitScenes, parseScenes, pickAnimated, PRICES, suggestVoice, tagsFrom,
   timecode, VOICE_LABEL, VOICES, YT_STYLES, narrationSeconds, type Voice,
 } from "@/lib/ytScenes";
 import {
@@ -59,6 +59,21 @@ async function post(fn: string, body: Record<string, unknown>) {
     throw new ApiError(await fnErrorMessage(resp, "No se pudo completar."), resp.status, code);
   }
   return resp;
+}
+
+/**
+ * Voz e imagen: si la IA falla, el servidor ya devolvió los créditos (502 con code
+ * "provider_failed"), así que se reintenta UNA vez solo, sin que la persona tenga que hacer nada.
+ * El reintento vuelve a cobrar la pieza (lo anterior ya se devolvió), nunca dos veces la misma.
+ */
+async function postPiece(fn: string, body: Record<string, unknown>) {
+  try {
+    return await post(fn, body);
+  } catch (e) {
+    if (!(e instanceof ApiError) || e.code !== "provider_failed") throw e;
+    await new Promise(r => setTimeout(r, 2500));
+    return await post(fn, body);
+  }
 }
 
 /** El servidor cobra; aquí solo se refleja el saldo (sin un aviso por cada pieza). */
@@ -133,12 +148,15 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
   balanceRef.current = balance;
 
   // ---------- Plan (antes de gastar) ----------
-  const scenes = useMemo(() => (start ? parseScenes(start.script) : []), [start]);
+  // Guiones largos con escenas de 10 s (antes del 12-oct) pasaban de 40 escenas y quedaban bloqueados:
+  // se unen las escenas vecinas más cortas (gratis, sin cambiar el texto) hasta que quepan.
+  const parsedCount = useMemo(() => (start ? parseScenes(start.script).length : 0), [start]);
+  const scenes = useMemo(() => (start ? fitScenes(parseScenes(start.script)) : []), [start]);
   const limitError = start ? checkLimits(scenes) : null;
   const [voice, setVoice] = useState<Voice>(() => suggestVoice(start?.style ?? "", start?.topic ?? start?.title ?? ""));
   const [style, setStyle] = useState(start?.style ?? "Cinematográfico");
   const [format, setFormat] = useState<Format>(start?.format ?? "16:9");
-  const [pct, setPct] = useState(20);
+  const [pct, setPct] = useState(DEFAULT_ANIMATED_PCT);
   const [subtitles, setSubtitles] = useState(true);
   const [clipOk, setClipOk] = useState<boolean | null>(null);
   const [persist, setPersist] = useState(true);
@@ -266,7 +284,7 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
     patchScene(i, { [kind]: "working", error: null } as Partial<SceneState>, false);
     try {
       if (kind === "voice") {
-        const resp = await post("yt-produce", { action: "voice", text: s.narration, voice: m.voice, lang: m.lang, scene: Math.min(40, i + 1) });
+        const resp = await postPiece("yt-produce", { action: "voice", text: s.narration, voice: m.voice, lang: m.lang, scene: Math.min(40, i + 1) });
         const data = await resp.json();
         addSpent(...billingOf(resp, data));
         const blob = b64ToBlob(data.audio, data.mime || "audio/mpeg");
@@ -274,7 +292,7 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
         await putMedia(m.id, i, "voice", blob);
         patchScene(i, { voice: "done", voiceSec: secs || narrationSeconds(s.narration) });
       } else if (kind === "image") {
-        const resp = await post("yt-produce", { action: "scene_image", visual: s.visual.slice(0, 600), style: m.style, aspect: m.format, scene: Math.min(40, i + 1) });
+        const resp = await postPiece("yt-produce", { action: "scene_image", visual: s.visual.slice(0, 600), style: m.style, aspect: m.format, scene: Math.min(40, i + 1) });
         const data = await resp.json();
         addSpent(...billingOf(resp, data));
         const raw = await (await fetch(data.image)).blob();
@@ -303,7 +321,11 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
       const err = e instanceof ApiError ? e : new ApiError(e instanceof Error ? e.message : "No se pudo completar.", 0);
       // Sin créditos, tope de uso, sesión o servicio caído: no se cobró; queda pendiente y se pausa.
       const blocking = [401, 402, 403, 429, 503].includes(err.status);
-      patchScene(i, { [kind]: blocking ? "pending" : "failed", error: blocking ? null : err.message } as Partial<SceneState>);
+      const what = kind === "voice" ? "La voz" : kind === "image" ? "La imagen" : "La animación";
+      const msg = err.code === "provider_failed"
+        ? `${what} falló dos veces y te devolvimos los créditos. Toca "Reintentar" en un momento.`
+        : err.message;
+      patchScene(i, { [kind]: blocking ? "pending" : "failed", error: blocking ? null : msg } as Partial<SceneState>);
       if (blocking) { setStopMsg(err.message); return "stop"; }
       return "ok";
     }
@@ -516,8 +538,10 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
       <div className="max-w-[920px] mx-auto space-y-6 py-4">
         {header}
         <div className="space-y-1.5">
+          <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-muted-foreground">Paso 3 de 4 · Escenas</p>
           <h2 className="font-display font-semibold text-[22px] md:text-[28px] tracking-[-0.02em] text-foreground">Producir tu video</h2>
-          <p className="text-[14px] text-muted-foreground">Voz, una imagen por escena, movimiento y subtítulos. Tú solo descargas y subes.</p>
+          <p className="text-[14px] text-muted-foreground">Primero se crean las piezas de cada escena (voz e imagen, y animación si la eliges). Después las armamos en tu video gratis, con subtítulos. Tú solo descargas y subes.</p>
+          {parsedCount > scenes.length && <p className="text-[12px] text-muted-foreground">Tu guion traía {parsedCount} escenas: unimos las más cortas y quedaron {scenes.length}. El texto no cambia.</p>}
         </div>
 
         {limitError ? (
@@ -571,8 +595,9 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
               <Sparkles className="w-4 h-4" /> Producir mi video · {num(cost.total)} créditos
             </button>
             <p className="text-[12px] text-muted-foreground">
-              {balance < cost.total ? `Te faltan ${num(cost.total - balance)} créditos. Baja el % animado o acorta el guion.` : "Cada pieza se cobra al crearse. Si una falla, te devolvemos sus créditos. Lo hecho se guarda en este navegador."}
+              {balance < cost.total ? `Te faltan ${num(cost.total - balance)} créditos. Baja el % animado, acorta el guion o recarga.` : "Cada pieza se cobra al crearse. Si una falla, te devolvemos sus créditos y la reintentamos sola una vez. Lo hecho se guarda en este navegador."}
             </p>
+            {balance < cost.total && <button onClick={() => onNavigate("Créditos")} className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl border border-border text-[13px] text-foreground hover:border-foreground/30">Recargar créditos</button>}
           </div>
 
           <details className="rounded-2xl border border-border/70 p-4">
@@ -613,7 +638,12 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
           </div>
         </div>
         <div className="h-1.5 rounded-full bg-secondary overflow-hidden"><div className="h-full bg-foreground/70 transition-all" style={{ width: `${prog.total ? (prog.done / prog.total) * 100 : 0}%` }} /></div>
-        {stopMsg && <p className="text-[13px] text-foreground rounded-xl border border-border p-3">{stopMsg}</p>}
+        {stopMsg && (
+          <div className="text-[13px] text-foreground rounded-xl border border-border p-3 flex flex-wrap items-center justify-between gap-2">
+            <span>{stopMsg}</span>
+            {/créditos|Recarga/i.test(stopMsg) && <button onClick={() => onNavigate("Créditos")} className="h-10 px-4 rounded-xl border border-border text-[13px] text-foreground hover:border-foreground/30">Recargar créditos</button>}
+          </div>
+        )}
         {!running && prog.ready && <p className="text-[12px] text-muted-foreground">El montaje se hace en tu navegador y tarda lo mismo que dura el video (unos {timecode(meta.scenes.reduce((a, s) => a + (s.voiceSec ?? 0) + 0.45, 0))}).</p>}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

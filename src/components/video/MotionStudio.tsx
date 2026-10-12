@@ -56,9 +56,14 @@ const DEMO: Beat[] = [
   { layout: "cta", text: "Pega tu guion y créalo", emphasis: ["guion"], items: [], narration: "", seconds: 2.4 },
 ];
 
-async function post(fn: string, body: Record<string, unknown>) {
+/** Un 502/503 suelto (visto el 11-oct-2026 al armar escenas) se reintenta una vez solo; si vuelve a fallar, dice qué hacer. */
+async function post(fn: string, body: Record<string, unknown>, retry = true): Promise<Response> {
   const resp = await fetch(`${FN_URL}/${fn}`, { method: "POST", headers: await fnHeaders(), body: JSON.stringify(body) });
-  if (!resp.ok) throw new Error(await fnErrorMessage(resp, "No se pudo completar."));
+  if ((resp.status === 502 || resp.status === 503 || resp.status === 504) && retry) {
+    await new Promise(r => setTimeout(r, 1500));
+    return post(fn, body, false);
+  }
+  if (!resp.ok) throw new Error(await fnErrorMessage(resp, resp.status >= 500 ? "El servidor no respondió. No se te cobró: espera unos segundos e intenta de nuevo." : "No se pudo completar."));
   return resp;
 }
 const b64ToBlob = (b64: string, mime: string) => {
@@ -112,6 +117,9 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
   const [copied, setCopied] = useState(false);
 
   useEffect(() => { if (!hasProduct && source === "anuncio") setSource("guion"); }, [hasProduct, source]);
+  // El producto llega después del primer render (prueba 11-oct-2026: con producto activo abría en "Tengo mi
+  // guion"). Si aún no escribió nada ni armó escenas, se pasa a "Anuncio de mi producto".
+  useEffect(() => { if (hasProduct && source === "guion" && !script.trim() && !plan) setSource("anuncio"); }, [hasProduct]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const beats = plan?.beats ?? DEMO;
   const chunks = useMemo(() => voiceChunks(beats), [beats]);
@@ -582,14 +590,17 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
             {playing === "preview" ? <><Pause className="w-4 h-4" /> Parar</> : <><Play className="w-4 h-4" /> Ver{voiceOn && voiceReady ? " con voz" : ""} · gratis</>}
           </button>
           {plan && (
+            // Falta la voz: el botón se ve apagado de verdad (antes era ámbar con opacidad y parecía activo; misión 05, 11-oct-2026).
             <button onClick={() => void run(true)} disabled={playing === "preview" || reading || planning || voicing || (voiceOn && !voiceReady)}
-              className="btn-primary-nova inline-flex items-center gap-2 h-10 px-4 rounded-full text-[13px] font-semibold disabled:opacity-60">
-              {playing === "record" ? <><Loader2 className="w-4 h-4 animate-spin" /> Grabando… (parar)</> : <><Download className="w-4 h-4" /> Crear video · gratis</>}
+              className={`inline-flex items-center gap-2 h-10 px-4 rounded-full text-[13px] font-semibold disabled:opacity-60 ${voiceOn && !voiceReady ? "border border-border text-muted-foreground" : "btn-primary-nova"}`}>
+              {playing === "record" ? <><Loader2 className="w-4 h-4 animate-spin" /> Grabando… {Math.round(progress * 100)} % (parar)</>
+                : voiceOn && !voiceReady ? <><Download className="w-4 h-4" /> Crear video · falta la voz</>
+                : <><Download className="w-4 h-4" /> Crear video · gratis</>}
             </button>
           )}
         </div>
-        {plan && voiceOn && !voiceReady && <p className="text-[11px] text-muted-foreground">Crea la voz (paso 3) o elige "Sin voz" para grabar.</p>}
-        {playing === "record" && <p className="text-[11px] text-muted-foreground">Se graba en tiempo real ({fmtSec(total)}). No cierres esta pestaña.</p>}
+        {plan && voiceOn && !voiceReady && <p className="text-[11px] text-muted-foreground">Para crear el video: crea la voz (paso 3, {chunks.length * VOICE_PRICE} créditos) o elige "Sin voz" (gratis).</p>}
+        {playing === "record" && <p className="text-[11px] text-muted-foreground">Se graba en tiempo real: faltan {fmtSec(Math.max(0, total * (1 - progress)))}. No cambies de pestaña ni cierres esta.</p>}
         {plan && !playing && (
           <div className="space-y-1">
             <button onClick={() => void downloadParts()} disabled={packing}

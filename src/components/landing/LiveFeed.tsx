@@ -1,20 +1,22 @@
 import { motion } from "framer-motion";
 
+// Muestra REAL del Radar (landing_teasers del 12-oct-2026, Biblioteca de Anuncios de Meta).
+// Nada inventado: nombre del anunciante, nicho, anuncios activos y días pagando tal cual.
 const FEED = [
-  { initial: "S", name: "Saúde & Bem-Estar BR", note: "O segredo natural que já transformou 47.000 corpos…", score: 94, days: "52d", market: "BR" },
-  { initial: "K", name: "SkinGlow Official", note: "92% of users saw visible results in 14 days…", score: 91, days: "75d", market: "US" },
-  { initial: "E", name: "EnvíoShop México", note: "Última oportunidad: 50% OFF y envío gratis…", score: 83, days: "18d", market: "MX" },
-  { initial: "A", name: "Academia Pro ES", note: "Aprende desde cero: 30 horas + certificado…", score: 77, days: "9d", market: "ES" },
-  { initial: "F", name: "Finanzas Sin Miedo", note: "El método que usan los que nunca revisan precios…", score: 71, days: "23d", market: "LATAM" },
+  { initial: "I", name: "iPhone Photo Academy", note: "Educación · 9 anuncios activos", days: 149, market: "CO" },
+  { initial: "G", name: "Galo Lara", note: "Dinero y negocios · 17 anuncios activos", days: 110, market: "AR" },
+  { initial: "A", name: "Ashley Malik Health & Wellness", note: "Salud · 17 anuncios activos", days: 96, market: "US" },
+  { initial: "R", name: "Reconectando Con Tu Propósito", note: "Marketing · 10 anuncios activos", days: 95, market: "US" },
+  { initial: "P", name: "Programa de Entrenamiento Ajedrez", note: "Educación · 17 anuncios activos", days: 92, market: "CO" },
 ];
 
-/** Tarjeta live-feed del hero: ganadores escaneándose en tiempo real. */
+/** Tarjeta del hero: muestra real de ofertas que llevan más de 90 días pagando anuncios. */
 export function LiveFeed() {
   return (
     <div className="w-full max-w-md rounded-xl border border-[#ffffff10] bg-[#0f0f11]/80 p-5 shadow-[0_40px_120px_-40px_rgba(197,168,128,0.25)] backdrop-blur">
       <div className="mb-4 flex items-center justify-between">
         <span className="font-[Inter,sans-serif] text-[10px] uppercase tracking-[0.3em] text-[#86868B]">
-          Ejemplos · Ofertas del radar
+          Muestra real · 12-oct-2026
         </span>
         <span className="flex items-center gap-1.5 font-[Inter,sans-serif] text-[10px] uppercase tracking-[0.2em] text-[#C5A880]">
           <motion.span
@@ -22,7 +24,7 @@ export function LiveFeed() {
             transition={{ duration: 1.6, repeat: Infinity }}
             className="inline-block h-1.5 w-1.5 rounded-full bg-[#C5A880]"
           />
-          Escaneando
+          Hoy
         </span>
       </div>
 
@@ -49,17 +51,17 @@ export function LiveFeed() {
             </span>
             <span className="text-right">
               <span className="block font-['Playfair_Display',serif] text-lg leading-none text-[#C5A880]">
-                {f.score}
+                {f.days}
               </span>
-              <span className="block font-[Inter,sans-serif] text-[10px] text-[#86868B]">{f.days}</span>
+              <span className="block font-[Inter,sans-serif] text-[10px] text-[#86868B]">días</span>
             </span>
           </motion.li>
         ))}
       </ul>
 
       <div className="mt-4 flex items-center justify-between border-t border-[#ffffff10] pt-3.5 font-[Inter,sans-serif] text-[10px] uppercase tracking-[0.2em] text-[#86868B]">
-        <span>43.500 anuncios nuevos en 30 días</span>
-        <span>300 ganadoras</span>
+        <span>+6.000 con más de 90 días</span>
+        <span>Datos de Meta</span>
       </div>
     </div>
   );

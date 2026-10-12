@@ -177,10 +177,35 @@ const PACKS: Array<{ id: string; name: string; credits: number; plan: string; re
   { id: "media-pro", name: "Media Pro 150", credits: 150, plan: "plan_LUqedwz8eidhm", media: true },
   { id: "media-scale", name: "Media Scale 400", credits: 400, plan: "plan_8TEzDcA67omY8", media: true },
 ];
+/** Id del plan del evento. Whop lo manda como objeto (`plan.id`), como texto (`plan: "plan_…"`) o
+ *  como `plan_id`; en reembolsos puede venir dentro de la membresía. (R2-14, 12-oct: con `plan` como
+ *  texto el id salía vacío y el evento se saltaba la lista blanca de planes.) */
+function planIdOf(data: Record<string, unknown>): string {
+  const obj = (v: unknown) => (v && typeof v === "object" ? v as Record<string, unknown> : null);
+  const raw = obj(data.plan)?.id ?? (typeof data.plan === "string" ? data.plan : undefined) ?? data.plan_id
+    ?? obj(obj(data.membership)?.plan)?.id ?? obj(data.membership)?.plan_id;
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
 function detectPack(data: Record<string, unknown>) {
-  const hay = JSON.stringify([data.product, data.plan, data.access_pass, data.membership, data.product_title, data.plan_title, data.title, data.name, data.route, data.metadata]);
-  const planId = String((data.plan as Record<string, unknown>)?.id ?? data.plan_id ?? "");
-  return PACKS.find((p) => p.plan === planId) ?? PACKS.find((p) => p.re?.test(hay)) ?? null;
+  const planId = planIdOf(data);
+  const byPlan = PACKS.find((p) => p.plan === planId);
+  if (byPlan) return byPlan;
+  // Respaldo por título SOLO si el evento no trae plan conocido de la app. El texto sale de los
+  // datos del producto/plan (los pone Jean en Whop), nunca de metadata, membresía ni nombre: esos
+  // campos los puede llenar quien compra o una integración, y bastaba escribir "boost 500" ahí en
+  // la compra de un producto gratis para recibir créditos (R2-14, 12-oct-2026).
+  if (SUPERNOVA_PLANS.has(planId)) return null;
+  const hay = JSON.stringify([data.product, data.plan, data.access_pass, data.product_title, data.plan_title, data.route]);
+  return PACKS.find((p) => p.re?.test(hay)) ?? null;
+}
+
+/** Id de la membresía en cualquier forma (objeto o texto). */
+function membershipIdOf(data: Record<string, unknown>, isMembershipEvent: boolean): string | null {
+  const m = data.membership;
+  const raw = (isMembershipEvent ? data.id : undefined) ?? data.membership_id
+    ?? (m && typeof m === "object" ? (m as Record<string, unknown>).id : typeof m === "string" ? m : undefined);
+  return raw ? String(raw).slice(0, 120) : null;
 }
 
 /** Busca el email en las rutas conocidas del payload de Whop (User expandido). */
@@ -247,7 +272,7 @@ serve(async (req) => {
   // suscripción del comprador y, al "expirar" el pack, le quitaría el acceso.
   const pack = detectPack(data);
   // Rastro sin datos personales: qué producto/plan trae cada evento (para diagnosticar packs).
-  console.log(`evento ${eventType} · product=${String((data.product as Record<string, unknown>)?.id ?? data.product_id ?? "?")} · plan=${String((data.plan as Record<string, unknown>)?.id ?? data.plan_id ?? "?")} · pack=${pack?.id ?? "no"}`);
+  console.log(`evento ${eventType} · product=${String((data.product as Record<string, unknown>)?.id ?? data.product_id ?? "?")} · plan=${planIdOf(data) || "?"} · pack=${pack?.id ?? "no"}`);
   if (pack) {
     // Se acredita al ACTIVARSE el acceso al pack (membership.activated / went_valid): ese
     // evento llega tanto en compras pagadas como con cupón del 100 % (visto en producción:
@@ -255,6 +280,36 @@ serve(async (req) => {
     // acreditar dos veces; el resto (expiración, cancelación) no toca nada.
     const t = eventType.toLowerCase().replace(/[._-]/g, " ");
     const activated = t.includes("membership") && (t.includes("activat") || t.includes("valid")) && !t.includes("invalid") && !t.includes("deactivat");
+    // Reembolso o contracargo de un pack: se retiran los créditos COMPRADOS que aún queden (hasta el
+    // tamaño del pack; lo ya gastado no se cobra) y se anula su cashback pendiente. Antes un pack
+    // reembolsado dejaba todos sus créditos (R2-14, 12-oct-2026). Necesita la migración
+    // 20261012*_r2_14_*.sql (revoke_pack_credits); sin ella solo queda el aviso en los logs.
+    if (/refund|chargeback|dispute/.test(t)) {
+      const email = extractEmail(data);
+      const refundId = data.id ? String(data.id).slice(0, 120) : "";
+      const mem = membershipIdOf(data, false);
+      if (!email || !refundId) {
+        console.error(`Pack ${pack.id}: reembolso sin email o sin id, revisar a mano en Whop`);
+        return new Response(JSON.stringify({ ok: true, skipped: `pack-refund-sin-datos:${eventType}` }), { headers: { "Content-Type": "application/json" } });
+      }
+      const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const { data: uid } = await db.rpc("get_user_id_by_email", { p_email: email });
+      if (!uid) return new Response(JSON.stringify({ ok: true, skipped: "pack-refund-sin-cuenta" }), { headers: { "Content-Type": "application/json" } });
+      const rkey = `whop_refund:${refundId}`;
+      const { error: dupR } = await db.from("stripe_events").insert({ id: rkey, type: `whop_pack_refund:${pack.id}` });
+      if (dupR) return new Response(JSON.stringify({ ok: true, duplicate: true }), { headers: { "Content-Type": "application/json" } });
+      const { data: rv, error: rvErr } = await db.rpc(pack.media ? "revoke_media_pack_credits" : "revoke_pack_credits", {
+        p_user_id: uid, p_amount: pack.credits, p_label: `Reembolso ${pack.name} (Whop)`,
+        p_cashback_source: mem ? `whop:${mem}:${pack.id}` : null,
+      });
+      if (rvErr) {
+        await db.from("stripe_events").delete().eq("id", rkey);
+        console.error(`PACK_REEMBOLSO_PENDIENTE pack=${pack.id} motivo=${rvErr.message.slice(0, 120)}`);
+        return new Response(JSON.stringify({ error: "DB error" }), { status: 500, headers: { "Content-Type": "application/json" } });
+      }
+      console.log(`OK reembolso pack ${pack.id} → -${(rv as Record<string, unknown>)?.revoked ?? "?"} créditos`);
+      return new Response(JSON.stringify({ ok: true, pack_refund: pack.id }), { headers: { "Content-Type": "application/json" } });
+    }
     if (!activated) {
       return new Response(JSON.stringify({ ok: true, skipped: `pack:${eventType}` }), { headers: { "Content-Type": "application/json" } });
     }
@@ -301,7 +356,7 @@ serve(async (req) => {
   // Mismo criterio que los packs: se acredita al activarse, una vez por membresía.
   // grant_support registra al impulsor y le da sus créditos de regalo como recarga, lo que
   // desbloquea "Crear producto".
-  const evPlanId = String((data.plan as Record<string, unknown>)?.id ?? data.plan_id ?? "");
+  const evPlanId = planIdOf(data);
   if (/^plan_[A-Za-z0-9]{6,40}$/.test(evPlanId)) {
     const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: sp } = await db.from("support_plans").select("plan_id,label").eq("plan_id", evPlanId).maybeSingle();
@@ -372,6 +427,14 @@ serve(async (req) => {
       headers: { "Content-Type": "application/json" },
     });
   }
+  // Dar acceso exige un plan de la lista. Una activación SIN plan (payload de otra forma, otro
+  // producto) no abre la app; quitar acceso sin plan sí se permite (R2-14, 12-oct-2026).
+  if (!evPlanId && (newStatus === "active" || newStatus === "trialing") && eventType.toLowerCase().includes("membership")) {
+    console.error(`${eventType} sin plan: no se da acceso (revisar en Whop si es de SUPERNOVA)`);
+    return new Response(JSON.stringify({ ok: true, skipped: `sin-plan:${eventType}` }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   const email = extractEmail(data);
   if (!email) {
@@ -395,18 +458,16 @@ serve(async (req) => {
   // En eventos de pago/reembolso data.id es el id del PAGO (pay_…), no de la membresía: la
   // membresía viene aparte. Tampoco traen fin de período: si falta, no se pisa el que ya había.
   const isMembershipEvent = eventType.toLowerCase().includes("membership");
-  const membershipId = String(
-    (isMembershipEvent ? data.id : undefined) ?? data.membership_id ?? (data.membership as Record<string, unknown>)?.id ?? "",
-  ) || null;
-  const planId = String(data.plan_id ?? (data.plan as Record<string, unknown>)?.id ?? "") || null;
+  const membershipId = membershipIdOf(data, isMembershipEvent);
+  const planId = evPlanId || null;
   const periodEnd = data.renewal_period_end ?? data.expires_at ?? data.valid_until ?? null;
 
   // Pagos y reembolsos solo corrigen una suscripción que YA existe (toda alta llega antes como
   // membership.activated). Si no traen plan, además tienen que coincidir por membresía: así el
   // reembolso de un pack o de otro producto nunca le quita el acceso a SUPERNOVA.
+  const { data: existing } = await supabaseAdmin.from("subscriptions")
+    .select("whop_membership_id, status").eq("email", email).maybeSingle();
   if (!isMembershipEvent) {
-    const { data: existing } = await supabaseAdmin.from("subscriptions")
-      .select("whop_membership_id").eq("email", email).maybeSingle();
     const matches = !!existing && (evPlanId ? true : !!membershipId && existing.whop_membership_id === membershipId);
     if (!matches) {
       console.error(`${eventType} de ${maskEmail(email)} sin suscripción que coincida (plan=${evPlanId || "?"}): ignorado, revisar en Whop`);
@@ -414,6 +475,15 @@ serve(async (req) => {
         headers: { "Content-Type": "application/json" },
       });
     }
+  }
+  // Baja de una membresía VIEJA (p. ej. al pasar de PRO a Comunidad, Whop activa la nueva y después
+  // da de baja la anterior): no le quita el acceso que da la membresía vigente (R2-14, 12-oct-2026).
+  if (isMembershipEvent && newStatus === "canceled" && existing?.whop_membership_id && membershipId
+      && existing.whop_membership_id !== membershipId && (existing.status === "active" || existing.status === "trialing")) {
+    console.log(`${eventType} de una membresía anterior de ${maskEmail(email)}: la vigente sigue activa`);
+    return new Response(JSON.stringify({ ok: true, skipped: `membresia-anterior:${eventType}` }), {
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   // Una entrega = un cambio: un reenvío del mismo webhook-id (dentro de la ventana de 5 min) no

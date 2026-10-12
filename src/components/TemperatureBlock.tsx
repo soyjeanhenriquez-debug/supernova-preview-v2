@@ -52,7 +52,7 @@ export function TemperatureBlock({
 
       <div className="text-[10px] text-muted-foreground flex flex-wrap gap-x-2 gap-y-0.5">
         <span className="font-semibold text-foreground/80">{velocity.label}</span>
-        <span>· {velocity.ratio.toFixed(1)} dups/día</span>
+        <span>· {velocity.ratio.toLocaleString('es-ES', { maximumFractionDigits: 1 })} copias por día</span>
         <span>· {uniquePages} {uniquePages === 1 ? 'página' : 'páginas'}</span>
         <span>· {daysActive} días</span>
       </div>

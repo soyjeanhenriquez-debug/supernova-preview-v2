@@ -51,6 +51,29 @@ function landingAtRoot(): Plugin {
   };
 }
 
+// Fuentes de Google sin bloquear el pintado (12-oct-2026): index.html las pide con una hoja de
+// estilos normal, que el navegador espera ANTES de pintar nada (un viaje a Google + 15,8 KB de CSS).
+// Aquí se cambia por un `preload` (empieza a bajar igual de pronto, pero no bloquea) con el rango
+// de pesos de las fuentes variables (3 KB), y src/lib/loadFonts.ts → loadAppFonts() la activa desde
+// main.tsx. Si alguien cambia esa línea de index.html, el build avisa en vez de fallar en silencio.
+// Misma dirección que APP_FONTS en src/lib/loadFonts.ts (no se importa: ese archivo usa `document`
+// y este corre en Node). Si cambias una, cambia la otra.
+const APP_FONTS = "https://fonts.googleapis.com/css2?family=Sora:wght@300..800&family=Manrope:wght@300..700&display=swap";
+
+function appFontsNonBlocking(): Plugin {
+  const BLOCKING = /<link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com\/css2\?family=Sora[^"]*">/;
+  return {
+    name: "supernova-app-fonts-non-blocking",
+    transformIndexHtml(html) {
+      if (!BLOCKING.test(html)) {
+        if (!html.includes('rel="preload" as="style"')) console.warn("[fuentes] no encontré el <link> de Sora/Manrope en index.html; revisa loadFonts.ts");
+        return html;
+      }
+      return html.replace(BLOCKING, `<link rel="preload" as="style" href="${APP_FONTS}">`);
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   define: { __BUILD_ID__: JSON.stringify(BUILD_ID) },
@@ -61,7 +84,7 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
-  plugins: [react(), versionFile(), landingAtRoot(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [react(), versionFile(), landingAtRoot(), appFontsNonBlocking(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

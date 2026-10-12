@@ -10,6 +10,8 @@ import { useProducts } from "@/contexts/ProductContext";
 import { useProjects } from "@/hooks/useProjects";
 import { askAssist } from "@/lib/formAssist";
 import { useBusinessProfile, type BusinessProfile, type LaunchPlan, type LaunchTask } from "@/lib/businessProfile";
+import { calcScenario, currentScenario, fmtMoney } from "@/lib/pricing";
+import { MEASURE, measureRules } from "@/lib/pricingRules";
 import { useFeatureAccess } from "@/lib/features";
 
 /**
@@ -72,7 +74,7 @@ function buildTemplate(p: BusinessProfile, builder = false): TemplateGroup[] {
       name: "1. Tu producto",
       nav: builder ? "Crear producto" : "Mini Apps",
       tasks: [
-        { key: "promise", title: `Escribe en una frase qué logra la persona con ${it}`, day: 0 },
+        { key: "promise", title: `Escribe en una frase qué aprende o hace la persona con ${it}`, day: 0 },
         builder
           ? { key: "prompt", title: PROMPT_TITLE_BUILDER, day: 1, nav: "Crear producto" }
           : { key: "prompt", title: PROMPT_TITLE_OLD, day: 1, nav: "Mini Apps" },
@@ -126,7 +128,7 @@ function buildTemplate(p: BusinessProfile, builder = false): TemplateGroup[] {
         { key: "whatsapp", title: "Avisa a tus contactos por WhatsApp", day: 11 },
         { key: "organic", title: "Publica 3 contenidos orgánicos (sin pagar) sobre tu producto", day: 12, nav: "Contenido" },
         { key: "recovery", title: ecommerce ? "Activa la recuperación de carritos abandonados" : "Activa la recuperación de ventas", day: 13, nav: "Recuperar" },
-        { key: "review", title: "A los 3 días, anota tus resultados y mira qué apagar o escalar", day: 14, nav: "Resultados" },
+        { key: "review", title: "A los 3 días, anota tus resultados y mira qué apagar y a cuál meterle más", day: 14, nav: "Resultados" },
       ],
     },
   ];
@@ -191,8 +193,8 @@ function templateSpec(key: string, ecommerce: boolean, builder = false): Spec | 
     case "promise":
       return {
         kind: "write",
-        hint: ecommerce ? "Una frase: qué problema resuelve y para quién." : "Una frase: qué consigue la persona y en cuánto tiempo.",
-        placeholder: ecommerce ? "Ej.: Corrige tu postura sin esfuerzo desde el primer día" : "Ej.: Haz y vende tus primeros postres en 30 días",
+        hint: ecommerce ? "Una frase: qué problema ayuda a resolver y para quién." : "Una frase: qué aprende o qué hace la persona con tu producto (sin prometer resultados ni plazos).",
+        placeholder: ecommerce ? "Ej.: Un recordatorio para sentarte derecho mientras trabajas" : "Ej.: Aprende a hacer y vender postres desde tu cocina",
       };
     case "prompt": return { kind: "tool", tool, hint: "SUPERNOVA te arma las instrucciones para crear tu app." };
     case "build": return { kind: "link", hint: "Crea tu app con estas instrucciones y pega aquí su enlace.", placeholder: "https://mi-app.com" };
@@ -229,12 +231,12 @@ function templateSpec(key: string, ecommerce: boolean, builder = false): Spec | 
     case "pixel":
       return { kind: "check", hint: "El píxel avisa a Meta cuando alguien compra.", steps: ["Crea tu cuenta publicitaria en Meta", "Instala el píxel en tu página", "Haz una visita de prueba y mira que el píxel la registre"] };
     case "publish":
-      return { kind: "check", hint: "Poco dinero y paciencia.", steps: ["Presupuesto diario bajo e igual en tus 3 anuncios de venta", "Público amplio del país donde vendes", "No toques nada 3 días"] };
+      return { kind: "check", hint: "Poco dinero y paciencia.", steps: ["Presupuesto diario bajo e igual en tus 3 anuncios de venta", "Público amplio del país donde vendes", `No toques nada ${MEASURE.waitDays} días`] };
     // --- Lanzamiento ---
     case "whatsapp": return { kind: "write", hint: "Escribe el mensaje para tus contactos y envíalo.", placeholder: "¡Hola! Acabo de lanzar…" };
     case "organic": return { kind: "tool", tool, hint: "Publica 3 contenidos y márcalos como «publicado»." };
     case "recovery": return { kind: "tool", tool, hint: ecommerce ? "Crea tus mensajes para carritos abandonados." : "Crea tus mensajes para quien no terminó de comprar." };
-    case "review": return { kind: "tool", tool, hint: "Anota gasto y ventas de cada anuncio." };
+    case "review": return { kind: "tool", tool, hint: `Anota gasto, CTR y ventas de cada anuncio. Las reglas: ${measureRules().slice(1).map(r => r.replace(/\.$/, "")).join(" · ")}.` };
     default: return null;
   }
 }
@@ -612,10 +614,19 @@ export function LaunchPlanPage({ onNavigate }: { onNavigate?: (page: string) => 
 
   const toolBody = (t: LaunchTask, spec: Spec) => {
     const isDetected = !!detected[t.id];
+    // Precio: lo que ya dice la calculadora (el escenario elegido o, si no eligió, el primero).
+    const priceNow = (() => {
+      const c = currentScenario(profile.pricing);
+      if (!c || !(c.scenario.price > 0)) return null;
+      const cur = profile.pricing?.currency || "US$";
+      const r = calcScenario(c.scenario);
+      return `Tu precio: ${fmtMoney(c.scenario.price, cur, { short: true })} · ${r.beforeAds > 0 ? `puedes pagar hasta ${fmtMoney(r.beforeAds, cur)} en anuncios por venta` : "con este precio no te queda margen"}${c.chosen ? "" : " · falta tocar «Usar este precio»"}.`;
+    })();
     const progress =
       t.id === "tpl-ads" && ads ? `Llevas ${Math.min(ads.count, 5)} de 5 anuncios.`
         : t.id === "tpl-organic" && published != null ? `Llevas ${Math.min(published, 3)} de 3 publicados.`
-          : null;
+          : t.id === "tpl-price" ? priceNow
+            : null;
     return (
       <>
         {isDetected

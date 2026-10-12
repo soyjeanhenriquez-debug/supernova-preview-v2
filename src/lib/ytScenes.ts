@@ -16,8 +16,10 @@ export type Scene = {
   narration: string;
 };
 
-/** Precios por pieza (iguales a credit_prices: yt_voice_scene, yt_scene_image, vid_mini_5). */
-export const PRICES = { voice: 5, image: 6, clip: 55 } as const;
+/** Precios por pieza (iguales a credit_prices: yt_voice_scene 5, yt_scene_image 6, vid_mini_5 75). */
+export const PRICES = { voice: 5, image: 6, clip: 75 } as const;
+/** % de escenas animadas que la IA propone por defecto en "Producir video". */
+export const DEFAULT_ANIMATED_PCT = 20;
 /** Una voz por escena cubre hasta ~41 s de narración (igual a MAX_TEXT de yt-produce). */
 export const MAX_NARRATION = 600;
 export const MAX_VISUAL = 600;
@@ -113,6 +115,26 @@ export function parseScenes(script: string): Scene[] {
   return out;
 }
 
+/**
+ * Si un guion trae más de `max` escenas (p. ej. uno largo escrito antes del 12-oct, con escenas de
+ * 10 s), une escenas vecinas —la pareja más corta primero— mientras la narración unida quepa en una
+ * voz (MAX_NARRATION). Conserva el visual de la primera. No gasta nada: solo reordena el texto.
+ */
+export function fitScenes(scenes: Scene[], max = MAX_SCENES): Scene[] {
+  const out = scenes.map(s => ({ ...s }));
+  while (out.length > max) {
+    let best = -1, bestLen = Infinity;
+    for (let i = 0; i + 1 < out.length; i++) {
+      const len = out[i].narration.length + 1 + out[i + 1].narration.length;
+      if (len <= MAX_NARRATION && len < bestLen) { best = i; bestLen = len; }
+    }
+    if (best < 0) break; // ya no se puede unir sin pasar el tope de una voz
+    const a = out[best], b = out[best + 1];
+    out.splice(best, 2, { n: a.n, visual: a.visual, narration: `${a.narration} ${b.narration}` });
+  }
+  return out.length < scenes.length ? out.map((s, i) => ({ ...s, n: String(i + 1) })) : out;
+}
+
 /** Segundos aproximados de narración (antes de tener la voz real). */
 export const narrationSeconds = (text: string) => Math.max(1, text.length / CHARS_PER_SECOND);
 
@@ -146,6 +168,30 @@ export function pickAnimated(scenes: readonly unknown[], pct: number): number[] 
 }
 
 export type Cost = { voice: number; images: number; clips: number; total: number; animated: number };
+
+/**
+ * Segundos de cada escena según la duración pedida, para que un video largo no pase de MAX_SCENES:
+ * 1–6 min → 10 s por escena; 12 min → 20 s; 20 min → 34 s (siempre por debajo de MAX_NARRATION,
+ * que cubre ~41 s de voz). Contraparte en yt-reference (sceneSeconds).
+ */
+export function sceneSeconds(minutes: number): number {
+  const target = MAX_SCENES - 4; // margen: la IA a veces escribe alguna escena de más
+  return Math.min(36, Math.max(10, Math.ceil((Math.max(1, minutes) * 60) / target)));
+}
+
+/** Escenas aproximadas de un guion de `minutes` minutos (las que escribirá la IA). */
+export const scenesFor = (minutes: number) => Math.max(4, Math.round((Math.max(1, minutes) * 60) / sceneSeconds(minutes)));
+
+/**
+ * Costo aproximado de un video COMPLETO antes de empezar: guion + voz e imagen por escena +
+ * escenas animadas (5 s cada una). El montaje, los subtítulos y la descarga son gratis.
+ */
+export function fullVideoCost(minutes: number, scriptPrice: number, pctAnimated = DEFAULT_ANIMATED_PCT) {
+  const scenes = scenesFor(minutes);
+  const produce = estimateCost(Array.from({ length: scenes }), pctAnimated);
+  const still = estimateCost(Array.from({ length: scenes }), 0);
+  return { scenes, script: scriptPrice, produce, total: scriptPrice + produce.total, totalStill: scriptPrice + still.total };
+}
 
 /** Costo en créditos de producir el video completo. */
 export function estimateCost(scenes: readonly unknown[], pctAnimated: number): Cost {

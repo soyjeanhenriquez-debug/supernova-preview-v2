@@ -4,6 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProducts } from "@/contexts/ProductContext";
 import { CREDIT_COSTS, type CreditAction } from "@/hooks/useCredits";
 import type { Build, BuilderModel, Piece, PieceKind } from "@/lib/productBuilder";
+import { notifyJourneyChanged } from "@/contexts/JourneyContext";
+import { buildIsDone } from "@/lib/journey";
 
 /**
  * Libros y cursos del PRODUCTO ACTIVO (tablas product_builds y product_build_pieces), leídos y
@@ -40,6 +42,9 @@ export function useProductBuilds() {
   const uid = user?.id ?? null;
   /** Producto de la última lectura pedida: una respuesta de otro producto (vieja) se descarta. */
   const wantedRef = useRef<string | null>(null);
+  /** ¿Había un libro/curso terminado en la última lectura? Si cambia, la etapa "Construir" cambia:
+   *  se avisa a "Tu camino" (ya no se relee en cada cambio de pantalla, ver JourneyContext). */
+  const anyDoneRef = useRef<{ product: string; done: boolean } | null>(null);
 
   const reload = useCallback(async () => {
     if (!uid || !activeId) return;
@@ -48,8 +53,13 @@ export function useProductBuilds() {
       .eq("product_id", activeId).order("updated_at", { ascending: false });
     if (wantedRef.current !== activeId) return;
     if (error) console.error("product_builds:", error.message);
-    setBuilds((data ?? []) as Build[]);
+    const rows = (data ?? []) as Build[];
+    setBuilds(rows);
     setLoaded(true);
+    const done = rows.some(buildIsDone);
+    const before = anyDoneRef.current;
+    if (!error && before && before.product === activeId && before.done !== done) notifyJourneyChanged();
+    if (!error) anyDoneRef.current = { product: activeId, done };
   }, [uid, activeId]);
 
   // Al cambiar de producto: la lista vieja no se muestra mientras llega la nueva.
@@ -99,6 +109,7 @@ export function useProductBuilds() {
     setBuilds(prev => prev.map(b => (b.id === id ? { ...b, ...patch } : b)));
     const { error } = await db().from("product_builds").update(patch).eq("id", id);
     if (error) { console.error("product_builds:", error.message); return false; }
+    if (patch.status !== undefined) notifyJourneyChanged();
     return true;
   }, []);
 
@@ -106,6 +117,7 @@ export function useProductBuilds() {
     const { error } = await db().from("product_builds").delete().eq("id", id);
     if (error) { console.error("product_builds:", error.message); return false; }
     setBuilds(prev => prev.filter(b => b.id !== id));
+    notifyJourneyChanged();
     return true;
   }, []);
 

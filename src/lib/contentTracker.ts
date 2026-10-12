@@ -105,19 +105,42 @@ const db = () => supabase as any;
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 /**
- * Lleva algo recién creado (un carrusel, un guion, un video) al tracker, listo para publicar hoy.
- * Devuelve true si se guardó.
+ * Lleva algo recién creado (un carrusel, un guion, un video) al tracker. Por defecto queda para hoy,
+ * listo para publicar; con `due` se agenda otro día y con `published` queda marcado como publicado
+ * en todas sus redes (sirve para el bono por publicar). Devuelve true si se guardó.
  */
-export async function addToTracker(o: { uid: string; productId: string; kind: Kind; title: string; keyword?: string; source: string; networks?: Network[] }): Promise<boolean> {
+export async function addToTracker(o: { uid: string; productId: string; kind: Kind; title: string; keyword?: string; source: string; networks?: Network[]; due?: string; published?: boolean }): Promise<boolean> {
   const nets = o.networks?.length ? o.networks : KINDS[o.kind].networks;
   const title = o.title.replace(/\*/g, "").replace(/\s+/g, " ").trim().slice(0, 200) || "Pieza sin título";
+  const today = ymd(new Date());
+  const due = o.due && /^\d{4}-\d{2}-\d{2}$/.test(o.due) ? o.due : today;
   const { error } = await db().from("content_items").insert({
     user_id: o.uid, product_id: o.productId, topic: title, title, stage: "atraer",
-    platform: nets[0], kind: o.kind, status: "grabado", due: ymd(new Date()), source: o.source.slice(0, 30),
-    channels: Object.fromEntries(nets.map(n => [n, { done: false }])),
+    platform: nets[0], kind: o.kind, status: o.published ? "publicado" : "grabado", due: o.published ? today : due, source: o.source.slice(0, 30),
+    channels: Object.fromEntries(nets.map(n => [n, o.published ? { done: true, at: today } : { done: false }])),
     keyword: o.keyword ? o.keyword.replace(/[^\p{L}\p{N} ]/gu, "").toLocaleUpperCase("es").slice(0, 30) : null,
   });
   return !error;
+}
+
+/** Todas las redes de la pieza marcadas como publicadas hoy (o las de fábrica si no tenía ninguna). */
+export function publishAll(ch: Channels, kind: Kind, today: string): Channels {
+  const base = Object.keys(ch).length ? ch : freshChannels(kind);
+  return Object.fromEntries(Object.entries(base).map(([n, c]) => [n, { ...(c ?? {}), done: true, at: c?.at ?? today }])) as Channels;
+}
+
+/**
+ * La pieza que toca ahora: la de hoy; si no hay, la atrasada más reciente sin publicar; si no, la
+ * próxima agendada. Fechas 'YYYY-MM-DD'.
+ */
+export function nextPiece<T extends { due: string | null; status: string }>(items: T[], today: string): { item: T; when: "hoy" | "atrasada" | "proxima" } | null {
+  const open = items.filter(i => i.due && i.status !== "publicado").sort((a, b) => (a.due as string).localeCompare(b.due as string));
+  const t = open.find(i => i.due === today);
+  if (t) return { item: t, when: "hoy" };
+  const late = open.filter(i => (i.due as string) < today);
+  if (late.length) return { item: late[late.length - 1], when: "atrasada" };
+  const next = open.find(i => (i.due as string) > today);
+  return next ? { item: next, when: "proxima" } : null;
 }
 
 export async function loadGoals(uid: string, productId: string): Promise<Goals> {

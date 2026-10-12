@@ -16,6 +16,7 @@ import {
   useBusinessProfile, profileText, profileReady, businessHint, copyLevelHint, type BusinessProfile,
 } from "@/lib/businessProfile";
 import { useFeatureAccess } from "@/lib/features";
+import { DR_RULES } from "@/lib/generators";
 import { maxAdCostPerSale } from "@/lib/pricing";
 import { notifyJourneyChanged } from "@/contexts/JourneyContext";
 
@@ -131,9 +132,16 @@ type Brief = BusinessProfile;
 const briefText = profileText;
 const briefReady = profileReady;
 
+// Reglas de la Mándala + el oficio de respuesta directa (DR_RULES, compartido con el Robot de copy).
+// Prueba del 11-oct-2026: el anuncio traía una nota para el dueño dentro del texto publicable ("Si decides
+// ofrecer una garantía…"), "Te espero dentro", la frase de la ficha repetida 3 veces, una "Revisión de
+// políticas" con frases que el anuncio nunca dijo y un "Siguiente giro" que no es ángulo de la rueda.
 const RULES = `Escribe en español neutro, para alguien que empieza. Frases cortas. Usa títulos con ## y listas.
-Nunca inventes testimonios, cifras, resultados ni plazos: si hace falta una prueba, di qué prueba conseguir y cómo.
-Cumple las políticas de anuncios: no afirmes atributos personales de quien mira (salud, dinero, edad, físico: "para quienes quieren…" en vez de "¿Tienes deudas?"), nada de antes/después de cuerpos, nada de ingresos garantizados.`;
+Nunca inventes testimonios, cifras, resultados ni plazos: si hace falta una prueba, di qué prueba conseguir y cómo (en "Notas para ti", no dentro del anuncio).
+Cumple las políticas de anuncios: no afirmes atributos personales de quien mira (salud, dinero, edad, físico: "para quienes quieren…" en vez de "¿Tienes deudas?"), nada de antes/después de cuerpos, nada de ingresos garantizados.
+${DR_RULES}`;
+
+const ANGLE_NAMES = ANGLES.map(a => a.name).join(" · ");
 
 function platformHint(p: Platform) {
   return p === "organico"
@@ -150,13 +158,15 @@ FORMATO: ${format}
 ${platformHint(platform)}
 LLAMADA A LA ACCIÓN SEGÚN LA ETAPA: ${stage.id === "atraer" || stage.id === "conectar"
     ? "esta etapa NO vende: no menciones precio ni pidas comprar; la llamada es suave (seguir, guardar, ver el video completo, comentar una palabra)."
-    : "esta etapa vende: oferta clara, precio y botón de compra; menciona garantía solo si la ficha trae una."}
+    : "esta etapa vende: oferta clara y UNA llamada a la acción (no \"Comprar / Más información\": elige). El precio solo si la ficha lo trae, con moneda; si no lo trae, no lo menciones ni dejes huecos, y pídelo en \"Notas para ti\". Garantía solo si la ficha trae una, con sus palabras. Si la ficha no dice cómo se paga, cierra por WhatsApp (\"Escríbeme QUIERO\")."}
 
 Entrega exactamente:
 ## 3 ganchos (primeros 3 segundos o titular)
+Máximo 12 palabras cada uno, con 3 fórmulas distintas marcadas entre paréntesis (situación concreta, pregunta de "sí", contrario, "Si…, esto es para ti", "Lo que nadie te dice", orden directa). Sin nombre del producto.
 ## El anuncio
-${/video|avatar/i.test(format) ? "Guion hablado con marcas de tiempo en SEGUNDOS (0-3 s, 3-10 s…; máximo 45 segundos en total, nunca minutos). Si es para avatar, máximo 150 palabras y sin indicaciones de escena dentro del texto hablado." : format === "Carrusel" ? "Texto de cada tarjeta (5 tarjetas) y qué imagen lleva cada una." : "Descripción exacta de la imagen y el texto que va encima."}
+${/video|avatar/i.test(format) ? "Guion hablado con marcas de tiempo en SEGUNDOS (0-3 s, 3-10 s…; máximo 45 segundos en total, nunca minutos). Empieza con el mejor de los 3 ganchos. Si es para avatar, máximo 150 palabras y sin indicaciones de escena dentro del texto hablado." : format === "Carrusel" ? "Texto de cada tarjeta (5 tarjetas) y qué imagen lleva cada una. La tarjeta 1 es el mejor de los 3 ganchos." : "Descripción exacta de la imagen y el texto que va encima (máximo 8 palabras, el mejor de los 3 ganchos)."}
 ## Texto del anuncio y llamada a la acción
+El texto que va junto al video o la imagen, listo para pegar en el administrador de anuncios: primera línea = gancho, 3 a 6 líneas cortas, una sola llamada a la acción y el texto del botón (máximo 4 palabras). Nada de notas, avisos ni corchetes aquí: se publica tal cual.
 ## Cómo publicarlo
 ## Cómo saber si funciona
 Usa exactamente estas reglas (son las que usa la app en "Resultados"), medidas a los 3 días:
@@ -165,9 +175,11 @@ Usa exactamente estas reglas (son las que usa la app en "Resultados"), medidas a
 - Gastó 2 veces el precio sin ventas → apagar.
 - Costo por venta igual o menor al precio → ganador: subir presupuesto ≈20% cada 2 días y pedir variaciones.
 ## Revisión de políticas
-Solo frases que REALMENTE escribiste arriba y que podrían rechazar, citadas tal cual, con cómo quedaron. No inventes frases que no están en el anuncio; si no hay ninguna, escribe "Sin riesgos detectados".
+Relee SOLO las secciones "El anuncio" y "Texto del anuncio". Si alguna frase de ahí podría rechazarse, cítala entre comillas tal cual aparece arriba y di cómo la cambiaste. Está prohibido citar frases que no aparezcan arriba (nada de ejemplos como "quema grasa" si no los escribiste). Si no hay ninguna, escribe solo "Sin riesgos detectados".
 ## Siguiente giro
-Qué ángulo probar después en esta MISMA etapa (${stage.name}) y por qué.
+Qué ángulo probar después en esta MISMA etapa (${stage.name}) y por qué. Elige uno de los 18 ángulos de la rueda, con su nombre exacto: ${ANGLE_NAMES}.
+## Notas para ti (no se publican)
+Qué le falta a la ficha para que este anuncio venda más (precio, prueba real, garantía, cómo se paga) y qué conseguir esta semana. Máximo 4 líneas.
 
 ${RULES}`;
 }
@@ -181,10 +193,10 @@ ${platformHint(platform)}
 ${STAGES.map((s, i) => `ETAPA ${i + 1}: ${s.name} — ${s.goal} Público: ${s.audience}`).join("\n")}
 
 Para cada etapa:
-## Etapa N: [nombre] · Ángulo: [ángulo]
-- Gancho
+## Etapa N: [nombre] · Ángulo: [ángulo, con el nombre exacto de la rueda: ${ANGLE_NAMES}]
+- Gancho (máximo 12 palabras; las 4 etapas con fórmulas y aperturas distintas)
 - Guion o descripción del creativo
-- Texto del anuncio
+- Texto del anuncio (listo para pegar, sin notas ni corchetes; una sola llamada a la acción; precio solo si la ficha lo trae, con moneda)
 - A quién se muestra y cómo publicarlo
 
 Al final:
@@ -203,8 +215,9 @@ ${ad.output.slice(0, 6000)}
 
 Entrega:
 ## 5 ganchos nuevos para el mismo anuncio (el cuerpo no cambia)
+Máximo 12 palabras cada uno, 5 fórmulas distintas marcadas entre paréntesis, ninguno parecido a los ganchos que ya trae el anuncio ganador.
 ## 2 versiones con ángulos vecinos
-Mismo mensaje central, contado con otro ángulo de la Mándala (di cuál).
+Mismo mensaje central, contado con otro ángulo de la Mándala (di cuál, con su nombre exacto: ${ANGLE_NAMES}). Texto listo para pegar, sin notas ni corchetes.
 ## Cómo escalarlo sin romperlo
 Pasos concretos y prudentes.
 

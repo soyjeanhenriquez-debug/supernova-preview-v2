@@ -111,7 +111,7 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
     // como estructura y la IA escribe el guion con el negocio del usuario y en su idioma.
     try { localStorage.setItem(MEDIA_HOOK_KEY, h.hook_text); } catch { /* sin almacenamiento */ }
     onNavigate?.("Media Studio");
-    toast.success("Gancho enviado a Media Studio", { description: "Allí la IA lo adapta a tu producto y a tu idioma." });
+    toast.success("Gancho enviado a Video con presentador", { description: "Allí la IA lo adapta a tu producto y a tu idioma." });
   };
 
   // Fase 2 (07-oct-2026): de un gancho a crear con él, con el producto de la persona ya puesto.

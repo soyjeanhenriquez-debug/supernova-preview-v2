@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Users, Activity, Coins, Search } from "lucide-react";
 import { LandingAB } from "@/components/admin/LandingAB";
+import { BusinessPulse } from "@/components/admin/BusinessPulse";
+import { fmtInt } from "@/components/admin/pulseMath";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -27,7 +29,7 @@ export default function AdminOverview() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [activityChart, setActivityChart] = useState<{day:string;users:number}[]>([]);
   const [creditsByModule, setCreditsByModule] = useState<{module:string;cost:number}[]>([]);
-  const [topKeywords, setTopKeywords] = useState<{keyword:string;count:number}[]>([]);
+  const [topTools, setTopTools] = useState<{tool:string;count:number}[]>([]);
   const [topUsers, setTopUsers] = useState<{user_id:string;total:number}[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,14 +39,15 @@ export default function AdminOverview() {
     const since30d = daysAgo(30);
 
     const [
-      profiles, history, credits, landings, kwAll, allCredits,
+      profiles, history, credits, landings, allCredits, prices,
     ] = await Promise.all([
       supabase.from("profiles").select("user_id", { count: "exact", head: true }),
       supabase.from("ad_history").select("user_id, visited_at, title, page_name").gte("visited_at", since2h).order("visited_at", { ascending: false }).limit(50),
       supabase.from("credit_transactions").select("user_id, cost, action, label, created_at, meta").gte("created_at", sod),
       supabase.from("landing_analyses").select("user_id, url, brand_name, created_at").gte("created_at", sod).order("created_at", { ascending: false }).limit(50),
-      supabase.from("winning_ads").select("keyword").gte("scraped_at", sod),
-      supabase.from("credit_transactions").select("user_id, cost, action, created_at").gte("created_at", since30d),
+      // Nada sobre winning_ads aquí: esta pantalla se recarga cada 30 s (regla del manual).
+      supabase.from("credit_transactions").select("user_id, cost, action, created_at").gte("created_at", since30d).limit(5000),
+      supabase.from("credit_prices").select("action, label"),
     ]);
 
     const activeIds = new Set<string>();
@@ -53,7 +56,9 @@ export default function AdminOverview() {
     (landings.data || []).forEach(r => r.user_id && activeIds.add(r.user_id));
 
     const creditsTodaySum = (credits.data || []).reduce((s, r) => s + (r.cost || 0), 0);
-    const searchesToday = (kwAll.data?.length || 0) + (landings.data?.length || 0);
+    // Búsquedas que hicieron las personas en el Radar (antes contaba los anuncios que trajo el
+    // recolector hoy, que no son búsquedas de nadie).
+    const searchesToday = (credits.data || []).filter(r => r.action === "search_ads").length + (landings.data?.length || 0);
 
     setKpi({
       totalUsers: profiles.count || 0,
@@ -103,12 +108,17 @@ export default function AdminOverview() {
       Array.from(moduleMap.entries()).map(([module, cost]) => ({ module, cost })).sort((a, b) => b.cost - a.cost).slice(0, 8)
     );
 
-    // Top keywords (all-time, top 10)
-    const { data: allKw } = await supabase.from("winning_ads").select("keyword").limit(1000);
-    const kwMap = new Map<string, number>();
-    (allKw || []).forEach(r => { if (r.keyword) kwMap.set(r.keyword, (kwMap.get(r.keyword) || 0) + 1); });
-    setTopKeywords(
-      Array.from(kwMap.entries()).map(([keyword, count]) => ({ keyword, count })).sort((a, b) => b.count - a.count).slice(0, 10)
+    // Herramientas más usadas (30 días): cuántas veces se usó cada acción que cobra créditos,
+    // incluidas las pruebas gratis de los probadores. Antes era "Top keywords · histórico", que
+    // en realidad contaba 1.000 anuncios cualquiera de winning_ads.
+    const labelOf = new Map((prices.data || []).map(p => [p.action, p.label] as const));
+    const toolMap = new Map<string, number>();
+    (allCredits.data || []).forEach(r => {
+      if (!r.action || ["recharge", "refund", "admin_adjust"].includes(r.action)) return;
+      toolMap.set(r.action, (toolMap.get(r.action) || 0) + 1);
+    });
+    setTopTools(
+      Array.from(toolMap.entries()).map(([a, count]) => ({ tool: labelOf.get(a) || a, count })).sort((a, b) => b.count - a.count).slice(0, 10)
     );
 
     // Top users by credits (30d)
@@ -128,9 +138,9 @@ export default function AdminOverview() {
   }, []);
 
   const kpis = [
-    { label: "Usuarios totales", value: kpi.totalUsers, icon: Users },
+    { label: "Cuentas", value: kpi.totalUsers, icon: Users },
     { label: "Activos hoy", value: kpi.activeToday, icon: Activity },
-    { label: "Créditos hoy", value: kpi.creditsToday, icon: Coins },
+    { label: "Créditos gastados hoy", value: kpi.creditsToday, icon: Coins },
     { label: "Búsquedas hoy", value: kpi.searchesToday, icon: Search },
   ];
 
@@ -139,11 +149,13 @@ export default function AdminOverview() {
   return (
     <div className="space-y-8 max-w-[1400px]">
       <header>
-        <h1 className="font-display text-2xl tracking-tight">Overview</h1>
+        <h1 className="font-display text-2xl tracking-tight">Resumen</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Métricas en tiempo real del sistema · actualiza cada 30s
+          Cómo va el negocio y qué está pasando ahora en la app.
         </p>
       </header>
+
+      <BusinessPulse />
 
       <LandingAB />
 
@@ -156,7 +168,7 @@ export default function AdminOverview() {
               <Icon className="w-4 h-4 text-muted-foreground" strokeWidth={1.6} />
             </div>
             <div className="mt-3 font-display text-3xl tracking-tight">
-              {loading ? "—" : value.toLocaleString()}
+              {loading ? "—" : fmtInt(value)}
             </div>
           </div>
         ))}
@@ -167,7 +179,7 @@ export default function AdminOverview() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display text-sm tracking-tight">Actividad en tiempo real · últimas 2h</h2>
           <span className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" /> LIVE
+            <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" /> EN VIVO · cada 30 s
           </span>
         </div>
         {feed.length === 0 ? (
@@ -203,7 +215,7 @@ export default function AdminOverview() {
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-5">
-          <h3 className="font-display text-sm tracking-tight mb-4">Créditos por módulo · semana</h3>
+          <h3 className="font-display text-sm tracking-tight mb-4">Créditos gastados por herramienta · 7 días</h3>
           <div className="h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={creditsByModule} layout="vertical">
@@ -220,18 +232,18 @@ export default function AdminOverview() {
       {/* Top performers */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-2xl border border-border bg-card p-5">
-          <h3 className="font-display text-sm tracking-tight mb-4">Top keywords · histórico</h3>
-          {topKeywords.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sin datos</p>
+          <h3 className="font-display text-sm tracking-tight mb-4">Herramientas más usadas · 30 días</h3>
+          {topTools.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nadie ha usado herramientas con créditos en 30 días.</p>
           ) : (
             <ul className="space-y-2">
-              {topKeywords.map((k, i) => (
-                <li key={k.keyword} className="flex items-center justify-between text-[13px]">
-                  <span className="flex items-center gap-3">
-                    <span className="text-muted-foreground w-5">{i+1}</span>
-                    <span>{k.keyword}</span>
+              {topTools.map((k, i) => (
+                <li key={k.tool} className="flex items-center justify-between gap-3 text-[13px]">
+                  <span className="flex items-center gap-3 min-w-0">
+                    <span className="text-muted-foreground w-5 shrink-0">{i+1}</span>
+                    <span className="truncate">{k.tool}</span>
                   </span>
-                  <span className="text-muted-foreground">{k.count}</span>
+                  <span className="text-muted-foreground shrink-0">{k.count} usos</span>
                 </li>
               ))}
             </ul>
@@ -239,7 +251,7 @@ export default function AdminOverview() {
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-5">
-          <h3 className="font-display text-sm tracking-tight mb-4">Top usuarios · créditos 30d</h3>
+          <h3 className="font-display text-sm tracking-tight mb-4">Quién gasta más créditos · 30 días</h3>
           {topUsers.length === 0 ? (
             <p className="text-sm text-muted-foreground">Sin transacciones aún. Empieza a usar la app para verlas aquí.</p>
           ) : (

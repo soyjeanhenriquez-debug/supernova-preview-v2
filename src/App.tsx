@@ -63,6 +63,27 @@ const queryClient = new QueryClient({
 });
 
 /**
+ * Mientras baja el código de una pantalla (Index, login, admin): fondo de la app y, si tarda más de
+ * 0,2 s, el mismo spinner que el resto de la carga. Antes era un hueco negro sin nada: en una red
+ * lenta parecía que la app se había colgado (12-oct-2026). El retraso evita un parpadeo cuando el
+ * código ya está en caché.
+ */
+function Booting() {
+  const [show, setShow] = useState(false);
+  useEffect(() => { const t = window.setTimeout(() => setShow(true), 200); return () => window.clearTimeout(t); }, []);
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center" aria-busy="true">
+      {show && (
+        <div className="flex flex-col items-center gap-3" role="status">
+          <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <span className="sr-only">Cargando…</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * La portada del dominio es la landing de fundadores (HTML estático, ver vite.config.ts).
  * Si alguien sin sesión llega a "/" navegando DENTRO de la app (logo, "← Volver"), se
  * recarga la página para que el servidor entregue esa landing. En desarrollo no hay
@@ -117,10 +138,21 @@ function AppRoutes() {
   useAnalyticsIdentity(user?.id, user?.email ?? undefined, loading);
   useClaimLandingVisit(user?.id);
 
+  // Recién entra (login o código por correo): la app y el Inicio se descargan YA, mientras el muro
+  // de acceso hace sus 4 consultas. main.tsx ya hace esto para quien vuelve con sesión guardada;
+  // sin esto, quien acababa de entrar veía el spinner, luego un hueco negro mientras bajaba el
+  // chunk de Index, y luego otro spinner (11-oct-2026).
+  const hasUser = !!user;
+  useEffect(() => {
+    if (!hasUser) return;
+    void import("./pages/Index");
+    void import("./pages/DashboardPage");
+  }, [hasUser]);
+
   // La baja del correo funciona con o sin sesión y sin pasar por el muro de
   // acceso: quien llega desde su correo debe poder darse de baja con un clic.
   if (window.location.pathname === "/unsub") {
-    return <Suspense fallback={<div className="min-h-screen bg-background" />}><UnsubscribePage /></Suspense>;
+    return <Suspense fallback={<Booting />}><UnsubscribePage /></Suspense>;
   }
 
   if (loading) {
@@ -143,7 +175,7 @@ function AppRoutes() {
     const authLinkError = /error_code=|error=access_denied/.test(window.location.hash + window.location.search);
     return (
       <BrowserRouter>
-        <Suspense fallback={<div className="min-h-screen bg-background" />}>
+        <Suspense fallback={<Booting />}>
           <Routes>
             <Route path="/" element={authLinkError ? <AuthPage /> : <StaticHome />} />
             <Route path="/signup" element={<SignupPage />} />
@@ -159,7 +191,7 @@ function AppRoutes() {
     <SetPasswordGate />
     <RequireAccess>
       <BrowserRouter>
-        <Suspense fallback={<div className="min-h-screen bg-background" />}>
+        <Suspense fallback={<Booting />}>
         <Routes>
           {/* La app vive en /app ("/" es la landing pública). "/" se mantiene por si se
               navega ahí desde dentro sin recargar. */}

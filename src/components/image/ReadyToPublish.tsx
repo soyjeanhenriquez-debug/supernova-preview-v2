@@ -68,7 +68,7 @@ export function ReadyToPublish({ mode, count, onDownloadAll, copyRequest, title 
   };
 
   return (
-    <section className="rounded-2xl border border-border p-5 space-y-4">
+    <section id="listo-para-publicar" className="rounded-2xl border border-border p-5 space-y-4 scroll-mt-20">
       <div>
         <h2 className="font-display font-semibold text-[17px] text-foreground">Listo para publicar</h2>
         <p className="text-[13px] text-muted-foreground mt-0.5">Descárgalas y súbelas a {where}.</p>

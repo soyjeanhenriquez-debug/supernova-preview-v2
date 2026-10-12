@@ -15,6 +15,20 @@ export type MontageResult = { blob: Blob; mime: string; ext: "mp4" | "webm"; sec
 export const GAP = 0.45;
 const FADE = 0.5;
 const FPS = 30;
+/** Tiempo máximo para abrir cada clip antes de darlo por perdido. */
+export const CLIP_OPEN_MS = 8000;
+
+/**
+ * El navegador no pudo abrir una toma (pasa con Safari viejo, datos lentos o un Chrome sin el códec).
+ * Misión R2-05 (12-oct-2026): antes se grababan 5 s en NEGRO con solo el audio y la persona bajaba un
+ * video inservible sin saberlo. Ahora se avisa con qué hacer.
+ */
+export class ClipOpenError extends Error {
+  constructor(public readonly index: number) {
+    super(`Tu navegador no pudo abrir la toma ${index + 1}, así que no armamos un video con partes en negro. Descarga las tomas y únelas en CapCut, o abre esta pantalla en Chrome o Safari actualizados.`);
+    this.name = "ClipOpenError";
+  }
+}
 
 export function canvasSize(format: Format): { width: number; height: number } {
   if (format === "9:16") return { width: 720, height: 1280 };
@@ -129,6 +143,8 @@ type Loaded = { bmp: ImageBitmap; video: HTMLVideoElement | null; url: string | 
 export async function renderMontage(scenes: MontageScene[], opts: {
   format: Format; subtitles: boolean; ctx: AudioContext; canvas: HTMLCanvasElement;
   onProgress?: (elapsed: number, total: number) => void; signal?: AbortSignal; monitor?: boolean;
+  /** true: si un clip no abre, se avisa (error) en vez de usar la imagen de respaldo. */
+  strictClips?: boolean;
 }): Promise<MontageResult> {
   const rec = pickRecorderMime();
   if (!rec) throw new Error("Tu navegador no puede grabar video. Prueba con Chrome, Edge o Safari actualizados.");
@@ -145,7 +161,7 @@ export async function renderMontage(scenes: MontageScene[], opts: {
   // Cargar todo antes de empezar a grabar (la grabación es en tiempo real: nada puede esperar).
   const loaded: Loaded[] = [];
   let t = 0;
-  for (const s of scenes) {
+  for (const [k, s] of scenes.entries()) {
     const bmp = await createImageBitmap(s.image);
     let video: HTMLVideoElement | null = null, url: string | null = null;
     if (s.clip) {
@@ -154,11 +170,19 @@ export async function renderMontage(scenes: MontageScene[], opts: {
       video.muted = true; video.playsInline = true; video.preload = "auto"; video.src = url;
       const ok = await new Promise<boolean>(res => {
         const done = (v: boolean) => { clearTimeout(to); res(v); };
-        const to = setTimeout(() => done(false), 15000);
+        // 8 s bastan para un MP4 local (blob). Antes 15 s: con 3 tomas eran 45 s muertos en "0 %".
+        const to = setTimeout(() => done(false), CLIP_OPEN_MS);
         video!.onloadeddata = () => done(true);
         video!.onerror = () => done(false);
       });
-      if (!ok) { URL.revokeObjectURL(url); video = null; url = null; } // si el clip no abre, va la imagen
+      if (!ok) {
+        URL.revokeObjectURL(url); video = null; url = null; // si el clip no abre, va la imagen
+        if (opts.strictClips) {
+          bmp.close?.();
+          loaded.forEach(l => { l.bmp.close?.(); if (l.url) URL.revokeObjectURL(l.url); });
+          throw new ClipOpenError(k);
+        }
+      }
     }
     const dur = s.audio.duration + GAP;
     loaded.push({ bmp, video, url, start: t, dur, subs: opts.subtitles ? subtitleChunks(s.text, s.audio.duration, vertical ? 26 : 42) : [] });
@@ -293,7 +317,7 @@ export async function stitchClips(clips: Blob[], opts: {
   const ctx = new AudioContext();
   const canvas = document.createElement("canvas");
   try {
-    // Imagen de respaldo (si un clip no abre): un cuadro negro.
+    // Imagen de fondo mientras arranca cada clip (si un clip no abre, strictClips avisa: nunca graba negro).
     const blank = document.createElement("canvas"); blank.width = 16; blank.height = 16;
     const bg = blank.getContext("2d")!; bg.fillStyle = "#000"; bg.fillRect(0, 0, 16, 16);
     const black = await new Promise<Blob>((res, rej) => blank.toBlob(b => (b ? res(b) : rej(new Error("sin imagen"))), "image/png"));
@@ -304,7 +328,7 @@ export async function stitchClips(clips: Blob[], opts: {
       catch { audio = ctx.createBuffer(1, Math.round(ctx.sampleRate * 5), ctx.sampleRate); } // clip sin sonido
       scenes.push({ image: black, clip, audio, text: "" });
     }
-    return await renderMontage(scenes, { format: opts.format, subtitles: false, ctx, canvas, onProgress: opts.onProgress, signal: opts.signal });
+    return await renderMontage(scenes, { format: opts.format, subtitles: false, ctx, canvas, onProgress: opts.onProgress, signal: opts.signal, strictClips: true });
   } finally {
     void ctx.close().catch(() => {});
   }

@@ -8,16 +8,19 @@ import { SupportCard } from "@/components/SupportCard";
 import { startCheckout, consumeCheckoutResult } from "@/lib/stripe";
 import { formatUsd } from "@/lib/plans";
 import { useFeatureAccess } from "@/lib/features";
+import { creditEquivalentsLine, VIDEO_AD_TAKES } from "@/components/CreditRing";
 
+// Escalera de recarga (precios y créditos: decisión de Jean; aquí no se tocan números).
+// `tagline` dice PARA QUIÉN es cada pack; lo que rinde en piezas se calcula con creditEquivalentsLine.
 const PACKS = [
-  { id: "boost",   name: "PACK BOOST",   credits: 500,  price: 10, tagline: "Alcanza para unos 33 textos cortos (15 créditos cada uno)", save: null },
-  { id: "power",   name: "PACK POWER",   credits: 2000, price: 20, tagline: "Como tener otro mes entero de créditos", save: "50%", popular: true },
-  { id: "nuclear", name: "PACK NUCLEAR", credits: 4500, price: 39, tagline: "Para quien crea muchos anuncios cada semana", save: "57%" },
+  { id: "boost",   name: "PACK BOOST",   credits: 500,  price: 10, tagline: "Si solo escribes textos: ganchos, mensajes, correos", save: null },
+  { id: "power",   name: "PACK POWER",   credits: 2000, price: 20, tagline: "Otro mes entero de créditos: imágenes y anuncios cada semana", save: "50%", popular: true },
+  { id: "nuclear", name: "PACK MÁXIMO", credits: 4500, price: 39, tagline: "Si ya produces video y pruebas varios anuncios por semana", save: "57%" },
   // Packs grandes con cashback (10-oct-2026): el regalo llega solo cuando ya usaste los créditos del pack
   // (credit_cashback, servidor). Con el regalo quedan en el piso de la regla de margen.
-  { id: "pro100", name: "PACK 100", credits: 12000, price: 100, cashback: 500, tagline: "Para crear todas las semanas: videos, creativos y tu producto", save: "58%" },
-  { id: "pro250", name: "PACK 250", credits: 30000, price: 250, cashback: 1250, tagline: "Para quien ya vende y produce anuncios sin parar", save: "58%" },
-] as { id: string; name: string; credits: number; price: number; tagline: string; save: string | null; popular?: boolean; cashback?: number }[];
+  { id: "pro100", name: "PACK 100", credits: 12000, price: 100, cashback: 500, tagline: "Para crear todas las semanas: videos, creativos y tu producto", save: "58%", big: true },
+  { id: "pro250", name: "PACK 250", credits: 30000, price: 250, cashback: 1250, tagline: "Para quien ya vende y produce anuncios sin parar", save: "58%", big: true },
+] as { id: string; name: string; credits: number; price: number; tagline: string; save: string | null; popular?: boolean; cashback?: number; big?: boolean }[];
 
 // Pool separado del de texto: el costo real de video con avatar IA (HeyGen,
 // ~$1 USD/min) es órdenes de magnitud mayor al de un generador de texto.
@@ -99,10 +102,14 @@ export function CreditsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="page-heading font-display text-2xl text-foreground">TUS CRÉDITOS</h2>
+        <h2 className="page-heading font-display text-2xl text-foreground">MIS CRÉDITOS</h2>
         <p className="text-sm text-muted-foreground mt-3 max-w-2xl">
           Un crédito es lo que gasta la IA cada vez que te crea algo: un texto, un análisis, una imagen.
           Mirar ofertas, el radar de anuncios y los ganchos es gratis. Si la IA falla, el crédito vuelve solo.
+        </p>
+        <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
+          Para que te hagas una idea: con los {limit.toLocaleString("de-DE")} créditos de tu plan haces {creditEquivalentsLine(limit, { withOr: true })}
+          {" "}(un anuncio en video son {VIDEO_AD_TAKES} tomas de 5 segundos).
         </p>
       </div>
 
@@ -123,7 +130,12 @@ export function CreditsPage() {
             </div>
           </div>
           <div className="text-sm text-foreground mt-3">Créditos disponibles</div>
-          <div className="text-xs text-primary mt-1">Los del plan se renuevan en {renewDays} días ({renewFormatted})</div>
+          {balance > 0 && creditEquivalentsLine(balance) && (
+            <div className="text-[11px] text-muted-foreground mt-1 max-w-[240px]">Te rinden para {creditEquivalentsLine(balance)}</div>
+          )}
+          <div className="text-xs text-primary mt-1">
+            Los del plan se renuevan {renewDays === 0 ? "hoy" : renewDays === 1 ? "mañana" : `en ${renewDays} días`} ({renewFormatted})
+          </div>
           {purchased > 0 && (
             <div className="text-[11px] text-muted-foreground mt-1">
               {monthly.toLocaleString("de-DE")} de tu plan + <span className="text-success font-semibold">{purchased.toLocaleString("de-DE")} comprados</span>
@@ -152,6 +164,13 @@ export function CreditsPage() {
                 </span>
               </div>
             ))}
+            {/* Lo que la gente compra de verdad: un anuncio en video son 3 tomas (12-oct-2026). */}
+            <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/40">
+              <span className="text-sm text-foreground">Anuncio en video ({VIDEO_AD_TAKES} tomas de 5 segundos)</span>
+              <span className="flex items-center gap-1 text-primary font-bold text-sm">
+                <Zap className="w-3.5 h-3.5" /> {CREDIT_COSTS.vid_mini_5 * VIDEO_AD_TAKES}
+              </span>
+            </div>
             <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/40">
               <span className="text-sm text-foreground">Guardar un anuncio</span>
               <span className="text-success font-bold text-xs">GRATIS</span>
@@ -175,38 +194,25 @@ export function CreditsPage() {
           <h3 className="font-display font-bold text-lg">RECARGA TUS CRÉDITOS</h3>
         </div>
         <p className="text-sm text-muted-foreground mb-5 max-w-xl">
-          Tu plan trae 2.000 créditos cada mes. Si se te acaban antes de que se recarguen, puedes comprar un paquete extra.{canSee("Crear producto") ? " Una recarga también activa ya la escritura de tu ebook o curso, sin esperar a que termine tu prueba." : " Es opcional."}
+          Tu plan trae {limit.toLocaleString("de-DE")} créditos cada mes. Si se te acaban antes de que se renueven, compras un paquete y sigues:
+          lo que compras no caduca y se usa después de los del plan.{canSee("Crear producto") ? " Una recarga también activa ya la escritura de tu ebook o curso, sin esperar a que termine tu prueba." : " Es opcional."}
         </p>
 
         <div className="grid md:grid-cols-3 gap-4">
-          {PACKS.map((p) => (
-            <div key={p.id} className={`card-surface rounded-xl p-6 relative flex flex-col ${p.popular ? "border-primary shadow-[0_0_30px_hsl(var(--primary)/0.15)]" : ""}`}>
-              {p.popular && (
-                <span className="absolute -top-2 right-4 text-[10px] bg-primary text-primary-foreground px-2 py-0.5 rounded font-bold tracking-widest">
-                  ⭐ RECOMENDADO
-                </span>
-              )}
-              <div className="font-display font-extrabold text-lg tracking-wide">{p.name}</div>
-              <div className="flex items-baseline gap-2 mt-3">
-                <span className="text-3xl font-display font-bold text-primary tabular-nums">{p.credits.toLocaleString("de-DE")}</span>
-                <span className="text-xs text-muted-foreground">créditos</span>
-              </div>
-              <div className="flex items-baseline gap-2 mt-3">
-                <span className="text-2xl font-display font-bold text-foreground">{formatUsd(p.price)}</span>
-                {p.save && <span className="text-[11px] text-success font-semibold">{p.save} más barato por crédito</span>}
-              </div>
-              {p.cashback && (
-                <p className="text-[12px] text-primary mt-2">+{p.cashback.toLocaleString("de-DE")} créditos de cashback cuando uses los {p.credits.toLocaleString("de-DE")} del pack</p>
-              )}
-              <p className="text-[13px] text-muted-foreground mt-3 leading-relaxed flex-1">{p.tagline}</p>
-              <button onClick={() => handleRecharge(p.id)} disabled={buyingPack !== null} className="btn-primary-nova w-full py-2.5 rounded-lg text-sm mt-5 disabled:opacity-60">
-                {buyingPack === p.id ? "Abriendo el pago…" : `Comprar por ${formatUsd(p.price)} →`}
-              </button>
-            </div>
-          ))}
+          {PACKS.filter((p) => !p.big).map((p) => <PackCard key={p.id} pack={p} buying={buyingPack} onBuy={handleRecharge} />)}
+        </div>
+
+        <div className="mt-6 mb-3">
+          <h4 className="font-display font-bold text-sm text-foreground">Para quien produce todas las semanas</h4>
+          <p className="text-[12px] text-muted-foreground mt-1 max-w-xl">
+            Los packs grandes traen créditos de regalo (cashback): se te acreditan solos cuando termines de usar los del pack.
+          </p>
+        </div>
+        <div className="grid md:grid-cols-3 gap-4">
+          {PACKS.filter((p) => p.big).map((p) => <PackCard key={p.id} pack={p} buying={buyingPack} onBuy={handleRecharge} />)}
         </div>
         <p className="text-[11px] text-muted-foreground mt-4 text-center">
-          Los créditos que compras no caducan y se suman a los que ya tienes.
+          Los créditos que compras no caducan y se suman a los que ya tienes. El pago lo hace Whop; los créditos entran solos a tu cuenta al pagar.
         </p>
       </div>
 
@@ -281,15 +287,53 @@ export function CreditsPage() {
                 <tr key={i} className="border-b border-border/40">
                   <td className="px-5 py-2 text-muted-foreground text-xs">{new Date(h.date).toLocaleString("de-DE")}</td>
                   <td className="px-5 py-2">{h.label}{h.meta && <span className="text-muted-foreground"> · {h.meta.slice(0, 40)}</span>}</td>
+                  {/* Recargas (granted) y reembolsos (cost negativo: "la IA falló, el crédito vuelve") suman;
+                      antes un reembolso se veía como "--50". */}
                   {h.granted
                     ? <td className="px-5 py-2 text-right text-success font-bold">+{h.granted.toLocaleString("de-DE")}</td>
-                    : <td className="px-5 py-2 text-right text-primary font-bold">-{h.cost}</td>}
+                    : h.cost < 0
+                      ? <td className="px-5 py-2 text-right text-success font-bold">+{Math.abs(h.cost).toLocaleString("de-DE")}</td>
+                      : <td className="px-5 py-2 text-right text-primary font-bold">-{h.cost.toLocaleString("de-DE")}</td>}
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
+    </div>
+  );
+}
+
+type Pack = (typeof PACKS)[number];
+
+/** Una tarjeta de pack: créditos, precio, qué te rinde en piezas y para quién es. */
+function PackCard({ pack: p, buying, onBuy }: { pack: Pack; buying: string | null; onBuy: (id: string) => void }) {
+  const rinde = creditEquivalentsLine(p.credits + (p.cashback ?? 0));
+  return (
+    <div className={`card-surface rounded-xl p-6 relative flex flex-col ${p.popular ? "border-primary shadow-[0_0_30px_hsl(var(--primary)/0.15)]" : ""}`}>
+      {p.popular && (
+        <span className="absolute -top-2 right-4 text-[10px] bg-primary text-primary-foreground px-2 py-0.5 rounded font-bold tracking-widest">
+          ⭐ RECOMENDADO
+        </span>
+      )}
+      <div className="font-display font-extrabold text-lg tracking-wide">{p.name}</div>
+      <div className="flex items-baseline gap-2 mt-3">
+        <span className="text-3xl font-display font-bold text-primary tabular-nums">{p.credits.toLocaleString("de-DE")}</span>
+        <span className="text-xs text-muted-foreground">créditos</span>
+        {p.cashback && <span className="text-xs text-success font-semibold">+{p.cashback.toLocaleString("de-DE")} de regalo</span>}
+      </div>
+      <div className="flex items-baseline gap-2 mt-3">
+        <span className="text-2xl font-display font-bold text-foreground">{formatUsd(p.price)}</span>
+        {p.save && <span className="text-[11px] text-success font-semibold">{p.save} más barato por crédito</span>}
+      </div>
+      {rinde && <p className="text-[12px] text-foreground mt-3">Te rinde para {rinde}</p>}
+      {p.cashback && (
+        <p className="text-[11px] text-muted-foreground mt-1">Los {p.cashback.toLocaleString("de-DE")} de regalo llegan solos cuando uses los {p.credits.toLocaleString("de-DE")} del pack.</p>
+      )}
+      <p className="text-[13px] text-muted-foreground mt-3 leading-relaxed flex-1">{p.tagline}</p>
+      <button onClick={() => onBuy(p.id)} disabled={buying !== null} className="btn-primary-nova w-full py-2.5 rounded-lg text-sm mt-5 disabled:opacity-60">
+        {buying === p.id ? "Abriendo el pago…" : `Comprar por ${formatUsd(p.price)} →`}
+      </button>
     </div>
   );
 }

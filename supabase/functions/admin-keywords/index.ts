@@ -88,7 +88,9 @@ serve(async (req) => {
       if (!keyword) return json({ error: "Empty" }, 400);
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/search-winning-ads`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_ROLE}` },
+        // R2-14: se reenvía la sesión del admin (master-rotate no acepta la service role y respondía 401;
+        // además así la llave maestra no viaja a otra función).
+        headers: { "Content-Type": "application/json", Authorization: authHeader },
         body: JSON.stringify({ keywords: [keyword] }),
       });
       const data = await resp.json().catch(() => ({}));
@@ -205,7 +207,9 @@ Return JSON ONLY in this exact shape:
     if (action === "engine_run_now") {
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/master-rotate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_ROLE}` },
+        // R2-14: se reenvía la sesión del admin (master-rotate no acepta la service role y respondía 401;
+        // además así la llave maestra no viaja a otra función).
+        headers: { "Content-Type": "application/json", Authorization: authHeader },
         body: JSON.stringify({ triggered_by: `admin:${callerId}`, batch_size: body.batch_size || 5 }),
       });
       const d = await resp.json().catch(() => ({}));

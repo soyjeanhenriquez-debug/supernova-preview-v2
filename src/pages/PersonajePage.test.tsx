@@ -79,12 +79,12 @@ describe("PersonajePage (Influencer IA)", () => {
     journey = { personaje: { elegido: VALE, foto: `${UID}/${PID}/supernova-valentina-1.webp` } };
     invoke.mockImplementation(async (fn: string, { body }: { body: Record<string, unknown> }) =>
       body.action === "status" ? { data: { job: { id: "j1", status: "done" } } }
-        : { data: { job: { id: "j1", status: "running", result_url: null, prompt: "", seconds: 10 }, billing: { charged: 110, balance: 390 } }, error: null });
+        : { data: { job: { id: "j1", status: "running", result_url: null, prompt: "", seconds: 10 }, billing: { charged: 150, balance: 350 } }, error: null });
     render(<PersonajePage onNavigate={vi.fn()} initialStep={3} />);
     await screen.findByText("2 · Su voz");
     fireEvent.click(screen.getByRole("radio", { name: /Serena y segura/ }));
     fireEvent.change(screen.getByPlaceholderText(/Ej\.:/), { target: { value: "¿Te cuesta cocinar entre semana? Mira esto." } });
-    fireEvent.click(screen.getByRole("button", { name: /Crear video que habla · 110/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Crear video que habla · 150/ }));
     await waitFor(() => expect(invoke.mock.calls.some(c => c[1].body.kind === "ugc")).toBe(true));
     const body = invoke.mock.calls.find(c => c[1].body.kind === "ugc")![1].body;
     expect(body).toMatchObject({ seconds: 10, audio: true, image_bucket: "personajes", image_path: `${UID}/${PID}/supernova-valentina-1.webp` });
@@ -109,5 +109,22 @@ describe("PersonajePage (Influencer IA)", () => {
     render(<PersonajePage onNavigate={vi.fn()} initialStep={3} />);
     expect(await screen.findByText("PRONTO")).toBeInTheDocument();
     expect(screen.queryByText(/Generar video/)).toBeNull();
+    expect(screen.queryByText(/los mejores modelos/)).toBeNull(); // afirmación que no se puede sostener
+  });
+
+  it("con el video en pronto, el paso 1 no invita con un botón ámbar a una pared", async () => {
+    ugc = false;
+    journey = { personaje: { elegido: VALE, foto: `${UID}/${PID}/f.webp` } };
+    render(<PersonajePage onNavigate={vi.fn()} />);
+    expect(await screen.findByText(/Su video hablando · pronto/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Hazlo hablar en video/ })).toBeNull();
+    expect(screen.getAllByRole("button", { name: /Sus 10 guiones/ }).some(b => /btn-primary-nova/.test(b.className))).toBe(true);
+  });
+
+  it("con el video abierto, el paso 1 sí invita a hacerlo hablar", async () => {
+    journey = { personaje: { elegido: VALE, foto: `${UID}/${PID}/f.webp` } };
+    render(<PersonajePage onNavigate={vi.fn()} />);
+    expect((await screen.findAllByRole("button", { name: /Hazlo hablar en video/ })).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Su video hablando · pronto/)).toBeNull();
   });
 });

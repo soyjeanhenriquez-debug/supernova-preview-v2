@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderKanban, Coins, Shield, LogOut, PanelLeftClose, PanelLeftOpen, X, KeyRound, Briefcase, LayoutGrid, GraduationCap, Lock, BadgeDollarSign, type LucideIcon } from "lucide-react";
+import { Sun, FolderKanban, Coins, Shield, LogOut, PanelLeftClose, PanelLeftOpen, X, KeyRound, Briefcase, LayoutGrid, GraduationCap, Lock, BadgeDollarSign, ChevronRight, MoreHorizontal, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,7 +8,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useNavigate } from "react-router-dom";
 import { useFeatureAccess } from "@/lib/features";
 import { ProductSwitcher } from "@/components/ProductSwitcher";
-import { STUDIO_TOOLS, STUDIO_MORE_TOOLS, FIND_TOOLS, ADMIN_EXTRA_TOOLS, openTool, useBusinessModel, type Tool } from "@/lib/tools";
+import { MENU_FIND_TOOLS, MENU_CREATE_TOOLS, MORE_TOOLS, ADMIN_EXTRA_TOOLS, openTool, type Tool } from "@/lib/tools";
 import { TUTORIALS } from "@/lib/tutorials";
 import { useVitrina } from "@/contexts/VitrinaContext";
 
@@ -21,6 +21,7 @@ interface SidebarProps {
 }
 
 const COLLAPSE_KEY = "supernova:sidebar-collapsed";
+const MORE_KEY = "supernova:sidebar-more-open";
 
 export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile }: SidebarProps) {
   const { user, signOut } = useAuth();
@@ -30,35 +31,45 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  // Menú por intención (decisión de Jean, 03-oct-2026): los mismos grupos que el Inicio
-  // (src/lib/tools.ts), más Biblioteca y Cuenta. Las secciones en pausa (src/lib/features.ts) solo
-  // las ve un admin. Las claves y los data-tour="nav-<key>" no cambian (los usan el tour y la ayuda).
+  // Menú de una sola puerta (decisión de Jean, 12-oct-2026): Hoy · Radar · Ofertas · Mis versiones ·
+  // Crear · Créditos · Ayuda. Todo lo demás vive en "Más herramientas", plegado: nada se borra, sus
+  // direcciones siguen abriendo y el buscador lo encuentra. Las secciones en pausa (src/lib/features.ts)
+  // solo las ve un admin. Las claves y los data-tour="nav-<key>" no cambian (los usan el tour y la ayuda).
   type NavItem = { icon: LucideIcon; key: string; label: string; hint: string; tool?: Tool; id?: string };
   const fromTool = (tl: Tool): NavItem => ({ icon: tl.icon, key: tl.key, label: tl.nav, hint: tl.desc, tool: tl, id: tl.id });
-  const { current: modelInfo } = useBusinessModel();
   const visible = (list: Tool[]) => list.filter(tl => canSee(tl.key)).map(fromTool);
   const groups: { title: string; items: NavItem[] }[] = [
     { title: "", items: [
-      { icon: LayoutDashboard, key: "Dashboard", label: t("nav.dashboard"), hint: "Tu idea de hoy, lo que puedes crear y lo último que hiciste." },
+      { icon: Sun, key: "Dashboard", label: "Hoy", hint: "3 negocios que llevan meses pagando anuncios y tu siguiente paso." },
+      ...visible(MENU_FIND_TOOLS),
+      { icon: LayoutGrid, key: "Productos", label: "Mis versiones", hint: "Tus versiones y cuánto avanzó cada una." },
     ] },
-    // Plan ATLAS (04-oct-2026): el menú sigue el camino "1 Idea · 2 Crea · 3 Publica".
-    { title: "1 · Ideas ganadoras", items: visible(FIND_TOOLS) },
-    { title: "2 · Crear", items: visible([...STUDIO_TOOLS, ...STUDIO_MORE_TOOLS]) },
-    { title: `3 · Publicar y medir · ${modelInfo.short}`, items: visible(modelInfo.tools) },
-    { title: "Biblioteca", items: [
-      // Aprende: guías de Jean (siempre) y videos de cada herramienta (cuando haya).
-      { icon: GraduationCap, key: "Aprende", label: "Aprende", hint: TUTORIALS.length ? "Guías paso a paso de Jean y un video corto por herramienta." : "Guías paso a paso de Jean, con las herramientas para hacerlo." },
-      // Recompensas (07-oct-2026): clips de SUPERNOVA o de Jean pagados por vistas en Whop. Sin candado.
-      ...(canSee("Recompensas") ? [{ icon: BadgeDollarSign, key: "Recompensas", label: "Gana con tu contenido", hint: "Haz clips sobre SUPERNOVA o sobre Jean y cobra por cada 1.000 vistas en Whop." }] : []),
-      { icon: LayoutGrid, key: "Productos", label: "Mis productos", hint: "Todos tus productos y cuánto avanzó cada uno." },
-      { icon: FolderKanban, key: "Proyectos", label: t("nav.projects"), hint: t("nav.hint.projects") },
-    ] },
-    { title: "Cuenta", items: [
-      { icon: Briefcase, key: "Mi negocio", label: "Mi ficha", hint: "Qué vendes, para quién y qué logra este producto. Lo usan todas las herramientas." },
+    { title: "Crear", items: visible(MENU_CREATE_TOOLS) },
+    { title: "", items: [
       { icon: Coins, key: "Créditos", label: t("nav.credits"), hint: t("nav.hint.credits") },
+      // Aprende: guías de Jean (siempre) y videos de cada herramienta (cuando haya). El asistente es la burbuja.
+      { icon: GraduationCap, key: "Aprende", label: "Ayuda y guías", hint: TUTORIALS.length ? "Guías paso a paso de Jean y un video corto por herramienta." : "Guías paso a paso de Jean, con las herramientas para hacerlo." },
     ] },
-    { title: "Solo admin (en pausa)", items: visible(ADMIN_EXTRA_TOOLS) },
   ];
+  // "Más herramientas": plegado. Lo que ya tenía el menú y no es la puerta principal.
+  const moreItems: NavItem[] = [
+    { icon: FolderKanban, key: "Proyectos", label: t("nav.projects"), hint: t("nav.hint.projects") },
+    { icon: Briefcase, key: "Mi negocio", label: "Mi ficha", hint: "Qué vendes, para quién y qué logra este producto. Lo usan todas las herramientas." },
+    ...visible(MORE_TOOLS),
+    // Recompensas (07-oct-2026): clips de SUPERNOVA o de Jean pagados por vistas en Whop. Sin candado.
+    ...(canSee("Recompensas") ? [{ icon: BadgeDollarSign, key: "Recompensas", label: "Gana con tu contenido", hint: "Haz clips sobre SUPERNOVA o sobre Jean y cobra por cada 1.000 vistas en Whop." }] : []),
+  ];
+  const adminItems = visible(ADMIN_EXTRA_TOOLS);
+  const inMore = moreItems.some(i => i.key === activePage);
+  const [moreOpen, setMoreOpen] = useState<boolean>(() => {
+    try { return localStorage.getItem(MORE_KEY) === "1"; } catch { return false; }
+  });
+  const toggleMore = () => setMoreOpen(o => {
+    try { localStorage.setItem(MORE_KEY, o ? "0" : "1"); } catch { /* sin almacenamiento */ }
+    return !o;
+  });
+  // Si estás en una pantalla de "Más herramientas", el grupo se ve abierto (para no perderte).
+  const showMore = moreOpen || inMore;
 
   const [collapsed, setCollapsed] = useState<boolean>(() => localStorage.getItem(COLLAPSE_KEY) === "1");
 
@@ -74,6 +85,30 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
   const handleNav = (key: string) => {
     onNavigate(key);
     if (mobile && onCloseMobile) onCloseMobile();
+  };
+
+  const renderItem = (item: NavItem) => {
+    // Varias entradas abren Generadores (un generador cada una): solo "Textos que venden" se marca activa.
+    const isActive = activePage === item.key && (!item.tool?.generator);
+    const Icon = item.icon;
+    return (
+      <button
+        key={item.id ?? item.key}
+        data-tour={`nav-${item.id ?? item.key}`}
+        onClick={() => (item.tool ? openTool(item.tool, handleNav) : handleNav(item.key))}
+        title={isCollapsed ? `${item.label}: ${item.hint}` : item.hint}
+        aria-current={isActive ? "page" : undefined}
+        className={`flex items-center gap-3 w-full rounded-lg transition-colors text-left ${isCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2"} ${
+          isActive
+            ? "sidebar-active"
+            : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+        }`}
+      >
+        <Icon className={`w-[15px] h-[15px] flex-shrink-0 ${isActive ? "text-foreground" : ""}`} strokeWidth={1.6} />
+        {!isCollapsed && <span className="text-[13px] font-medium tracking-tight truncate">{item.label}</span>}
+        {!isCollapsed && locked && item.key !== "Dashboard" && item.key !== "Aprende" && item.key !== "Recompensas" && <Lock className="ml-auto w-3 h-3 text-muted-foreground/60 shrink-0" strokeWidth={1.8} />}
+      </button>
+    );
   };
 
   return (
@@ -131,30 +166,34 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
             {g.title && !isCollapsed && (
               <p className="px-3 pb-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-semibold">{g.title}</p>
             )}
-            {g.items.map((item) => {
-          // Varias entradas abren Generadores (un generador cada una): solo "Robot de copy" se marca activa.
-          const isActive = activePage === item.key && (!item.tool?.generator);
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.id ?? item.key}
-              data-tour={`nav-${item.id ?? item.key}`}
-              onClick={() => (item.tool ? openTool(item.tool, handleNav) : handleNav(item.key))}
-              title={isCollapsed ? `${item.label}: ${item.hint}` : item.hint}
-              className={`flex items-center gap-3 w-full rounded-lg transition-colors text-left ${isCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2"} ${
-                isActive
-                  ? "sidebar-active"
-                  : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-              }`}
-            >
-              <Icon className={`w-[15px] h-[15px] flex-shrink-0 ${isActive ? "text-foreground" : ""}`} strokeWidth={1.6} />
-              {!isCollapsed && <span className="text-[13px] font-medium tracking-tight truncate">{item.label}</span>}
-              {!isCollapsed && locked && item.key !== "Dashboard" && item.key !== "Aprende" && item.key !== "Recompensas" && <Lock className="ml-auto w-3 h-3 text-muted-foreground/60 shrink-0" strokeWidth={1.8} />}
-            </button>
-          );
-        })}
+            {g.items.map(renderItem)}
           </div>
         ))}
+
+        {/* Más herramientas: plegado. Nada se borró; aquí sigue todo lo demás. */}
+        <div className={isCollapsed ? "pt-2 mt-2 border-t border-border/50" : "pt-3"}>
+          <button
+            onClick={toggleMore}
+            aria-expanded={showMore}
+            data-tour="nav-mas"
+            title={isCollapsed ? "Más herramientas" : "Todo lo demás: Lo que creaste, tu ficha, YouTube, ganchos, precio, validar…"}
+            className={`flex items-center gap-3 w-full rounded-lg transition-colors text-left text-muted-foreground hover:bg-secondary/60 hover:text-foreground ${isCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2"}`}
+          >
+            {isCollapsed
+              ? <MoreHorizontal className="w-[15px] h-[15px] flex-shrink-0" strokeWidth={1.6} />
+              : <ChevronRight className={`w-[15px] h-[15px] flex-shrink-0 transition-transform ${showMore ? "rotate-90" : ""}`} strokeWidth={1.6} />}
+            {!isCollapsed && <span className="text-[13px] font-medium tracking-tight truncate">Más herramientas</span>}
+            {!isCollapsed && <span className="ml-auto text-[11px] tabular-nums text-muted-foreground/70">{moreItems.length}</span>}
+          </button>
+          {showMore && moreItems.map(renderItem)}
+        </div>
+
+        {adminItems.length > 0 && (
+          <div className={isCollapsed ? "pt-2 mt-2 border-t border-border/50" : "pt-3"}>
+            {!isCollapsed && <p className="px-3 pb-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-semibold">Solo admin (en pausa)</p>}
+            {adminItems.map(renderItem)}
+          </div>
+        )}
 
         {isAdmin && (
           <button

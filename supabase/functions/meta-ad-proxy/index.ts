@@ -16,6 +16,23 @@ const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
 // TTL: 14 días para hits, 6h para fallos (los reintentamos por si el ad ya apareció)
 const TTL_OK_MS = 14 * 24 * 60 * 60_000;
 const TTL_FAIL_MS = 6 * 60 * 60_000;
+// Las URLs de fbcdn caducan (parámetro `oe`, ~106 h de vida medida el 12-oct-2026). Una URL que
+// vence en menos de 30 min ya no sirve: el navegador la pintaría como cuadro gris.
+const EXPIRY_MARGIN_MS = 30 * 60_000;
+
+/** Hora (ms) en que caduca una URL firmada de fbcdn, o null si no trae `oe`. */
+function urlExpiry(u: string | null | undefined): number | null {
+  const m = (u ?? "").match(/[?&]oe=([0-9A-Fa-f]{8})/);
+  return m ? parseInt(m[1], 16) * 1000 : null;
+}
+/** La primera caducidad de las URLs que trae la respuesta (null = no caducan o no hay). */
+function mediaExpiry(...urls: (string | null | undefined)[]): number | null {
+  const all = urls.map(urlExpiry).filter((x): x is number => x !== null);
+  return all.length ? Math.min(...all) : null;
+}
+// Imagen del anuncio vs. foto de perfil de la página o silueta gris por defecto (no son el anuncio).
+const AD_CREATIVE_IMG = /\/v\/t39\.35426-/;
+const NOT_CREATIVE_IMG = /\/v\/(t1\.30497|t39\.30808)-/;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -24,6 +41,9 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const id = url.searchParams.get("id");
     if (!id || !/^\d+$/.test(id)) return json({ error: "Missing or invalid id" }, 400);
+    // fresh=1: el navegador no pudo cargar la URL guardada (caducada antes de tiempo). Se salta la
+    // caché y se vuelve a resolver; como todo scrape, solo para un usuario con acceso y con tope.
+    const fresh = url.searchParams.get("fresh") === "1";
 
     // 1) Lookup cache
     const { data: cached } = await admin
@@ -32,10 +52,14 @@ Deno.serve(async (req) => {
       .eq("ad_id", id)
       .maybeSingle();
 
-    if (cached) {
+    if (cached && !fresh) {
       const age = Date.now() - new Date(cached.updated_at).getTime();
       const ttl = cached.failed ? TTL_FAIL_MS : TTL_OK_MS;
-      if (age < ttl) {
+      // Antes se servían 14 días aunque fbcdn las caducara a los ~4 días: el 64 % de lo que
+      // devolvía la caché ya no cargaba (88 de 138, medido el 12-oct-2026).
+      const exp = cached.failed ? null : mediaExpiry(cached.video_url, cached.image_url);
+      const alive = exp === null || exp - Date.now() > EXPIRY_MARGIN_MS;
+      if (age < ttl && alive) {
         if (cached.failed) {
           return json({ success: false, id, reason: "cached_no_media" });
         }
@@ -44,6 +68,7 @@ Deno.serve(async (req) => {
           id,
           videoUrl: cached.video_url,
           imageUrl: cached.image_url,
+          expiresAt: exp,
           cached: true,
         });
       }
@@ -78,19 +103,23 @@ Deno.serve(async (req) => {
         onlyMainContent: false,
         waitFor: 2500,
         timeout: 25000,
+        // Copia de Firecrawl de hasta 1 día: más rápida y las URLs aún viven ≥ 3 días.
+        maxAge: 86_400_000,
         location: { country: "US", languages: ["en"] },
       }),
     });
 
     const data = await fcRes.json().catch(() => ({}));
     if (!fcRes.ok) {
-      console.error("Firecrawl error:", data);
-      // Cachear fallo corto para no martillar — devolver 200 con success:false
-      // para que el cliente lo trate como "sin preview" sin disparar error.
-      await admin.from("ad_media_cache").upsert({
-        ad_id: id, image_url: null, video_url: null, failed: true, updated_at: new Date().toISOString(),
-      });
-      return json({ success: false, id, reason: "scrape_failed", libraryUrl: target });
+      console.error("Firecrawl error:", fcRes.status, JSON.stringify(data).slice(0, 300));
+      // Firecrawl ocupado (tope de ~10 por minuto, cola llena, tiempo agotado) NO es "este anuncio
+      // no tiene creativo". Antes se guardaba como fallo 6 h: abrir una página de 24 tarjetas
+      // agotaba el minuto y 9 de 24 se quedaban sin imagen hasta la tarde (12-oct-2026).
+      // Ahora no se guarda nada y se le dice al navegador cuándo reintentar.
+      const msg = String((data as { error?: unknown })?.error ?? "");
+      const m = msg.match(/retry after (\d+)s/i);
+      const retryAfter = Math.min(60, Math.max(5, m ? parseInt(m[1], 10) : 20));
+      return json({ success: false, id, reason: "busy", retryAfter, libraryUrl: target }, 503);
     }
 
     const html: string =
@@ -112,7 +141,12 @@ Deno.serve(async (req) => {
       .map(unescapeUrl)
       .filter((u) => !/static\.|emoji|spacer|safe_image/i.test(u));
 
-    const imageUrl = pickFirst(imageCandidates);
+    // Primero la imagen del anuncio; la foto de perfil o la silueta gris nunca cuentan como creativo
+    // (antes salía la primera que apareciera en el HTML: 25 anuncios guardados con la foto de perfil).
+    const imageUrl = pickFirst([
+      ...imageCandidates.filter((u) => AD_CREATIVE_IMG.test(u)),
+      ...imageCandidates.filter((u) => !AD_CREATIVE_IMG.test(u) && !NOT_CREATIVE_IMG.test(u)),
+    ]);
     const cleanVideo = videoUrl ? unescapeUrl(videoUrl) : null;
 
     const failed = !cleanVideo && !imageUrl;
@@ -143,6 +177,7 @@ Deno.serve(async (req) => {
       id,
       videoUrl: cleanVideo,
       imageUrl: imageUrl || null,
+      expiresAt: mediaExpiry(cleanVideo, imageUrl),
       libraryUrl: target,
     });
   } catch (e) {
@@ -197,15 +232,19 @@ function extractLink(html: string, links: string[]): { linkUrl: string | null; c
 }
 
 function json(body: unknown, status = 200) {
-  // Caché larga solo para un resultado bueno: un 401/429/fallo guardado un día
+  // Caché solo para un resultado bueno: un 401/429/fallo guardado un día
   // en el navegador dejaría esa tarjeta sin preview aunque ya se pueda resolver.
-  const cacheable = status === 200 && (body as { success?: boolean } | null)?.success === true;
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-      "Cache-Control": cacheable ? "public, max-age=86400" : "no-store",
-    },
-  });
+  // Y nunca más allá de la caducidad de la URL de fbcdn (antes: 1 día fijo).
+  const b = body as { success?: boolean; expiresAt?: number | null } | null;
+  const cacheable = status === 200 && b?.success === true;
+  let maxAge = 86400;
+  if (b?.expiresAt) maxAge = Math.max(0, Math.min(maxAge, Math.floor((b.expiresAt - Date.now() - EXPIRY_MARGIN_MS) / 1000)));
+  const headers: Record<string, string> = {
+    ...corsHeaders,
+    "Content-Type": "application/json",
+    "Cache-Control": cacheable && maxAge > 0 ? `private, max-age=${maxAge}` : "no-store",
+  };
+  const ra = (body as { retryAfter?: number } | null)?.retryAfter;
+  if (status === 503 && ra) headers["Retry-After"] = String(ra);
+  return new Response(JSON.stringify(body), { status, headers });
 }

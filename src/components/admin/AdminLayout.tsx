@@ -2,27 +2,31 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, KeyRound, Bot, MessageSquare,
   Coins, BarChart3, Settings, ArrowLeft, Shield, Lock,
-  ScrollText, Wifi, HeartPulse, Store, TrendingUp, GraduationCap, Gift, Lightbulb } from "lucide-react";
+  ScrollText, Wifi, HeartPulse, Store, TrendingUp, GraduationCap, Gift, Lightbulb, Target } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useAuth } from "@/contexts/AuthContext";
+import { HAS_PRUEBA_9_DE_10, PRUEBA_9_DE_10_PATH } from "@/components/admin/pulseMath";
 
-const items = [
-  { to: "/admin", label: "Overview", icon: LayoutDashboard, end: true },
+// En español (manual: todo en español para Jean). Primero lo del negocio; después lo técnico.
+const items: { to: string; label: string; icon: typeof Users; end?: boolean }[] = [
+  { to: "/admin", label: "Resumen", icon: LayoutDashboard, end: true },
   { to: "/admin/negocio", label: "Negocio", icon: TrendingUp },
+  // La crea R2-10: el enlace aparece solo cuando su archivo existe.
+  ...(HAS_PRUEBA_9_DE_10 ? [{ to: PRUEBA_9_DE_10_PATH, label: "Prueba 9 de 10", icon: Target }] : []),
   { to: "/admin/accesos", label: "Accesos", icon: Lock },
   { to: "/admin/usuarios", label: "Usuarios", icon: Users },
   { to: "/admin/sesiones", label: "Sesiones", icon: Wifi },
-  { to: "/admin/audit", label: "Audit log", icon: ScrollText },
+  { to: "/admin/audit", label: "Registro de cambios", icon: ScrollText },
   { to: "/admin/salud", label: "Salud del sistema", icon: HeartPulse },
   { to: "/admin/mercado", label: "Mercado", icon: Store },
-  { to: "/admin/keywords", label: "Keywords & Fuentes", icon: KeyRound },
-  { to: "/admin/agente", label: "Agente IA Admin", icon: Bot },
+  { to: "/admin/keywords", label: "Palabras clave y fuentes", icon: KeyRound },
+  { to: "/admin/agente", label: "Agente IA", icon: Bot },
   { to: "/admin/mensajes", label: "Mensajes", icon: MessageSquare },
   { to: "/admin/ensenanzas", label: "Enseñanzas", icon: GraduationCap },
   { to: "/admin/aprendizaje", label: "Aprendizaje", icon: Lightbulb },
   { to: "/admin/misiones", label: "Misiones", icon: Gift },
   { to: "/admin/modelos", label: "Modelos y precios", icon: Coins },
-  { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/admin/analytics", label: "Analítica", icon: BarChart3 },
   { to: "/admin/config", label: "Configuración", icon: Settings },
 ];
 
@@ -53,8 +57,22 @@ export function AdminLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <aside className="flex flex-col w-[240px] min-h-screen border-r border-border bg-sidebar">
+    <div className="flex flex-col md:flex-row min-h-screen bg-background">
+      {/* Celular: menú en una fila que se desliza (la barra lateral de 240 px no cabe). */}
+      <nav className="md:hidden sticky top-0 z-20 flex gap-1 overflow-x-auto px-3 py-2 border-b border-border bg-sidebar">
+        <button onClick={() => navigate("/")} aria-label="Volver a la app"
+          className="shrink-0 h-8 w-8 grid place-items-center rounded-lg text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="w-4 h-4" />
+        </button>
+        {items.map(({ to, label, end }) => (
+          <NavLink key={to} to={to} end={end}
+            className={({ isActive }) => `shrink-0 h-8 px-3 rounded-lg text-[12px] font-medium flex items-center ${isActive ? "sidebar-active" : "text-muted-foreground"}`}>
+            {label}
+          </NavLink>
+        ))}
+      </nav>
+
+      <aside className="hidden md:flex flex-col w-[240px] shrink-0 min-h-screen border-r border-border bg-sidebar">
         <div className="px-6 py-7">
           <div className="flex items-center gap-2 text-foreground">
             <Shield className="w-4 h-4 text-primary" strokeWidth={1.8} />
@@ -89,7 +107,7 @@ export function AdminLayout() {
         </button>
       </aside>
 
-      <main className="flex-1 p-6 lg:p-8 overflow-auto min-w-0">
+      <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto min-w-0">
         <Outlet />
       </main>
     </div>

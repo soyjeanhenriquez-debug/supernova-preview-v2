@@ -50,6 +50,26 @@ type Report = {
   signups_24h: number;
 };
 type Alert = { level: "bad" | "warn"; title: string; detail: string };
+// Margen por función de los últimos 7 días (RPC admin_margin). R2-20, 12-oct-2026.
+type MarginArea = { area: string; credits: number; cost_usd: number; background_usd: number; margin: number | null };
+
+// Regla de precios del manual: nunca bajo 3× el costo real. Se avisa solo si la función ya gastó
+// algo que importe (≥ US$0,02 en 7 días) para no alertar por una sola llamada. Lo gratis que cuesta
+// (asistente, Tu semana…) avisa a partir de US$0,50 por semana. Igual en HealthAlerts.tsx.
+function marginAlerts(areas: MarginArea[]): Alert[] {
+  const out: Alert[] = [];
+  for (const a of areas) {
+    const userUsd = Number(a.cost_usd) - Number(a.background_usd);
+    if (a.margin != null && a.margin < 3 && Number(a.cost_usd) >= 0.02) {
+      out.push({ level: "warn", title: `"${a.area}" cobra ${a.margin}× su costo de IA (el piso es 3×)`,
+        detail: `Últimos 7 días: ${a.credits} créditos cobrados, US$${Number(a.cost_usd).toFixed(2)} de IA. Revisa su precio con el contador (Admin → Salud → Margen por función).` });
+    } else if (a.margin == null && Number(a.credits) === 0 && userUsd >= 0.5) {
+      out.push({ level: "warn", title: `"${a.area}" es gratis y costó US$${userUsd.toFixed(2)} en 7 días`,
+        detail: "Si sigue subiendo, ponle tope por persona en edge_limits o un precio en créditos." });
+    }
+  }
+  return out;
+}
 
 function reportAlerts(r: Report): Alert[] {
   const out: Alert[] = [];
@@ -94,7 +114,10 @@ Deno.serve(async (req) => {
     return json(500, { error: "No se pudo leer el informe" });
   }
   const report = data as Report;
-  const alerts = reportAlerts(report);
+  // El margen no frena el correo: si la RPC falla, se manda lo demás.
+  const { data: margin, error: marginErr } = await admin.rpc("admin_margin", { p_days: 7 });
+  if (marginErr) console.error("health-alert: margen", marginErr.message);
+  const alerts = [...reportAlerts(report), ...marginAlerts((margin?.areas ?? []) as MarginArea[])];
   // "Enviarme un correo de prueba" (Admin → Salud): se manda aunque no haya alertas.
   const test = new URL(req.url).searchParams.get("test") === "1" && !req.headers.get("x-cron-secret");
   if (alerts.length === 0 && !test) return json(200, { ok: true, alerts: 0, sent: false });

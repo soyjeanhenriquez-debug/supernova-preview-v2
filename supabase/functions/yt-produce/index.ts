@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
       const audio = await apimartSpeech({ input: text, voice, format: "mp3", speed, instructions: LANG_TONE[lang] });
       if (!audio) {
         await refund(txId, "voz falló");
-        return json({ error: "No se pudo crear la voz. Te devolvimos los créditos." }, 502);
+        return json({ error: "No se pudo crear la voz. Te devolvimos los créditos.", code: "provider_failed", refunded: true }, 502);
       }
       await logCost(uid, `apimart:${TTS_MODEL}`, ((text.length / 14.5 / speed) / 60) * COST.voicePerMin, 0);
       return json({ audio: encodeBase64(audio.bytes), mime: audio.mime, billing: { charged: g.charged, balance: g.balance } }, 200, billingHeaders(g));
@@ -154,10 +154,15 @@ Deno.serve(async (req) => {
       txId = g.txId;
 
       const prompt = `Escena para un video de YouTube narrado (canal sin rostro): ${visual}\n\nEstilo: ${style} — ${STYLE_HINT[style]}. Composición clara que se entienda en pantalla de celular, sujeto principal centrado con aire alrededor (la imagen tendrá un zoom suave). Formato ${aspect}.\n\n${RULES}`;
-      const img = await apimartImage(prompt, aspect);
+      // Un reintento en el servidor (mismo cobro) solo si la falla fue rápida: apimartImage espera
+      // hasta 90 s y la función tiene ~150 s de tope; si ya se agotó la espera, reintenta el navegador
+      // (un 502 a los 92,8 s del 11-oct fue justo eso: la imagen tardó más de 90 s).
+      const t0 = Date.now();
+      let img = await apimartImage(prompt, aspect);
+      if (!img && Date.now() - t0 < 30_000) img = await apimartImage(prompt, aspect);
       if (!img) {
         await refund(txId, "imagen falló");
-        return json({ error: "No se pudo crear la imagen. Te devolvimos los créditos." }, 502);
+        return json({ error: "La imagen tardó demasiado. Te devolvimos los créditos.", code: "provider_failed", refunded: true }, 502);
       }
       await logCost(uid, `apimart:${IMAGE_MODEL}`, COST.image, 1);
       return json({ image: `data:${img.mime};base64,${img.b64}`, billing: { charged: g.charged, balance: g.balance } }, 200, billingHeaders(g));
@@ -167,6 +172,6 @@ Deno.serve(async (req) => {
   } catch (e) {
     console.error("yt-produce:", e instanceof Error ? e.message : e);
     await refund(txId, "excepción");
-    return json({ error: "No se pudo completar. Si se cobró, te devolvimos los créditos." }, 500);
+    return json({ error: "No se pudo completar. Si se cobró, te devolvimos los créditos.", code: "provider_failed", refunded: !!txId }, 500);
   }
 });

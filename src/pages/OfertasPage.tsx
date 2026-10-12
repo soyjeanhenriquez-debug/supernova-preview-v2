@@ -9,7 +9,7 @@ import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { useOfferFollows } from "@/hooks/useOfferFollows";
 import { OFFERS_TAB_KEY, type FollowedRow } from "@/components/dashboard/RoiHunterWidget";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { type Offer, NICHE_LABEL, MODEL_LABEL, MARKET_GROUP, offerToDemoAd, openOfferAdsInRadar } from "@/lib/offers";
+import { type Offer, NICHE_LABEL, MODEL_LABEL, MARKET_GROUP, LANG_ES_FILTER, offerToDemoAd, openOfferAdsInRadar } from "@/lib/offers";
 import { type OfferWatch, parseWatch } from "@/lib/offerWatch";
 import { CreateFromIdeaSheet } from "@/components/create/CreateFromIdeaSheet";
 import { ideaFromOffer } from "@/lib/recommendTarget";
@@ -38,6 +38,9 @@ const offerIdFromHash = () => {
 type Tab = "ganadoras" | "todas" | "apps" | "info" | "siguiendo";
 // 12 ofertas de entrada (antes 24) y 12 más por cada "Ver más": la primera vista carga antes.
 const PAGE_SIZE = 12;
+// Mercado elegido a mano (gana sobre el que se deduce del país). Solo comodidad de este navegador.
+const MARKET_PREF_KEY = "supernova_offers_market";
+const readMarketPref = () => { try { return localStorage.getItem(MARKET_PREF_KEY); } catch { return null; } };
 
 const SORTS = [
   { v: "rank", l: "Las mejores primero" },
@@ -63,7 +66,18 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [niche, setNiche] = useState("all");
-  const [group, setGroup] = useState("all");
+  // Mercado: el que la persona eligió antes o, si nunca eligió, el de su país (user_age_country). Hasta
+  // saberlo vale null y no se consulta nada (así no se carga dos veces la lista).
+  const [group, setGroupState] = useState<string | null>(readMarketPref);
+  const [groupFromCountry, setGroupFromCountry] = useState(false);
+  const setGroup = (g: string) => {
+    setGroupState(g);
+    setGroupFromCountry(false);
+    try { localStorage.setItem(MARKET_PREF_KEY, g); } catch { /* sin almacenamiento */ }
+  };
+  // Decisión de Jean (12-oct-2026, igual que el Radar): se abre en "Todas" para no esconder de
+  // entrada ninguna ganadora (de 300, 215 están en inglés o portugués). El idioma queda a un toque.
+  useEffect(() => { if (group === null) setGroupState("all"); }, [group]);
   const [model, setModel] = useState("all");
   // Plataforma de cobro (Hotmart, Kiwify, Gumroad…): solo se conoce en las ofertas ya revisadas.
   const [platform, setPlatform] = useState("all");
@@ -127,6 +141,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
     let alive = true;
     setLoading(true);
     if (tab === "siguiendo") { setLoading(false); return; }
+    if (group === null) return; // esperando el país de la persona
     (async () => {
       // excluded_reason (flag_excluded_offers): contenido adulto y apps de
       // dramas/novelas no se muestran NUNCA en el catálogo, con ningún filtro.
@@ -142,7 +157,8 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
       if (tab === "apps") q = q.eq("offer_type", "saas_app");
       if (tab === "info") q = q.eq("offer_type", "infoproducto");
       if (niche !== "all") q = q.eq("niche", niche);
-      if (group !== "all") {
+      if (group === LANG_ES_FILTER) q = q.eq("language", "es");
+      else if (group !== "all") {
         const g = MARKET_GROUP[group];
         if (g) q = q.in("market", g.markets).or(`language.eq.${g.lang},language.is.null`);
       }
@@ -215,32 +231,39 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatTile icon={<Gem className="w-4 h-4" />} label="Ofertas analizadas" value={stats?.offers} />
         <StatTile icon={<Layers className="w-4 h-4" />} label="Anuncios que siguen activos" value={stats?.active_ads} />
-        <StatTile icon={<Globe2 className="w-4 h-4" />} label="Países donde se anuncian" value={stats?.markets} />
-        <StatTile icon={<TagIcon className="w-4 h-4" />} label="Temas (nichos)" value={stats?.niches} />
+        {/* En el celular solo las dos que dicen si hay dinero detrás: las otras empujaban las ofertas fuera de la pantalla. */}
+        <div className="hidden lg:contents">
+          <StatTile icon={<Globe2 className="w-4 h-4" />} label="Países donde se anuncian" value={stats?.markets} />
+          <StatTile icon={<TagIcon className="w-4 h-4" />} label="Temas (nichos)" value={stats?.niches} />
+        </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-2">
+      {/* En el celular las pestañas van en una fila con scroll y con nombre corto (antes eran 3 filas). */}
+      <div className="flex flex-nowrap sm:flex-wrap gap-2 overflow-x-auto -mx-1 px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {([
-          { k: "ganadoras", l: "🏆 Las 300 ganadoras" },
-          { k: "todas", l: "🔎 Explorar todo" },
-          { k: "info", l: "🎓 Cursos y guías" },
-          { k: "apps", l: "🧩 Apps y programas" },
-          { k: "siguiendo", l: `⭐ Siguiendo${follows.followingIds.size ? ` · ${follows.followingIds.size}` : ""}` },
-        ] as { k: Tab; l: string }[]).map((t) => (
-          <button key={t.k} onClick={() => setTab(t.k)}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-              tab === t.k ? "bg-primary text-primary-foreground border-primary" : "bg-secondary/40 text-muted-foreground border-border hover:text-foreground"}`}>
-            {t.l}
-          </button>
-        ))}
+          { k: "ganadoras", l: "🏆 Las 300 ganadoras", s: "🏆 Ganadoras" },
+          { k: "todas", l: "🔎 Explorar todo", s: "🔎 Todo" },
+          { k: "info", l: "🎓 Cursos y guías", s: "🎓 Cursos" },
+          { k: "apps", l: "🧩 Apps y programas", s: "🧩 Apps" },
+          { k: "siguiendo", l: "⭐ Siguiendo", s: "⭐ Sigo" },
+        ] as { k: Tab; l: string; s: string }[]).map((t) => {
+          const n = t.k === "siguiendo" && follows.followingIds.size ? ` · ${follows.followingIds.size}` : "";
+          return (
+            <button key={t.k} onClick={() => setTab(t.k)}
+              className={`shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                tab === t.k ? "bg-primary text-primary-foreground border-primary" : "bg-secondary/40 text-muted-foreground border-border hover:text-foreground"}`}>
+              <span className="sm:hidden">{t.s}{n}</span><span className="hidden sm:inline">{t.l}{n}</span>
+            </button>
+          );
+        })}
         {/* Solo en las pestañas de exploración: en Ganadoras la lista ya exige
             copiabilidad y en Siguiendo no aplica — un botón que no hace nada confunde. */}
         {tab !== "ganadoras" && tab !== "siguiendo" && (
           <button onClick={() => setOnlyCopiable((v) => !v)}
-            className={`ml-auto px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+            className={`shrink-0 whitespace-nowrap sm:ml-auto px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
               onlyCopiable ? "bg-success/15 text-success border-success/40" : "bg-secondary/40 text-muted-foreground border-border hover:text-foreground"}`}>
-            ✓ Solo las que puedes hacer tú solo
+            <span className="sm:hidden">✓ Solo tú solo</span><span className="hidden sm:inline">✓ Solo las que puedes hacer tú solo</span>
           </button>
         )}
       </div>
@@ -255,10 +278,11 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Busca un producto, una marca o un tema (ej: ansiedad, inglés)…"
             className="w-full bg-secondary/50 border border-border rounded-lg pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50" />
         </div>
-        <Select value={group} onValueChange={setGroup}>
-          <SelectTrigger className="bg-secondary/50"><SelectValue placeholder="Idioma del mercado" /></SelectTrigger>
+        <Select value={group ?? "all"} onValueChange={setGroup}>
+          <SelectTrigger className="bg-secondary/50" aria-label="Idioma del mercado"><SelectValue placeholder="Idioma del mercado" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">🌍 Todos los mercados</SelectItem>
+            <SelectItem value={LANG_ES_FILTER}>🗣️ En español (todos los países)</SelectItem>
             {Object.entries(MARKET_GROUP).map(([k, g]) => <SelectItem key={k} value={k}>{g.flag} {g.label}</SelectItem>)}
           </SelectContent>
         </Select>
@@ -295,6 +319,12 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
 
       <div className="text-[12px] text-muted-foreground">
         {loading && page === 0 ? "Buscando…" : `${total.toLocaleString("es-ES")} ofertas encontradas`}
+        {groupFromCountry && group !== "all" && (
+          <span className="ml-1.5">
+            · {group === LANG_ES_FILTER ? "en español" : MARKET_GROUP[group ?? ""]?.label.toLowerCase()}, por tu país.{" "}
+            <button onClick={() => setGroup("all")} className="font-semibold text-foreground underline underline-offset-2 hover:text-primary">Ver todas</button>
+          </span>
+        )}
         {platform !== "all" && !loading && (
           <span className="block mt-0.5">
             Solo cuentan las ofertas donde ya vimos dónde cobran ({platformKnown.toLocaleString("es-ES")} hasta hoy). Revisamos más cada día.
@@ -346,7 +376,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
         />
       )}
       {ideaOffer && <CreateFromIdeaSheet idea={ideaFromOffer(ideaOffer)} input={OFFER_INPUT} onClose={() => setIdeaOffer(null)} />}
-      {creating && <MiniAppModal ad={offerToDemoAd(creating)} brief={offerBrief(creating)} onNavigate={onNavigate} onClose={() => setCreating(null)} />}
+      {creating && <MiniAppModal ad={offerToDemoAd(creating)} brief={offerBrief(creating)} offer={creating} origin={detail?.id === creating.id ? "oferta_ficha" : "oferta_tarjeta"} onNavigate={onNavigate} onClose={() => setCreating(null)} />}
     </div>
   );
 }

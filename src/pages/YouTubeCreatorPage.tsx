@@ -11,7 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { YT_REF_KEY, type YtItem } from "@/pages/YouTubeRadarPage";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProduceStudio, type ProduceStart } from "@/components/youtube/ProduceStudio";
-import { estimateCost, parseScenes, scriptMeta, YT_STYLES } from "@/lib/ytScenes";
+import { DEFAULT_ANIMATED_PCT, estimateCost, fullVideoCost, MAX_SCENES, parseScenes, PRICES, sceneSeconds, scenesFor, scriptMeta, YT_STYLES } from "@/lib/ytScenes";
 import { listProductions, progressOf, type ProductionMeta } from "@/lib/productionStore";
 
 /**
@@ -57,6 +57,26 @@ function takeYoutubeSeed(): YtSeed | null {
     return { title: str(x.title, 80), product: str(x.product, 200), promise: str(x.promise, 200), hook: str(x.hook, 140) || undefined, aspect: str(x.aspect, 5) || undefined, ytRef: ref, autostart: x.autostart === true && age < 2 * 60_000 };
   } catch { return null; }
 }
+/** 2000 → "2.000" (toLocaleString("es") no agrupa números de 4 cifras). */
+const num = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+/** El camino completo, siempre a la vista: dónde estás y qué sigue. */
+const STEPS = ["Idea", "Guion", "Escenas", "Video"] as const;
+function Steps({ at }: { at: number }) {
+  return (
+    <ol className="flex items-center justify-center gap-1.5 text-[12px]" aria-label="Pasos para crear tu video">
+      {STEPS.map((label, i) => (
+        <li key={label} className="inline-flex items-center gap-1.5">
+          <span className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border ${i === at ? "border-foreground/40 text-foreground" : i < at ? "border-border text-foreground/80" : "border-border/60 text-muted-foreground"}`} aria-current={i === at ? "step" : undefined}>
+            {i < at ? <Check className="w-3 h-3" /> : <span className="tabular-nums">{i + 1}</span>} {label}
+          </span>
+          {i < STEPS.length - 1 && <span className="w-3 h-px bg-border" aria-hidden />}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 const LANGS: { id: string; label: string }[] = [{ id: "es", label: "Español" }, { id: "en", label: "Inglés" }, { id: "pt", label: "Portugués" }, { id: "fr", label: "Francés" }];
 const GEN = "yt-script";
 
@@ -72,16 +92,19 @@ function guessStyle(text: string) {
 
 function scriptSystem(minutes: number, lang: string) {
   const words = Math.round(minutes * 145);
-  const idioma = lang === "en" ? "inglés" : lang === "pt" ? "portugués de Brasil" : lang === "fr" ? "francés" : "español neutro latinoamericano";
+  const secs = sceneSeconds(minutes);
+  const scenes = scenesFor(minutes);
+  const idioma = lang === "en" ? "inglés" : lang === "pt" ? "portugués de Brasil" : lang === "fr" ? "francés" : "español neutro latinoamericano, de tú (nada de vosotros ni modismos de España)";
   return `Eres guionista de canales de YouTube sin rostro (faceless) que retienen hasta el final. Escribe en ${idioma}.
-- Guion 100 % ORIGINAL, con ángulo propio, ejemplos nuevos y datos verificables (si dudas, dilo como posibilidad).
-- Narración para voz en off, frases cortas y naturales, sin emojis. Unas ${words} palabras (≈ ${minutes} min).
-- Estructura: gancho fuerte en los primeros 15 segundos → promesa → desarrollo en bloques con mini-ganchos → cierre memorable con invitación suave a suscribirse.
-- Sin promesas de dinero, curas ni resultados garantizados.
-- Divide TODO en escenas de 8 a 12 segundos con este formato exacto:
+- Guion 100 % ORIGINAL, con ángulo propio, ejemplos nuevos y datos verificables (si dudas, dilo como posibilidad). Sin nombres de marcas ni de personas famosas vivas como protagonistas.
+- Narración para voz en off, frases cortas y naturales, sin emojis. Unas ${words} palabras de narración (≈ ${minutes} min a ritmo de YouTube). No te quedes corto: cada escena lleva unas ${Math.round(secs * 2.4)} palabras.
+- GANCHO EN LOS PRIMEROS 5 SEGUNDOS: la ESCENA 1 abre con una pregunta, un dato que sorprende o la promesa concreta del video, en una o dos frases. Nada de saludos, presentaciones ni "en este video".
+- RETENCIÓN: la escena 2 dice qué va a ganar quien mire hasta el final. Cada 3 o 4 escenas, un mini-gancho que abre la siguiente idea ("pero lo más raro viene ahora…"). Guarda lo mejor para el último tercio.
+- CIERRE HONESTO: resume en una frase y termina con UNA invitación suave (suscribirse o comentar una pregunta concreta). Sin promesas de dinero, curas, resultados garantizados ni urgencia falsa.
+- Divide TODO en unas ${scenes} escenas de unos ${secs} segundos cada una (máximo ${MAX_SCENES - 2} escenas), con este formato exacto:
 ESCENA n — [descripción visual breve para generar la imagen: quién, dónde, qué pasa, plano]
 Narración: (lo que dice la voz en esa escena)
-- Al final: "TÍTULO:" (máx. 70 caracteres, que dé curiosidad) y "MINIATURA:" (idea con máx. 5 palabras de texto).`;
+- Al final: "TÍTULO:" (máx. 70 caracteres, que dé curiosidad sin mentir) y "MINIATURA:" (idea con máx. 5 palabras de texto).`;
 }
 
 async function readStream(resp: Response, onText: (t: string) => void) {
@@ -208,7 +231,11 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
   useEffect(() => { if (!styleTouched && idea.trim().length > 5) setStyle(guessStyle(idea)); }, [idea, styleTouched]);
   useEffect(() => { if (size === "9:16" && minutes > 3) setMinutes(1); }, [size]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const scenesApprox = Math.max(4, Math.round((minutes * 60) / 10));
+  const scenesApprox = scenesFor(minutes);
+  // Lo que cuesta un video COMPLETO de esta duración, antes de gastar nada (guion + producir).
+  const full = fullVideoCost(minutes, price);
+  /** Sin créditos: el aviso lleva directo a recargar (nunca un callejón sin salida). */
+  const noCredits = (msg: string) => toast.error(msg, { action: { label: "Recargar", onClick: () => onNavigate("Créditos") } });
   const ready = tab === "idea" ? idea.trim().length >= 4 : tab === "guion" ? ownScript.trim().length >= 80 : !!preview;
 
   const shuffle = () => {
@@ -218,7 +245,7 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
   };
 
   const write = async () => {
-    if (busy || balance < PRICE.idea) { if (balance < PRICE.idea) toast.error(`Te faltan créditos: el guion cuesta ${PRICE.idea}`); return; }
+    if (busy || balance < PRICE.idea) { if (balance < PRICE.idea) noCredits(`Te faltan créditos: el guion cuesta ${PRICE.idea}.`); return; }
     const pedido = tab === "guion"
       ? `Adapta este guion mío al formato pedido, manteniendo mi idea y mejorando el gancho y el ritmo:\n${ownScript.trim().slice(0, 8000)}`
       : `Tema del video: ${idea.trim()}\nEstilo visual: ${style}. Formato ${size}.`;
@@ -237,7 +264,7 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
 
   const analyze = async () => {
     if (busy) return;
-    if (balance < PRICE.link) { toast.error(`Te faltan créditos: el análisis cuesta ${PRICE.link}`); return; }
+    if (balance < PRICE.link) { noCredits(`Te faltan créditos: el análisis cuesta ${PRICE.link}.`); return; }
     setBusy("analyzing");
     try {
       const d = await invokeRef({ url, lang, minutes });
@@ -251,7 +278,7 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
 
   const translate = async () => {
     if (busy || !script) return;
-    if (balance < PRICE.translate) { toast.error(`Te faltan créditos: traducir cuesta ${PRICE.translate}`); return; }
+    if (balance < PRICE.translate) { noCredits(`Te faltan créditos: traducir cuesta ${PRICE.translate}.`); return; }
     setBusy("translating");
     try {
       const d = await invokeRef({ action: "translate", script, lang: targetLang });
@@ -267,6 +294,7 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
 
   const scenesParsed = useMemo(() => (busy === "writing" ? [] : parseScenes(script)), [script, busy]);
   const produceFrom = estimateCost(scenesParsed, 0).total;
+  const produceAnimated = estimateCost(scenesParsed, DEFAULT_ANIMATED_PCT);
   const openProduce = () => {
     const meta = scriptMeta(script);
     setProduce({
@@ -305,6 +333,7 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
   if (view === "script") {
     return (
       <div className="max-w-[920px] mx-auto space-y-5 py-4">
+        <Steps at={1} />
         <button onClick={() => { setScript(""); setAnalysis(null); }} disabled={!!busy} className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground disabled:opacity-50"><ArrowLeft className="w-4 h-4" /> Nueva idea</button>
 
         {analysis && (
@@ -340,11 +369,15 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
           <p className="text-[12px] text-muted-foreground inline-flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Puedes leer mientras se escribe.</p>
         ) : (
           <div className="space-y-3">
+          {scenesParsed.length < 2 && script.trim().length > 0 && (
+            <p className="rounded-xl border border-border px-4 py-3 text-[12px] text-muted-foreground">Para hacer el video, el guion necesita al menos 2 bloques con "ESCENA n — [imagen]" y "Narración: …". Toca "Otra versión" o ajústalo a mano.</p>
+          )}
           {scenesParsed.length >= 2 && (
             <div className="rounded-2xl border border-border p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
               <div className="min-w-0">
-                <p className="text-[14px] text-foreground font-medium">Convierte este guion en tu video</p>
-                <p className="text-[12px] text-muted-foreground">Voz, una imagen por escena, movimiento y subtítulos · {scenesParsed.length} escenas · desde {produceFrom.toLocaleString("es")} créditos</p>
+                <p className="text-[14px] text-foreground font-medium">Paso 3: convierte este guion en tu video</p>
+                <p className="text-[12px] text-muted-foreground">Voz, una imagen por escena, movimiento y subtítulos · {Math.min(scenesParsed.length, MAX_SCENES)} escenas · {num(produceFrom)} créditos sin animación{produceAnimated.animated > 0 ? ` o ${num(produceAnimated.total)} con ${produceAnimated.animated} escenas animadas` : ""}. Antes de gastar eliges y ves el total.</p>
+                {scenesParsed.length > MAX_SCENES && <p className="text-[12px] text-muted-foreground mt-1">Tu guion trae {scenesParsed.length} escenas: al producir unimos las más cortas para que queden {MAX_SCENES} o menos, sin cambiar el texto.</p>}
               </div>
               <button onClick={openProduce} className="btn-primary-nova h-11 px-5 rounded-xl text-[14px] font-semibold inline-flex items-center justify-center gap-2 shrink-0"><Clapperboard className="w-4 h-4" /> Producir video</button>
             </div>
@@ -373,14 +406,15 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
   // ---------------- Pantalla de entrada ----------------
   return (
     <div className="max-w-[980px] mx-auto space-y-6 py-6">
+      <Steps at={0} />
       <div className="text-center space-y-2">
         <h1 className="font-display font-bold text-[28px] md:text-[38px] tracking-[-0.02em] text-foreground">¿Qué video quieres hacer?</h1>
-        <p className="text-[14px] text-muted-foreground">Escribe tu idea o pega un video que ya funciona. La IA decide estructura, escenas y planos; todo se puede cambiar.</p>
+        <p className="text-[14px] text-muted-foreground">Escribe tu idea o pega un video que ya funciona. La IA escribe el guion, lo divide en escenas y después lo convierte en video con voz, imágenes y subtítulos. Todo se puede cambiar.</p>
       </div>
 
       <div className="rounded-2xl border border-border bg-card/40 p-3 md:p-4 space-y-3">
         <div className="flex gap-1">
-          {([["idea", "Idea"], ["guion", "Mi guion"], ["link", "Link de YouTube"]] as [Tab, string][]).map(([t, label]) => (
+          {([["idea", "Idea"], ["guion", "Mi guion"], ["link", "Enlace de YouTube"]] as [Tab, string][]).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)} className={`h-8 px-3 rounded-lg text-[13px] ${tab === t ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
           ))}
         </div>
@@ -423,7 +457,7 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
           </div>
         )}
         <p className="text-[11px] text-muted-foreground px-1">
-          {tab === "link" ? "Google ve el video público y sacamos su estructura y un guion tuyo, original, en el idioma que elijas. Si falla, no se cobra." : `Escribimos el guion completo, dividido en escenas, en vivo · ${PRICE.idea} créditos.`}
+          {tab === "link" ? "Google ve el video público y sacamos su estructura y un guion tuyo, original, en el idioma que elijas. Si falla, te devolvemos los créditos." : `Escribimos el guion completo, dividido en escenas, en vivo · ${PRICE.idea} créditos. Si falla, te devolvemos los créditos.`}
         </p>
       </div>
 
@@ -448,8 +482,18 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
           </Chip>
         </div>
         <p className="text-[12px] text-muted-foreground">
-          Gancho en los primeros 15 s · Voz en off · ~{scenesApprox} escenas con imagen · Guion original · {price} créditos el guion
+          Gancho en los primeros 5 s · Voz en off · ~{scenesApprox} escenas con imagen · Guion original · {price} créditos el guion
         </p>
+        <div className="rounded-xl border border-border/70 p-3 space-y-1.5">
+          <p className="text-[13px] text-foreground font-medium">Cuánto cuesta un video completo de {minutes} min</p>
+          <dl className="text-[12px] space-y-1">
+            <div className="flex justify-between gap-3"><dt className="text-muted-foreground">1 · Guion{tab === "link" ? " (análisis del video)" : ""}</dt><dd className="text-foreground tabular-nums">{num(full.script)}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-muted-foreground">2 · Voz e imagen · ~{full.scenes} escenas × {PRICES.voice + PRICES.image}</dt><dd className="text-foreground tabular-nums">{num(full.produce.voice + full.produce.images)}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-muted-foreground">3 · Escenas animadas (opcional) · {full.produce.animated} × {PRICES.clip}</dt><dd className="text-foreground tabular-nums">{num(full.produce.clips)}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-muted-foreground">4 · Montaje, subtítulos y descarga</dt><dd className="text-foreground">Gratis</dd></div>
+          </dl>
+          <p className="text-[12px] text-muted-foreground pt-1 border-t border-border/60">Total: unos <span className="text-foreground font-medium">{num(full.totalStill)} créditos</span> sin animación o {num(full.total)} con animación. Cada pieza se cobra al crearse y, si falla, se devuelve sola. Ahora solo pagas el guion.</p>
+        </div>
       </div>
 
       {recent.length > 0 && (

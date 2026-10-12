@@ -6,8 +6,8 @@ import { LogOut, Mail, Loader2, Sparkles } from "lucide-react";
 import { PlanFeatures, TrialTerms } from "@/components/PlanFeatures";
 
 // El usuario ya tiene cuenta pero no membresía activa: este es el punto de
-// activación. Cobro: Stripe si está configurado; si no, Whop con el correo y el código
-// FUNDADOR ya puestos (checkoutUrl). "Comunidad" sigue siendo externo (Skool).
+// activación. Cobro: Whop con el correo ya puesto (checkoutUrl); Stripe solo si se enciende
+// (STRIPE_ON). "Comunidad" sigue siendo externo (Skool). La garantía de 30 días va en TrialTerms.
 export default function PendingAccessPage() {
   const { user, signOut } = useAuth();
   const [starting, setStarting] = useState<string | null>(null);
@@ -25,10 +25,6 @@ export default function PendingAccessPage() {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full bg-primary/5 blur-3xl" />
-      </div>
-
       <div className="w-full max-w-md relative z-10 card-surface rounded-2xl p-8 space-y-5">
         <div className="text-center">
           <div className="flex justify-center mb-4">
@@ -52,7 +48,7 @@ export default function PendingAccessPage() {
                 disabled={starting !== null}
                 className={`w-full text-left rounded-xl border p-4 transition-colors disabled:opacity-60 ${
                   featured
-                    ? "border-primary bg-primary/5 hover:bg-primary/10 shadow-[0_0_25px_hsl(var(--primary)/0.12)]"
+                    ? "border-primary bg-primary/5 hover:bg-primary/10"
                     : "border-border bg-secondary/30 hover:bg-secondary/50"
                 }`}
               >

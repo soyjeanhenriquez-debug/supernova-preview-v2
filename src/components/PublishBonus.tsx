@@ -37,11 +37,11 @@ export function PublishBonusCard() {
     <div className="card-surface rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
       <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0"><Gift className="w-5 h-5" /></div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground">Publica lo que hiciste con SUPERNOVA y gana {s.perClaim} créditos</p>
+        <p className="text-sm font-semibold text-foreground">Bono por publicar: {s.perClaim} créditos por post</p>
         <p className="text-[12px] text-muted-foreground mt-0.5">
           {full ? "Ya ganaste el máximo de este mes. Vuelve el mes que viene."
             : s.claimedToday ? "Ya ganaste tu bono de hoy. Mañana puedes ganar otro."
-            : "Pasa a tu tracker lo que creaste, publícalo y toca “Ganar” con el enlace y una captura. Uno por día."}
+            : `Publica una pieza de tu calendario que salió de SUPERNOVA (las agregadas a mano no cuentan), márcala como publicada y toca “Ganar ${s.perClaim} créditos” con el enlace y una captura. Uno por día, hasta ${fmtNumber(s.monthCap)} al mes.`}
         </p>
         <div className="mt-2 flex items-center gap-2">
           <div className="h-1.5 flex-1 max-w-[220px] rounded-full bg-secondary overflow-hidden">
@@ -120,11 +120,11 @@ function ClaimDialog({ item, perClaim, onClose }: { item: Piece; perClaim: numbe
         </DialogDescription>
         <div className="space-y-3 mt-1">
           <label className="block space-y-1">
-            <span className="text-[12px] text-muted-foreground">Enlace del post</span>
+            <span className="text-[12px] text-muted-foreground">Enlace de la publicación</span>
             <input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://www.instagram.com/p/…" inputMode="url"
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary/60" />
             <span className={`text-[11px] ${url && !net ? "text-destructive" : "text-muted-foreground"}`}>
-              {url ? (net ? `Post de ${net}` : "Debe ser un enlace https de Instagram, TikTok, YouTube, Facebook, Threads, X o LinkedIn.") : "Instagram, TikTok, YouTube, Facebook, Threads, X o LinkedIn."}
+              {url ? (net ? `Publicación de ${net}` : "Debe ser un enlace https de Instagram, TikTok, YouTube, Facebook, Threads, X o LinkedIn.") : "Instagram, TikTok, YouTube, Facebook, Threads, X o LinkedIn."}
             </span>
           </label>
           <div className="space-y-1">
@@ -135,7 +135,7 @@ function ClaimDialog({ item, perClaim, onClose }: { item: Piece; perClaim: numbe
               {preview ? <img src={preview} alt="Tu captura" className="max-h-40 rounded-md" /> : <><Camera className="w-4 h-4" /> Elegir captura</>}
             </button>
           </div>
-          <p className="text-[11px] text-muted-foreground">Revisamos las capturas. Si una no corresponde al post, el bono se anula.</p>
+          <p className="text-[11px] text-muted-foreground">Revisamos las capturas. Si una no corresponde a la publicación, el bono se anula.</p>
           <button type="button" onClick={() => void send()} disabled={!file || !net || busy}
             className="btn-primary-nova w-full h-10 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50">
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Gift className="w-4 h-4" />} Reclamar {perClaim} créditos

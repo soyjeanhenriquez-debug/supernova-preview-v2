@@ -186,6 +186,11 @@ export function langFromText(text: string, fallback: AdLang): AdLang {
   return best === "fr" ? "otro" : best;
 }
 
+/** Cómo se le dice a la persona el idioma real del anuncio (el texto, no el país). */
+export const LANG_LABEL: Record<AdLang, string> = {
+  es: "Español", en: "Inglés", pt: "Portugués", de: "Alemán", ru: "Ruso", otro: "Otro idioma",
+};
+
 export function langFromCountry(country?: string | null): AdLang {
   const c = (country ?? "").toUpperCase();
   for (const [lang, list] of Object.entries(LANG_COUNTRIES)) {

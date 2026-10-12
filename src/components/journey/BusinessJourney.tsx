@@ -75,7 +75,7 @@ export function BusinessJourney({ onNavigate }: { onNavigate: (page: string) => 
     return [
     {
       n: 1, key: "1", short: "Elegir", title: "Elige qué vas a vender",
-      why: "Escoge una oferta que ya se vende y cuéntala en tu ficha.", doneNote: "Ya tienes tu ficha",
+      why: "Escoge una oferta que ya se vende y haz tu versión: queda en tu ficha, gratis.", doneNote: "Ya tienes tu ficha",
       done: done[0],
       actions: [
         { label: "Ver ofertas ganadoras", page: "Ofertas", primary: true },

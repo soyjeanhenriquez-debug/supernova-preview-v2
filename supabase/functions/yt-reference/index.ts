@@ -14,7 +14,7 @@ import { redact } from "../_shared/redact.ts";
 const FN = "yt-reference";
 const MODEL = "gemini-3.8-flash"; // gemini-2.5-flash ya no está disponible para cuentas nuevas
 const MAX_SECONDS = 30 * 60;
-const LANGS: Record<string, string> = { es: "español neutro latinoamericano", en: "inglés", pt: "portugués de Brasil", fr: "francés" };
+const LANGS: Record<string, string> = { es: "español neutro latinoamericano, de tú", en: "inglés", pt: "portugués de Brasil", fr: "francés" };
 
 const json = (body: unknown, status = 200, extra: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, ...extra, "Content-Type": "application/json" } });
@@ -65,9 +65,17 @@ const secondsOf = (iso: string) => {
   return m ? Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0) : 0;
 };
 
-const SCENE_FORMAT = `Divide el guion en escenas de 8 a 12 segundos con este formato exacto:
+// Escenas según la duración, para que un video largo no pase de 40 escenas (tope de "Producir video").
+// Contraparte: sceneSeconds/scenesFor en src/lib/ytScenes.ts.
+const sceneSeconds = (minutes: number) => Math.min(36, Math.max(10, Math.ceil((Math.max(1, minutes) * 60) / 36)));
+const sceneFormat = (minutes: number) => {
+  const secs = sceneSeconds(minutes);
+  const n = Math.max(4, Math.round((minutes * 60) / secs));
+  return `Divide el guion en unas ${n} escenas de unos ${secs} segundos cada una (máximo 38) con este formato exacto:
 ESCENA n — [descripción visual breve para generar la imagen: quién, dónde, qué pasa, plano]
 Narración: (lo que dice la voz en esa escena)`;
+};
+const HOOK_RULES = `Gancho en los primeros 5 segundos: la ESCENA 1 abre con una pregunta, un dato que sorprende o la promesa concreta del video (sin saludos ni "en este video"). La escena 2 dice qué gana quien mire hasta el final. Cada 3 o 4 escenas, un mini-gancho hacia la siguiente idea. Cierre honesto: resumen en una frase y UNA invitación suave a suscribirse o comentar, sin urgencia falsa.`;
 
 async function gemini(parts: unknown[], maxTokens: number) {
   const key = Deno.env.get("GEMINI_API_KEY");
@@ -109,7 +117,7 @@ Deno.serve(async (req) => {
     if (raw.length > 30000) return json({ error: "La solicitud es demasiado grande." }, 413);
     const body = raw ? JSON.parse(raw) : {};
     const lang = LANGS[body.lang] ? body.lang : "es";
-    const minutes = Math.min(30, Math.max(1, Number(body.minutes) || 12));
+    const minutes = Math.min(20, Math.max(1, Number(body.minutes) || 12)); // igual que el Creador (máx. 20 min)
 
     // ---------- traducir ----------
     if (body.action === "translate") {
@@ -163,7 +171,7 @@ Devuelve SOLO JSON con estas claves:
 - "why_it_works": 3 razones concretas por las que retiene (gancho, ritmo, promesa, emociones), en una lista de textos cortos.
 - "structure": la estructura del video en 5 a 8 pasos ("Gancho: ...", "Promesa: ...", "Bloque 1: ...", "Cierre: ..."), lista de textos.
 - "opening": cómo empieza el narrador, máximo 40 palabras (solo como referencia).
-- "script": MI VERSIÓN en ${LANGS[lang]}: guion 100 % ORIGINAL con el mismo tema y el mismo TIPO de estructura, pero con otro gancho, otros ejemplos, otro orden de ideas y frases propias. Prohibido copiar o parafrasear frases del video. Unas ${words} palabras de narración (≈ ${minutes} min), frases cortas para voz en off, sin promesas de dinero ni curas, sin datos inventados. ${SCENE_FORMAT}
+- "script": MI VERSIÓN en ${LANGS[lang]}: guion 100 % ORIGINAL con el mismo tema y el mismo TIPO de estructura, pero con otro gancho, otros ejemplos, otro orden de ideas y frases propias. Prohibido copiar o parafrasear frases del video. Unas ${words} palabras de narración (≈ ${minutes} min), frases cortas para voz en off, sin promesas de dinero ni curas, sin datos inventados. ${HOOK_RULES} ${sceneFormat(minutes)}
 - "title": un título nuevo que dé curiosidad (máx. 70 caracteres), distinto del original.
 - "thumbnail": idea de miniatura nueva, con máximo 5 palabras de texto.` },
     ], 24000);

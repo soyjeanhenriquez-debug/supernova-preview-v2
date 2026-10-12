@@ -5,7 +5,9 @@ import { ToolFeedback } from "@/components/ToolFeedback";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusinessProfile } from "@/lib/businessProfile";
-import { maxAdCostPerSale } from "@/lib/pricing";
+import { fmtMoney, fmtNum, maxAdCostPerSale, parseAmount } from "@/lib/pricing";
+import { useLocalCurrency } from "@/lib/pricingCurrency";
+import { MEASURE } from "@/lib/pricingRules";
 import { diagnose, fmtPct, LEVERS, STAGES, type FunnelInputs, type StageId, type StageResult } from "@/lib/funnelDoctor";
 
 /**
@@ -40,16 +42,18 @@ const STATUS_LABEL: Record<StageResult["status"], string> = {
   "sin-datos": "Falta un número", "bien": "Sano", "bajo": "Por debajo", "muy-bajo": "Muy por debajo",
 };
 
+// "2.000" y "2,000" son dos mil; "20,50" y "20.50" son veinte con cincuenta (src/lib/pricing.ts).
 const toNum = (s: string | undefined) => {
   if (s === undefined || s.trim() === "") return undefined;
-  const n = Number(s.replace(/\./g, "").replace(",", "."));
-  return Number.isFinite(n) && n >= 0 ? n : undefined;
+  const n = parseAmount(s);
+  return n !== null && n >= 0 ? n : undefined;
 };
-const fmtSales = (n: number) => n.toLocaleString("es-ES", { maximumFractionDigits: n < 10 ? 1 : 0 });
+const fmtSales = (n: number) => fmtNum(n, n < 10 ? 1 : 0);
 
 export function DiagnosticoPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { user } = useAuth();
   const { profile, productId, loaded } = useBusinessProfile();
+  const local = useLocalCurrency();
   const storeKey = `sn_diagnostico:${productId ?? "base"}`;
   const [draft, setDraft] = useState<Draft>({});
   const [restored, setRestored] = useState(false);
@@ -83,7 +87,7 @@ export function DiagnosticoPage({ onNavigate }: { onNavigate?: (page: string) =>
   }, [uid]);
 
   const cap = maxAdCostPerSale(profile);
-  const currency = cap?.currency ?? profile.pricing?.currency ?? "US$";
+  const currency = cap?.currency ?? (profile.pricing?.currency || local.currency);
 
   const inputs = useMemo(() => {
     const out: Partial<FunnelInputs> = {};
@@ -102,7 +106,7 @@ export function DiagnosticoPage({ onNavigate }: { onNavigate?: (page: string) =>
     const order = FIELDS.filter(f => !f.optional);
     for (let i = 1; i < order.length; i++) {
       const prev = inputs[order[i - 1].k], cur = inputs[order[i].k];
-      if (prev !== undefined && cur !== undefined && cur > prev) return `"${order[i].label}" (${cur.toLocaleString("es-ES")}) no puede ser mayor que "${order[i - 1].label}" (${prev.toLocaleString("es-ES")}). Revisa esos dos números.`;
+      if (prev !== undefined && cur !== undefined && cur > prev) return `"${order[i].label}" (${fmtNum(cur, 2)}) no puede ser mayor que "${order[i - 1].label}" (${fmtNum(prev, 2)}). Revisa esos dos números.`;
     }
     return null;
   }, [inputs]);
@@ -134,7 +138,7 @@ export function DiagnosticoPage({ onNavigate }: { onNavigate?: (page: string) =>
               <p className="text-xs uppercase tracking-wider text-muted-foreground">Tus números · últimos 30 días</p>
               {tracker && (
                 <button type="button" onClick={applyTracker} className="text-xs text-primary hover:underline">
-                  Usar mi tracker: {tracker.leads.toLocaleString("es-ES")} te escribieron · {tracker.sales.toLocaleString("es-ES")} compraron
+                  Usar mis números de Contenido: {fmtNum(tracker.leads, 0)} te escribieron · {fmtNum(tracker.sales, 0)} compraron
                 </button>
               )}
             </div>
@@ -151,7 +155,12 @@ export function DiagnosticoPage({ onNavigate }: { onNavigate?: (page: string) =>
               ))}
             </div>
             {cap && cap.max > 0 && (
-              <p className="text-[11px] text-muted-foreground">Lo máximo que puedes pagar por venta sin perder: <span className="text-foreground">{currency} {cap.max.toLocaleString("es-ES", { maximumFractionDigits: 2 })}</span> (de tu calculadora de Precio).</p>
+              <p className="text-[11px] text-muted-foreground">Lo máximo que puedes pagar por venta sin perder: <span className="text-foreground">{fmtMoney(cap.max, currency)}</span> (de tu calculadora de Precio{cap.chosen ? "" : ", sin confirmar"}).</p>
+            )}
+            {!cap && onNavigate && (
+              <p className="text-[11px] text-muted-foreground">
+                ¿Tus anuncios dejan ganancia? <button type="button" onClick={() => onNavigate("Precio")} className="text-primary hover:underline">Haz tus números en Precio y ganancia</button> y aquí te avisamos si cada venta te cuesta más de lo que aguanta.
+              </p>
             )}
           </div>
 
@@ -173,7 +182,7 @@ export function DiagnosticoPage({ onNavigate }: { onNavigate?: (page: string) =>
                   )}
                 </div>
               ) : (
-                <p className="text-sm text-foreground">Todos los pasos que anotaste están en el mínimo sano o por encima. Aquí sí tiene sentido traer más gente: más anuncios o más contenido.</p>
+                <p className="text-sm text-foreground">Todos los pasos que anotaste están en el mínimo sano o por encima. Aquí sí tiene sentido traer más gente: más contenido, o subir el presupuesto de los anuncios que venden un {MEASURE.scalePct} % cada {MEASURE.scaleEveryDays} días.</p>
               )}
 
               {d.top.length > 0 && (
@@ -221,7 +230,7 @@ export function DiagnosticoPage({ onNavigate }: { onNavigate?: (page: string) =>
 
           {/* Todos los pasos */}
           {!mismatch && <div className="card-surface rounded-2xl p-5 space-y-3">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Cada paso de tu embudo</p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Cada paso de tu camino de venta (tu embudo)</p>
             <ul className="divide-y divide-border">
               {d.stages.map(s => (
                 <li key={s.def.id} className="py-3 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 items-baseline">

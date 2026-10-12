@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 /**
  * Margen por función (RPC admin_margin): créditos cobrados (sin reembolsos) frente al costo real de
  * la IA (ai_usage), en la misma ventana de tiempo. Vigila la regla de precios de SUPERNOVA:
- * precio = costo × 5 calculado con el crédito más barato que se vende (Nuclear ≈ US$0,008 neto);
+ * precio = costo × 5 calculado con el crédito más barato que se vende (Pack 250 con cashback, US$0,008);
  * piso 3× incluso en el peor caso. Si algo sale en rojo, se sube su precio en credit_prices.
  */
 type Area = {
@@ -57,7 +57,7 @@ export function AiMargins() {
           <h2 className="font-display text-lg">Margen por función</h2>
           <p className="text-[12px] text-muted-foreground">
             Regla: cobrar {data?.target ?? 5}× el costo real, con el crédito más barato que vendemos
-            ({usd(data?.credit_usd ?? 0.008)} por crédito, pack Nuclear tras Whop). Piso: {data?.floor ?? 3}× incluso en el peor caso.
+            ({usd(data?.credit_usd ?? 0.008)} por crédito: Pack 250 con su regalo de créditos). Piso: {data?.floor ?? 3}× incluso en el peor caso.
             {data?.since && ` Desde el ${new Date(data.since).toLocaleDateString("es")} (cuando empezó a medirse el costo).`}
           </p>
         </div>

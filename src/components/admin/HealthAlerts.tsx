@@ -19,6 +19,24 @@ type Report = {
   signups_24h: number;
 };
 type Alert = { level: "bad" | "warn"; title: string; detail: string };
+type MarginArea = { area: string; credits: number; cost_usd: number; background_usd: number; margin: number | null };
+
+// Mismas reglas que marginAlerts() en supabase/functions/health-alert (R2-20, 12-oct-2026):
+// función que cobra bajo 3× su costo (con ≥ US$0,02 gastados en 7 días) y gratis que costó ≥ US$0,50.
+function marginAlerts(areas: MarginArea[]): Alert[] {
+  const out: Alert[] = [];
+  for (const a of areas) {
+    const userUsd = Number(a.cost_usd) - Number(a.background_usd);
+    if (a.margin != null && a.margin < 3 && Number(a.cost_usd) >= 0.02) {
+      out.push({ level: "warn", title: `"${a.area}" cobra ${a.margin}× su costo de IA (el piso es 3×)`,
+        detail: `Últimos 7 días: ${a.credits} créditos cobrados, US$${Number(a.cost_usd).toFixed(2)} de IA. Revisa su precio en "Margen por función", más abajo.` });
+    } else if (a.margin == null && Number(a.credits) === 0 && userUsd >= 0.5) {
+      out.push({ level: "warn", title: `"${a.area}" es gratis y costó US$${userUsd.toFixed(2)} en 7 días`,
+        detail: "Si sigue subiendo, ponle tope por persona en edge_limits o un precio en créditos." });
+    }
+  }
+  return out;
+}
 
 const hoursSince = (d: string | null) => (d ? (Date.now() - new Date(d).getTime()) / 36e5 : Infinity);
 
@@ -60,19 +78,25 @@ function reportAlerts(r: Report): Alert[] {
 
 export function HealthAlerts() {
   const [report, setReport] = useState<Report | null>(null);
+  const [margin, setMargin] = useState<MarginArea[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any).rpc("admin_health_report");
+    const [{ data, error }, m] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).rpc("admin_health_report"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).rpc("admin_margin", { p_days: 7 }),
+    ]);
     if (error) setError(error.message); else setReport(data as Report);
+    setMargin(m.error ? [] : (m.data?.areas ?? []));
     setLoading(false);
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const alerts = report ? reportAlerts(report) : [];
+  const alerts = report ? [...reportAlerts(report), ...marginAlerts(margin)] : [];
 
   // Manda este mismo informe al correo del admin (health-alert ?test=1), aunque no haya alertas.
   const [sending, setSending] = useState(false);

@@ -11,7 +11,7 @@ export function SocialProof() {
     <section className="border-y border-[#ffffff10] py-14">
       <FadeIn>
         <p className="mb-8 text-center font-[Inter,sans-serif] text-[10px] uppercase tracking-[0.35em] text-[#86868B]/70">
-          114.000 anuncios reales revisados de estos mercados
+          Más de 140.000 anuncios reales guardados de estos mercados
         </p>
         <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-x-12 gap-y-5 px-6 grayscale">
           {MARKETS.map((m) => (

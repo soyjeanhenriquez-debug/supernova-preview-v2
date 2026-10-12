@@ -4,7 +4,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
 import { Sparkles, ExternalLink, Heart, Flame, Zap, Trophy, TrendingUp, CheckCircle2, Link as LinkIcon, Search, Filter, Loader2, Bookmark, Plus, X, Check, Copy, Languages, Eye, LayoutGrid, List, Star, Info, Columns3, ChevronDown } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, normalizeAdsLibraryUrl, langFromCountry, langFromText, LANG_COUNTRIES, NON_ENGLISH_COUNTRIES, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
+import { MARKETS, KEYWORD_CHIPS, PLACEHOLDERS, OFFER_TYPE_LABEL, despeguePercent, classifyOffer, CATEGORY_LABEL, buildAdsLibraryPageUrl, buildAdsLibrarySearchUrl, normalizeAdsLibraryUrl, langFromCountry, langFromText, LANG_LABEL, LANG_COUNTRIES, NON_ENGLISH_COUNTRIES, type AdLang, type AdMarket, type DemoAd, type Tier } from "@/lib/demo-winning-ads";
 import { useElapsedMinutes } from "@/hooks/useElapsedMinutes";
 import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import { SofisticarModal } from "@/components/SofisticarModal";
@@ -18,7 +18,6 @@ import { Slider } from "@/components/ui/slider";
 
 import { AdMediaPreview } from "@/components/AdMediaPreview";
 import { TemperatureBlock } from "@/components/TemperatureBlock";
-import { HeatMap } from "@/components/HeatMap";
 import { getAutoSearchKeywords, TOTAL_DR_KEYWORDS } from "@/lib/dr-keywords";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { invokeErrorMessage } from "@/lib/fnAuth";
@@ -29,8 +28,9 @@ const GRID_COLS_CLASS: Record<number, string> = {
   2: "grid grid-cols-1 sm:grid-cols-2 gap-4",
   3: "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4",
   4: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3",
-  5: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3",
-  6: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3",
+  // En el teléfono siempre 1 columna (antes 5 y 6 ponían 2 tarjetas de ~170 px en 375 px).
+  5: "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3",
+  6: "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3",
 };
 
 // Cache de ads en sessionStorage para carga instantánea entre navegaciones
@@ -111,6 +111,20 @@ interface FacebookAdLibraryItem {
 }
 
 const ADS_PAGE_SIZES = [12, 24, 48];
+
+// Fila del Radar tal como llega de la consulta (o de radar_search). Antes iba como `unknown` y tsc
+// marcaba 25 errores (12-oct-2026).
+type RadarRow = {
+  id?: string | null; page_id?: string | null; page_name?: string | null; advertiser?: string | null;
+  ad_title?: string | null; ad_body?: string | null; ad_description?: string | null; ad_url?: string | null;
+  market?: string | null; days_active?: number | null; duplicate_count?: number | null;
+  winner_score?: number | null; tier?: string | null; offer_type?: string | null; publisher_platforms?: unknown;
+};
+
+/** 1525 → "1.525" (formato español; es-ES no separa los números de 4 cifras). */
+function fmtNum(n: number): string {
+  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
 
 interface FacebookAdsResponse {
   data?: FacebookAdLibraryItem[];
@@ -368,7 +382,7 @@ export function WinningAdsPage() {
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
       const kw = debouncedKeyword.trim();
-      let data: unknown[] | null = null;
+      let data: RadarRow[] | null = null;
       let count: number | null = null;
       let failed = false;
 
@@ -384,7 +398,7 @@ export function WinningAdsPage() {
         });
         const r = res as { rows?: unknown[]; total?: number; error?: string } | null;
         failed = !!error || !r || !!r.error;
-        data = r?.rows ?? [];
+        data = (r?.rows ?? []) as RadarRow[];
         count = r?.total ?? 0;
       } else {
         // Solo las columnas que pinta la tarjeta. El texto viaja recortado (ad_body_preview,
@@ -410,7 +424,7 @@ export function WinningAdsPage() {
         }
         const res = await q.range(from, to);
         failed = !!res.error;
-        data = res.data;
+        data = (res.data ?? []) as unknown as RadarRow[];
         count = res.count;
       }
       if (cancelled) return;
@@ -421,7 +435,7 @@ export function WinningAdsPage() {
         return;
       }
 
-      const mapped: DemoAd[] = (data ?? []).map((r: unknown, i: number) => {
+      const mapped: DemoAd[] = (data ?? []).map((r: RadarRow, i: number) => {
         const adMarket = (r.market ?? "US") as AdMarket;
         const title = r.ad_title ?? r.page_name ?? "Anuncio";
         const body = r.ad_body ?? r.ad_description ?? "";
@@ -433,7 +447,7 @@ export function WinningAdsPage() {
         return {
           id: `db-${r.id ?? i}`,
           pageId: r.page_id ?? "",
-          pageName: r.page_name ?? r.advertiser ?? "Facebook Ad",
+          pageName: r.page_name ?? r.advertiser ?? "Anuncio de Facebook",
           title, body: body || title,
           daysActive: days,
           duplicates: r.duplicate_count ?? 1,
@@ -445,7 +459,7 @@ export function WinningAdsPage() {
           flag: flagEmoji(r.market ?? "US"),
           lang: langFromText(`${title} ${body}`, langFromCountry(r.market)),
           adUrl,
-          platforms: Array.isArray(r.publisher_platforms) ? r.publisher_platforms : ["facebook"],
+          platforms: Array.isArray(r.publisher_platforms) ? (r.publisher_platforms as string[]) : ["facebook"],
           countries: [r.market ?? "US"],
           vertical: classifyOffer(`${title} ${body}`),
         };
@@ -546,7 +560,7 @@ export function WinningAdsPage() {
         return {
           id: `auto-${it.id ?? `${pageKey}-${i}`}`,
           pageId: it.page_id ?? "",
-          pageName: it.page_name ?? "Facebook Ad",
+          pageName: it.page_name ?? "Anuncio de Facebook",
           title,
           body: body || title,
           daysActive: days,
@@ -704,7 +718,7 @@ export function WinningAdsPage() {
         return {
           id: `fb-${it.id ?? i}`,
           pageId: it.page_id ?? "",
-          pageName: it.page_name ?? "Facebook Ad",
+          pageName: it.page_name ?? "Anuncio de Facebook",
           title,
           body: body || title,
           daysActive: days,
@@ -1063,10 +1077,11 @@ export function WinningAdsPage() {
           <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.18em]">
             <Filter className="w-3.5 h-3.5" /> Filtra los anuncios
           </div>
-          {/* Toggle vista grid/list + selector de columnas */}
-          <div className="flex items-center gap-2">
+          {/* Toggle vista grid/list + selector de columnas. En el teléfono la cuadrícula es siempre de
+              1 columna: el selector 2–6 no hace nada ahí y empujaba el toggle fuera de la pantalla. */}
+          <div className="flex flex-wrap items-center gap-2">
             {viewMode === "grid" && (
-              <div className="inline-flex items-center gap-1 bg-secondary/60 rounded-full p-1 border border-border/60" title="Anuncios por fila">
+              <div className="hidden md:inline-flex items-center gap-1 bg-secondary/60 rounded-full p-1 border border-border/60" title="Anuncios por fila">
                 <Columns3 className="w-3 h-3 text-muted-foreground ml-1.5" />
                 {[2, 3, 4, 5, 6].map((n) => (
                   <button
@@ -1176,7 +1191,8 @@ export function WinningAdsPage() {
           </div>
         ) : (
           <>
-            <HeatMap />
+            {/* HeatMap ("Nichos en llamas") quitado del Radar el 12-oct-2026: lee offer_type, que está vacío en
+                todos los anuncios, así que nunca se pintaba pero cada apertura leía ~5.000 filas de winning_ads. */}
             {verticalFilter !== "Todas" && (
               // El tipo se adivina por el texto de cada anuncio de ESTA página (no hay columna en la base):
               // se dice claro para que el total de abajo no engañe (prueba de Hany, 10-oct-2026).
@@ -1338,13 +1354,14 @@ function PaginationBar({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 py-3 px-1">
       <div className="text-xs text-muted-foreground">
-        Mostrando <span className="text-foreground font-medium">{from.toLocaleString("es-ES")}–{to.toLocaleString("es-ES")}</span> de{" "}
-        <span className="text-foreground font-medium">{total.toLocaleString("es-ES")}</span> anuncios
+        Mostrando <span className="text-foreground font-medium">{fmtNum(from)}–{fmtNum(to)}</span> de{" "}
+        <span className="text-foreground font-medium">{fmtNum(total)}</span> anuncios
       </div>
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Anuncios por página</span>
+      {/* En el teléfono: ‹ Página 1 / 1.525 › en una línea (antes se partía en 3 y "Siguiente" quedaba cortado). */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="hidden sm:inline text-[10px] uppercase tracking-wider text-muted-foreground">Anuncios por página</span>
         <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
-          <SelectTrigger className="h-8 w-[80px] rounded-full text-xs">
+          <SelectTrigger aria-label="Anuncios por página" className="h-8 w-[72px] rounded-full text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -1353,29 +1370,33 @@ function PaginationBar({
             ))}
           </SelectContent>
         </Select>
-        <div className="flex items-center gap-1 ml-2">
+        <div className="flex items-center gap-1 sm:ml-2">
           <button
             onClick={() => onPageChange(1)}
             disabled={page <= 1}
-            className="h-8 px-2 rounded-md text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label="Primera página"
+            className="hidden sm:inline-block h-8 px-2 rounded-md text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
           >««</button>
           <button
             onClick={() => onPageChange(page - 1)}
             disabled={page <= 1}
-            className="h-8 px-3 rounded-md text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
-          >‹ Anterior</button>
-          <span className="px-3 text-xs text-foreground/80">
-            Página <span className="font-semibold text-foreground">{page}</span> / {totalPages}
+            aria-label="Página anterior"
+            className="h-8 px-3 rounded-md text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+          >‹<span className="hidden sm:inline"> Anterior</span></button>
+          <span className="px-2 sm:px-3 text-xs text-foreground/80 whitespace-nowrap tabular-nums">
+            Página <span className="font-semibold text-foreground">{fmtNum(page)}</span> / {fmtNum(totalPages)}
           </span>
           <button
             onClick={() => onPageChange(page + 1)}
             disabled={page >= totalPages}
-            className="h-8 px-3 rounded-md text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
-          >Siguiente ›</button>
+            aria-label="Página siguiente"
+            className="h-8 px-3 rounded-md text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+          ><span className="hidden sm:inline">Siguiente </span>›</button>
           <button
             onClick={() => onPageChange(totalPages)}
             disabled={page >= totalPages}
-            className="h-8 px-2 rounded-md text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label="Última página"
+            className="hidden sm:inline-block h-8 px-2 rounded-md text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
           >»»</button>
         </div>
       </div>
@@ -1443,14 +1464,14 @@ const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, onMiniApp
   const desp = despeguePercent(ad.daysActive, ad.duplicates);
 
   const daysBadgeCls =
-    ad.daysActive >= 60 ? "bg-amber-500/90 text-black pulse-hot" :
+    ad.daysActive >= 60 ? "bg-amber-500/90 text-black" :
     ad.daysActive >= 30 ? "bg-amber-500 text-black" :
     ad.daysActive >= 15 ? "bg-orange-500/90 text-black" :
     ad.daysActive >= 7  ? "bg-blue-500 text-white" :
     "bg-neutral-700 text-neutral-300";
 
   const dupsBadgeCls =
-    ad.duplicates >= 50 ? "bg-red-500 text-white pulse-hot" :
+    ad.duplicates >= 50 ? "bg-red-500 text-white" :
     ad.duplicates >= 10 ? "bg-red-500/90 text-white" :
     ad.duplicates >= 3  ? "bg-orange-500 text-black" :
     "bg-neutral-700 text-neutral-300";
@@ -1505,6 +1526,29 @@ const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, onMiniApp
         </div>
       </div>
 
+      {/* Lo que se tiene que ver en 3 segundos: cuánto tiempo lleva pagando (la prueba de que vende),
+          cuántas copias le hicieron y en qué idioma está escrito de verdad (12-oct-2026). */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span
+          title={`Lleva ${fmtNum(ad.daysActive)} días pagando este anuncio. Nadie paga tanto tiempo algo que no le vende.`}
+          className={`text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1 ${daysBadgeCls}`}
+        >
+          <Flame className="w-3.5 h-3.5" /> {fmtNum(ad.daysActive)} {ad.daysActive === 1 ? "día" : "días"} pagando
+        </span>
+        <span
+          title={`El anunciante lo duplicó ${fmtNum(ad.duplicates)} ${ad.duplicates === 1 ? "vez" : "veces"} para meterle más dinero.`}
+          className={`text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1 ${dupsBadgeCls}`}
+        >
+          <Copy className="w-3.5 h-3.5" /> {fmtNum(ad.duplicates)} {ad.duplicates === 1 ? "copia" : "copias"}
+        </span>
+        <span
+          title="Idioma del texto del anuncio (lo leemos del propio anuncio, no del país)"
+          className="text-xs font-semibold px-2 py-1 rounded-md flex items-center gap-1 border border-border bg-secondary/60 text-foreground/90"
+        >
+          <Languages className="w-3.5 h-3.5" /> {LANG_LABEL[ad.lang] ?? ad.lang}
+        </span>
+      </div>
+
       <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider flex-wrap">
         <span className="text-primary font-bold">{CATEGORY_LABEL[ad.vertical ?? classifyOffer(`${ad.title} ${ad.body}`)]}</span>
         {/* Banderas de países */}
@@ -1515,7 +1559,6 @@ const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, onMiniApp
         ) : (
           <span className="text-muted-foreground">· {ad.flag} {ad.marketLabel}</span>
         )}
-        <span className="text-muted-foreground">· {ad.lang.toUpperCase()}</span>
         {ad.checkoutPlatform && <span className="text-muted-foreground">· cobra con {ad.checkoutPlatform}</span>}
       </div>
 
@@ -1528,7 +1571,12 @@ const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, onMiniApp
         title={ad.title}
       />
 
-      <p className="text-sm text-foreground/90 line-clamp-4 italic leading-relaxed">"{ad.body}"</p>
+      <p className="text-sm text-foreground/90 line-clamp-3 italic leading-relaxed">"{ad.body}"</p>
+
+      {/* El paso siguiente, a la vista sin bajar (antes estaba al fondo de la tarjeta). */}
+      <button onClick={onMiniApp} className="btn-primary-nova w-full min-h-[44px] py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+        🧬 Hacer mi versión <span className="opacity-70 text-xs">· {CREDIT_COSTS.gen_master_prompt} créditos</span>
+      </button>
 
       {/* SUPERNOVA Temperature Layer — capa nueva, no reemplaza al tier badge */}
       <TemperatureBlock
@@ -1546,19 +1594,13 @@ const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, onMiniApp
       )}
 
 
-      <div className="flex flex-wrap gap-1.5">
-        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${daysBadgeCls}`}>
-          <Flame className="w-3 h-3" /> {ad.daysActive} días activo
-        </span>
-        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${dupsBadgeCls}`}>
-          <Zap className="w-3 h-3" /> {ad.duplicates} copias
-        </span>
-        {typeof ad.activeCount === "number" && ad.activeCount > 1 && (
+      {typeof ad.activeCount === "number" && ad.activeCount > 1 && (
+        <div className="flex flex-wrap gap-1.5">
           <span className="text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 bg-primary/15 text-primary border border-primary/30">
             {ad.activeCount} anuncios activos
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       <div>
         <div className="flex items-center justify-between text-[10px] mb-1">
@@ -1678,10 +1720,6 @@ const AdCard = memo(function AdCard({ ad, saved, onSave, onSofisticar, onMiniApp
       {/* De esta idea al estudio: la IA elige la pieza (video si el anuncio es video) y muestra el costo. */}
       <button onClick={onCreateIdea} className="w-full min-h-[40px] py-2 rounded-lg text-sm font-semibold border border-border text-foreground hover:border-primary/40 hover:text-primary flex items-center justify-center gap-1.5 transition-colors mt-1">
         <Sparkles className="w-4 h-4" /> Crear con esta idea <span className="opacity-70 text-xs font-medium">· la IA elige</span>
-      </button>
-
-      <button onClick={onMiniApp} className="btn-primary-nova w-full py-2.5 rounded-lg text-sm flex items-center justify-center gap-2 mt-1">
-        🧬 HACER MI VERSIÓN → <span className="opacity-70 text-xs">· {CREDIT_COSTS.gen_master_prompt} créditos</span>
       </button>
 
       <button onClick={onSofisticar} className="w-full py-2 rounded-lg text-xs border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 flex items-center justify-center gap-1.5 transition-colors">

@@ -12,7 +12,11 @@
  *   3) ordena los cambios por cuántas ventas más darían con el mismo tráfico,
  *   4) avisa cuando el problema está abajo del embudo y "más anuncios / más contenido" no lo arregla.
  * Todo en el navegador: no gasta IA ni créditos ("medir va incluido").
+ * Las reglas de medición (CTR mínimo, apagar a 2 veces lo que aguanta una venta) son las mismas de
+ * Resultados: viven en src/lib/pricingRules.ts.
  */
+import { fmtMoney, fmtNum } from "@/lib/pricing";
+import { MEASURE } from "@/lib/pricingRules";
 
 export type StageId = "ctr" | "lead" | "contact" | "close" | "repeat";
 
@@ -62,7 +66,7 @@ export interface StageDef {
 
 export const STAGES: StageDef[] = [
   {
-    id: "ctr", label: "Ven → hacen clic", from: "views", to: "clicks", healthy: 1, downstream: false,
+    id: "ctr", label: "Ven → hacen clic", from: "views", to: "clicks", healthy: MEASURE.ctrMin, downstream: false,
     meaning: "De cada 100 que ven tu anuncio o tu post, cuántos tocan el enlace (CTR = % que hace clic).",
     diagnosis: "La gente te ve pero no se detiene: el gancho o la imagen no le habla a quien tiene el problema.",
     actions: [
@@ -151,11 +155,11 @@ const pct = (a: number, b: number) => (b > 0 ? (a / b) * 100 : null);
 const round1 = (v: number) => Math.round(v * 10) / 10;
 
 /** Formato español: 2.000 · 0,8 %. */
-export const fmtPct = (v: number) => `${v.toLocaleString("es-ES", { maximumFractionDigits: v < 10 ? 1 : 0 })} %`;
+export const fmtPct = (v: number) => `${fmtNum(v, v < 10 ? 1 : 0)} %`;
 
 /** Los campos que la persona deja vacíos llegan como undefined: ese paso no se mide (0 sí cuenta). */
 export function diagnose(raw: Partial<FunnelInputs>, healthyOverride: Partial<Record<StageId, number>> = {}, currency = ""): Diagnosis {
-  const money = (n: number) => `${currency ? `${currency} ` : ""}${n.toLocaleString("es-ES", { maximumFractionDigits: 2 })}`;
+  const money = (n: number) => (currency ? fmtMoney(n, currency, { short: true }) : fmtNum(n, 2));
   const i = Object.fromEntries(Object.entries({ ...EMPTY_FUNNEL, ...raw }).map(([k, v]) => [k, num(Number(v))])) as unknown as FunnelInputs;
   const sales = i.sales;
 
@@ -207,8 +211,8 @@ export function diagnose(raw: Partial<FunnelInputs>, healthyOverride: Partial<Re
   if (cpa !== null && i.maxCpa > 0 && cpa > i.maxCpa) {
     alerts.push({ id: "cpa", text: `Cada venta te cuesta ${money(cpa)} en anuncios y lo máximo que aguanta tu precio es ${money(i.maxCpa)}. No subas el presupuesto: arregla primero el paso que más frena, o sube tu ganancia por cliente (order bump, siguiente paso).` });
   }
-  if (i.spend > 0 && sales === 0 && i.maxCpa > 0 && i.spend > i.maxCpa * 2) {
-    alerts.push({ id: "cpa", text: `Llevas ${money(i.spend)} en anuncios sin ventas, más del doble de lo que aguanta una venta. Pausa y revisa el paso que más frena antes de seguir gastando.` });
+  if (i.spend > 0 && sales === 0 && i.maxCpa > 0 && i.spend >= i.maxCpa * MEASURE.killMultiple) {
+    alerts.push({ id: "cpa", text: `Llevas ${money(i.spend)} en anuncios sin ventas: ${MEASURE.killMultiple} veces o más lo que aguanta una venta (${money(i.maxCpa)}). Apaga esos anuncios y revisa el paso que más frena antes de seguir gastando.` });
   }
   const measured = stages.filter(s => s.rate !== null).length;
   const enough = measured >= 2;

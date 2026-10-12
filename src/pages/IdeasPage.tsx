@@ -97,7 +97,7 @@ export function IdeasPage({ onNavigate }: { onNavigate?: (page: string) => void 
     <div className="max-w-[1180px] mx-auto space-y-6 py-2">
       <div>
         <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Encontrar</p>
-        <h1 className="page-heading font-display text-2xl text-foreground mt-1">Ideas de side hustle</h1>
+        <h1 className="page-heading font-display text-2xl text-foreground mt-1">Ideas de negocio extra</h1>
         <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
           Elige un camino para empezar desde cero. Cada uno te dice qué es, cuánto cuesta empezar y qué hacer primero. Mirar es gratis.
         </p>

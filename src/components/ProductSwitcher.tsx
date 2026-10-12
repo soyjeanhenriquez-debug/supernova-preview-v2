@@ -44,7 +44,7 @@ export function ProductSwitcher({ collapsed, onNavigate }: { collapsed?: boolean
   return (
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(o => !o)} title={active ? `Producto: ${active.name}` : "Elegir producto"}
-        className={`w-full flex items-center gap-2 rounded-lg border border-border hover:border-primary/50 bg-secondary/40 transition-colors ${collapsed ? "justify-center p-2" : "px-3 py-2 text-left"}`}>
+        className={`w-full flex items-center gap-2 rounded-lg border border-border hover:border-primary/50 bg-secondary/40 transition-colors ${collapsed ? "justify-center p-2" : "px-3 py-2 max-lg:min-h-11 text-left"}`}>
         <Package className="w-4 h-4 text-primary shrink-0" />
         {!collapsed && (
           <>
@@ -58,11 +58,11 @@ export function ProductSwitcher({ collapsed, onNavigate }: { collapsed?: boolean
       </button>
 
       {open && (
-        <div className="absolute z-50 left-0 mt-1 w-64 rounded-xl border border-border bg-card shadow-xl p-1.5">
+        <div className="absolute z-50 left-0 mt-1 w-64 max-w-[calc(100vw-24px)] max-h-[min(70dvh,480px)] overflow-y-auto overscroll-contain rounded-xl border border-border bg-card shadow-xl p-1.5">
           <p className="px-2 pt-1 pb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">Tus productos · {activeCount} de {limit}</p>
           {list.map(p => (
             <button key={p.id} onClick={async () => { await setActive(p.id); setOpen(false); onNavigate("Dashboard"); }}
-              className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-secondary/60">
+              className="w-full flex items-center gap-2 rounded-lg px-2 py-2 max-lg:min-h-11 text-left text-sm hover:bg-secondary/60">
               <span className="w-4 shrink-0">{p.id === activeId && <Check className="w-4 h-4 text-primary" />}</span>
               <span className="truncate">{p.name}</span>
             </button>
@@ -71,17 +71,17 @@ export function ProductSwitcher({ collapsed, onNavigate }: { collapsed?: boolean
             {creating ? (
               <div className="p-2 space-y-2">
                 <input autoFocus value={name} onChange={e => setName(e.target.value.slice(0, 120))} onKeyDown={e => { if (e.key === "Enter") void create(); }}
-                  placeholder="Nombre del producto" className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm text-foreground" />
-                <button onClick={create} disabled={saving} className="w-full rounded-lg gradient-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60">{saving ? "Creando…" : "Crear producto"}</button>
+                  placeholder="Nombre del producto" className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 max-lg:min-h-11 text-base lg:text-sm text-foreground" />
+                <button onClick={create} disabled={saving} className="btn-primary-nova w-full rounded-lg px-3 py-1.5 max-lg:min-h-11 text-xs">{saving ? "Creando…" : "Crear producto"}</button>
               </div>
             ) : full ? (
               <p className="px-2 py-2 text-xs text-muted-foreground">Tu plan permite {limit} productos activos. Archiva uno en "Mis productos" o pásate a Comunidad para tener más.</p>
             ) : (
-              <button onClick={() => setCreating(true)} className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-primary hover:bg-secondary/60">
+              <button onClick={() => setCreating(true)} className="w-full flex items-center gap-2 rounded-lg px-2 py-2 max-lg:min-h-11 text-left text-sm text-primary hover:bg-secondary/60">
                 <Plus className="w-4 h-4" /> Nuevo producto
               </button>
             )}
-            <button onClick={() => { setOpen(false); onNavigate("Productos"); }} className="w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-muted-foreground hover:bg-secondary/60 hover:text-foreground">
+            <button onClick={() => { setOpen(false); onNavigate("Productos"); }} className="w-full flex items-center gap-2 rounded-lg px-2 py-2 max-lg:min-h-11 text-left text-sm text-muted-foreground hover:bg-secondary/60 hover:text-foreground">
               <LayoutGrid className="w-4 h-4" /> Ver todos mis productos
             </button>
           </div>

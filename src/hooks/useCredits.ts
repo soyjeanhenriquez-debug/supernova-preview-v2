@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useTrialState, TRIAL_REFRESH_EVENT } from "@/hooks/useTrialState";
 
 const HIST_KEY = "supernova_credits_history_v1";
 /** Cada pantalla tiene su propia instancia del hook: este evento las mantiene con el mismo saldo. */
@@ -33,7 +34,7 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   pillar_assist: 10, sofisticar: 15, gen_ad_copies: 15, gen_avatar: 15,
   pain_discovery: 15, blueprint: 25, gen_landing: 40, landing_intelligence: 50,
   gen_funnel: 50, gen_master_prompt: 50, gen_light: 15, gen_medium: 30, gen_heavy: 75, gen_media: 0, // gen_media: el precio sale del catálogo (media_models)
-  gen_ad_image: 6, // APIMart GPT Image 2 (~US$0,0081): 6 créditos ≈ 5,9× costo (03-oct-2026, decisión de Jean)
+  gen_ad_image: 7, // GPT Image 2: US$0,0115 medido en ai_usage → 7 créditos ≈ 4,9× (12-oct-2026, decisión de Jean)
   gen_ad_image_nb2: 10, // APIMart Nano Banana 2 (~US$0,0143) ≈ 5,6× (05-oct-2026, aprobado por Jean)
   gen_ad_image_nbpro: 20, // APIMart Nano Banana Pro (~US$0,0285) ≈ 5,6× (05-oct-2026, aprobado por Jean)
   clone_carousel: 15, // carousel-clone: Apify + Gemini con imágenes (~US$0,02) ≈ 6× (05-oct-2026, aprobado por Jean)
@@ -45,7 +46,7 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   // Mapa del negocio: escalera propuesta con IA (edge function business-map).
   business_map: 15,
   // Video IA (edge function video-studio, APIMart seedance-2.0-mini 720p, ~US$0,0217/s ≈ 4×).
-  vid_mini_5: 55, vid_mini_10: 110,
+  vid_mini_5: 75, vid_mini_10: 150, // ×5 del costo real (12-oct-2026)
   // Producir video de YouTube (edge function yt-produce). PROPUESTOS el 04-oct-2026: Jean los confirma
   // antes de aplicar la migración 20261004060000_yt_production.sql.
   yt_voice_scene: 5, // gpt-4o-mini-tts ≤600 caracteres a speed ≥1 (≤US$0,0104) → ~3,9× peor caso, ~5× normal
@@ -162,22 +163,27 @@ async function loadCredits(): Promise<void> {
   const uid = sess.session?.user?.id;
   if (!uid) return;
 
-  // Otorgar mensual si toca (idempotente): una vez por sesión basta.
-  if (monthlyCheckedFor !== uid) {
-    monthlyCheckedFor = uid;
-    const { data } = await supabase.rpc("grant_monthly_if_due");
-    if ((data as { granted?: boolean } | null)?.granted) {
-      toast("✨ Créditos mensuales renovados", { description: `+${DEFAULT_BALANCE} créditos disponibles` });
-    }
-  }
-
   // Saldo e historial en paralelo.
-  const [{ data: row }, { data: txs }] = await Promise.all([
+  const readAll = () => Promise.all([
     // select("*"): purchased (comprados) existe desde el 11-oct-2026; sin la columna no se rompe.
     supabase.from("user_credits").select("*").eq("user_id", uid).maybeSingle(),
     supabase.from("credit_transactions").select("created_at, action, label, cost, meta")
       .eq("user_id", uid).order("created_at", { ascending: false }).limit(200),
   ]);
+
+  // Otorgar mensual si toca (idempotente): una vez por sesión basta. Va A LA VEZ que la lectura
+  // del saldo (11-oct-2026: antes iba primero y la ruedita esperaba un viaje más al servidor).
+  // Solo si de verdad se renovó se vuelve a leer, para que el saldo ya incluya la recarga.
+  const grant = monthlyCheckedFor !== uid ? supabase.rpc("grant_monthly_if_due") : null;
+  monthlyCheckedFor = uid;
+  let [{ data: row }, { data: txs }] = await readAll();
+  if (grant) {
+    const { data } = await grant;
+    if ((data as { granted?: boolean } | null)?.granted) {
+      toast("✨ Créditos mensuales renovados", { description: `+${DEFAULT_BALANCE} créditos disponibles` });
+      [{ data: row }, { data: txs }] = await readAll();
+    }
+  }
 
   const next: CreditsSnapshot = snapshot
     ? { ...snapshot }
@@ -263,6 +269,8 @@ export function useCredits() {
     if (typeof billing.balance === "number") {
       window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { balance: billing.balance } }));
     }
+    // Cada uso de la prueba gratis cambia lo que le queda: se vuelve a leer (barato, una RPC).
+    try { window.dispatchEvent(new Event(TRIAL_REFRESH_EVENT)); } catch { /* sin ventana (pruebas) */ }
     if (!billing.charged) return; // cubierto por un recibo (paso de un flujo ya pagado)
     const entry: CreditHistoryEntry = {
       date: new Date().toISOString(), action, label: ACTION_LABEL[action], cost: billing.charged, meta,
@@ -307,14 +315,19 @@ export function useCredits() {
     return true;
   }, [balance]);
 
-  const canAfford = (action: CreditAction) => balance >= CREDIT_COSTS[action];
+  // Prueba gratis (12-oct-2026): la cuenta gratis no tiene créditos reales; el navegador usa su
+  // prueba expresada en créditos (2.000 × lo que le queda) para no bloquearla antes de tiempo.
+  // Quien decide de verdad es el servidor (5 usos por herramienta y tope de costo).
+  const trial = useTrialState();
+  const effBalance = trial.kind === "free" ? Math.max(balance, Math.round(DEFAULT_LIMIT * trial.leftPct / 100)) : balance;
+  const canAfford = (action: CreditAction) => effBalance >= CREDIT_COSTS[action];
 
   return {
-    balance,
+    balance: effBalance,
     // Como Higgsfield: se gastan primero los del mes y después los comprados (servidor, debit_credits).
     // Por eso lo comprado solo baja cuando ya no quedan del mes: min(comprados, saldo).
-    monthly: balance - Math.min(purchasedRaw, balance),
-    purchased: Math.min(purchasedRaw, balance),
+    monthly: effBalance - Math.min(purchasedRaw, effBalance),
+    purchased: Math.min(purchasedRaw, effBalance),
     limit: DEFAULT_LIMIT,
     renewalDate,
     history,

@@ -18,6 +18,7 @@ export const PLANS = {
       "Radar con más de 114.000 anuncios reales guardados para mirar e inspirarte",
       "26 generadores con IA que te escriben anuncios, textos de venta y guiones",
       "Mándala: una guía paso a paso para tus primeros 5 anuncios",
+      "Crea con IA las imágenes y los videos de tus anuncios (usan tus créditos)",
       "2.000 créditos al mes para usar la IA (mirar ofertas, el radar y los ganchos es gratis)",
     ],
   },

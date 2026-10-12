@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  X, Flame, CalendarDays, Trophy, Copy, Check, ExternalLink, ShoppingCart, Radar, Heart, Zap, Loader2,
+  X, Flame, ChevronDown, CalendarDays, Trophy, Copy, Check, ExternalLink, ShoppingCart, Radar, Heart, Zap, Loader2,
   Target, Tag as TagIcon, Globe2, Users, CreditCard, Route, Layers, Languages, Flag, ThumbsUp, AlertTriangle,
   MapPin, Lightbulb, BadgeDollarSign, Sparkles, RefreshCw, Briefcase, Calculator, Rocket,
 } from "lucide-react";
@@ -15,7 +15,9 @@ import {
 import {
   type OfferIntel, type OfferVerdict, FUNNEL_LABEL, loadOfferIntel, safeExternalUrl, reportOffer, verdictToText,
 } from "@/lib/offerIntel";
-import { useSellThis, offerBrief } from "@/lib/sellThis";
+import { offerBrief } from "@/lib/sellThis";
+import { useSellOffer } from "@/components/offers/useSellOffer";
+import { SellConfirmBar } from "@/components/offers/SellConfirmBar";
 import { setAutorun, type AutorunAction } from "@/lib/autorun";
 import { startChain } from "@/lib/launchChain";
 import { useFeatureAccess } from "@/lib/features";
@@ -60,26 +62,35 @@ export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const bodyRef = useRef<HTMLDivElement>(null);
-  const { sell, selling } = useSellThis();
+  // Sin window.confirm (R2-12): si la ficha ya tiene otro producto, se pregunta en línea en el pie.
+  const seller = useSellOffer();
+  const { selling } = seller;
+  const [more, setMore] = useState(false);
   const { canSee } = useFeatureAccess();
   // "Crea tus anuncios con esta oferta": abre la hoja de crear (gratis abrirla; el botón dice el costo).
   const [ideaOpen, setIdeaOpen] = useState(false);
 
   // Botones de un clic: esta oferta pasa a ser tu producto y la herramienta hace el trabajo al abrirse.
   // Lo que gasta créditos lo dice el botón y lo cobra el servidor como siempre; lo demás es gratis.
-  const doForMe = async (hash: string, action?: AutorunAction) => {
+  const fullBrief = () => {
     const b = { ...offerBrief(o), price: intel?.price_text || o.price_hint };
     const product = (b.product ?? "").trim();
-    const ok = await sell({
+    return {
       ...b,
       who: (b.who ?? "").trim() || `Personas interesadas en ${product}`,
       promise: (b.promise ?? "").trim() || `Lograr lo que ofrece ${product}`,
-    }, { stay: true });
-    if (!ok) return;
-    if (action) setAutorun(action);
-    onClose();
-    window.location.hash = hash;
-    window.scrollTo({ top: 0 });
+    };
+  };
+  const doForMe = (hash: string, action?: AutorunAction) => {
+    void seller.sell(fullBrief(), {
+      quiet: true,
+      then: () => {
+        if (action) setAutorun(action);
+        onClose();
+        window.location.hash = hash;
+        window.scrollTo({ top: 0 });
+      },
+    });
   };
   const ACTIONS: { label: string; cost: string; hash: string; action?: AutorunAction; show?: boolean }[] = [
     { label: "Hazme un anuncio", cost: `${CREDIT_COSTS.gen_light} ⚡`, hash: "#/mandala", action: "mandala-first-ad" },
@@ -91,19 +102,16 @@ export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate
 
   // "Modelar esta oferta completa" (Fase 2, 07-oct-2026): la oferta pasa a ser su producto y abre el
   // lanzamiento guiado (precio → página → bump → 5 anuncios → WhatsApp). Gratis: cada paso dice su costo.
-  const modelFull = async () => {
-    const b = { ...offerBrief(o), price: intel?.price_text || o.price_hint };
-    const product = (b.product ?? "").trim();
-    const ok = await sell({
-      ...b,
-      who: (b.who ?? "").trim() || `Personas interesadas en ${product}`,
-      promise: (b.promise ?? "").trim() || `Lograr lo que ofrece ${product}`,
-    }, { stay: true });
-    if (!ok) return;
-    startChain(o.product_name || o.sample_title || o.page_name || "esta oferta", o.days_active);
-    onClose();
-    window.location.hash = "#/precio";
-    window.scrollTo({ top: 0 });
+  const modelFull = () => {
+    void seller.sell(fullBrief(), {
+      quiet: true,
+      then: () => {
+        startChain(o.product_name || o.sample_title || o.page_name || "esta oferta", o.days_active);
+        onClose();
+        window.location.hash = "#/precio";
+        window.scrollTo({ top: 0 });
+      },
+    });
   };
 
   useEffect(() => {
@@ -172,49 +180,58 @@ export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate
               : <VerdictView name={name} verdict={verdict} phase={phase} error={error} onRetry={() => setAttempt((n) => n + 1)} onCreate={onCreate} />}
           </div>
 
-          {/* Acción principal fija abajo: siempre a un toque, sin importar cuánto se haya leído */}
+          {/* Pie compacto (R2-12): en el teléfono el pie de 5 filas tapaba un tercio de la ficha. Arriba la
+              puerta de la app ("Hacer mi versión"); lo demás, plegado en "Más formas de usarla". */}
           <footer className="shrink-0 border-t border-border bg-card/95 backdrop-blur px-4 sm:px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-2">
-            {/* El camino completo en un toque: producto + lanzamiento guiado. */}
-            <button onClick={() => void modelFull()} disabled={selling}
-              className="w-full h-11 rounded-xl btn-primary-nova text-[14px] font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
-              {selling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />} Modelar esta oferta completa <span className="opacity-75 font-medium">· gratis, paso a paso</span>
-            </button>
-            {/* Hazlo por mí: un toque y la herramienta lo hace con esta oferta como tu producto. */}
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground font-semibold mb-1.5">Hazlo por mí con esta oferta</p>
-              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none]">
-                {ACTIONS.filter(a => a.show !== false).map(a => (
-                  <button key={a.hash} onClick={() => void doForMe(a.hash, a.action)} disabled={selling}
-                    className="shrink-0 h-9 px-3 rounded-full border border-border text-[12.5px] text-foreground hover:border-primary/50 disabled:opacity-60 inline-flex items-center gap-1.5 whitespace-nowrap">
-                    {a.label} <span className="text-muted-foreground">· {a.cost}</span>
+            {seller.pending && (
+              <SellConfirmBar current={seller.pending.current} next={String(seller.pending.brief.product ?? name)} busy={selling}
+                onConfirm={() => void seller.confirm()} onCancel={seller.cancel} />
+            )}
+            {more && (
+              <div className="space-y-2 max-h-[42vh] overflow-y-auto">
+                <button onClick={modelFull} disabled={selling}
+                  className="w-full h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-primary/50 flex items-center justify-center gap-2 disabled:opacity-60">
+                  {selling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />} Modelarla paso a paso <span className="opacity-70 font-medium">· gratis</span>
+                </button>
+                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none]">
+                  {ACTIONS.filter(a => a.show !== false).map(a => (
+                    <button key={a.hash} onClick={() => doForMe(a.hash, a.action)} disabled={selling}
+                      className="shrink-0 h-9 px-3 rounded-full border border-border text-[12.5px] text-foreground hover:border-primary/50 disabled:opacity-60 inline-flex items-center gap-1.5 whitespace-nowrap">
+                      {a.label} <span className="text-muted-foreground">· {a.cost}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => setIdeaOpen(true)}
+                    className="h-10 rounded-xl border border-border text-[12.5px] font-semibold text-foreground hover:border-primary/50 flex items-center justify-center gap-1.5 min-w-0">
+                    <Sparkles className="w-4 h-4 shrink-0" /> <span className="truncate">Crear anuncios</span>
                   </button>
-                ))}
+                  <button onClick={() => void seller.sell({ ...offerBrief(o), price: intel?.price_text || o.price_hint }, { then: () => { onClose(); window.location.hash = "#/mi-negocio"; window.scrollTo({ top: 0 }); } })} disabled={selling}
+                    title="Gratis: tu ficha de Mi negocio queda con esta oferta"
+                    className="h-10 rounded-xl border border-border text-[12.5px] font-semibold text-foreground hover:border-primary/50 flex items-center justify-center gap-1.5 min-w-0 disabled:opacity-60">
+                    <Briefcase className="w-4 h-4 shrink-0" /> <span className="truncate">Usar como mi producto</span>
+                  </button>
+                </div>
               </div>
-            </div>
-            {/* De la oferta al estudio en un toque: la IA elige la pieza y muestra el costo antes de gastar. */}
-            <button onClick={() => setIdeaOpen(true)}
-              className="w-full h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-primary/50 hover:text-primary flex items-center justify-center gap-2 transition-colors">
-              <Sparkles className="w-4 h-4" /> Crea tus anuncios con esta oferta <span className="opacity-70 font-medium">· la IA elige</span>
-            </button>
-            {/* Gratis: la oferta pasa a tu ficha de "Mi negocio" (con el precio que vimos, si lo hay). */}
-            <button onClick={() => void sell({ ...offerBrief(o), price: intel?.price_text || o.price_hint })} disabled={selling}
-              className="w-full h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-primary/50 hover:text-primary flex items-center justify-center gap-2 disabled:opacity-60 transition-colors">
-              {selling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Briefcase className="w-4 h-4" />} Vender esto: usarlo como mi producto <span className="opacity-70 font-medium">· gratis</span>
-            </button>
+            )}
             <div className="flex items-center gap-2">
-            <button onClick={onToggleFollow}
-              aria-label={following ? "Dejar de seguir" : "Seguir esta oferta"}
-              title={following ? "Dejar de seguir" : `Seguir en el Cazador de ROI · ${CREDIT_COSTS.follow_offer} ⚡`}
-              className={`shrink-0 w-12 h-12 rounded-xl border flex items-center justify-center transition-colors ${following ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-primary hover:border-primary/40"}`}>
-              <Heart className="w-5 h-5" fill={following ? "currentColor" : "none"} />
-            </button>
-            <button onClick={onCreate} disabled={primaryAction?.busy} className="flex-1 h-12 btn-primary-nova rounded-xl text-[14px] font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
-              {primaryAction ? (
-                <>{primaryAction.busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} {primaryAction.label}{primaryAction.cost && <span className="opacity-70 font-medium">· {primaryAction.cost}</span>}</>
-              ) : (
-                <><Zap className="w-4 h-4" /> Hacer mi versión <span className="opacity-70 font-medium">· {CREDIT_COSTS.gen_master_prompt} ⚡</span></>
-              )}
-            </button>
+              <button onClick={onToggleFollow}
+                aria-label={following ? "Dejar de seguir" : `Seguir esta oferta · ${CREDIT_COSTS.follow_offer} créditos`}
+                title={following ? "Dejar de seguir" : `Seguir esta oferta: te avisamos si crece o se apaga · ${CREDIT_COSTS.follow_offer} ⚡`}
+                className={`shrink-0 w-12 h-12 rounded-xl border flex items-center justify-center transition-colors ${following ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-primary hover:border-primary/40"}`}>
+                <Heart className="w-5 h-5" fill={following ? "currentColor" : "none"} />
+              </button>
+              <button onClick={() => setMore(v => !v)} aria-expanded={more} aria-label="Más formas de usar esta oferta"
+                className="shrink-0 h-12 px-3 rounded-xl border border-border text-[12.5px] font-semibold text-foreground hover:border-primary/40 inline-flex items-center gap-1">
+                Más <ChevronDown className={`w-4 h-4 transition-transform ${more ? "rotate-180" : ""}`} />
+              </button>
+              <button onClick={onCreate} disabled={primaryAction?.busy} className="flex-1 min-w-0 h-12 btn-primary-nova rounded-xl text-[14px] font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
+                {primaryAction ? (
+                  <>{primaryAction.busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} {primaryAction.label}{primaryAction.cost && <span className="opacity-70 font-medium">· {primaryAction.cost}</span>}</>
+                ) : (
+                  <><Zap className="w-4 h-4" /> <span className="truncate">Hacer mi versión</span> <span className="opacity-70 font-medium shrink-0">· {CREDIT_COSTS.gen_master_prompt} créditos</span></>
+                )}
+              </button>
             </div>
           </footer>
         </div>
@@ -282,7 +299,7 @@ function OfferFacts({ o, name, intel, phase, onSeeAds, onVerdict }: {
         ) : (
           <div className="grid sm:grid-cols-2 gap-2">
             <LinkButton href={landing} icon={<ExternalLink className="w-4 h-4" />} label="Ver página de ventas" sub={intel?.landing_domain ?? "no la encontramos"} primary />
-            <LinkButton href={checkout} icon={<ShoppingCart className="w-4 h-4" />} label="Ver checkout" sub={intel?.checkout_platform ? `cobra con ${intel.checkout_platform}` : "no detectado"} />
+            <LinkButton href={checkout} icon={<ShoppingCart className="w-4 h-4" />} label="Ver página de pago" sub={intel?.checkout_platform ? `cobra con ${intel.checkout_platform}` : "no detectado"} />
           </div>
         )}
         <div className="grid grid-cols-2 gap-2">
@@ -296,12 +313,12 @@ function OfferFacts({ o, name, intel, phase, onSeeAds, onVerdict }: {
 
       {/* Ficha */}
       <section className="grid sm:grid-cols-2 gap-2">
-        <Fact icon={<TagIcon className="w-4 h-4" />} label="Nicho" value={o.niche ? (NICHE_LABEL[o.niche] ?? o.niche) : null} />
+        <Fact icon={<TagIcon className="w-4 h-4" />} label="Tema (nicho)" value={o.niche ? (NICHE_LABEL[o.niche] ?? o.niche) : null} />
         <Fact icon={<BadgeDollarSign className="w-4 h-4" />} label="Ticket (precio del producto)" value={price} loading={working && !price} highlight />
         <Fact icon={<Layers className="w-4 h-4" />} label="Tipo de producto" value={o.offer_type ? (OFFER_TYPE_LABEL[o.offer_type] ?? o.offer_type) : null} />
         <Fact icon={<CreditCard className="w-4 h-4" />} label="Modelo de cobro" value={o.business_model && o.business_model !== "otro" ? MODEL_LABEL[o.business_model] : null} />
-        <Fact icon={<Route className="w-4 h-4" />} label="Tipo de embudo" value={intel?.funnel_type ? (FUNNEL_LABEL[intel.funnel_type] ?? intel.funnel_type) : null} loading={working} />
-        <Fact icon={<ShoppingCart className="w-4 h-4" />} label="Checkout" value={intel?.checkout_platform ?? null} loading={working} />
+        <Fact icon={<Route className="w-4 h-4" />} label="Camino de venta (embudo)" value={intel?.funnel_type ? (FUNNEL_LABEL[intel.funnel_type] ?? intel.funnel_type) : null} loading={working} />
+        <Fact icon={<ShoppingCart className="w-4 h-4" />} label="Página de pago (checkout)" value={intel?.checkout_platform ?? null} loading={working} />
         <Fact icon={<Flag className="w-4 h-4" />} label="Países donde anuncia"
           value={[o.market, ...otherMarkets].slice(0, 6).map((m) => `${flagFor(m)} ${MARKET_NAME[m] ?? m}`).join(" · ")} />
         <Fact icon={<Languages className="w-4 h-4" />} label="Idioma" value={o.language ? o.language.toUpperCase() : null} />
@@ -319,8 +336,8 @@ function OfferFacts({ o, name, intel, phase, onSeeAds, onVerdict }: {
       <button onClick={onVerdict} className="w-full rounded-2xl border border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors p-4 text-left flex items-center gap-3">
         <span className="w-10 h-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0"><Sparkles className="w-5 h-5" /></span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[13.5px] font-semibold text-foreground">¿La copiarías? Mira el veredicto</span>
-          <span className="block text-[11.5px] text-muted-foreground">Qué copiar, qué cambiar, en qué países y a qué precio probarla.</span>
+          <span className="block text-[13.5px] font-semibold text-foreground">¿La modelarías? Mira el veredicto</span>
+          <span className="block text-[11.5px] text-muted-foreground">Qué tomar tal cual, qué cambiar, en qué países y a qué precio probarla.</span>
         </span>
         <span className="text-primary text-lg" aria-hidden>›</span>
       </button>
@@ -438,7 +455,7 @@ function VerdictView({ name, verdict, phase, error, onRetry, onCreate }: {
 
       <Section icon={<Lightbulb className="w-4 h-4" />} title="Por qué llama la atención" text={verdict.why_attention} />
       <Section icon={<ThumbsUp className="w-4 h-4" />} title="Qué está funcionando" text={verdict.whats_working} />
-      <ListSection icon={<Check className="w-4 h-4" />} title="Qué copiar" items={verdict.copy_this} tone="good" />
+      <ListSection icon={<Check className="w-4 h-4" />} title="Qué tomar tal cual" items={verdict.copy_this} tone="good" />
       <ListSection icon={<AlertTriangle className="w-4 h-4" />} title="Qué cambiar" items={verdict.change_this} tone="warn" />
       {verdict.your_twist && <Section icon={<Sparkles className="w-4 h-4" />} title="Hazla tuya · roba como un artista" text={verdict.your_twist} />}
       {verdict.ads_plan && <Section icon={<Target className="w-4 h-4" />} title="Cómo probarla con anuncios" text={verdict.ads_plan} />}

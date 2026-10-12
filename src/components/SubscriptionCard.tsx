@@ -2,11 +2,15 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CreditCard, FileText, Settings2, XCircle, ChevronRight, Loader2, BadgeCheck } from "lucide-react";
+import { STRIPE_ON } from "@/lib/stripe";
 
 // "Mi Suscripción" — gestión self-service estilo Apple.
 // El usuario ya está logueado, así que jamás se le vuelve a pedir el correo:
 // el edge function `stripe-portal` resuelve su customer de Stripe desde el
 // JWT y devuelve una sesión del Billing Portal ya autenticada.
+// 12-oct-2026: con Stripe apagado (STRIPE_ON) ni se le pregunta: se va directo a la fila de Whop.
+// Mientras carga no se pinta nada (antes salía "Cargando tu suscripción…" y luego desaparecía
+// para quien no tiene suscripción: un parpadeo en cada visita a Mis créditos).
 
 interface StripeInfo {
   found: boolean;
@@ -46,14 +50,16 @@ export function SubscriptionCard() {
   useEffect(() => {
     let alive = true;
     (async () => {
-      // 1) ¿Tiene customer en Stripe? (resuelto server-side por email del JWT)
-      try {
-        const { data, error } = await supabase.functions.invoke("stripe-portal", { body: { action: "info" } });
-        if (!error && data?.found && data?.has_subscription) {
-          if (alive) setState({ kind: "stripe", info: data as StripeInfo });
-          return;
-        }
-      } catch { /* Stripe aún sin configurar → probar Whop */ }
+      // 1) ¿Tiene customer en Stripe? (resuelto server-side por email del JWT). Solo si Stripe está encendido.
+      if (STRIPE_ON) {
+        try {
+          const { data, error } = await supabase.functions.invoke("stripe-portal", { body: { action: "info" } });
+          if (!error && data?.found && data?.has_subscription) {
+            if (alive) setState({ kind: "stripe", info: data as StripeInfo });
+            return;
+          }
+        } catch { /* Stripe aún sin configurar → probar Whop */ }
+      }
 
       // 2) Fallback: membresía vía Whop (tabla subscriptions, RLS filas propias)
       const { data: auth } = await supabase.auth.getUser();
@@ -92,15 +98,7 @@ export function SubscriptionCard() {
     }
   }, []);
 
-  if (state.kind === "none") return null;
-
-  if (state.kind === "loading") {
-    return (
-      <div className="card-surface rounded-2xl p-6 flex items-center gap-3 text-sm text-muted-foreground">
-        <Loader2 className="w-4 h-4 animate-spin" /> Cargando tu suscripción…
-      </div>
-    );
-  }
+  if (state.kind === "none" || state.kind === "loading") return null;
 
   if (state.kind === "whop") {
     const badge = statusBadge(state.status);
@@ -121,6 +119,9 @@ export function SubscriptionCard() {
           <div className="px-5 py-3 border-b border-border/60 text-xs text-muted-foreground leading-relaxed">
             ¿No te convence? Cancela antes de esa fecha y <span className="text-foreground font-medium">no pagas nada</span>.
             Se hace en Whop → Mis compras, en un par de clics.
+            <span className="block mt-1">
+              Y después de pagar tienes la <span className="text-foreground font-medium">garantía de 30 días</span>: si no terminas tu producto, te devolvemos el 100 %.
+            </span>
           </div>
         )}
         <MenuRow

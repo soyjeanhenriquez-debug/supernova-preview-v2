@@ -34,8 +34,9 @@ const NICHE_Q: Record<string, Record<string, string>> = {
   "cocina fácil": { es: "recetas fáciles", en: "easy recipes", pt: "receitas fáceis" },
 };
 const REGION: Record<string, string> = { es: "MX", en: "US", pt: "BR" };
-// Categorías de YouTube que no son nichos de canales sin cara: Música (10), Deportes (17), Videojuegos (20).
-const SKIP_CATEGORIES = new Set(["10", "17", "20"]);
+// Categorías de YouTube que no son nichos de canales sin cara: Música (10), Deportes (17), Videojuegos (20)
+// y Noticias y política (25): el 12-oct "Historia" traía noticieros y política del día.
+const SKIP_CATEGORIES = new Set(["10", "17", "20", "25"]);
 
 // Idioma del video: el que declara YouTube; si no lo declara, por palabras comunes del título.
 const STOP: Record<string, string[]> = {
@@ -94,7 +95,7 @@ Deno.serve(async (req) => {
     if (q.length < 2) return json({ error: "Escribe un nicho." }, 400);
     const lang = body.lang === "en" || body.lang === "pt" ? body.lang : "es";
     const kind: "long" | "short" = body.kind === "short" ? "short" : "long";
-    const key = `v3:${kind}:${lang}:${q.toLowerCase()}`;
+    const key = `v4:${kind}:${lang}:${q.toLowerCase()}`; // v4: sin noticias ni política
     const searchQ = NICHE_Q[q.toLowerCase()]?.[lang] ?? q;
 
     // Caché: si alguien buscó lo mismo hace menos de 6 h, no se gasta cuota.

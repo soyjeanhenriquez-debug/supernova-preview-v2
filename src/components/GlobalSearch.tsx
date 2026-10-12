@@ -5,13 +5,14 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useProducts } from "@/contexts/ProductContext";
 import { useFeatureAccess } from "@/lib/features";
-import { TOOLS, ADMIN_EXTRA_TOOLS, openTool } from "@/lib/tools";
+import { TOOLS, ADMIN_EXTRA_TOOLS, openTool, searchTools, offerSearchTerm, rankForSearch, normText } from "@/lib/tools";
 import { track } from "@/lib/analytics";
 
 /**
  * Buscador de arriba (⌘K / Ctrl+K; en el teléfono, el botón "Buscar" del menú inferior).
  * Busca en 3 grupos, máximo 5 resultados cada uno, y es gratis (no cobra créditos):
- * 1. Herramientas: lista fija del cliente (src/lib/tools.ts), con sinónimos.
+ * 1. Herramientas: lista fija del cliente (src/lib/tools.ts), con sinónimos. Entiende frases de
+ *    principiante ("quiero vender un curso", "no sé qué vender"): quita el relleno y busca por raíz.
  * 2. Ofertas: la misma consulta del catálogo de Ofertas (tabla offers, ~7.500 filas, nunca
  *    winning_ads), sin contar filas, solo 5 y con pocas columnas.
  * 3. Lo suyo: sus productos y lo que guardó en el producto activo.
@@ -26,7 +27,9 @@ interface Props {
 type OfferHit = { id: string; product_name: string | null; page_name: string | null; niche: string | null; days_active: number | null };
 type AssetHit = { id: string; name: string };
 
-const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+const norm = normText;
+/** Lo que se ve al abrir, antes de escribir: la puerta principal (Ofertas) y lo que más se crea. */
+const START_IDS = ["ofertas", "radar", "creativos", "carrusel", "copy"];
 
 export function GlobalSearch({ open, onOpenChange, onNavigate, onOpenOffer }: Props) {
   const [q, setQ] = useState("");
@@ -63,7 +66,9 @@ export function GlobalSearch({ open, onOpenChange, onNavigate, onOpenOffer }: Pr
     if (debounced.length < 2) { setOffers([]); setOffersLoading(false); return; }
     let alive = true;
     setOffersLoading(true);
-    const k = debounced.replace(/[,()%*]/g, " ").trim();
+    // Una frase ("quiero vender un curso") busca ofertas por la palabra que importa ("curso").
+    const k = (offerSearchTerm(debounced) || debounced).replace(/[,()%*.]/g, " ").trim();
+    if (k.length < 2) { setOffers([]); setOffersLoading(false); return; }
     supabase.from("offers").select("id,product_name,page_name,niche,days_active")
       .eq("enrich_failed", false).is("excluded_reason", null).eq("is_primary", true)
       .or(`product_name.ilike.%${k}%,page_name.ilike.%${k}%,niche.ilike.%${k}%`)
@@ -78,14 +83,10 @@ export function GlobalSearch({ open, onOpenChange, onNavigate, onOpenOffer }: Pr
 
   const term = norm(q.trim());
   const tools = useMemo(() => {
-    const all = [...TOOLS, ...ADMIN_EXTRA_TOOLS].filter(t => canSee(t.key));
-    if (!term) return all.filter(t => t.featured || ["carrusel", "personaje", "copy", "radar"].includes(t.id)).slice(0, 5);
-    const words = term.split(/\s+/);
-    return all.filter(t => {
-      const hay = norm(`${t.title} ${t.nav} ${t.desc} ${t.keywords}`);
-      return words.every(w => hay.includes(w));
-    }).slice(0, 5);
-  }, [term, canSee]);
+    const all = rankForSearch([...TOOLS, ...ADMIN_EXTRA_TOOLS].filter(t => canSee(t.key)));
+    if (!term) return START_IDS.map(id => all.find(t => t.id === id)).filter((t): t is (typeof all)[number] => !!t);
+    return searchTools(q, all).slice(0, 5);
+  }, [term, q, canSee]);
 
   const mineProducts = useMemo(() => term.length < 2 ? [] :
     products.filter(p => p.status === "activo" && norm(`${p.name} ${p.product ?? ""}`).includes(term)).slice(0, 5), [products, term]);
@@ -106,10 +107,10 @@ export function GlobalSearch({ open, onOpenChange, onNavigate, onOpenOffer }: Pr
         <Command shouldFilter={false} className="bg-card [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.16em] [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2.5 [&_[cmdk-item]]:rounded-lg">
           <CommandInput value={q} onValueChange={setQ} placeholder="Busca una herramienta, una oferta o algo tuyo…" className="h-12 text-[14px]" />
           <CommandList className="max-h-[min(60vh,440px)]">
-            {nothing && <CommandEmpty>No encontramos nada con "{q.trim()}". Prueba con otra palabra.</CommandEmpty>}
+            {nothing && <CommandEmpty>No encontramos nada con "{q.trim()}". Prueba con una palabra corta: anuncio, carrusel, video, precio, curso.</CommandEmpty>}
 
             {tools.length > 0 && (
-              <CommandGroup heading={term ? "Herramientas" : "Lo más útil para empezar"}>
+              <CommandGroup heading={term ? "Herramientas" : "Para empezar"}>
                 {tools.map(t => {
                   const Icon = t.icon;
                   return (

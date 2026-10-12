@@ -27,14 +27,17 @@ export async function fnHeaders(): Promise<Record<string, string>> {
  * Probadores (10-oct-2026): cuando el servidor dice "recharge_required", se abre la ventana de recarga
  * (RechargePopup, montada en Index). Se cierra y la persona sigue con otra herramienta.
  */
-export function offerRecharge() {
-  try { window.dispatchEvent(new Event("sn:recharge-required")); } catch { /* sin ventana (pruebas) */ }
+export function offerRecharge(detail?: { reason?: "recharge_required" | "insufficient_credits"; cost?: number; balance?: number }) {
+  try { window.dispatchEvent(new CustomEvent("sn:recharge-required", { detail })); } catch { /* sin ventana (pruebas) */ }
 }
 
 export async function fnErrorMessage(resp: Response, fallback: string): Promise<string> {
   try {
     const data = await resp.clone().json();
-    if (data?.code === "recharge_required") offerRecharge();
+    // Probador sin recarga o cliente sin saldo: la misma ventana, con el texto de cada caso (11-oct-2026).
+    if (data?.code === "recharge_required" || data?.code === "insufficient_credits") {
+      offerRecharge({ reason: data.code, cost: typeof data.cost === "number" ? data.cost : undefined, balance: typeof data.balance === "number" ? data.balance : undefined });
+    }
     if (typeof data?.error === "string" && data.error.trim()) return data.error;
   } catch { /* cuerpo no-JSON (stream cortado, HTML de un proxy…) */ }
   return fallback;

@@ -378,8 +378,8 @@ function NextSteps() {
     { icon: "⚡", title: "Si vas a anunciar ya: tus anuncios", desc: "Con «Mis anuncios» recibes 5 ganchos y 3 textos de anuncio (corto, medio y largo) basados en este informe. Empieza con poco presupuesto y mide antes de subirlo." },
     { icon: "👤", title: "Si no tienes claro a quién le vendes", desc: "«Mi cliente ideal» te describe quién compra: qué le preocupa, qué desea y qué lo frena. Es la base de todos tus textos." },
     { icon: "📄", title: "Si necesitas tu página de ventas", desc: "«Mi página de ventas» te escribe todos los textos de una página propia, con otro enfoque y sin copiar la original." },
-    { icon: "📦", title: "Cuando ya tengas un anuncio que vende", desc: "«Mi embudo completo» te da el recorrido del cliente, el inicio de tu VSL (video de ventas), 5 correos y las ofertas extra para después de la compra." },
-    { icon: "🧬", title: "Si trabajas con otra IA (Claude, ChatGPT u otra)", desc: "El «Mega-Prompt» convierte el informe en instrucciones para pegar en cualquier IA y crear tu versión: tus anuncios o tu propia app." },
+    { icon: "📦", title: "Cuando ya tengas un anuncio que vende", desc: "«Mi camino de venta completo» te da el recorrido del cliente, el inicio de tu VSL (video de ventas), 5 correos y las ofertas extra para después de la compra." },
+    { icon: "🧬", title: "Si trabajas con otra IA (Claude, ChatGPT u otra)", desc: "«Instrucciones completas para otra IA» convierte el informe en instrucciones para pegar en cualquier IA y crear tu versión: tus anuncios o tu propia app." },
   ];
   return (
     <div className="rounded-xl border border-border bg-background/40 p-5 space-y-3">
@@ -402,11 +402,11 @@ type GenKind = "creativos" | "landing" | "avatar" | "funnel" | "master_prompt";
 
 // El precio NO va aquí: sale de CREDIT_COSTS[credit] (decía 2–5 créditos y el servidor cobraba 15–50).
 const GEN_META: Record<GenKind, { label: string; icon: string; credit: "gen_ad_copies" | "gen_landing" | "gen_avatar" | "gen_funnel" | "gen_master_prompt"; highlight?: boolean }> = {
-  master_prompt: { label: "Mega-Prompt para otra IA", icon: "🧬", credit: "gen_master_prompt", highlight: true },
+  master_prompt: { label: "Instrucciones completas para otra IA (prompt)", icon: "🧬", credit: "gen_master_prompt", highlight: true },
   creativos:     { label: "Mis anuncios: 5 ganchos + 3 textos", icon: "⚡", credit: "gen_ad_copies" },
   landing:       { label: "Mi página de ventas",    icon: "📄", credit: "gen_landing" },
   avatar:        { label: "Mi cliente ideal",       icon: "👤", credit: "gen_avatar" },
-  funnel:        { label: "Mi embudo completo",     icon: "📦", credit: "gen_funnel" },
+  funnel:        { label: "Mi camino de venta completo (embudo)",     icon: "📦", credit: "gen_funnel" },
 };
 
 function OraculoGenerators({ result }: { result: IntelligenceResult }) {

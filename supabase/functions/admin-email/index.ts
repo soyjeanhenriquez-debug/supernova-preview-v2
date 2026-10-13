@@ -5,6 +5,7 @@
 //   count   { segment }                         → cuántos recibirían (sin enviar) + 3 ejemplos
 //   send    { segment | to, subject, body, test } → envía; test = solo al correo del admin
 //   history {}                                  → últimos envíos
+//   access  { user_id }                         → le manda a ESE usuario un enlace para entrar (un clic)
 // Los destinatarios los arma el servidor (admin_email_recipients: nunca incluye bajas). Los envíos a
 // grupos llevan enlace de baja de un clic (/unsub?t= o ?tl=). {{nombre}} se reemplaza por persona.
 // Resend: lotes de 100 (API batch), tope 500 por envío para no quemar el plan ni la reputación.
@@ -60,6 +61,47 @@ Deno.serve(async (req) => {
     if (body.action === "history") {
       const { data } = await db.from("admin_email_log").select("segment,subject,recipients,sent,failed,test,created_at").order("created_at", { ascending: false }).limit(20);
       return json({ history: data ?? [] });
+    }
+
+    // Acceso en un clic (Admin → Usuarios, 12-oct-2026): enlace mágico de Supabase (un solo uso,
+    // vence en 1 hora) enviado SOLO al correo de esa cuenta. Entra sin contraseña; no da plan ni
+    // créditos: eso lo siguen dando los webhooks de Whop. El enlace nunca vuelve al navegador del admin.
+    if (body.action === "access") {
+      const uid = typeof body.user_id === "string" && /^[0-9a-f-]{36}$/i.test(body.user_id) ? body.user_id : "";
+      if (!uid) return json({ error: "Falta el usuario." }, 400);
+      const key = Deno.env.get("RESEND_API_KEY");
+      if (!key) return json({ error: "Falta RESEND_API_KEY en Supabase." }, 503);
+      const { data: target } = await db.auth.admin.getUserById(uid);
+      const email = target?.user?.email?.toLowerCase();
+      if (!email) return json({ error: "Esa cuenta no tiene correo." }, 404);
+      const { data: link, error: linkErr } = await db.auth.admin.generateLink({
+        type: "magiclink", email, options: { redirectTo: `${APP_URL}/app` },
+      });
+      const url = link?.properties?.action_link;
+      if (linkErr || !url) return json({ error: "No se pudo crear el enlace de entrada." }, 500);
+      const meta = (target?.user?.user_metadata ?? {}) as Record<string, unknown>;
+      const name = typeof meta.display_name === "string" && meta.display_name.trim() ? meta.display_name.trim().split(/\s+/)[0] : null;
+      const subject = "Tu acceso a SUPERNOVA";
+      const html = `<div style="font-family:-apple-system,system-ui,sans-serif;max-width:560px;margin:auto;color:#111;font-size:15px;line-height:1.6">
+    <p style="margin:0 0 14px">Hola${name ? ` ${esc(name)}` : ""}.</p>
+    <p style="margin:0 0 14px">Aquí tienes tu acceso a SUPERNOVA. Toca el botón y entras directo, sin contraseña.</p>
+    <p style="margin:22px 0"><a href="${esc(url)}" style="background:#f5a524;color:#111;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:10px;display:inline-block">Entrar a SUPERNOVA</a></p>
+    <p style="margin:0 0 14px;color:#555;font-size:13px">El botón sirve una sola vez y vence en 1 hora. Si vence, entra en ${APP_URL}/app y toca "Entra con un código por correo".</p>
+    <p style="margin:0 0 14px">Si tienes una duda, responde este correo y te contesto yo.</p>
+    <p style="margin:0 0 14px">Jean</p>
+    <p style="margin:24px 0 0;color:#888;font-size:12px">Te llega porque tienes una cuenta en SUPERNOVA con este correo. Si no la pediste, ignora este mensaje.</p>
+  </div>`;
+      const resp = await fetch("https://api.resend.com/emails", {
+        method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ from: FROM, to: email, reply_to: me.email ?? undefined, subject, html, text: htmlToText(html) }),
+      });
+      const ok = resp.ok;
+      if (!ok) console.error("resend access:", resp.status, (await resp.text()).slice(0, 300));
+      await db.from("admin_email_log").insert({
+        sent_by: me.id, segment: `acceso: ${email}`, subject, recipients: 1, sent: ok ? 1 : 0, failed: ok ? 0 : 1, test: false,
+      });
+      if (!ok) return json({ error: "Resend no aceptó el envío. Revisa el dominio y el plan en resend.com." }, 502);
+      return json({ ok: true, email });
     }
 
     // Destinatarios: un correo suelto o un grupo (armado por el servidor, sin bajas).

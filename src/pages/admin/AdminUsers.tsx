@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Shield, Coins, Ban, Trash2, RefreshCw, X, Mail, Activity, Plus, Minus, UserCog, Circle, LogIn, KeyRound, Copy } from "lucide-react";
+import { Search, Shield, Coins, Ban, Trash2, RefreshCw, X, Mail, Activity, Plus, Minus, UserCog, Circle, LogIn, KeyRound, Copy, Send, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { fnHeaders } from "@/lib/fnAuth";
 
 type Role = "admin" | "moderator" | "user";
 
@@ -26,6 +27,38 @@ interface UserDetail {
   transactions: unknown[];
   history: unknown[];
   analyses: unknown[];
+}
+
+/**
+ * "Enviar acceso" (12-oct-2026): un clic le manda a esa persona un correo con un botón para entrar sin
+ * contraseña (enlace de un solo uso que arma el servidor en admin-email). No da plan ni créditos.
+ */
+function SendAccessButton({ userId, email }: { userId: string; email: string | null }) {
+  const [state, setState] = useState<"idle" | "busy" | "sent">("idle");
+  const send = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (state !== "idle") return;
+    setState("busy");
+    try {
+      const r = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-email`, {
+        method: "POST", headers: await fnHeaders(), body: JSON.stringify({ action: "access", user_id: userId }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d?.error || "No se pudo enviar.");
+      setState("sent");
+      toast.success(`Acceso enviado a ${d.email ?? email ?? "su correo"}`);
+    } catch (err) {
+      setState("idle");
+      toast.error(err instanceof Error ? err.message : "No se pudo enviar.");
+    }
+  };
+  return (
+    <button onClick={send} disabled={state === "busy"} title={state === "sent" ? "Ya se lo enviaste" : "Le manda un correo con un botón para entrar sin contraseña"}
+      className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg border text-[11.5px] font-medium whitespace-nowrap transition-colors ${state === "sent" ? "border-emerald-500/40 text-emerald-500" : "border-border text-muted-foreground hover:text-foreground hover:border-primary/40"}`}>
+      {state === "busy" ? <Loader2 className="w-3 h-3 animate-spin" /> : state === "sent" ? <Check className="w-3 h-3" /> : <Send className="w-3 h-3" />}
+      {state === "sent" ? "Enviado" : "Enviar acceso"}
+    </button>
+  );
 }
 
 async function call(action: string, payload: Record<string, unknown> = {}) {
@@ -261,13 +294,14 @@ export default function AdminUsers() {
               <th className="text-left px-4 py-2.5 font-medium">Última actividad</th>
               <th className="text-right px-4 py-2.5 font-medium">Créditos</th>
               <th className="text-right px-4 py-2.5 font-medium">Estado</th>
+              <th className="text-right px-4 py-2.5 font-medium">Acceso</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="text-center py-12 text-muted-foreground">Cargando…</td></tr>
+              <tr><td colSpan={7} className="text-center py-12 text-muted-foreground">Cargando…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-12 text-muted-foreground">Sin resultados</td></tr>
+              <tr><td colSpan={7} className="text-center py-12 text-muted-foreground">Sin resultados</td></tr>
             ) : filtered.map((u) => {
               const online = isOnline(u.last_activity_at);
               const suspended = u.banned_until && new Date(u.banned_until) > new Date();
@@ -303,6 +337,9 @@ export default function AdminUsers() {
                     ) : (
                       <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">Activo</span>
                     )}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {!suspended && u.email && <SendAccessButton userId={u.id} email={u.email} />}
                   </td>
                 </tr>
               );

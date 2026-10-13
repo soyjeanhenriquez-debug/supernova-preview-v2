@@ -5,11 +5,12 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFeatureAccess } from "@/lib/features";
 import { openSetPassword } from "@/lib/setPassword";
-import { MENU_CREATE_TOOLS, MORE_TOOLS, openTool } from "@/lib/tools";
+import { GRID_TOOLS, VIAS, openTool, useVia } from "@/lib/tools";
 
 /**
  * Menú inferior del teléfono y la tableta (debajo de lg, donde no hay menú lateral fijo).
- * Una sola puerta (decisión de Jean, 12-oct-2026): Hoy · Ofertas · Crear · Mis versiones · Más.
+ * Una sola puerta (decisión de Jean, 12-oct-2026): Hoy · Ofertas (o Ideas, en la vía Creador) · Crear ·
+ * Mis versiones · Más. "Crear" muestra lo de su vía (las 2 vías, 12-oct-2026).
  * "Crear" y "Más" abren una hoja desde abajo. En "Más" están el Radar, el buscador, los créditos, la
  * ayuda, la cuenta y, plegadas, todas las demás herramientas: nada se borró.
  */
@@ -26,8 +27,12 @@ export function MobileBottomNav({ activePage, onNavigate, onSearch }: Props) {
   const [allOpen, setAllOpen] = useState(false);
   const { canSee } = useFeatureAccess();
   const { user, signOut } = useAuth();
-  const createTools = MENU_CREATE_TOOLS.filter(t => canSee(t.key));
-  const moreTools = MORE_TOOLS.filter(t => canSee(t.key));
+  // Las 2 vías (12-oct-2026): "Crear" muestra lo de su vía; "Más", todo lo demás.
+  const { via, setVia, current: viaInfo } = useVia();
+  const createTools = viaInfo.create.filter(t => canSee(t.key));
+  const moreTools = GRID_TOOLS.filter(t => canSee(t.key) && !viaInfo.create.includes(t));
+  // Segundo botón: lo primero que mira su vía (Ofertas o Nichos de YouTube).
+  const second = via === "creador" ? { page: "Nichos YouTube", label: "Ideas" } : { page: "Ofertas", label: "Ofertas" };
   const createActive = createTools.some(t => t.key === activePage && !t.generator);
   const moreActive = MORE_PAGES.has(activePage) || moreTools.some(t => t.key === activePage);
 
@@ -54,7 +59,7 @@ export function MobileBottomNav({ activePage, onNavigate, onSearch }: Props) {
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t border-border bg-background/90 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]" aria-label="Menú principal">
         <div className="flex h-[60px]">
           <Btn icon={Sun} label="Hoy" active={activePage === "Dashboard"} onClick={() => go("Dashboard")} />
-          <Btn icon={Gem} label="Ofertas" active={activePage === "Ofertas"} onClick={() => go("Ofertas")} />
+          <Btn icon={Gem} label={second.label} active={activePage === second.page} onClick={() => go(second.page)} />
           <Btn icon={Plus} label="Crear" active={createActive || sheet === "crear"} onClick={() => setSheet("crear")} />
           <Btn icon={LayoutGrid} label="Mis versiones" active={activePage === "Productos"} onClick={() => go("Productos")} />
           <Btn icon={Menu} label="Más" active={moreActive || sheet === "mas"} onClick={() => setSheet("mas")} />
@@ -85,6 +90,15 @@ export function MobileBottomNav({ activePage, onNavigate, onSearch }: Props) {
             <>
               <SheetTitle className="font-display text-[17px] mb-1">Más</SheetTitle>
               <p className="text-[12px] text-muted-foreground mb-4 truncate" data-ph-mask>{user?.email}</p>
+              <div className="mb-4">
+                <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground mb-1.5">Tu vía</p>
+                <div className="grid grid-cols-2 gap-1 rounded-xl border border-border p-1" role="group" aria-label="Tu vía">
+                  {VIAS.map(v => (
+                    <button key={v.id} onClick={() => setVia(v.id)} aria-pressed={via === v.id}
+                      className={`h-9 rounded-lg text-[13px] font-medium ${via === v.id ? "bg-secondary text-foreground" : "text-muted-foreground"}`}>{v.label}</button>
+                  ))}
+                </div>
+              </div>
               <div className="space-y-1">
                 <Row icon={Trophy} label="Radar de anuncios" onClick={() => go("Buscar Ofertas Winner")} />
                 <Row icon={Search} label="Buscar" onClick={() => { setSheet(null); onSearch(); }} />

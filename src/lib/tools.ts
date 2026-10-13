@@ -319,3 +319,60 @@ export function useBusinessModel() {
   }, []);
   return { model, setModel, current: MODELS.find(m => m.id === model)! };
 }
+
+// ---------- Las 2 vías (decisión de Jean, 12-oct-2026) ----------
+/**
+ * Dos únicas vías, separadas, cada una con lo que necesita:
+ * - "creador": creador de contenido con marca (da la cara, construye audiencia propia).
+ * - "marketer": direct response marketer sin rostro (vende con anuncios lo que ya vende).
+ * La vía decide el menú, el Inicio y el botón Crear del teléfono. Lo que no es de su vía queda en
+ * "Más herramientas" y en el buscador: nada se borra. Reemplaza a los modelos low/high/marca.
+ */
+export type Via = "creador" | "marketer";
+export type ViaInfo = {
+  id: Via; label: string; short: string; line: string;
+  find: Tool[]; create: Tool[]; sell: Tool[];
+};
+export const VIAS: ViaInfo[] = [
+  {
+    id: "marketer", label: "Marketer sin rostro", short: "Sin rostro",
+    line: "Encuentras lo que ya vende, haces tu versión y la vendes con anuncios, sin mostrar tu cara.",
+    find: pick(["radar", "ofertas", "miniapps"]),
+    create: pick(["creativos", "videoanuncio", "personaje", "anuncios", "copy"]),
+    sell: pick(["precio", "validar", "bump", "recuperar", "resultados", "diagnostico"]),
+  },
+  {
+    id: "creador", label: "Creador con marca", short: "Con marca",
+    line: "Das la cara, publicas contenido que atrae a tu público y lo conviertes en clientes.",
+    find: pick(["nichosyt", "ganchos", "radar"]),
+    create: pick(["carrusel", "creadoryt", "reels", "captions", "miniaturas", "motion"]),
+    sell: pick(["contenido", "producto", "precio"]),
+  },
+];
+export const VIA_BY_ID: Record<Via, ViaInfo> = Object.fromEntries(VIAS.map(v => [v.id, v])) as Record<Via, ViaInfo>;
+/** Todo lo de la vía (para sacarlo de "Más herramientas"). */
+export const viaToolIds = (v: ViaInfo) => new Set([...v.find, ...v.create, ...v.sell].map(t => t.id));
+
+const VIA_KEY = "supernova:via";
+const VIA_EVENT = "supernova:via-changed";
+
+/** La vía elegida (se recuerda en este navegador). Sin elegir, se usa "marketer" y el Inicio pregunta. */
+export function useVia() {
+  const read = (): Via | null => {
+    try { const v = localStorage.getItem(VIA_KEY); if (v === "creador" || v === "marketer") return v; } catch { /* sin almacenamiento */ }
+    return null;
+  };
+  const [chosen, setChosen] = useState<Via | null>(read);
+  useEffect(() => {
+    const sync = () => setChosen(read());
+    window.addEventListener(VIA_EVENT, sync);
+    return () => window.removeEventListener(VIA_EVENT, sync);
+  }, []);
+  const setVia = useCallback((v: Via) => {
+    try { localStorage.setItem(VIA_KEY, v); } catch { /* sin almacenamiento */ }
+    setChosen(v);
+    window.dispatchEvent(new Event(VIA_EVENT));
+  }, []);
+  const via: Via = chosen ?? "marketer";
+  return { via, chosen, setVia, current: VIA_BY_ID[via] };
+}

@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProducts } from "@/contexts/ProductContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureAccess } from "@/lib/features";
-import { TOOLS, ADMIN_EXTRA_TOOLS, HOME_CATEGORIES, MERGED_INTO, MODELS, NEXT_STEP_TOOLS, openTool, useBusinessModel, searchTools, normText, type Tool } from "@/lib/tools";
+import { TOOLS, ADMIN_EXTRA_TOOLS, HOME_CATEGORIES, MERGED_INTO, NEXT_STEP_TOOLS, VIAS, openTool, useVia, searchTools, normText, type Tool } from "@/lib/tools";
 import { ToolThumb } from "@/components/dashboard/ToolThumb";
 import { ASK_ASSISTANT_EVENT } from "@/components/HelpAssistant";
 import { track } from "@/lib/analytics";
@@ -212,7 +212,9 @@ export function DashboardPage({ onNavigate }: Props) {
   const { active } = useProducts();
   const { canSee, isAdmin } = useFeatureAccess();
   const { locked, openPlans } = useVitrina();
-  const { model, setModel, current: modelInfo } = useBusinessModel();
+  // Las 2 vías (12-oct-2026): "Creador con marca" o "Marketer sin rostro" (reemplaza low/high/marca).
+  const { via, chosen: viaChosen, setVia, current: viaInfo } = useVia();
+  const viaTools = useMemo(() => [...new Map([...viaInfo.find, ...viaInfo.create, ...viaInfo.sell].map(t => [t.id, t])).values()], [viaInfo]);
   const recent = useRecentWork(onNavigate);
   const sample = useVitrinaSample(locked);
   const firstName = (user?.user_metadata?.display_name || user?.email?.split("@")[0] || "")
@@ -259,9 +261,11 @@ export function DashboardPage({ onNavigate }: Props) {
   }, [canSee]);
   const gridAll = useMemo(() => visibleAll.filter(t => !MERGED_INTO[t.id]), [visibleAll]);
   const tabs = useMemo(() => [
-    ...HOME_CATEGORIES.map(c => ({ id: c.id, label: c.label, tools: c.tools.filter(t => t && canSee(t.key)) })),
+    ...HOME_CATEGORIES.map(c => c.id === "esencial"
+      ? { id: c.id, label: `Tu vía · ${viaInfo.short}`, tools: viaTools.filter(t => canSee(t.key)) }
+      : { id: c.id, label: c.label, tools: c.tools.filter(t => t && canSee(t.key)) }),
     { id: "todo", label: "Todo", tools: gridAll },
-  ].filter(t => t.tools.length > 0), [canSee, gridAll]);
+  ].filter(t => t.tools.length > 0), [canSee, gridAll, viaInfo, viaTools]);
   const q = norm(query.trim());
   const shown = q
     ? searchTools(query, visibleAll)
@@ -269,7 +273,7 @@ export function DashboardPage({ onNavigate }: Props) {
   const nextSteps = NEXT_STEP_TOOLS.filter(t => canSee(t.key));
 
   const open = (tool: Tool, from: string) => {
-    track("home_card_click", { card: tool.id, vitrina: locked, modelo: model, pestana: from });
+    track("home_card_click", { card: tool.id, vitrina: locked, via, pestana: from });
     openTool(tool, onNavigate);
   };
   const ask = (text: string) => {
@@ -311,6 +315,26 @@ export function DashboardPage({ onNavigate }: Props) {
                 <button onClick={() => onNavigate("Aprende")} className="shrink-0 inline-flex items-center gap-1.5 text-[12px] text-foreground hover:underline"><PlayCircle className="w-4 h-4" /> Ver cómo funciona</button>
               )}
             </div>
+          )}
+
+          {/* Primera vez: elegir una de las 2 vías (12-oct-2026). Un toque; se cambia cuando quiera en el menú. */}
+          {!viaChosen && (
+            <section aria-labelledby="via-titulo" className="rounded-2xl border border-primary/40 bg-primary/[0.04] p-5 space-y-3">
+              <div>
+                <h2 id="via-titulo" className="font-display font-semibold text-[18px] text-foreground">¿Cuál es tu vía?</h2>
+                <p className="text-[12.5px] text-muted-foreground">Elige una y te dejamos a mano solo lo que necesitas. Puedes cambiarla cuando quieras en el menú.</p>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3">
+                {VIAS.map(v => (
+                  <button key={v.id} onClick={() => { setVia(v.id); track("via_elegida", { via: v.id }); }}
+                    className="text-left rounded-xl border border-border bg-card/60 p-4 hover:border-primary/50 transition-colors space-y-1.5">
+                    <span className="block font-display font-semibold text-[15px] text-foreground">{v.label}</span>
+                    <span className="block text-[12.5px] text-muted-foreground leading-relaxed">{v.line}</span>
+                    <span className="block text-[11.5px] text-muted-foreground/80">{v.create.slice(0, 4).map(t => t.nav).join(" · ")}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
           )}
 
           {/* HOY: 3 ofertas con creativo, días pagando y un solo botón. Sin plan: la muestra real con candado. */}
@@ -464,23 +488,28 @@ export function DashboardPage({ onNavigate }: Props) {
                 </section>
 
                 {!locked && (<>
-                  {/* Las herramientas de su negocio (low / high / marca, se recuerda en este navegador). */}
+                  {/* Tu vía (12-oct-2026): las dos únicas vías, separadas, cada una con sus herramientas. */}
                   <section className="space-y-3">
                     <div className="flex items-baseline gap-2 min-w-0">
-                      <h2 className="text-[11px] uppercase tracking-[0.18em] font-semibold text-foreground shrink-0">Para tu negocio · {modelInfo.short}</h2>
-                      <span className="text-[12px] text-muted-foreground truncate">{modelInfo.line}</span>
+                      <h2 className="text-[11px] uppercase tracking-[0.18em] font-semibold text-foreground shrink-0">Tu vía · {viaInfo.label}</h2>
+                      <span className="text-[12px] text-muted-foreground truncate">{viaInfo.line}</span>
                     </div>
-                    <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none]" role="group" aria-label="¿Qué estás construyendo?">
-                      {MODELS.map(m => (
-                        <button key={m.id} onClick={() => setModel(m.id)} aria-pressed={model === m.id}
-                          className={`shrink-0 h-9 px-4 rounded-full border text-[13px] transition-colors ${model === m.id ? "border-primary/60 text-foreground bg-primary/[0.07]" : "border-border text-muted-foreground hover:text-foreground"}`}>
-                          {m.label}
+                    <div className="grid grid-cols-2 gap-2 max-w-md" role="group" aria-label="Tu vía">
+                      {VIAS.map(v => (
+                        <button key={v.id} onClick={() => setVia(v.id)} aria-pressed={via === v.id}
+                          className={`h-10 rounded-xl border text-[13px] font-medium transition-colors ${via === v.id ? "border-primary/60 text-foreground bg-primary/[0.07]" : "border-border text-muted-foreground hover:text-foreground"}`}>
+                          {v.label}
                         </button>
                       ))}
                     </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                      {modelInfo.tools.filter(t => canSee(t.key)).map(t => <ToolRow key={t.id} tool={t} onOpen={() => open(t, "modelo")} />)}
-                    </div>
+                    {([["find", via === "creador" ? "Ideas para tu contenido" : "Lo que ya vende"], ["create", "Crear"], ["sell", via === "creador" ? "Publicar y cobrar" : "Vender y medir"]] as const).map(([k, title]) => (
+                      <div key={k} className="space-y-1.5">
+                        <p className="text-[11px] text-muted-foreground">{title}</p>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                          {viaInfo[k].filter(t => canSee(t.key)).map(t => <ToolRow key={t.id} tool={t} onOpen={() => open(t, "via")} />)}
+                        </div>
+                      </div>
+                    ))}
                   </section>
 
                   {/* Ofertas que sigue. */}

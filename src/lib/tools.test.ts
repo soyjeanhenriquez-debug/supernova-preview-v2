@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   STUDIO_TOOLS, STUDIO_MORE_TOOLS, FIND_TOOLS, TOOLS, TOOL_BY_ID, GRID_TOOLS, MERGED_INTO, HOME_CATEGORIES,
   MENU_FIND_TOOLS, MENU_CREATE_TOOLS, NEXT_STEP_TOOLS, MORE_TOOLS, searchWords, searchTools, offerSearchTerm, rankForSearch,
+  VIAS, viaToolIds,
 } from "./tools";
 import { SLUG_PAGE } from "./pageSlugs";
 
@@ -83,5 +84,31 @@ describe("buscador para principiantes", () => {
     expect(offerSearchTerm("quiero vender un curso")).toBe("curso");
     expect(offerSearchTerm("no sé qué vender")).toBe("");
     expect(offerSearchTerm("keto")).toBe("keto");
+  });
+});
+
+describe("las 2 vías (12-oct-2026)", () => {
+  it("son exactamente creador y marketer, cada una con herramientas reales en sus 3 grupos", () => {
+    expect(VIAS.map(v => v.id).sort()).toEqual(["creador", "marketer"]);
+    for (const v of VIAS) {
+      for (const k of ["find", "create", "sell"] as const) {
+        expect(v[k].length, `${v.id}.${k}`).toBeGreaterThan(0);
+        for (const t of v[k]) expect(t && TOOL_BY_ID[t.id], `${v.id}.${k}`).toBeTruthy();
+      }
+    }
+  });
+  it("ninguna herramienta se repite dentro de una vía", () => {
+    for (const v of VIAS) {
+      const all = [...v.find, ...v.create, ...v.sell].map(t => t.id);
+      expect(new Set(all).size, v.id).toBe(all.length);
+      expect(viaToolIds(v).size).toBe(all.length);
+    }
+  });
+  it("el marketer no tiene herramientas de dar la cara y el creador no tiene las de anuncios pagados", () => {
+    const m = viaToolIds(VIAS.find(v => v.id === "marketer")!);
+    const c = viaToolIds(VIAS.find(v => v.id === "creador")!);
+    expect(m.has("creadoryt")).toBe(false);
+    expect(c.has("personaje")).toBe(false);
+    expect(c.has("anuncios")).toBe(false);
   });
 });

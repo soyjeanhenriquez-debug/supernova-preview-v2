@@ -8,7 +8,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useNavigate } from "react-router-dom";
 import { useFeatureAccess } from "@/lib/features";
 import { ProductSwitcher } from "@/components/ProductSwitcher";
-import { MENU_FIND_TOOLS, MENU_CREATE_TOOLS, MORE_TOOLS, ADMIN_EXTRA_TOOLS, openTool, type Tool } from "@/lib/tools";
+import { GRID_TOOLS, ADMIN_EXTRA_TOOLS, VIAS, openTool, useVia, viaToolIds, type Tool } from "@/lib/tools";
 import { TUTORIALS } from "@/lib/tutorials";
 import { useVitrina } from "@/contexts/VitrinaContext";
 
@@ -31,31 +31,35 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  // Menú de una sola puerta (decisión de Jean, 12-oct-2026): Hoy · Radar · Ofertas · Mis versiones ·
-  // Crear · Créditos · Ayuda. Todo lo demás vive en "Más herramientas", plegado: nada se borra, sus
-  // direcciones siguen abriendo y el buscador lo encuentra. Las secciones en pausa (src/lib/features.ts)
-  // solo las ve un admin. Las claves y los data-tour="nav-<key>" no cambian (los usan el tour y la ayuda).
+  // Las 2 vías (decisión de Jean, 12-oct-2026): "Creador con marca" o "Marketer sin rostro". El menú
+  // muestra solo lo de su vía (encontrar, crear, vender y medir). Todo lo demás vive en "Más
+  // herramientas", plegado: nada se borra, sus direcciones siguen abriendo y el buscador lo encuentra.
+  // Las secciones en pausa (src/lib/features.ts) solo las ve un admin. Las claves y los
+  // data-tour="nav-<key>" no cambian (los usan el tour y la ayuda).
   type NavItem = { icon: LucideIcon; key: string; label: string; hint: string; tool?: Tool; id?: string };
   const fromTool = (tl: Tool): NavItem => ({ icon: tl.icon, key: tl.key, label: tl.nav, hint: tl.desc, tool: tl, id: tl.id });
   const visible = (list: Tool[]) => list.filter(tl => canSee(tl.key)).map(fromTool);
+  const { via, setVia, current: viaInfo } = useVia();
+  const inVia = viaToolIds(viaInfo);
   const groups: { title: string; items: NavItem[] }[] = [
     { title: "", items: [
-      { icon: Sun, key: "Dashboard", label: "Hoy", hint: "3 negocios que llevan meses pagando anuncios y tu siguiente paso." },
-      ...visible(MENU_FIND_TOOLS),
+      { icon: Sun, key: "Dashboard", label: "Hoy", hint: "Tu siguiente paso y lo que puedes crear hoy." },
       { icon: LayoutGrid, key: "Productos", label: "Mis versiones", hint: "Tus versiones y cuánto avanzó cada una." },
     ] },
-    { title: "Crear", items: visible(MENU_CREATE_TOOLS) },
+    { title: via === "creador" ? "Ideas para tu contenido" : "Lo que ya vende", items: visible(viaInfo.find) },
+    { title: "Crear", items: visible(viaInfo.create) },
+    { title: via === "creador" ? "Publicar y cobrar" : "Vender y medir", items: visible(viaInfo.sell) },
     { title: "", items: [
       { icon: Coins, key: "Créditos", label: t("nav.credits"), hint: t("nav.hint.credits") },
       // Aprende: guías de Jean (siempre) y videos de cada herramienta (cuando haya). El asistente es la burbuja.
       { icon: GraduationCap, key: "Aprende", label: "Ayuda y guías", hint: TUTORIALS.length ? "Guías paso a paso de Jean y un video corto por herramienta." : "Guías paso a paso de Jean, con las herramientas para hacerlo." },
     ] },
   ];
-  // "Más herramientas": plegado. Lo que ya tenía el menú y no es la puerta principal.
+  // "Más herramientas": plegado. Lo que no es de su vía (la otra vía incluida).
   const moreItems: NavItem[] = [
     { icon: FolderKanban, key: "Proyectos", label: t("nav.projects"), hint: t("nav.hint.projects") },
     { icon: Briefcase, key: "Mi negocio", label: "Mi ficha", hint: "Qué vendes, para quién y qué logra este producto. Lo usan todas las herramientas." },
-    ...visible(MORE_TOOLS),
+    ...visible(GRID_TOOLS.filter(tl => !inVia.has(tl.id))),
     // Recompensas (07-oct-2026): clips de SUPERNOVA o de Jean pagados por vistas en Whop. Sin candado.
     ...(canSee("Recompensas") ? [{ icon: BadgeDollarSign, key: "Recompensas", label: "Gana con tu contenido", hint: "Haz clips sobre SUPERNOVA o sobre Jean y cobra por cada 1.000 vistas en Whop." }] : []),
   ];
@@ -161,6 +165,20 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
             </div>
           )
         ) : <div className="pb-3"><ProductSwitcher collapsed={isCollapsed} onNavigate={handleNav} /></div>}
+        {/* Tu vía: cambia el menú, el Inicio y el botón Crear del teléfono. */}
+        {!isCollapsed && (
+          <div className="pb-3 px-1">
+            <p className="px-2 pb-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-semibold">Tu vía</p>
+            <div className="grid grid-cols-2 gap-1 rounded-xl border border-border p-1" role="group" aria-label="Tu vía">
+              {VIAS.map(v => (
+                <button key={v.id} onClick={() => setVia(v.id)} aria-pressed={via === v.id} title={v.line}
+                  className={`h-8 rounded-lg text-[12px] font-medium transition-colors ${via === v.id ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                  {v.short}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {groups.filter(g => g.items.length).map((g, gi) => (
           <div key={g.title || gi} className={gi ? (isCollapsed ? "pt-2 mt-2 border-t border-border/50" : "pt-3") : ""}>
             {g.title && !isCollapsed && (

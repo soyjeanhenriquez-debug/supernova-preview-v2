@@ -22,6 +22,7 @@ export const PAGE_SLUG: Record<string, string> = {
   "Validar": "validar",
   "Plan": "plan",
   "Contenido": "contenido",
+  "Con tu cara": "con-tu-cara",
   "Resultados": "resultados",
   "Recuperar": "recuperar",
   "Diagnóstico": "diagnostico",
@@ -49,7 +50,7 @@ export const PAGE_SLUG: Record<string, string> = {
 export const SLUG_PAGE: Record<string, string> = {
   "ofertas": "Ofertas", "mini-apps": "Mini Apps", "radar": "Buscar Ofertas Winner", "hooks": "Hooks", "mandala": "Mándala", "mercado": "Mercado",
   "oraculo": "Oráculo", "generadores": "Generadores", "media-studio": "Media Studio",
-  "proyectos": "Proyectos", "creditos": "Créditos", "crear": "Crear", "precio": "Precio", "mi-negocio": "Mi negocio", "validar": "Validar", "plan": "Plan", "contenido": "Contenido", "resultados": "Resultados", "recuperar": "Recuperar", "diagnostico": "Diagnóstico", "productos": "Productos",
+  "proyectos": "Proyectos", "creditos": "Créditos", "crear": "Crear", "precio": "Precio", "mi-negocio": "Mi negocio", "validar": "Validar", "plan": "Plan", "contenido": "Contenido", "con-tu-cara": "Con tu cara", "subtitulos": "Con tu cara", "analiza-reel": "Con tu cara", "resultados": "Resultados", "recuperar": "Recuperar", "diagnostico": "Diagnóstico", "productos": "Productos",
   "crear-producto": "Crear producto", "personaje": "Sin mostrar tu cara", "aprende": "Aprende", "creativos": "Creativos", "carrusel": "Carrusel", "miniaturas": "Miniaturas", "video-ia": "Video IA", "motion": "Motion graphics", "series": "Series", "nichos-youtube": "Nichos YouTube", "creador-youtube": "Creador YouTube",
   "ideas": "Ideas", "fotos-ugc": "Fotos UGC", "foto-producto": "Foto de producto", "video-anuncio": "Video anuncio", "ugc": "UGC con IA",
   "order-bump": "Order bump",

@@ -16,7 +16,7 @@ export type CreditAction =
   | "gen_landing" | "gen_ad_copies" | "gen_avatar" | "gen_funnel"
   | "content_month"
   | "gen_master_prompt" | "pillar_assist" | "gen_light" | "gen_medium" | "gen_heavy" | "gen_media"
-  | "gen_ad_image" | "gen_ad_image_nb2" | "gen_ad_image_nbpro" | "clone_carousel" | "model_slide" | "follow_offer" | "unlock_kit"
+  | "gen_ad_image" | "gen_ad_image_nb2" | "gen_ad_image_nbpro" | "clone_carousel" | "model_slide" | "follow_offer" | "unlock_kit" | "video_subtitles" | "reel_analyze"
   | "build_piece_std" | "build_piece_sonnet" | "build_piece_opus" | "build_piece_fable" | "build_piece_gpt" | "build_piece_astra"
   | "business_map"
   | "vid_mini_5" | "vid_mini_10" | "yt_voice_scene" | "yt_scene_image"
@@ -37,6 +37,8 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   gen_ad_image: 7, // GPT Image 2: US$0,0115 medido en ai_usage → 7 créditos ≈ 4,9× (12-oct-2026, decisión de Jean)
   gen_ad_image_nb2: 10, // APIMart Nano Banana 2 (~US$0,0143) ≈ 5,6× (05-oct-2026, aprobado por Jean)
   gen_ad_image_nbpro: 20, // APIMart Nano Banana Pro (~US$0,0285) ≈ 5,6× (05-oct-2026, aprobado por Jean)
+  video_subtitles: 20, // Sube tu video: audio a Gemini (~US$0,01–0,02) (13-oct-2026, Jean)
+  reel_analyze: 15, // Analiza un Reel: Apify + Gemini con video (~US$0,02) (13-oct-2026, Jean)
   clone_carousel: 15, // carousel-clone: Apify + Gemini con imágenes (~US$0,02) ≈ 6× (05-oct-2026, aprobado por Jean)
   model_slide: 6, // carousel-slide-model: la IA lee UNA lámina del original y escribe la nuestra (Jean, 06-oct-2026: entre 3× y 6× del costo).
   follow_offer: 5, // se cobra server-side en la RPC follow_offer (Cazador de ROI)
@@ -72,6 +74,8 @@ export const ACTION_LABEL: Record<CreditAction, string> = {
   gen_ad_image_nb2: "Imagen con IA · Nano Banana 2",
   gen_ad_image_nbpro: "Imagen con IA · Nano Banana Pro",
   clone_carousel: "Modelar un carrusel viral",
+  video_subtitles: "Subtítulos y gancho de tu video",
+  reel_analyze: "Analizar un Reel",
   model_slide: "Modelar una lámina de un carrusel",
   follow_offer: "Seguir una oferta",
   unlock_kit: "Desbloquear una Mini App",
@@ -106,7 +110,7 @@ export const ACTION_HOURS: Record<CreditAction, number> = {
   pillar_assist: 1, sofisticar: 2, gen_ad_copies: 2, gen_avatar: 2, pain_discovery: 2,
   blueprint: 4, gen_landing: 4, landing_intelligence: 4, gen_funnel: 8,
   gen_master_prompt: 6, gen_light: 1, gen_medium: 3, gen_heavy: 6, gen_ad_image: 1, gen_ad_image_nb2: 1, gen_ad_image_nbpro: 1, clone_carousel: 2, model_slide: 0.5, gen_media: 2,
-  follow_offer: 0.5, unlock_kit: 12,
+  follow_offer: 0.5, unlock_kit: 12, video_subtitles: 1, reel_analyze: 1,
   build_piece_std: 3, build_piece_sonnet: 3, build_piece_opus: 3, build_piece_fable: 3, build_piece_gpt: 3, build_piece_astra: 3,
   business_map: 3,
   vid_mini_5: 2, vid_mini_10: 3, yt_voice_scene: 0.5, yt_scene_image: 1,

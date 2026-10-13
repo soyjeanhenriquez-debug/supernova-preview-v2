@@ -48,6 +48,7 @@ const LaunchPlanPage = lazy(() => import("@/pages/LaunchPlanPage").then(m => ({ 
 const RecoveryPage = lazy(() => import("@/pages/RecoveryPage").then(m => ({ default: m.RecoveryPage })));
 const DiagnosticoPage = lazy(() => import("@/pages/DiagnosticoPage").then(m => ({ default: m.DiagnosticoPage })));
 const ContentPage = lazy(() => import("@/pages/ContentPage").then(m => ({ default: m.ContentPage })));
+const CreadorPage = lazy(() => import("@/pages/CreadorPage").then(m => ({ default: m.CreadorPage })));
 const ProductsPage = lazy(() => import("@/pages/ProductsPage").then(m => ({ default: m.ProductsPage })));
 const ProductBuilderPage = lazy(() => import("@/pages/ProductBuilderPage"));
 const ImageStudioPage = lazy(() => import("@/pages/ImageStudioPage").then(m => ({ default: m.ImageStudioPage })));
@@ -183,6 +184,7 @@ const Index = () => {
       case "Validar": return <ValidationPage onNavigate={setActivePage} />;
       case "Plan": return <LaunchPlanPage onNavigate={setActivePage} />;
       case "Contenido": return <ContentPage onNavigate={setActivePage} />;
+      case "Con tu cara": return <CreadorPage onNavigate={setActivePage} />;
       case "Recuperar": return <RecoveryPage onNavigate={setActivePage} />;
       case "Diagnóstico": return <DiagnosticoPage onNavigate={setActivePage} />;
       case "Order bump": return <OrderBumpPage onNavigate={setActivePage} />;

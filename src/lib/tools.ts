@@ -3,7 +3,7 @@ import {
   Trophy, Gem, Boxes, Lightbulb, BookOpen, ClipboardCheck, Orbit, Quote, FileText, UserRound, Video,
   ListTodo, CalendarDays, MessageCircle, Calculator, BarChart3, Telescope, Store, Image, LayoutTemplate,
   MonitorPlay, Clapperboard, Send, TrendingUp, Mail, Film, Hash, Youtube, ShoppingBag, Radar,
-  Megaphone, Smartphone, Camera, PanelsTopLeft, Stethoscope, Shapes,
+  Megaphone, Smartphone, Camera, PanelsTopLeft, Stethoscope, Shapes, Captions,
   type LucideIcon,
 } from "lucide-react";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
@@ -131,6 +131,8 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
     desc: "Videos largos que posicionan y venden.", keywords: "youtube guion video largo" }),
   T({ id: "paginas", key: "Generadores", generator: "landing-copy", icon: PanelsTopLeft, title: "Página de ventas", nav: "Página de ventas", cost: cr(C.gen_medium),
     desc: "Todo el texto de tu página, del titular al botón de compra.", keywords: "pagina paginas landing pagina de ventas web sitio textos titular" }),
+  T({ id: "concara", key: "Con tu cara", icon: Captions, title: "Sube tu video y analiza Reels", nav: "Sube tu video", cost: `desde ${cr(C.reel_analyze)}`,
+    desc: "Subtítulos y un gancho más fuerte para tu video, y por qué funciona cualquier Reel.", keywords: "subtitulos subtítulos video reel reels analizar analiza gancho creador marca personal cara grabar tiktok instagram srt capcut" }),
   T({ id: "contenido", key: "Contenido", icon: CalendarDays, title: "Calendario de contenido",
     desc: "Ideas con demanda real para publicar sin pagar anuncios.", keywords: "contenido calendario publicaciones publicar organico posts reels instagram tiktok gratis sin anuncios" }),
 
@@ -345,7 +347,7 @@ export const VIAS: ViaInfo[] = [
     id: "creador", label: "Creador con marca", short: "Con marca",
     line: "Das la cara, publicas contenido que atrae a tu público y lo conviertes en clientes.",
     find: pick(["nichosyt", "ganchos", "radar"]),
-    create: pick(["carrusel", "creadoryt", "reels", "captions", "miniaturas", "motion"]),
+    create: pick(["concara", "carrusel", "creadoryt", "reels", "captions", "miniaturas", "motion"]),
     sell: pick(["contenido", "producto", "precio"]),
   },
 ];

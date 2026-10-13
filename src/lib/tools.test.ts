@@ -36,7 +36,8 @@ describe("herramientas", () => {
       expect(GRID_TOOLS.some(t => t.id === id), id).toBe(false);
       for (const c of HOME_CATEGORIES) expect(c.tools.some(t => t.id === id), `${c.id}:${id}`).toBe(false);
     }
-    expect(GRID_TOOLS.length).toBeLessThanOrEqual(22);
+    // 23 desde el 13-oct-2026: "Sube tu video" (sección Con tu cara, pedida por Jean).
+    expect(GRID_TOOLS.length).toBeLessThanOrEqual(23);
   });
   it("Order bump abre su propia pantalla, no Robot de copy", () => {
     expect(TOOL_BY_ID.bump.key).toBe("Order bump");

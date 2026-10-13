@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Users, Activity, Coins, Search } from "lucide-react";
+import { useAdminNames, useAdminPrivacy } from "@/lib/adminPrivacy";
 import { LandingAB } from "@/components/admin/LandingAB";
 import { BusinessPulse } from "@/components/admin/BusinessPulse";
 import { fmtInt } from "@/components/admin/pulseMath";
@@ -10,7 +11,7 @@ import {
 } from "recharts";
 
 interface Kpi { totalUsers: number; activeToday: number; creditsToday: number; searchesToday: number; }
-interface FeedItem { ts: string; who: string; what: string; }
+interface FeedItem { ts: string; who: string; uid: string | null; what: string; }
 
 const startOfDay = () => { const d = new Date(); d.setHours(0,0,0,0); return d.toISOString(); };
 const hoursAgo = (h: number) => new Date(Date.now() - h*3600_000).toISOString();
@@ -70,13 +71,13 @@ export default function AdminOverview() {
     // Live feed (merge events)
     const events: FeedItem[] = [];
     (history.data || []).slice(0, 15).forEach(r => events.push({
-      ts: r.visited_at, who: r.user_id?.slice(0, 8) || "?", what: `visitó ad "${r.title || r.page_name || "—"}"`,
+      ts: r.visited_at, who: r.user_id?.slice(0, 8) || "?", uid: r.user_id ?? null, what: `visitó ad "${r.title || r.page_name || "—"}"`,
     }));
     (credits.data || []).slice(0, 15).forEach(r => events.push({
-      ts: r.created_at, who: r.user_id?.slice(0, 8) || "?", what: `gastó ${r.cost} créditos en ${r.label || r.action}`,
+      ts: r.created_at, who: r.user_id?.slice(0, 8) || "?", uid: r.user_id ?? null, what: `gastó ${r.cost} créditos en ${r.label || r.action}`,
     }));
     (landings.data || []).slice(0, 15).forEach(r => events.push({
-      ts: r.created_at, who: r.user_id?.slice(0, 8) || "?", what: `analizó ${r.brand_name || r.url} en el Oráculo`,
+      ts: r.created_at, who: r.user_id?.slice(0, 8) || "?", uid: r.user_id ?? null, what: `analizó ${r.brand_name || r.url} en el Oráculo`,
     }));
     events.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
     setFeed(events.slice(0, 20));
@@ -130,6 +131,12 @@ export default function AdminOverview() {
 
     setLoading(false);
   }
+
+  // Nombres y correos en vez de ids (12-oct-2026); el selector de arriba los tapa si Jean lo pide.
+  const { who } = useAdminPrivacy();
+  const personOf = useAdminNames([...feed.map(e => e.uid ?? ""), ...topUsers.map(u => u.user_id)]);
+  const label = (id: string | null, fallback: string) => { const p = personOf(id); return p ? who(p.name) : fallback; };
+  const sub = (id: string | null) => { const p = personOf(id); return p ? who(p.email) : ""; };
 
   useEffect(() => {
     loadAll();
@@ -188,7 +195,7 @@ export default function AdminOverview() {
           <ul className="space-y-2 max-h-[320px] overflow-auto">
             {feed.map((e, i) => (
               <li key={i} className="flex items-center gap-3 text-[13px] py-1.5 border-b border-border/40 last:border-0">
-                <span className="font-mono text-[11px] text-muted-foreground w-20 shrink-0">{e.who}…</span>
+                <span className="text-[12px] text-foreground w-40 shrink-0 truncate" title={sub(e.uid)}>{label(e.uid, `${e.who}…`)}</span>
                 <span className="flex-1 truncate">{e.what}</span>
                 <span className="text-[11px] text-muted-foreground shrink-0">{relTime(e.ts)}</span>
               </li>
@@ -260,7 +267,10 @@ export default function AdminOverview() {
                 <li key={u.user_id} className="flex items-center justify-between text-[13px]">
                   <span className="flex items-center gap-3">
                     <span className="text-muted-foreground w-5">{i+1}</span>
-                    <span className="font-mono text-[12px]">{u.user_id.slice(0,12)}…</span>
+                    <span className="min-w-0">
+                      <span className="block truncate">{label(u.user_id, `${u.user_id.slice(0, 12)}…`)}</span>
+                      <span className="block text-[11px] text-muted-foreground truncate">{sub(u.user_id)}</span>
+                    </span>
                   </span>
                   <span className="text-primary font-medium">{u.total}</span>
                 </li>

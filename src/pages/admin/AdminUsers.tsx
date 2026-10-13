@@ -4,6 +4,8 @@ import { Search, Shield, Coins, Ban, Trash2, RefreshCw, X, Mail, Activity, Plus,
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { fnHeaders } from "@/lib/fnAuth";
+import { AdminVideoList } from "@/components/admin/AdminVideoList";
+import { useAdminPrivacy } from "@/lib/adminPrivacy";
 
 type Role = "admin" | "moderator" | "user";
 
@@ -185,6 +187,7 @@ function isOnline(d?: string | null) {
 }
 
 export default function AdminUsers() {
+  const { who } = useAdminPrivacy();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -316,9 +319,9 @@ export default function AdminUsers() {
                     <div className="flex items-center gap-2.5">
                       <Circle className={`w-2 h-2 ${online ? "fill-emerald-500 text-emerald-500" : "fill-muted-foreground/30 text-muted-foreground/30"}`} />
                       <div className="min-w-0">
-                        <div className="truncate font-medium">{u.profile?.display_name || u.email?.split("@")[0]}</div>
+                        <div className="truncate font-medium">{who(u.profile?.display_name || u.email?.split("@")[0])}</div>
                         <div className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
-                          <Mail className="w-2.5 h-2.5" /> {u.email}
+                          <Mail className="w-2.5 h-2.5" /> {who(u.email)}
                         </div>
                       </div>
                     </div>
@@ -559,6 +562,12 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: string; onClo
                   ><Trash2 className="w-3 h-3" /> Eliminar</button>
                 </div>
               </div>
+            </section>
+
+            {/* Videos que creó o pidió (12-oct-2026) */}
+            <section className="space-y-3">
+              <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Videos · últimos 90 días</h3>
+              <AdminVideoList userId={userId} days={90} showUser={false} />
             </section>
 
             {/* Timeline */}

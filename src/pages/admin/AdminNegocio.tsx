@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Copy, Crown, Film, Hourglass, RefreshCw, TrendingUp, Users } from "lucide-react";
 import { toast } from "sonner";
+import { AdminVideoList } from "@/components/admin/AdminVideoList";
+import { useAdminPrivacy } from "@/lib/adminPrivacy";
 import { supabase } from "@/integrations/supabase/client";
 import { STAGE_NAMES } from "@/lib/journey";
 
@@ -51,6 +53,7 @@ const copy = (list: string[], what: string) => {
 };
 
 export default function AdminNegocio() {
+  const { who } = useAdminPrivacy();
   const [days, setDays] = useState(30);
   const [r, setR] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,7 +114,7 @@ export default function AdminNegocio() {
                 <div className="divide-y divide-border/60">
                   {r.trials_ending.map(t => (
                     <div key={t.email} className="py-2 flex items-center justify-between gap-3 text-[14px]">
-                      <a href={`mailto:${t.email}`} className="text-foreground hover:text-primary truncate">{t.email}</a>
+                      <a href={`mailto:${t.email}`} className="text-foreground hover:text-primary truncate">{who(t.email)}</a>
                       <span className="text-muted-foreground shrink-0">{t.plan.toUpperCase()} · {t.hours} h</span>
                     </div>
                   ))}
@@ -143,7 +146,7 @@ export default function AdminNegocio() {
               <div className="divide-y divide-border/60">
                 {r.comunidad.map(c => (
                   <div key={c.email + c.since} className="py-2 grid grid-cols-[minmax(0,1fr)_110px_120px] gap-3 text-[14px] items-center">
-                    <span className="truncate text-foreground">{c.email}</span>
+                    <span className="truncate text-foreground">{who(c.email)}</span>
                     <span className={`text-[12px] font-semibold ${["active", "trialing"].includes(c.status) ? "text-success" : "text-destructive"}`}>{STATUS_ES[c.status] ?? c.status}</span>
                     <span className="text-[12px] text-muted-foreground">desde {fmtDate(c.since)}</span>
                   </div>
@@ -151,16 +154,21 @@ export default function AdminNegocio() {
               </div>
             ) : <p className="text-sm text-muted-foreground">Todavía nadie pagó la Comunidad por Whop.</p>}
             <p className="text-[12px] text-muted-foreground">
-              Aprueba en Skool a los activos. {comGone.length ? <b className="text-destructive">Saca de Skool a: {comGone.map(c => c.email).join(", ")}.</b> : "Nadie para sacar."}
+              Aprueba en Skool a los activos. {comGone.length ? <b className="text-destructive">Saca de Skool a: {comGone.map(c => who(c.email)).join(", ")}.</b> : "Nadie para sacar."}
             </p>
           </Section>
 
           <Section icon={Film} title="Videos y personajes"
             action={<button onClick={() => copy(r.video.avisame, "correos")} className="text-[12px] font-semibold text-primary inline-flex items-center gap-1"><Copy className="w-3.5 h-3.5" />Copiar "Avísame"</button>}>
             <div className="grid sm:grid-cols-3 gap-3 text-[14px]">
-              <div><p className="text-[12px] text-muted-foreground">Piden aviso de videos</p><p className="text-foreground">{r.video.avisame.length ? r.video.avisame.join(", ") : "Nadie todavía"}</p></div>
+              <div><p className="text-[12px] text-muted-foreground">Piden aviso de videos</p><p className="text-foreground">{r.video.avisame.length ? r.video.avisame.map(who).join(", ") : "Nadie todavía"}</p></div>
               <div><p className="text-[12px] text-muted-foreground">Videos del período</p><p className="text-foreground">{Object.keys(r.video.jobs).length ? Object.entries(r.video.jobs).map(([k, v]) => `${v} ${k === "done" ? "listos" : k === "failed" ? "fallidos" : "en proceso"}`).join(" · ") : "Ninguno"}</p></div>
-              <div><p className="text-[12px] text-muted-foreground">Reservas de créditos de video</p><p className="text-foreground">{r.video.reservations.length ? r.video.reservations.map(x => `${x.email} (${fmtUsd(Number(x.usd))})`).join(", ") : "Ninguna"}</p></div>
+              <div><p className="text-[12px] text-muted-foreground">Reservas de créditos de video</p><p className="text-foreground">{r.video.reservations.length ? r.video.reservations.map(x => `${who(x.email)} (${fmtUsd(Number(x.usd))})`).join(", ") : "Ninguna"}</p></div>
+            </div>
+            {/* Quién creó cada video y qué pidió (12-oct-2026). */}
+            <div className="pt-1 space-y-2">
+              <p className="text-[12px] text-muted-foreground">Videos creados en el período: quién, qué pidió y el video</p>
+              <AdminVideoList days={days} />
             </div>
           </Section>
         </>

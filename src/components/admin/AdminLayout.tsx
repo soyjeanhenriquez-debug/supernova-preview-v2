@@ -5,6 +5,23 @@ import {
   ScrollText, Wifi, HeartPulse, Store, TrendingUp, GraduationCap, Gift, Lightbulb, Target } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useAuth } from "@/contexts/AuthContext";
+import { AdminPrivacyProvider, useAdminPrivacy } from "@/lib/adminPrivacy";
+import { Eye, EyeOff } from "lucide-react";
+
+/** "Mostrar / Ocultar" nombres y correos en todo el admin (por defecto: mostrar). */
+function PeopleToggle() {
+  const { hide, setHide } = useAdminPrivacy();
+  return (
+    <div className="inline-flex rounded-xl border border-border p-1 gap-1 bg-card" role="group" aria-label="Nombres y correos">
+      {([[false, "Mostrar", Eye], [true, "Ocultar", EyeOff]] as const).map(([v, label, Icon]) => (
+        <button key={label} onClick={() => setHide(v)} aria-pressed={hide === v}
+          className={`h-7 px-3 rounded-lg text-[12px] font-medium inline-flex items-center gap-1.5 ${hide === v ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+          <Icon className="w-3.5 h-3.5" /> {label}
+        </button>
+      ))}
+    </div>
+  );
+}
 import { HAS_PRUEBA_9_DE_10, PRUEBA_9_DE_10_PATH } from "@/components/admin/pulseMath";
 
 // En español (manual: todo en español para Jean). Primero lo del negocio; después lo técnico.
@@ -57,6 +74,7 @@ export function AdminLayout() {
   }
 
   return (
+    <AdminPrivacyProvider>
     <div className="flex flex-col md:flex-row min-h-screen bg-background">
       {/* Celular: menú en una fila que se desliza (la barra lateral de 240 px no cabe). */}
       <nav className="md:hidden sticky top-0 z-20 flex gap-1 overflow-x-auto px-3 py-2 border-b border-border bg-sidebar">
@@ -108,8 +126,13 @@ export function AdminLayout() {
       </aside>
 
       <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto min-w-0">
+        <div className="flex items-center justify-end gap-2 mb-4">
+          <span className="text-[11px] text-muted-foreground">Nombres y correos</span>
+          <PeopleToggle />
+        </div>
         <Outlet />
       </main>
     </div>
+    </AdminPrivacyProvider>
   );
 }

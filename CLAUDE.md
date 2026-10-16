@@ -77,6 +77,11 @@ su moneda.
 - El cobro es **Whop**. Stripe está APAGADO (`STRIPE_ENABLED`); no encenderlo sin arreglar antes
   sus fallos anotados en `stripe-*` ni sin el OK de Jean.
 - Créditos mensuales no se acumulan por encima de 3.000; los comprados sí se acumulan y no caducan.
+- **Dos tipos de créditos (norma de Jean, 16-oct-2026).** Los créditos de SUPERNOVA son lo que se le
+  cobra al usuario. Los créditos de los proveedores (Apify, Higgsfield, APIMart, Gemini, fal y demás) son
+  nuestro gasto, y **se optimizan primero**: caché, no repetir llamadas, pedir solo lo que se usa, modelo o
+  plan más barato, lotes y topes de gasto (`provider_caps`). Solo después se toca el precio en créditos
+  SUPERNOVA, que igual decide Jean y respeta costo × 5.
 
 ### Seguridad
 - **`verify_jwt` NO protege** (la llave anon del bundle es un JWT válido). Toda edge function

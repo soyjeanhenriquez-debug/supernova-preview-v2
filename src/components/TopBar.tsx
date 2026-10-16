@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CreditRing } from "@/components/CreditRing";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ProductSwitcher } from "@/components/ProductSwitcher";
+import { useVitrina } from "@/contexts/VitrinaContext";
 import { useFeatureAccess, MULTI_LANGUAGE_FOR_CLIENTS } from "@/lib/features";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -13,6 +15,8 @@ interface TopBarProps {
   activePage: string;
   onOpenMobileNav?: () => void;
   onSearch?: () => void;
+  /** Para el selector de producto del teléfono (el menú lateral está escondido). */
+  onNavigate?: (page: string) => void;
 }
 
 // Páginas del recorrido que no tienen texto traducido en el menú.
@@ -24,8 +28,9 @@ const EXTRA_TITLES: Record<string, string> = {
   "Order bump": "Order bump", "Recompensas": "Gana con tu contenido",
 };
 
-export function TopBar({ activePage, onOpenMobileNav, onSearch }: TopBarProps) {
+export function TopBar({ activePage, onOpenMobileNav, onSearch, onNavigate }: TopBarProps) {
   const { t, i18n } = useTranslation();
+  const { locked } = useVitrina();
   // Inglés y portugués en pausa para clientes (src/lib/features.ts): la app va en español.
   const { isAdmin, loading: accessLoading } = useFeatureAccess();
   const multiLang = isAdmin || MULTI_LANGUAGE_FOR_CLIENTS;
@@ -79,9 +84,11 @@ export function TopBar({ activePage, onOpenMobileNav, onSearch }: TopBarProps) {
           <h1 className="font-display font-semibold text-[15px] md:text-[16px] text-foreground tracking-[-0.01em] truncate">
             {title}
           </h1>
-          <p className="text-[11px] text-muted-foreground/80 tracking-tight capitalize hidden sm:block">
+          <p className={`text-[11px] text-muted-foreground/80 tracking-tight capitalize hidden ${onNavigate && !locked ? "lg:block" : "sm:block"}`}>
             {dateStr}
           </p>
+          {/* En el teléfono el menú está escondido: el producto activo queda siempre a la vista. */}
+          {onNavigate && !locked && <div className="lg:hidden"><ProductSwitcher bar onNavigate={onNavigate} /></div>}
         </div>
       </div>
 

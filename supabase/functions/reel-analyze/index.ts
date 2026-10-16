@@ -1,27 +1,34 @@
-// SUPERNOVA — "Analiza un Reel" (13-oct-2026, Jean: 15 créditos, sección "Con tu cara").
+// SUPERNOVA — "Analiza un Reel" v2 (16-oct-2026, Fase 1 de la organización; decisiones de Jean).
 //
-// { url, brief?, handle? } → usuario real + cobro ANTES de gastar (reel_analyze en credit_prices) →
-// Apify trae el Reel público de Instagram (video, texto, vistas) → Gemini MIRA y ESCUCHA el video y
-// devuelve: transcripción, el gancho de los primeros 3 s, la estructura por segundos, por qué
-// funciona (o qué le falló), y TU VERSIÓN modelada para grabarla con tu cara.
-// Si algo falla después de cobrar, se devuelve el crédito.
-//
-// "Roba como un artista" (manual): se toma estructura, ritmo, gancho y mecanismo; nunca se copia y
-// pega en el mismo idioma, ni su cara, su nombre, su marca o sus números. El video solo se usa para
-// el análisis: no se guarda. La llave de Apify va en la cabecera (nunca en la URL).
-//
-// v2, bloque 1 (16-oct-2026): el Reel sale de la caché global (reel_extractions, 7 días) y solo se
-// llama a Apify si no está; cada análisis queda en reel_analyses con su costo real y si fue caché.
+// Dos pasos, para que cada llamada quepa en el tiempo de una función (150 s) y para pagar el video una
+// sola vez:
+//  1) { step: "base", url } → usuario real + cobro ANTES de gastar (reel_analyze = 25 créditos) →
+//     si el Reel ya tiene análisis base (lo hizo cualquier cuenta), se reusa sin Apify ni IA; si no,
+//     se lee (caché global o Apify), Gemini MIRA y ESCUCHA el video y se guarda el análisis base (capa A).
+//     Devuelve "Por qué funciona" y deja una fila en reel_analyses con stage = 'base'.
+//  2) { step: "version", analysis_id, nivel, nicho?, palabra_clave?, oferta?, brief? } → escribe tu
+//     versión sin video (capa B) según el nivel: Espejo / Adaptación / Inspiración. La primera versión
+//     de cada análisis va incluida (se reclama con un UPDATE atómico); cada versión siguiente cobra
+//     reel_level = 5 créditos y queda en su propia fila (historial).
+// Si algo falla después de cobrar, se devuelve el crédito. El video solo se usa para el análisis: no
+// se guarda. "Roba como un artista": se modela estructura, ritmo, gancho y mecanismo; nunca su cara,
+// su nombre, su marca ni sus números.
 import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 import { HONESTY_RULES } from "../_shared/honesty.ts";
-import { admin, billingHeaders, caller, charge, json, refund } from "../_shared/media.ts";
-import { b64, geminiMedia, logMediaCost } from "../_shared/geminiMedia.ts";
-import { getReel, REEL_RE, reelUrl } from "../_shared/reelSource.ts";
+import { admin, billingHeaders, caller, charge, type Caller, type Gate, json, refund } from "../_shared/media.ts";
+import { b64, geminiMedia, logMediaCost, MEDIA_MODEL } from "../_shared/geminiMedia.ts";
+import { getReel, REEL_RE, type ReelExtraction } from "../_shared/reelSource.ts";
+import { asNivel, cleanBase, cleanVersion, palabraClave, porQue, promptA, promptB } from "../_shared/reelLayers.ts";
 
 const FN = "reel-analyze";
 const MAX_VIDEO_BYTES = 18 * 1024 * 1024; // cabe en una sola solicitud a Gemini
+const WALL_MS = 140_000; // la función tiene 150 s: margen para responder y devolver el crédito
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const clean = (s: unknown, n: number) => (typeof s === "string" ? s : "").replace(/\s+/g, " ").trim().slice(0, n);
+const isTimeout = (e: unknown) => e instanceof Error && e.name === "TimeoutError";
+const left = (t0: number) => Math.max(30_000, WALL_MS - (Date.now() - t0));
+const SLOW_AI = "La IA tardó demasiado con ese video. Inténtalo de nuevo; si vuelve a pasar, prueba con un Reel más corto. No se te cobró.";
 
 /** Baja el video (solo para el análisis; no se guarda). null si no bajó o es muy largo. */
 async function download(videoUrl: string): Promise<Uint8Array | null> {
@@ -34,114 +41,180 @@ async function download(videoUrl: string): Promise<Uint8Array | null> {
   } catch { return null; }
 }
 
-function prompt(o: { brief: Record<string, string>; handle: string; caption: string; owner: string; views: number | null; likes: number | null; comments: number | null; seconds: number | null }): string {
-  return [
-    `Te paso un Reel de Instagram${o.owner ? ` de @${o.owner}` : ""}${o.seconds ? ` (${Math.round(o.seconds)} s)` : ""}${o.views != null ? ` con ${o.views} reproducciones` : ""}${o.likes != null ? `, ${o.likes} me gusta y ${o.comments ?? 0} comentarios` : ""}. Míralo y escúchalo completo.`,
-    o.caption ? `Texto de la publicación (solo para entender; no lo copies): """${o.caption}"""` : "",
-    "",
-    "Eres editor de contenido de marca personal en Latinoamérica. Analiza como si lo fueras a grabar mañana.",
-    "1) TRANSCRIPCIÓN: lo que se dice, tal cual, en su idioma original, en bloques con su segundo de inicio.",
-    "2) GANCHO (0–3 s): qué se ve, qué se dice y qué texto hay en pantalla; por qué detiene el dedo (o por qué no).",
-    "3) ESTRUCTURA: el Reel en tramos por segundos (gancho, problema, giro, prueba, cierre…), qué pasa en cada uno y para qué sirve.",
-    "4) POR QUÉ FUNCIONA: 3 razones concretas (ritmo, cortes, texto en pantalla, emoción, promesa, formato). Si las cifras son bajas, di con honestidad qué le falló.",
-    "5) QUÉ MEJORAR: 3 cambios concretos que harían tu versión mejor.",
-    "6) TU VERSIÓN (para grabar con tu cara): modela la MISMA estructura, el mismo ritmo y el mismo mecanismo, en español latino natural, de tú. Si el original está en otro idioma, transcréalo fiel (misma idea y mismo remate). Si ya está en español, NO copies sus frases: misma receta con palabras tuyas. 3 ganchos para elegir (máximo 12 palabras cada uno). Guion por tramos con segundos, lo que dices, lo que se ve (plano, gesto, lugar) y el texto en pantalla. Cierre con UNA sola llamada a la acción. Texto para la publicación (2–4 líneas, sin hashtags de relleno) y 5 hashtags del tema.",
-    "Nunca uses su nombre, su cara, su marca ni sus números como si fueran tuyos. No inventes resultados ni testimonios.",
-    o.brief.product ? `Si encaja de forma natural, el cierre puede llevar a este producto (si no encaja, deja el tema del original): ${clean(o.brief.product, 200)}${o.brief.who ? `, para ${clean(o.brief.who, 160)}` : ""}.` : "Sin producto: el cierre invita a seguir, guardar o comentar una palabra.",
-    o.handle ? `Tu cuenta: @${o.handle}.` : "",
-    "",
-    "RESPONDE SOLO con JSON válido con esta forma:",
-    `{"idioma":"es","duracion_s":0,"resumen":"","transcripcion":[{"s":0,"texto":""}],"gancho":{"se_ve":"","se_dice":"","texto_pantalla":"","por_que":""},"estructura":[{"desde":0,"hasta":3,"tramo":"gancho","que_pasa":"","para_que":""}],"por_que_funciona":["","",""],"mejorar":["","",""],"tu_version":{"ganchos":["","",""],"guion":[{"desde":0,"hasta":3,"dices":"","se_ve":"","texto_pantalla":""}],"cierre":"","pie":"","hashtags":["","","","",""]}}`,
-  ].filter(Boolean).join("\n");
+const sourceOf = (r: ReelExtraction) => ({
+  url: r.url, shortcode: r.shortcode, owner: r.owner ?? "", views: r.views, likes: r.likes,
+  comments: r.comments, cover: r.cover_url, duracion_s: r.duration_s,
+});
+
+// ---------------- Paso 1: análisis base ----------------
+async function stepBase(who: Caller, body: Record<string, unknown>, apify: string, t0: number): Promise<Response> {
+  const m = REEL_RE.exec(String(body.url ?? "").trim());
+  if (!m) return json({ error: "Pega el enlace de un Reel de Instagram (instagram.com/reel/…)." }, 400);
+  const shortcode = m[1];
+  const db = admin();
+
+  const g = await charge(FN, who.id, "reel_analyze", `Analizar Reel · ${shortcode}`, 20, 80);
+  if (g instanceof Response) return g;
+  try {
+    // ¿Ya hay análisis base de este Reel? Lo hizo cualquier cuenta: no se vuelve a leer ni a mirar.
+    const { data: cached } = await db.from("reel_extractions").select("*").eq("shortcode", shortcode).maybeSingle();
+    let row = cached as ReelExtraction | null;
+    let base = row?.base ? cleanBase(row.base) : null;
+    let apifyUsd = 0, llmA = 0, cacheHit = !!base;
+
+    if (!base) {
+      let got = await getReel(FN, shortcode, apify);
+      if (!got.ok) {
+        const r = got.reason;
+        await refund(g.txId, r === "budget" ? "tope de apify del mes" : r === "slow" ? "apify tardó demasiado" : r === "down" ? "apify no disponible" : "apify sin resultado");
+        return r === "budget" ? json({ error: "El lector de Instagram llegó a su límite de este mes. Los Reels que ya se analizaron siguen disponibles. No se te cobró." }, 503)
+          : r === "slow" ? json({ error: "Instagram tardó demasiado en entregarnos ese Reel. Vuelve a intentarlo en unos minutos o prueba con otro. No se te cobró." }, 504)
+          : r === "down" ? json({ error: "El lector de Instagram no está disponible en este momento. No es tu Reel: inténtalo más tarde. No se te cobró." }, 503)
+          : json({ error: "No pudimos abrir ese Reel. Revisa que la cuenta sea pública. No se te cobró." }, 502);
+      }
+      if (!got.row.is_video || !got.row.video_url) {
+        await refund(g.txId, "no es video");
+        return json({ error: "Esa publicación no es un video. Para carruseles usa \"Modelar uno que ya funciona\" en Carrusel. No se te cobró." }, 422);
+      }
+      // Si venía de la caché y el enlace de Instagram ya venció, se lee de nuevo una vez.
+      let bytes = await download(got.row.video_url);
+      if (!bytes && got.cacheHit) {
+        const again = await getReel(FN, shortcode, apify, true);
+        if (again.ok && again.row.video_url) { got = again; bytes = await download(again.row.video_url); }
+      }
+      if (!bytes) {
+        await refund(g.txId, "video no bajó o es muy largo");
+        return json({ error: "No pudimos leer ese video (puede ser muy largo). Prueba con un Reel de menos de 90 segundos. No se te cobró." }, 502);
+      }
+      row = got.row;
+      apifyUsd = got.apifyUsd;
+      cacheHit = got.cacheHit;
+
+      // Capa A: la IA mira y escucha el video. Sin datos del usuario: sirve para todas las cuentas.
+      const { out, cost, usage } = await geminiMedia([
+        { inline_data: { mime_type: "video/mp4", data: b64(bytes) } },
+        { text: promptA({ caption: row.caption ?? "", owner: row.owner ?? "", views: row.views, likes: row.likes, comments: row.comments, seconds: row.duration_s }) },
+      ], 12_000, left(t0));
+      await logMediaCost(who.id, FN, cost, usage, apifyUsd); // + lector de Instagram (Apify), 0 si fue caché
+      llmA = cost;
+      base = cleanBase(out);
+      if (!base) {
+        await refund(g.txId, "json inválido");
+        return json({ error: "La IA no pudo leer bien ese Reel. No se te cobró: inténtalo de nuevo." }, 502);
+      }
+      const { error: baseErr } = await db.from("reel_extractions").update({
+        base, base_model: MEDIA_MODEL, llm_a_usd: cost, analyzed_at: new Date().toISOString(),
+      }).eq("shortcode", shortcode);
+      if (baseErr) console.error(`${FN}: guardar base`, baseErr.message);
+    }
+
+    const view = { source: sourceOf(row!), por_que_funciona: porQue(base) };
+    const { data: ins, error } = await db.from("reel_analyses").insert({
+      user_id: who.id, shortcode, nivel: asNivel(body.nivel), source: "app", result: view, stage: "base",
+      cache_hit: cacheHit, apify_usd: apifyUsd, llm_a_usd: llmA, llm_b_usd: 0, credits: g.charged,
+    }).select("id").single();
+    if (error || !ins) {
+      console.error(`${FN}: reel_analyses`, error?.message);
+      await refund(g.txId, "no se pudo guardar");
+      return json({ error: "No se pudo guardar el análisis. No se te cobró: inténtalo de nuevo." }, 500);
+    }
+    return json({ analysis_id: ins.id, ...view, billing: { charged: g.charged, balance: g.balance } }, 200, billingHeaders(g));
+  } catch (e) {
+    await refund(g.txId, isTimeout(e) ? "la ia tardó demasiado" : "excepción");
+    console.error(`${FN}: base`, e instanceof Error ? e.message : e);
+    return isTimeout(e) ? json({ error: SLOW_AI }, 504) : json({ error: "No se pudo analizar el Reel. No se te cobró." }, 500);
+  }
+}
+
+// ---------------- Paso 2: tu versión ----------------
+async function stepVersion(who: Caller, body: Record<string, unknown>, t0: number): Promise<Response> {
+  const id = String(body.analysis_id ?? "");
+  if (!UUID.test(id)) return json({ error: "Falta el análisis del Reel." }, 400);
+  const nivel = asNivel(body.nivel);
+  const b = body.brief && typeof body.brief === "object" ? body.brief as Record<string, unknown> : {};
+  const opciones = { nicho: clean(body.nicho, 120), oferta: clean(body.oferta, 200), palabra_clave: palabraClave(body.palabra_clave) };
+  const handle = clean(body.handle, 30).replace(/[^A-Za-z0-9._]/g, "");
+  const db = admin();
+
+  const { data: a } = await db.from("reel_analyses").select("id, shortcode, result").eq("id", id).eq("user_id", who.id).maybeSingle();
+  if (!a) return json({ error: "No encontramos ese análisis. Vuelve a analizar el Reel." }, 404);
+  const { data: ex } = await db.from("reel_extractions").select("base").eq("shortcode", a.shortcode).maybeSingle();
+  const base = cleanBase(ex?.base);
+  if (!base) return json({ error: "Ese Reel hay que analizarlo de nuevo. No se te cobró." }, 409);
+
+  // La primera versión de un análisis va incluida. Se reclama con un solo UPDATE (atómico): si dos
+  // pedidos llegan juntos, solo uno la gana. Si quedó a medias hace más de 3 min, se puede volver a reclamar.
+  const now = new Date().toISOString();
+  const stale = new Date(Date.now() - 3 * 60_000).toISOString();
+  const since = new Date(Date.now() - 2 * 3_600_000).toISOString();
+  const { data: claimed } = await db.from("reel_analyses").update({ stage: "escribiendo", updated_at: now })
+    .eq("id", id).eq("user_id", who.id).gte("created_at", since)
+    .or(`stage.eq.base,and(stage.eq.escribiendo,updated_at.lt.${stale})`).select("id");
+  const free = !!claimed?.length;
+  let g: Gate | null = null;
+  if (!free) {
+    const c = await charge(FN, who.id, "reel_level", `Otra versión del Reel · ${a.shortcode}`, 20, 80);
+    if (c instanceof Response) return c;
+    g = c;
+  }
+  const undo = async (reason: string) => {
+    if (free) await db.from("reel_analyses").update({ stage: "base", updated_at: new Date().toISOString() }).eq("id", id);
+    else await refund(g!.txId, reason);
+  };
+
+  try {
+    const brief = { product: clean(b.product, 200), who: clean(b.who, 160), nicho: opciones.nicho, oferta: opciones.oferta, palabra: opciones.palabra_clave, handle };
+    const { out, cost, usage } = await geminiMedia([{ text: promptB(base, nivel, brief) + "\n\n" + HONESTY_RULES }], 8_000, left(t0));
+    await logMediaCost(who.id, FN, cost, usage);
+    const version = cleanVersion(out, nivel, opciones.palabra_clave || base.cta.palabra, base.estructura.length);
+    if (!version) {
+      await undo("json inválido");
+      return json({ error: "La IA no pudo escribir tu versión. No se te cobró: inténtalo de nuevo." }, 502);
+    }
+    const prev = (a.result && typeof a.result === "object" ? a.result : {}) as Record<string, unknown>;
+    const view = { source: prev.source, por_que_funciona: prev.por_que_funciona ?? porQue(base), version, opciones };
+    let outId = id;
+    if (free) {
+      const { error } = await db.from("reel_analyses").update({
+        stage: "listo", nivel, palabra_clave: version.publicar.palabra_clave, result: view, llm_b_usd: cost, updated_at: new Date().toISOString(),
+      }).eq("id", id);
+      if (error) console.error(`${FN}: guardar versión`, error.message);
+    } else {
+      const { data: ins, error } = await db.from("reel_analyses").insert({
+        user_id: who.id, shortcode: a.shortcode, nivel, palabra_clave: version.publicar.palabra_clave, source: "app",
+        result: view, stage: "listo", cache_hit: true, apify_usd: 0, llm_a_usd: 0, llm_b_usd: cost, credits: g!.charged,
+      }).select("id").single();
+      if (error || !ins) console.error(`${FN}: guardar versión`, error?.message);
+      else outId = ins.id;
+    }
+    const billing = { charged: g?.charged ?? 0, balance: g?.balance ?? null };
+    return json({ analysis_id: outId, ...view, billing }, 200, g ? billingHeaders(g) : {});
+  } catch (e) {
+    await undo(isTimeout(e) ? "la ia tardó demasiado" : "excepción");
+    console.error(`${FN}: version`, e instanceof Error ? e.message : e);
+    return isTimeout(e)
+      ? json({ error: "La IA tardó demasiado en escribir tu versión. Inténtalo de nuevo. No se te cobró." }, 504)
+      : json({ error: "No se pudo escribir tu versión. No se te cobró." }, 500);
+  }
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  let txId: string | null = null;
+  const t0 = Date.now();
   try {
     const who = await caller(req);
     if (!who) return json({ error: "Inicia sesión para usar esta función." }, 401);
     const raw = await req.text();
-    if (raw.length > 4000) return json({ error: "La solicitud es demasiado grande." }, 413);
+    if (raw.length > 6000) return json({ error: "La solicitud es demasiado grande." }, 413);
     const body = raw ? JSON.parse(raw) : {};
-    const m = REEL_RE.exec(String(body.url ?? "").trim());
-    if (!m) return json({ error: "Pega el enlace de un Reel de Instagram (instagram.com/reel/…)." }, 400);
-    const url = reelUrl(m[1]);
-    const b = body.brief && typeof body.brief === "object" ? body.brief : {};
-    const brief = { product: clean(b.product, 200), who: clean(b.who, 160) };
-    const handle = clean(body.handle, 30).replace(/[^A-Za-z0-9._]/g, "");
     const apify = Deno.env.get("APIFY_TOKEN");
-    if (!apify || !Deno.env.get("GEMINI_API_KEY")) return json({ error: "Esta función llega pronto.", pronto: true }, 503);
-
-    const g = await charge(FN, who.id, "reel_analyze", `Analizar Reel · ${m[1]}`, 10, 40);
-    if (g instanceof Response) return g;
-    txId = g.txId;
-
-    // 1) Traer el Reel: de la caché global o, si no está, de Apify.
-    let got = await getReel(FN, m[1], apify);
-    if (!got.ok && got.reason === "budget") {
-      await refund(txId, "tope de apify del mes");
-      return json({ error: "El lector de Instagram llegó a su límite de este mes. Los Reels que ya se analizaron siguen disponibles. No se te cobró." }, 503);
-    }
-    if (!got.ok && got.reason === "slow") {
-      await refund(txId, "apify tardó demasiado");
-      return json({ error: "Instagram tardó demasiado en entregarnos ese Reel. Vuelve a intentarlo en unos minutos o prueba con otro. No se te cobró." }, 504);
-    }
-    if (!got.ok && got.reason === "down") {
-      await refund(txId, "apify no disponible");
-      return json({ error: "El lector de Instagram no está disponible en este momento. No es tu Reel: inténtalo más tarde. No se te cobró." }, 503);
-    }
-    if (!got.ok) {
-      await refund(txId, "apify sin resultado");
-      return json({ error: "No pudimos abrir ese Reel. Revisa que la cuenta sea pública. No se te cobró." }, 502);
-    }
-    if (!got.row.is_video || !got.row.video_url) {
-      await refund(txId, "no es video");
-      return json({ error: "Esa publicación no es un video. Para carruseles usa \"Modelar uno que ya funciona\" en Carrusel. No se te cobró." }, 422);
-    }
-
-    // 2) Bajar el video. Si venía de la caché y el enlace de Instagram ya venció, se lee de nuevo una vez.
-    let bytes = await download(got.row.video_url);
-    if (!bytes && got.cacheHit) {
-      const again = await getReel(FN, m[1], apify, true);
-      if (again.ok && again.row.video_url) { got = again; bytes = await download(again.row.video_url); }
-    }
-    if (!bytes) {
-      await refund(txId, "video no bajó o es muy largo");
-      return json({ error: "No pudimos leer ese video (puede ser muy largo). Prueba con un Reel de menos de 90 segundos. No se te cobró." }, 502);
-    }
-    const reel = got.row;
-
-    // 3) Mirar y escuchar el video.
-    const { out, cost, usage } = await geminiMedia([
-      { inline_data: { mime_type: "video/mp4", data: b64(bytes) } },
-      { text: prompt({ brief, handle, caption: reel.caption ?? "", owner: reel.owner ?? "", views: reel.views, likes: reel.likes, comments: reel.comments, seconds: reel.duration_s }) + "\n\n" + HONESTY_RULES },
-    ], 12_000);
-    await logMediaCost(who.id, FN, cost, usage, got.apifyUsd); // + lector de Instagram (Apify), 0 si fue caché
-    if (!out || typeof out.tu_version !== "object") {
-      await refund(txId, "json inválido");
-      return json({ error: "La IA no pudo leer bien ese Reel. No se te cobró: inténtalo de nuevo." }, 502);
-    }
-
-    // 4) Anotar el análisis con su costo real (panel de costos). Si falla, el usuario igual recibe lo suyo.
-    const { error: saveErr } = await admin().from("reel_analyses").insert({
-      user_id: who.id, shortcode: reel.shortcode, nivel: "adaptacion", source: "app", result: out,
-      cache_hit: got.cacheHit, apify_usd: got.apifyUsd, llm_a_usd: cost, llm_b_usd: 0, credits: g.charged,
-    });
-    if (saveErr) console.error(`${FN}: reel_analyses`, saveErr.message);
-
-    return json({
-      ...out,
-      source: { url, owner: reel.owner ?? "", views: reel.views, likes: reel.likes, comments: reel.comments, cover: reel.cover_url },
-      billing: { charged: g.charged, balance: g.balance },
-    }, 200, billingHeaders(g));
+    if (!Deno.env.get("GEMINI_API_KEY") || (body.step === "base" && !apify)) return json({ error: "Esta función llega pronto.", pronto: true }, 503);
+    if (body.step === "base") return await stepBase(who, body, apify!, t0);
+    if (body.step === "version") return await stepVersion(who, body, t0);
+    // Una pestaña abierta con la versión anterior de la app: se avisa antes de cobrar nada.
+    return json({ error: "Recarga la página para usar el nuevo Analiza un Reel. No se te cobró." }, 400);
   } catch (e) {
-    // La IA tiene un límite de tiempo (geminiMedia): con videos largos a veces no alcanza.
-    const slow = e instanceof Error && e.name === "TimeoutError";
-    await refund(txId, slow ? "la ia tardó demasiado" : "excepción");
     console.error(`${FN}:`, e instanceof Error ? e.message : e);
-    return slow
-      ? json({ error: "La IA tardó demasiado con ese video. Inténtalo de nuevo; si vuelve a pasar, prueba con un Reel más corto. No se te cobró." }, 504)
-      : json({ error: "No se pudo analizar el Reel. No se te cobró." }, 500);
+    return json({ error: "No se pudo analizar el Reel. No se te cobró." }, 500);
   }
 });

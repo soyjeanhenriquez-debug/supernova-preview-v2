@@ -131,7 +131,7 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
     desc: "Videos largos que posicionan y venden.", keywords: "youtube guion video largo" }),
   T({ id: "paginas", key: "Generadores", generator: "landing-copy", icon: PanelsTopLeft, title: "Página de ventas", nav: "Página de ventas", cost: cr(C.gen_medium),
     desc: "Todo el texto de tu página, del titular al botón de compra.", keywords: "pagina paginas landing pagina de ventas web sitio textos titular" }),
-  T({ id: "concara", key: "Con tu cara", icon: Captions, title: "Sube tu video y analiza Reels", nav: "Sube tu video", cost: `desde ${cr(C.reel_analyze)}`,
+  T({ id: "concara", key: "Con tu cara", icon: Captions, title: "Analiza Reels y sube tu video", nav: "Con tu cara", cost: `desde ${cr(C.reel_analyze)}`,
     desc: "Subtítulos y un gancho más fuerte para tu video, y por qué funciona cualquier Reel.", keywords: "subtitulos subtítulos video reel reels analizar analiza gancho creador marca personal cara grabar tiktok instagram srt capcut" }),
   T({ id: "contenido", key: "Contenido", icon: CalendarDays, title: "Calendario de contenido",
     desc: "Ideas con demanda real para publicar sin pagar anuncios.", keywords: "contenido calendario publicaciones publicar organico posts reels instagram tiktok gratis sin anuncios" }),

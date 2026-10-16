@@ -10,7 +10,7 @@ import { productLabel } from "@/lib/productLabel";
  * Muestra la ficha (lo que usan las herramientas) y, abajo, el nombre que le puso la persona.
  * `bar` = versión chica para la barra de arriba del teléfono, donde el menú está escondido.
  */
-export function ProductSwitcher({ collapsed, onNavigate, bar }: { collapsed?: boolean; onNavigate: (page: string) => void; bar?: boolean }) {
+export function ProductSwitcher({ collapsed, onNavigate, bar, alignRight }: { collapsed?: boolean; onNavigate: (page: string) => void; bar?: boolean; alignRight?: boolean }) {
   const { products, active, activeId, setActive, createProduct, limit, activeCount, loaded } = useProducts();
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -71,12 +71,12 @@ export function ProductSwitcher({ collapsed, onNavigate, bar }: { collapsed?: bo
       )}
 
       {open && (
-        <div className="absolute z-50 left-0 mt-1 w-64 max-w-[calc(100vw-24px)] max-h-[min(70dvh,480px)] overflow-y-auto overscroll-contain rounded-xl border border-border bg-card shadow-xl p-1.5">
+        <div className={`absolute z-50 ${alignRight ? "right-0" : "left-0"} mt-1 w-64 max-w-[calc(100vw-24px)] max-h-[min(70dvh,480px)] overflow-y-auto overscroll-contain rounded-xl border border-border bg-card shadow-xl p-1.5`}>
           <p className="px-2 pt-1 pb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">Tus productos · {activeCount} de {limit}</p>
           {list.map(p => {
             const l = productLabel(p);
             return (
-              <button key={p.id} onClick={async () => { await setActive(p.id); setOpen(false); onNavigate("Dashboard"); }} title={l.full}
+              <button key={p.id} onClick={async () => { await setActive(p.id); setOpen(false); }} title={l.full}
                 className="w-full flex items-center gap-2 rounded-lg px-2 py-2 max-lg:min-h-11 text-left text-sm hover:bg-secondary/60">
                 <span className="w-4 shrink-0">{p.id === activeId && <Check className="w-4 h-4 text-primary" />}</span>
                 <span className="min-w-0">

@@ -10,7 +10,7 @@ import { invokeErrorMessage } from "@/lib/fnAuth";
 import { useBusinessProfile } from "@/lib/businessProfile";
 import { useSubRoute } from "@/lib/useSubRoute";
 import { CREDIT_COSTS, useCredits } from "@/hooks/useCredits";
-import { burnSubtitles, extractAudio, MAX_VIDEO_SECONDS, toSrt, type Subtitle, type SubStyle } from "@/lib/burnSubtitles";
+import { burnSubtitles, extractAudio, MAX_VIDEO_SECONDS, NO_IMAGE_MSG, toSrt, videoHasImage, type Subtitle, type SubStyle } from "@/lib/burnSubtitles";
 import { canRecord } from "@/lib/montage";
 import { openTool, TOOLS } from "@/lib/tools";
 
@@ -50,8 +50,8 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
     return (
       <ToolShell onNavigate={nav}
         crumbs={[{ label: "Crear" }, { label: "Con tu cara", onClick: () => go([]) }, { label: "Sube tu video" }]}
-        title="Sube tu video: subtítulos y un gancho más fuerte"
-        line="Elige el video que grabaste. La IA escucha lo que dices, te da los subtítulos y 3 ganchos."
+        title="Sube tu video y ponle subtítulos"
+        line="Elige el video que grabaste. La IA escucha lo que dices, te da los subtítulos y el texto para publicarlo."
         onBack={() => go([])}>
         <div className="max-w-3xl"><SubeTuVideo /></div>
       </ToolShell>
@@ -72,7 +72,7 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
       <div className="grid gap-3 sm:grid-cols-2">
         {([
           ["reel", Search, "Analiza un Reel", "Pega un Reel que funciona → elige Espejo, Adaptación o Inspiración → grábalo con el teleprompter.", `${CREDIT_COSTS.reel_analyze} créditos`],
-          ["video", Captions, "Sube tu video", "Ya grabaste: subtítulos con sus tiempos, 3 ganchos y el texto para publicar.", `${CREDIT_COSTS.video_subtitles} créditos`],
+          ["video", Captions, "Sube tu video", "Ya grabaste: subtítulos con sus tiempos, el texto para publicar y si tu inicio engancha.", `${CREDIT_COSTS.video_subtitles} créditos`],
         ] as const).map(([id, Icon, title, desc, cost]) => (
           <button key={id} type="button" onClick={() => go([id])}
             className="card-surface group rounded-2xl p-5 text-left hover:border-primary/50 transition-colors">
@@ -117,6 +117,8 @@ function SubeTuVideo() {
   const [res, setRes] = useState<SubsResult | null>(null);
   const [style, setStyle] = useState<SubStyle>("resaltado");
   const [progress, setProgress] = useState(0);
+  // null = todavía revisando; false = el navegador no ve la imagen (solo audio).
+  const [hasImage, setHasImage] = useState<boolean | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cost = CREDIT_COSTS.video_subtitles;
 
@@ -126,7 +128,8 @@ function SubeTuVideo() {
     if (!f) return;
     if (!f.type.startsWith("video/")) { toast.error("Elige un video (MP4 o MOV)."); return; }
     if (preview) URL.revokeObjectURL(preview);
-    setFile(f); setPreview(URL.createObjectURL(f)); setRes(null);
+    setFile(f); setPreview(URL.createObjectURL(f)); setRes(null); setHasImage(null);
+    void videoHasImage(f).then(setHasImage);
   };
 
   const run = async () => {
@@ -142,7 +145,7 @@ function SubeTuVideo() {
       if (data.billing) applyServerCharge("video_subtitles", data.billing, "Subtítulos y gancho");
       setRes(data as SubsResult);
       if (!data.subtitulos.length) toast("No escuchamos voz en ese video", { description: data.nota || "Prueba con un video donde hables." });
-      else toast.success("Listo: subtítulos y ganchos", { description: "Revisa el texto, elige el estilo y descarga tu video." });
+      else toast.success("Listo: tus subtítulos", { description: "Revisa el texto, elige el estilo y descarga tu video." });
     } catch (e) {
       toast.error(e instanceof Error && e.message ? e.message : "No se pudo procesar el video.");
     } finally { setBusy(""); }
@@ -174,37 +177,22 @@ function SubeTuVideo() {
           </label>
           <div className="space-y-3 text-sm text-muted-foreground">
             <p className="text-foreground font-semibold">1. Elige el video que grabaste con tu celular.</p>
-            <p>2. La IA escucha lo que dices y te da los subtítulos con sus tiempos, 3 ganchos para los primeros 3 segundos y el texto para publicarlo.</p>
+            <p>2. La IA escucha lo que dices y te da los subtítulos con sus tiempos y el texto para publicarlo.</p>
             <p>3. Revisa el texto, elige el estilo y descarga tu video con los subtítulos puestos (gratis, se hace en tu navegador).</p>
             <button type="button" onClick={run} disabled={!file || !!busy}
               className="btn-primary-nova inline-flex min-h-[44px] items-center gap-2 rounded-lg px-4 text-sm font-semibold disabled:opacity-50">
               {busy === "audio" ? <><Loader2 className="w-4 h-4 animate-spin" /> Leyendo el audio…</>
                 : busy === "ia" ? <><Loader2 className="w-4 h-4 animate-spin" /> Escuchando tu video…</>
-                : <><Captions className="w-4 h-4" /> Hacer subtítulos y ganchos · {cost} créditos</>}
+                : <><Captions className="w-4 h-4" /> Hacer mis subtítulos · {cost} créditos</>}
             </button>
             <p className="text-[12px]">Tu video no se sube a ningún lado: solo mandamos el audio. Si falla, no se cobra.</p>
+            {hasImage === false && <p role="alert" className="rounded-lg border border-primary/40 bg-primary/10 p-3 text-[12px] text-foreground">{NO_IMAGE_MSG}</p>}
           </div>
         </div>
       </div>
 
       {res && res.subtitulos.length > 0 && (
         <>
-          {res.gancho && (
-            <div className="card-surface rounded-2xl p-5 space-y-3">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">Tus primeros 3 segundos</p>
-              <p className="text-sm text-foreground">{res.gancho.detiene ? "Tu inicio ya engancha." : "Tu inicio se puede mejorar."} <span className="text-muted-foreground">{res.gancho.por_que}</span></p>
-              <ul className="space-y-2">
-                {(res.gancho.propuestas ?? []).filter(Boolean).map(g => (
-                  <li key={g} className="flex items-start justify-between gap-3 rounded-lg border border-border p-3 text-sm text-foreground">
-                    <span>«{g}»</span>
-                    <button type="button" onClick={() => copy(g)} aria-label="Copiar gancho" className="shrink-0 text-muted-foreground hover:text-foreground"><Copy className="w-4 h-4" /></button>
-                  </li>
-                ))}
-              </ul>
-              <p className="text-[12px] text-muted-foreground">Dilo al inicio o ponlo como texto en pantalla en los primeros 3 segundos.</p>
-            </div>
-          )}
-
           <div className="card-surface rounded-2xl p-5 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs uppercase tracking-wider text-muted-foreground">Subtítulos (toca para corregir)</p>
@@ -233,7 +221,9 @@ function SubeTuVideo() {
               ))}
             </div>
             <canvas ref={canvasRef} className={`w-full max-w-[240px] rounded-xl border border-border ${busy === "grabando" ? "block" : "hidden"}`} />
-            {canRecord() ? (
+            {hasImage === false ? (
+              <p className="text-[13px] text-muted-foreground">{NO_IMAGE_MSG}</p>
+            ) : canRecord() ? (
               <button type="button" onClick={burn} disabled={!!busy}
                 className="btn-primary-nova inline-flex min-h-[44px] items-center gap-2 rounded-lg px-4 text-sm font-semibold disabled:opacity-50">
                 {busy === "grabando" ? <><Loader2 className="w-4 h-4 animate-spin" /> Poniendo subtítulos… {progress} %</> : <><Film className="w-4 h-4" /> Descargar mi video con subtítulos · gratis</>}
@@ -252,6 +242,27 @@ function SubeTuVideo() {
               <button type="button" onClick={() => copy(`${res.pie ?? ""}\n\n${(res.hashtags ?? []).map(h => (h.startsWith("#") ? h : `#${h}`)).join(" ")}`)}
                 className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-border px-3 text-[12px] text-foreground hover:bg-secondary/60"><Copy className="w-3.5 h-3.5" /> Copiar texto</button>
             </div>
+          )}
+          {/* Los ganchos van al final y plegados: sirven si vas a regrabar el inicio, no al descargar. */}
+          {res.gancho && (
+            <details className="card-surface group rounded-2xl p-5">
+              <summary className="cursor-pointer list-none text-sm text-foreground">
+                <span className="font-semibold">¿Vas a regrabar el inicio?</span>{" "}
+                <span className="text-muted-foreground">{res.gancho.detiene ? "Tu inicio ya engancha; si quieres, aquí tienes 3 ganchos más." : "Tu inicio se puede mejorar: mira 3 ganchos."}</span>
+              </summary>
+              <div className="mt-3 space-y-3">
+                {res.gancho.por_que && <p className="text-[13px] text-muted-foreground">{res.gancho.por_que}</p>}
+                <ul className="space-y-2">
+                  {(res.gancho.propuestas ?? []).filter(Boolean).map(g => (
+                    <li key={g} className="flex items-start justify-between gap-3 rounded-lg border border-border p-3 text-sm text-foreground">
+                      <span>«{g}»</span>
+                      <button type="button" onClick={() => copy(g)} aria-label="Copiar gancho" className="shrink-0 text-muted-foreground hover:text-foreground"><Copy className="w-4 h-4" /></button>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-[12px] text-muted-foreground">Dilo al inicio o ponlo como texto en pantalla en los primeros 3 segundos.</p>
+              </div>
+            </details>
           )}
           <ToolFeedback tool="subtitulos" />
         </>

@@ -138,6 +138,32 @@ export function drawSub(g: CanvasRenderingContext2D, sub: Subtitle, W: number, H
 
 export type BurnResult = { blob: Blob; ext: "mp4" | "webm"; mime: string };
 
+/** Mensaje cuando el navegador lee el audio del video pero no su imagen. */
+export const NO_IMAGE_MSG = "Tu navegador escucha este video pero no puede ver la imagen (pasa con videos HEVC del iPhone en Chrome). Ábrelo en Safari, o graba en el iPhone con Ajustes › Cámara › Formatos › Más compatible. Mientras, baja el .srt y úsalo en CapCut.";
+
+/**
+ * ¿El navegador puede ver la imagen de este video? (16-oct-2026: un video HEVC del iPhone en Chrome
+ * se oía pero no se veía, y la app grababa un .mp4 solo con sonido que la Mac abría como audio).
+ * false = no hay imagen que dibujar; los subtítulos (que usan solo el audio) sí funcionan.
+ */
+export function videoHasImage(file: Blob): Promise<boolean> {
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(file);
+    const v = document.createElement("video");
+    v.muted = true; v.playsInline = true; v.preload = "auto";
+    let meta = false;
+    const sized = () => v.videoWidth > 0 && v.videoHeight > 0;
+    const end = (ok: boolean) => { clearTimeout(to); v.removeAttribute("src"); v.load(); URL.revokeObjectURL(url); resolve(ok); };
+    // Si el navegador no carga nada (Safari del iPhone a veces espera a que se reproduzca), no se
+    // bloquea: burnSubtitles igual se niega a grabar sin imagen.
+    const to = setTimeout(() => end(meta ? sized() : true), 6_000);
+    v.onloadedmetadata = () => { meta = true; };
+    v.onloadeddata = () => end(sized());
+    v.onerror = () => end(true);
+    v.src = url;
+  });
+}
+
 /** Graba el video con los subtítulos encima (tiempo real). */
 export async function burnSubtitles(file: Blob, subs: Subtitle[], opts: {
   style: SubStyle; canvas: HTMLCanvasElement; onProgress?: (t: number, total: number) => void; signal?: AbortSignal;
@@ -153,6 +179,8 @@ export async function burnSubtitles(file: Blob, subs: Subtitle[], opts: {
     video.onloadeddata = () => { clearTimeout(to); res(); };
     video.onerror = () => { clearTimeout(to); rej(new Error("Tu navegador no pudo abrir el video. Descarga el .srt y úsalo en CapCut.")); };
   });
+  // Sin imagen no se graba: saldría un .mp4 con solo el sonido.
+  if (!video.videoWidth || !video.videoHeight) { URL.revokeObjectURL(url); throw new Error(NO_IMAGE_MSG); }
   try { await document.fonts?.load("800 40px Manrope"); } catch { /* system-ui */ }
 
   // Tamaño: el del video, con el lado mayor en 1280 como máximo (rápido en el celular).

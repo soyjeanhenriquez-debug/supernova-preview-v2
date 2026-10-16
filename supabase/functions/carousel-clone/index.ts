@@ -33,7 +33,7 @@ function b64(bytes: Uint8Array): string {
 // 16-oct-2026); "budget" = se llegó al tope de Apify del mes (provider_caps). Una publicación privada o
 // borrada llega sin resultado → null. runApify revisa el tope y anota el costo de la corrida.
 // deno-lint-ignore no-explicit-any
-async function fetchPost(url: string, token: string): Promise<any | "down" | "budget" | null> {
+async function fetchPost(url: string, token: string): Promise<any | "down" | "budget" | "slow" | null> {
   const items = await runApify(FN, [url], token);
   return typeof items === "string" ? items : items[0] ?? null;
 }
@@ -125,6 +125,10 @@ Deno.serve(async (req) => {
     if (post === "budget") {
       await refund(txId, "tope de apify del mes");
       return json({ error: "El lector de Instagram llegó a su límite de este mes. No es tu publicación: inténtalo más tarde. No se te cobró." }, 503);
+    }
+    if (post === "slow") {
+      await refund(txId, "apify tardó demasiado");
+      return json({ error: "Instagram tardó demasiado en entregarnos esa publicación. Vuelve a intentarlo en unos minutos o prueba con otra. No se te cobró." }, 504);
     }
     if (post === "down") {
       await refund(txId, "apify no disponible");

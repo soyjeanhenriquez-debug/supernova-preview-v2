@@ -83,6 +83,10 @@ Deno.serve(async (req) => {
       await refund(txId, "tope de apify del mes");
       return json({ error: "El lector de Instagram llegó a su límite de este mes. Los Reels que ya se analizaron siguen disponibles. No se te cobró." }, 503);
     }
+    if (!got.ok && got.reason === "slow") {
+      await refund(txId, "apify tardó demasiado");
+      return json({ error: "Instagram tardó demasiado en entregarnos ese Reel. Vuelve a intentarlo en unos minutos o prueba con otro. No se te cobró." }, 504);
+    }
     if (!got.ok && got.reason === "down") {
       await refund(txId, "apify no disponible");
       return json({ error: "El lector de Instagram no está disponible en este momento. No es tu Reel: inténtalo más tarde. No se te cobró." }, 503);
@@ -132,8 +136,12 @@ Deno.serve(async (req) => {
       billing: { charged: g.charged, balance: g.balance },
     }, 200, billingHeaders(g));
   } catch (e) {
-    await refund(txId, "excepción");
+    // La IA tiene un límite de tiempo (geminiMedia): con videos largos a veces no alcanza.
+    const slow = e instanceof Error && e.name === "TimeoutError";
+    await refund(txId, slow ? "la ia tardó demasiado" : "excepción");
     console.error(`${FN}:`, e instanceof Error ? e.message : e);
-    return json({ error: "No se pudo analizar el Reel. No se te cobró." }, 500);
+    return slow
+      ? json({ error: "La IA tardó demasiado con ese video. Inténtalo de nuevo; si vuelve a pasar, prueba con un Reel más corto. No se te cobró." }, 504)
+      : json({ error: "No se pudo analizar el Reel. No se te cobró." }, 500);
   }
 });

@@ -4,6 +4,8 @@
 // (reel_extractions, por shortcode, 7 días); solo si no está o está vieja se llama a Apify.
 // Toda corrida de Apify (de cualquier función) pasa por runApify: revisa el tope del mes
 // (provider_caps) y anota su costo en apify_runs. Si se llegó al tope, no se llama: "budget".
+// "slow" = la corrida no terminó a tiempo (TIMED-OUT de Apify o nuestro límite): suele ser ese Reel,
+// no el servicio (16-oct-2026: un Reel de 2022 dio TIMED-OUT dos veces y el siguiente salió en 10 s).
 // La llave de Apify va en la cabecera (nunca en la URL). El video nunca se guarda: solo su enlace.
 import { admin } from "./media.ts";
 
@@ -23,7 +25,7 @@ export interface ReelExtraction {
   base: Record<string, unknown> | null; base_model: string | null; llm_a_usd: number | null; analyzed_at: string | null;
 }
 
-export type ApifyFail = "down" | "budget";
+export type ApifyFail = "down" | "budget" | "slow";
 export type Got =
   | { ok: true; row: ReelExtraction; cacheHit: boolean; apifyUsd: number }
   | { ok: false; reason: ApifyFail | "not_found" };
@@ -51,6 +53,7 @@ export async function runApify(fn: string, urls: string[], token: string): Promi
   }
   let items: unknown[] = [];
   let ok = false;
+  let slow = false;
   try {
     const r = await fetch(ACTOR, {
       method: "POST",
@@ -59,9 +62,13 @@ export async function runApify(fn: string, urls: string[], token: string): Promi
       body: JSON.stringify({ directUrls: urls, resultsType: "posts", resultsLimit: 1, addParentData: false }),
       signal: AbortSignal.timeout(60_000),
     });
-    if (!r.ok) console.error(`${fn}: apify`, r.status, (await r.text()).slice(0, 200));
-    else { const j = await r.json(); items = Array.isArray(j) ? j : []; ok = true; }
+    if (!r.ok) {
+      const t = await r.text();
+      slow = t.includes("TIMED-OUT");
+      console.error(`${fn}: apify`, r.status, t.slice(0, 200));
+    } else { const j = await r.json(); items = Array.isArray(j) ? j : []; ok = true; }
   } catch (e) {
+    slow = e instanceof Error && e.name === "TimeoutError";
     console.error(`${fn}: apify`, e instanceof Error ? e.message : e);
   }
   // Apify cobra cada resultado escrito, también los que vienen con error.
@@ -70,7 +77,7 @@ export async function runApify(fn: string, urls: string[], token: string): Promi
   });
   if (logErr) console.error(`${fn}: apify_runs`, logErr.message);
   // deno-lint-ignore no-explicit-any
-  return ok ? items.filter((x: any) => x && typeof x === "object" && !x.error) : "down";
+  return ok ? items.filter((x: any) => x && typeof x === "object" && !x.error) : slow ? "slow" : "down";
 }
 
 // deno-lint-ignore no-explicit-any

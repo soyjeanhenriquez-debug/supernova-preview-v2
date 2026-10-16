@@ -7,7 +7,7 @@ Deno.env.set("SUPABASE_URL", "http://db.test");
 Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "service-role-de-prueba");
 
 type Row = Record<string, unknown>;
-const state = { rows: new Map<string, Row>(), runs: [] as Row[], apifyCalls: [] as string[][], cap: 5, spent: 0, apifyStatus: 200 };
+const state = { rows: new Map<string, Row>(), runs: [] as Row[], apifyCalls: [] as string[][], cap: 5, spent: 0, apifyStatus: 200, apifyBody: null as unknown };
 
 const item = (code: string) => ({
   shortCode: code, ownerUsername: "alguien", caption: "texto", videoDuration: 30, videoPlayCount: 1000,
@@ -24,7 +24,7 @@ globalThis.fetch = async (input: string | URL | Request, init?: RequestInit) => 
   const one = String(new Headers(init?.headers).get("Accept") ?? "").includes("vnd.pgrst.object");
   if (url.hostname === "api.apify.com") {
     state.apifyCalls.push(body.directUrls);
-    if (state.apifyStatus !== 200) return res({ error: { type: "platform-feature-disabled" } }, state.apifyStatus);
+    if (state.apifyStatus !== 200) return res(state.apifyBody ?? { error: { type: "platform-feature-disabled" } }, state.apifyStatus);
     return res(body.directUrls.map((u: string) => item(u.split("/").filter(Boolean).at(-1)!)));
   }
   if (url.pathname === "/rest/v1/rpc/apify_budget") return res({ cap: state.cap, spent: state.spent });
@@ -43,7 +43,7 @@ globalThis.fetch = async (input: string | URL | Request, init?: RequestInit) => 
   throw new Error(`fetch no simulado: ${method} ${url}`);
 };
 
-const reset = () => { state.rows.clear(); state.runs = []; state.apifyCalls = []; state.cap = 5; state.spent = 0; state.apifyStatus = 200; };
+const reset = () => { state.rows.clear(); state.runs = []; state.apifyCalls = []; state.cap = 5; state.spent = 0; state.apifyStatus = 200; state.apifyBody = null; };
 
 Deno.test("el segundo análisis del mismo Reel sale de la caché y no llama a Apify", async () => {
   reset();
@@ -92,5 +92,13 @@ Deno.test("si Apify falla (403) devuelve down y anota la corrida sin costo", asy
   state.apifyStatus = 403;
   assertEquals(await runApify("test", ["https://www.instagram.com/reel/FALLA00001/"], "tok"), "down");
   assertEquals(state.runs[0].ok, false);
+  assertEquals(state.runs[0].cost_usd, 0);
+});
+
+Deno.test("si la corrida de Apify se pasa de tiempo (TIMED-OUT) devuelve slow, no down", async () => {
+  reset();
+  state.apifyStatus = 400;
+  state.apifyBody = { error: { type: "run-failed", message: "Actor run did not succeed (run ID: x, status: TIMED-OUT)." } };
+  assertEquals(await getReel("test", "LENTO00001", "tok"), { ok: false, reason: "slow" });
   assertEquals(state.runs[0].cost_usd, 0);
 });

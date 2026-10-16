@@ -9,29 +9,29 @@
 // "Roba como un artista" (manual): se toma estructura, ritmo, gancho y mecanismo; nunca se copia y
 // pega en el mismo idioma, ni su cara, su nombre, su marca o sus números. El video solo se usa para
 // el análisis: no se guarda. La llave de Apify va en la cabecera (nunca en la URL).
+//
+// v2, bloque 1 (16-oct-2026): el Reel sale de la caché global (reel_extractions, 7 días) y solo se
+// llama a Apify si no está; cada análisis queda en reel_analyses con su costo real y si fue caché.
 import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 import { HONESTY_RULES } from "../_shared/honesty.ts";
-import { billingHeaders, caller, charge, json, refund } from "../_shared/media.ts";
+import { admin, billingHeaders, caller, charge, json, refund } from "../_shared/media.ts";
 import { b64, geminiMedia, logMediaCost } from "../_shared/geminiMedia.ts";
+import { getReel, REEL_RE, reelUrl } from "../_shared/reelSource.ts";
 
 const FN = "reel-analyze";
 const MAX_VIDEO_BYTES = 18 * 1024 * 1024; // cabe en una sola solicitud a Gemini
-const REEL_RE = /^https?:\/\/(?:www\.)?instagram\.com\/(?:[A-Za-z0-9._]+\/)?(?:reel|reels|p)\/([A-Za-z0-9_-]{5,40})\/?(?:\?.*)?$/;
-const MEDIA_HOST_RE = /(^|\.)(cdninstagram\.com|fbcdn\.net)$/i;
 
 const clean = (s: unknown, n: number) => (typeof s === "string" ? s : "").replace(/\s+/g, " ").trim().slice(0, n);
 
-// deno-lint-ignore no-explicit-any
-async function fetchReel(url: string, token: string): Promise<any | null> {
-  const r = await fetch("https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items?timeout=50", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ directUrls: [url], resultsType: "posts", resultsLimit: 1 }),
-    signal: AbortSignal.timeout(60_000),
-  });
-  if (!r.ok) { console.error(`${FN}: apify`, r.status, (await r.text()).slice(0, 200)); return null; }
-  const items = await r.json();
-  return Array.isArray(items) && items[0] && !items[0].error ? items[0] : null;
+/** Baja el video (solo para el análisis; no se guarda). null si no bajó o es muy largo. */
+async function download(videoUrl: string): Promise<Uint8Array | null> {
+  try {
+    const r = await fetch(videoUrl, { signal: AbortSignal.timeout(30_000) });
+    const len = Number(r.headers.get("content-length") ?? 0);
+    if (!r.ok || (len && len > MAX_VIDEO_BYTES)) return null;
+    const buf = new Uint8Array(await r.arrayBuffer());
+    return buf.byteLength <= MAX_VIDEO_BYTES ? buf : null;
+  } catch { return null; }
 }
 
 function prompt(o: { brief: Record<string, string>; handle: string; caption: string; owner: string; views: number | null; likes: number | null; comments: number | null; seconds: number | null }): string {
@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
     const body = raw ? JSON.parse(raw) : {};
     const m = REEL_RE.exec(String(body.url ?? "").trim());
     if (!m) return json({ error: "Pega el enlace de un Reel de Instagram (instagram.com/reel/…)." }, 400);
-    const url = `https://www.instagram.com/reel/${m[1]}/`;
+    const url = reelUrl(m[1]);
     const b = body.brief && typeof body.brief === "object" ? body.brief : {};
     const brief = { product: clean(b.product, 200), who: clean(b.who, 160) };
     const handle = clean(body.handle, 30).replace(/[^A-Za-z0-9._]/g, "");
@@ -77,55 +77,58 @@ Deno.serve(async (req) => {
     if (g instanceof Response) return g;
     txId = g.txId;
 
-    // 1) Traer el Reel.
-    const post = await fetchReel(url, apify);
-    if (!post) {
+    // 1) Traer el Reel: de la caché global o, si no está, de Apify.
+    let got = await getReel(FN, m[1], apify);
+    if (!got.ok && got.reason === "budget") {
+      await refund(txId, "tope de apify del mes");
+      return json({ error: "El lector de Instagram llegó a su límite de este mes. Los Reels que ya se analizaron siguen disponibles. No se te cobró." }, 503);
+    }
+    if (!got.ok && got.reason === "down") {
+      await refund(txId, "apify no disponible");
+      return json({ error: "El lector de Instagram no está disponible en este momento. No es tu Reel: inténtalo más tarde. No se te cobró." }, 503);
+    }
+    if (!got.ok) {
       await refund(txId, "apify sin resultado");
       return json({ error: "No pudimos abrir ese Reel. Revisa que la cuenta sea pública. No se te cobró." }, 502);
     }
-    const videoUrl = typeof post.videoUrl === "string" ? post.videoUrl : "";
-    let host = "";
-    try { host = new URL(videoUrl).hostname; } catch { host = ""; }
-    if (!videoUrl.startsWith("https://") || !MEDIA_HOST_RE.test(host)) {
+    if (!got.row.is_video || !got.row.video_url) {
       await refund(txId, "no es video");
       return json({ error: "Esa publicación no es un video. Para carruseles usa \"Modelar uno que ya funciona\" en Carrusel. No se te cobró." }, 422);
     }
 
-    // 2) Bajar el video (solo para el análisis; no se guarda).
-    let bytes: Uint8Array | null = null;
-    try {
-      const r = await fetch(videoUrl, { signal: AbortSignal.timeout(30_000) });
-      const len = Number(r.headers.get("content-length") ?? 0);
-      if (r.ok && (!len || len <= MAX_VIDEO_BYTES)) {
-        const buf = new Uint8Array(await r.arrayBuffer());
-        bytes = buf.byteLength <= MAX_VIDEO_BYTES ? buf : null;
-      }
-    } catch { bytes = null; }
+    // 2) Bajar el video. Si venía de la caché y el enlace de Instagram ya venció, se lee de nuevo una vez.
+    let bytes = await download(got.row.video_url);
+    if (!bytes && got.cacheHit) {
+      const again = await getReel(FN, m[1], apify, true);
+      if (again.ok && again.row.video_url) { got = again; bytes = await download(again.row.video_url); }
+    }
     if (!bytes) {
       await refund(txId, "video no bajó o es muy largo");
       return json({ error: "No pudimos leer ese video (puede ser muy largo). Prueba con un Reel de menos de 90 segundos. No se te cobró." }, 502);
     }
+    const reel = got.row;
 
     // 3) Mirar y escuchar el video.
-    const views = Number.isFinite(post.videoPlayCount) ? post.videoPlayCount : Number.isFinite(post.videoViewCount) ? post.videoViewCount : null;
     const { out, cost, usage } = await geminiMedia([
       { inline_data: { mime_type: "video/mp4", data: b64(bytes) } },
-      { text: prompt({ brief, handle, caption: clean(post.caption, 1500), owner: clean(post.ownerUsername, 40), views, likes: Number.isFinite(post.likesCount) ? post.likesCount : null, comments: Number.isFinite(post.commentsCount) ? post.commentsCount : null, seconds: Number.isFinite(post.videoDuration) ? post.videoDuration : null }) + "\n\n" + HONESTY_RULES },
+      { text: prompt({ brief, handle, caption: reel.caption ?? "", owner: reel.owner ?? "", views: reel.views, likes: reel.likes, comments: reel.comments, seconds: reel.duration_s }) + "\n\n" + HONESTY_RULES },
     ], 12_000);
-    await logMediaCost(who.id, FN, cost, usage, 0.0027); // + lector de Instagram (Apify)
+    await logMediaCost(who.id, FN, cost, usage, got.apifyUsd); // + lector de Instagram (Apify), 0 si fue caché
     if (!out || typeof out.tu_version !== "object") {
       await refund(txId, "json inválido");
       return json({ error: "La IA no pudo leer bien ese Reel. No se te cobró: inténtalo de nuevo." }, 502);
     }
 
+    // 4) Anotar el análisis con su costo real (panel de costos). Si falla, el usuario igual recibe lo suyo.
+    const { error: saveErr } = await admin().from("reel_analyses").insert({
+      user_id: who.id, shortcode: reel.shortcode, nivel: "adaptacion", source: "app", result: out,
+      cache_hit: got.cacheHit, apify_usd: got.apifyUsd, llm_a_usd: cost, llm_b_usd: 0, credits: g.charged,
+    });
+    if (saveErr) console.error(`${FN}: reel_analyses`, saveErr.message);
+
     return json({
       ...out,
-      source: {
-        url, owner: clean(post.ownerUsername, 40), views,
-        likes: Number.isFinite(post.likesCount) ? post.likesCount : null,
-        comments: Number.isFinite(post.commentsCount) ? post.commentsCount : null,
-        cover: typeof post.displayUrl === "string" ? post.displayUrl : null,
-      },
+      source: { url, owner: reel.owner ?? "", views: reel.views, likes: reel.likes, comments: reel.comments, cover: reel.cover_url },
       billing: { charged: g.charged, balance: g.balance },
     }, 200, billingHeaders(g));
   } catch (e) {

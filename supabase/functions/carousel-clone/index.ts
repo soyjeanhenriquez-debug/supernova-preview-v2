@@ -12,6 +12,7 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 import { HONESTY_RULES } from "../_shared/honesty.ts";
 import { admin, billingHeaders, caller, charge, json, refund } from "../_shared/media.ts";
+import { runApify } from "../_shared/reelSource.ts";
 import { cleanDiseno, type Diseno, DISENO_RULE, DISENO_SHAPE, fillGaleria, fitAnalysis, GALERIA_RULE, SIRVE_RULE, SYSTEM, TEMA_LAMINAS_RULE, TIPOS_LAMINA } from "../_shared/carouselRules.ts";
 
 const FN = "carousel-clone";
@@ -28,17 +29,13 @@ function b64(bytes: Uint8Array): string {
   return btoa(bin);
 }
 
+// "down" = falla del lector (Apify), no de la publicación (p. ej. 403 "Monthly usage hard limit exceeded",
+// 16-oct-2026); "budget" = se llegó al tope de Apify del mes (provider_caps). Una publicación privada o
+// borrada llega sin resultado → null. runApify revisa el tope y anota el costo de la corrida.
 // deno-lint-ignore no-explicit-any
-async function fetchPost(url: string, token: string): Promise<any | null> {
-  const r = await fetch("https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items?timeout=50", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ directUrls: [url], resultsType: "posts", resultsLimit: 1 }),
-    signal: AbortSignal.timeout(60_000),
-  });
-  if (!r.ok) { console.error(`${FN}: apify`, r.status, (await r.text()).slice(0, 200)); return null; }
-  const items = await r.json();
-  return Array.isArray(items) && items[0] && !items[0].error ? items[0] : null;
+async function fetchPost(url: string, token: string): Promise<any | "down" | "budget" | null> {
+  const items = await runApify(FN, [url], token);
+  return typeof items === "string" ? items : items[0] ?? null;
 }
 
 // Dos formas de clonar (06-oct-2026, Jean: "la referencia tiene que servir"):
@@ -125,6 +122,14 @@ Deno.serve(async (req) => {
     const post = await fetchPost(url, apify);
     const db = admin();
     await db.rpc("log_ai_usage", { p_user_id: who.id, p_fn: FN, p_model: "apify/instagram-scraper", p_input: 0, p_output: 0, p_images: 1 });
+    if (post === "budget") {
+      await refund(txId, "tope de apify del mes");
+      return json({ error: "El lector de Instagram llegó a su límite de este mes. No es tu publicación: inténtalo más tarde. No se te cobró." }, 503);
+    }
+    if (post === "down") {
+      await refund(txId, "apify no disponible");
+      return json({ error: "El lector de Instagram no está disponible en este momento. No es tu publicación: inténtalo más tarde. No se te cobró." }, 503);
+    }
     if (!post) {
       await refund(txId, "apify sin resultado");
       return json({ error: "No pudimos abrir esa publicación. Revisa que sea pública. No se te cobró." }, 502);

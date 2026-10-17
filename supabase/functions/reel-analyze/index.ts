@@ -18,7 +18,7 @@ import { HONESTY_RULES } from "../_shared/honesty.ts";
 import { admin, billingHeaders, caller, charge, type Caller, type Gate, json, refund } from "../_shared/media.ts";
 import { b64, geminiMedia, logMediaCost, MEDIA_MODEL } from "../_shared/geminiMedia.ts";
 import { getReel, REEL_RE, type ReelExtraction } from "../_shared/reelSource.ts";
-import { asNivel, cleanBase, cleanVersion, palabraClave, porQue, promptA, promptB } from "../_shared/reelLayers.ts";
+import { asNivel, cleanBase, cleanVersion, palabraClave, porQue, promptA, promptB, tramoTexts } from "../_shared/reelLayers.ts";
 
 const FN = "reel-analyze";
 const MAX_VIDEO_BYTES = 18 * 1024 * 1024; // cabe en una sola solicitud a Gemini
@@ -164,12 +164,18 @@ async function stepVersion(who: Caller, body: Record<string, unknown>, t0: numbe
 
   try {
     const brief = { product: clean(b.product, 200), who: clean(b.who, 160), nicho: opciones.nicho, oferta: opciones.oferta, palabra: opciones.palabra_clave, handle };
-    const { out, cost, usage } = await geminiMedia([{ text: promptB(base, nivel, brief) + "\n\n" + HONESTY_RULES }], 8_000, left(t0));
+    // Espejo pide fidelidad al texto original: menos "creatividad" (temperatura baja).
+    const { out, cost, usage } = await geminiMedia([{ text: promptB(base, nivel, brief) + "\n\n" + HONESTY_RULES }], 8_000, left(t0), nivel === "espejo" ? 0.3 : 0.6);
     await logMediaCost(who.id, FN, cost, usage);
     const version = cleanVersion(out, nivel, opciones.palabra_clave || base.cta.palabra, base.estructura.length);
     if (!version) {
       await undo("json inválido");
       return json({ error: "La IA no pudo escribir tu versión. No se te cobró: inténtalo de nuevo." }, 502);
+    }
+    // En Espejo, cada tramo lleva lo que dice el original, para verlo al lado y medir el parecido.
+    if (nivel === "espejo") {
+      const dice = tramoTexts(base);
+      version.guion = version.guion.map(t => (t.original != null && dice[t.original] ? { ...t, original_texto: dice[t.original] } : t));
     }
     const prev = (a.result && typeof a.result === "object" ? a.result : {}) as Record<string, unknown>;
     const view = { source: prev.source, por_que_funciona: prev.por_que_funciona ?? porQue(base), version, opciones };

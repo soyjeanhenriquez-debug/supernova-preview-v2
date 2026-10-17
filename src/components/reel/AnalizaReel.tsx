@@ -10,7 +10,7 @@ import { ToolFeedback } from "@/components/ToolFeedback";
 import { AddToTracker } from "@/components/AddToTracker";
 import { Teleprompter } from "@/components/reel/Teleprompter";
 import {
-  editingText, NIVEL_BY_ID, NIVELES, notionGuion, notionPorQue, publishText, REEL_URL_RE, speakSeconds, teleprompterLines,
+  editingText, NIVEL_BY_ID, NIVELES, notionGuion, notionPorQue, parecido, publishText, REEL_URL_RE, speakSeconds, teleprompterLines,
   type Nivel, type ReelView,
 } from "@/lib/reel";
 
@@ -281,7 +281,9 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
                     return (
                       <li key={i} className="rounded-xl border border-border p-3 text-[13px] space-y-1">
                         <p className="tabular-nums text-muted-foreground">{t.inicio}–{t.fin} s</p>
-                        {v.nivel === "espejo" && orig && <p className="text-[12px] text-muted-foreground">Original ({orig.inicio}–{orig.fin} s): {orig.descripcion}</p>}
+                        {v.nivel === "espejo" && t.original_texto && <p className="text-[12px] text-muted-foreground"><b className="font-medium">El original dice:</b> «{t.original_texto}»</p>}
+                        {v.nivel === "espejo" && <p className="text-foreground"><b className="font-medium">Tú dices:</b> {t.dices}</p>}
+                        {v.nivel === "espejo" && !t.original_texto && orig && <p className="text-[12px] text-muted-foreground">Original ({orig.inicio}–{orig.fin} s): {orig.descripcion}</p>}
                         <p className="text-foreground"><b className="font-medium">Se ve:</b> {t.se_ve || "—"}</p>
                         <p className="text-foreground"><b className="font-medium">Texto en pantalla:</b> {t.texto_pantalla ? `«${t.texto_pantalla}»` : "—"}</p>
                       </li>
@@ -387,9 +389,11 @@ function SourceCard({ view }: { view: ReelView }) {
 function VersionSummary({ view }: { view: ReelView }) {
   const v = view.version!;
   const n = NIVEL_BY_ID[v.nivel];
+  const p = v.nivel === "espejo" ? parecido(v) : null;
   return (
     <div className="card-surface rounded-2xl p-4 sm:p-5 space-y-3">
       <p className="text-sm text-foreground"><span className="rounded-full bg-primary/15 px-2.5 py-1 text-[12px] font-semibold">{n.nombre} {n.pct}</span>
+        {p != null && <span className="ml-2 text-[12px] text-foreground">Parecido al original: <b>{p} %</b></span>}
         {view.opciones?.nicho && <span className="ml-2 text-[12px] text-muted-foreground">Nicho: {view.opciones.nicho}</span>}</p>
       <div className="grid gap-3 sm:grid-cols-2 text-[13px]">
         <div><p className="font-semibold text-foreground">Lo que tomamos del original</p><ul className="mt-1 list-disc pl-4 text-muted-foreground space-y-0.5">{v.que_se_mantuvo.map(x => <li key={x}>{x}</li>)}</ul></div>

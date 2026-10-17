@@ -20,7 +20,7 @@ export function looseJson(text: string): Record<string, unknown> | null {
   return null;
 }
 
-export async function geminiMedia(parts: unknown[], maxTokens: number, timeoutMs = 110_000) {
+export async function geminiMedia(parts: unknown[], maxTokens: number, timeoutMs = 110_000, temperature = 0.6) {
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) throw new Error("sin GEMINI_API_KEY");
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MEDIA_MODEL}:generateContent`, {
@@ -28,7 +28,7 @@ export async function geminiMedia(parts: unknown[], maxTokens: number, timeoutMs
     headers: { "Content-Type": "application/json", "x-goog-api-key": key },
     body: JSON.stringify({
       contents: [{ role: "user", parts }],
-      generationConfig: { responseMimeType: "application/json", maxOutputTokens: maxTokens, temperature: 0.6, mediaResolution: "MEDIA_RESOLUTION_LOW" },
+      generationConfig: { responseMimeType: "application/json", maxOutputTokens: maxTokens, temperature, mediaResolution: "MEDIA_RESOLUTION_LOW" },
     }),
     signal: AbortSignal.timeout(timeoutMs),
   });

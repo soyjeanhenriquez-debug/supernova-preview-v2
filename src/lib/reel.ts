@@ -15,7 +15,7 @@ export const NIVELES: { id: Nivel; nombre: string; pct: string; conserva: string
 ];
 export const NIVEL_BY_ID = Object.fromEntries(NIVELES.map(n => [n.id, n])) as Record<Nivel, (typeof NIVELES)[number]>;
 
-export type Linea = { inicio: number; fin: number; dices: string; se_ve: string; texto_pantalla: string; original: number | null };
+export type Linea = { inicio: number; fin: number; dices: string; se_ve: string; texto_pantalla: string; original: number | null; original_texto?: string };
 export type Version = {
   nivel: Nivel; que_se_mantuvo: string[]; que_cambio: string[]; formula_explicada: string;
   ideas: { titulo: string; por_que: string }[];
@@ -40,17 +40,42 @@ export type ReelView = {
 
 /** Lo que se dice, una frase por párrafo, sin "Dices:" ni segundos. El gancho elegido reemplaza la primera frase. */
 export function teleprompterLines(v: Version, hook = 0): string[] {
-  const lines = v.guion.flatMap(t => splitPhrases(t.dices));
+  // Sin renglones que son solo puntos suspensivos o signos (la IA a veces deja "..." como pausa).
+  const lines = v.guion.flatMap(t => splitPhrases(t.dices)).filter(l => /[\p{L}\p{N}]/u.test(l));
   const g = v.ganchos[hook]?.trim();
   if (g) { if (lines.length) lines[0] = g; else lines.push(g); }
-  if (v.cierre.trim() && !lines.some(l => l.includes(v.cierre.trim()))) lines.push(...splitPhrases(v.cierre));
-  return lines.filter(Boolean);
+  // El cierre solo se agrega si el guion no lo dice ya (sin importar mayúsculas ni signos).
+  const plain = (t: string) => t.toLowerCase().normalize("NFD").replace(/[^\p{L}\p{N} ]/gu, "").replace(/\s+/g, " ").trim();
+  const cierre = plain(v.cierre);
+  if (cierre && !lines.some(l => plain(l).includes(cierre))) lines.push(...splitPhrases(v.cierre));
+  return lines;
 }
 
 /** Corta un texto en frases (punto, signo de interrogación o exclamación). */
 export function splitPhrases(t: string): string[] {
   return (t.match(/[^.!?¡¿]*[¡¿]?[^.!?]*[.!?]+|[^.!?]+$/g) ?? [])
     .map(x => x.replace(/\s+/g, " ").trim()).filter(Boolean);
+}
+
+const words = (t: string) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").match(/[\p{L}\p{N}]+/gu) ?? [];
+
+/**
+ * Cuánto se parece tu versión al original (Espejo): de las palabras que dice el original, qué parte
+ * sigue en tu guion, tramo por tramo. null si no hay texto del original para comparar.
+ */
+export function parecido(v: Version): number | null {
+  let total = 0, kept = 0;
+  for (const t of v.guion) {
+    if (!t.original_texto) continue;
+    const mine = new Map<string, number>();
+    for (const w of words(t.dices)) mine.set(w, (mine.get(w) ?? 0) + 1);
+    for (const w of words(t.original_texto)) {
+      total++;
+      const n = mine.get(w) ?? 0;
+      if (n > 0) { kept++; mine.set(w, n - 1); }
+    }
+  }
+  return total ? Math.round((kept / total) * 100) : null;
 }
 
 /** Duración estimada al hablar: palabras / 2,5 = segundos. */

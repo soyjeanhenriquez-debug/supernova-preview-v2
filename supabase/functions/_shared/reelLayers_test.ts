@@ -1,6 +1,6 @@
 // Prueba de reelLayers (funciones puras). Correr: deno test -A supabase/functions/_shared/reelLayers_test.ts
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { asNivel, cleanBase, cleanVersion, palabraClave, porQue, promptA, promptB } from "./reelLayers.ts";
+import { asNivel, cleanBase, cleanVersion, palabraClave, porQue, promptA, promptB, tramoTexts } from "./reelLayers.ts";
 
 const BASE_IA = {
   idioma: "es", duracion_s: 88, resumen: "Advierte que quedan pocas semanas del año.",
@@ -77,4 +77,14 @@ Deno.test("cleanVersion: sin guion no hay versión; en Inspiración guarda las i
   assertEquals(v.ideas.length, 1);
   assertEquals(v.guion[0].original, null);
   assertEquals(v.publicar.palabra_clave, "GRUPO");
+});
+
+Deno.test("Espejo: cada tramo lleva lo que dice el original y la regla de 9 de cada 10 palabras", () => {
+  const b = cleanBase({ ...BASE_IA, transcripcion: [{ s: 0, texto: "Faltan dos meses." }, { s: 3, texto: "Actívate." }, { s: 8, texto: "Siempre lo dejas para enero." }] })!;
+  assertEquals(tramoTexts(b), ["Faltan dos meses. Actívate.", "Siempre lo dejas para enero."]);
+  const p = promptB(b, "espejo", { product: "SUPERNOVA", who: "", nicho: "", oferta: "", palabra: "NOVA", handle: "" });
+  assert(p.includes("Dice: «Faltan dos meses. Actívate.»"));
+  assert(p.includes("9 de cada 10 palabras"));
+  assert(p.includes("es la BASE de tu versión"));
+  assert(!promptB(b, "adaptacion", { product: "", who: "", nicho: "", oferta: "", palabra: "", handle: "" }).includes("Dice: «"));
 });

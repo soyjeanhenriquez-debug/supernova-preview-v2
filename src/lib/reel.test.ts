@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { notionGuion, notionPorQue, publishText, REEL_URL_RE, speakSeconds, splitPhrases, teleprompterLines, type PorQue, type Version } from "./reel";
+import { notionGuion, notionPorQue, parecido, publishText, REEL_URL_RE, speakSeconds, splitPhrases, teleprompterLines, type PorQue, type Version } from "./reel";
 
 const V: Version = {
   nivel: "adaptacion", que_se_mantuvo: [], que_cambio: [], formula_explicada: "", ideas: [],
@@ -25,6 +25,16 @@ describe("teleprompter", () => {
     expect(lines).toContain("¿Y vas a esperar a enero?");
     expect(lines.join(" ")).not.toMatch(/Dices:|\d+\s*s\b|Se ve/);
     expect(lines.at(-1)).toBe("Comenta GRUPO y te mando la rutina.");
+  });
+
+  it("no deja renglones de solo '...' ni repite el cierre si el guion ya lo dice", () => {
+    const v: Version = { ...V, guion: [
+      { inicio: 0, fin: 5, dices: "Sigues poniéndote excusas... ... está bien, no te juzgo.", se_ve: "", texto_pantalla: "", original: 0 },
+      { inicio: 5, fin: 9, dices: "Si de verdad quieres empezar, comenta NOVA y te envío los primeros pasos.", se_ve: "", texto_pantalla: "", original: 1 },
+    ], ganchos: [], cierre: "Comenta NOVA y te envío los primeros pasos." };
+    const lines = teleprompterLines(v, 0);
+    expect(lines.some(l => /^[.…\s]+$/.test(l))).toBe(false);
+    expect(lines.filter(l => /comenta nova/i.test(l)).length).toBe(1);
   });
 
   it("corta en frases y estima palabras / 2,5", () => {
@@ -63,5 +73,15 @@ describe("enlace de Reel", () => {
     expect(REEL_URL_RE.test("https://www.instagram.com/reel/DeiVQHivScw/")).toBe(true);
     expect(REEL_URL_RE.test("https://instagram.com/rodrigo.alfaro.s/reel/DeiVQHivScw/?igsh=abc")).toBe(true);
     expect(REEL_URL_RE.test("https://www.tiktok.com/@x/video/1")).toBe(false);
+  });
+});
+
+describe("parecido al original (Espejo)", () => {
+  it("cuenta qué parte de las palabras del original sigue en tu guion", () => {
+    const v: Version = { ...V, guion: [
+      { inicio: 0, fin: 5, dices: "Yo te enseño a emprender, pero no me pidas que trabaje por ti.", se_ve: "", texto_pantalla: "", original: 0, original_texto: "Yo te enseño a cocinar, pero no me pidas que cocine por ti." },
+    ] };
+    expect(parecido(v)).toBe(85);
+    expect(parecido(V)).toBeNull();
   });
 });

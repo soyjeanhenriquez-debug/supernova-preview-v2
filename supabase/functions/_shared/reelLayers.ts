@@ -25,7 +25,7 @@ export interface Base {
   cta: { tipo: string; palabra: string };
   debilidades: string[];
 }
-export interface Linea { inicio: number; fin: number; dices: string; se_ve: string; texto_pantalla: string; original: number | null }
+export interface Linea { inicio: number; fin: number; dices: string; se_ve: string; texto_pantalla: string; original: number | null; original_texto?: string }
 export interface Version {
   nivel: Nivel; que_se_mantuvo: string[]; que_cambio: string[]; formula_explicada: string;
   ideas: { titulo: string; por_que: string }[];
@@ -103,8 +103,10 @@ export function porQue(b: Base) {
 // ---------------- Capa B ----------------
 
 export const NIVEL_REGLAS: Record<Nivel, string> = {
+  // Jean, 16-oct-2026: "que el 90 % espejo sea realmente el 90 %". Misma regla que el modo "tema" de
+  // Carrusel (06-oct): casi sus mismas palabras con un toque propio, nunca idéntico.
   espejo:
-    "NIVEL ESPEJO (~90 %). Conserva: la MISMA estructura, los MISMOS tramos con sus MISMAS duraciones, el mismo tipo de gancho y el mismo ritmo. Cambia SOLO el nicho, los ejemplos y la llamada a la acción. Tu guion tiene exactamente un tramo por cada tramo del original, en el mismo orden, y cada tramo lleva 'original' = el número (desde 0) del tramo del original que espeja. Si el original está en otro idioma, transcréalo fiel (misma idea, mismo remate). Si ya está en español, NUNCA copies sus frases: misma receta con palabras nuevas.",
+    "NIVEL ESPEJO (~90 % igual al original). Tu guion es el MISMO texto del original, tramo por tramo: las mismas frases, en el mismo orden, con las mismas pausas, muletillas, preguntas y remates. Cambia SOLO: (1) las palabras propias del tema del original por las del nicho de la persona, (2) los ejemplos concretos, (3) la llamada a la acción final por la palabra clave, y (4) un toque propio mínimo en cada tramo (un sinónimo, una palabra o el orden de dos palabras) para que nunca sea idéntico. Al menos 9 de cada 10 palabras de cada tramo deben ser las mismas del original. Si el original está en otro idioma, tradúcelo fiel al español latino: misma idea y mismo remate, casi frase por frase, natural. Tu guion tiene exactamente un tramo por cada tramo del original, con sus mismas duraciones, y cada tramo lleva 'original' = el número (desde 0) del tramo que espeja. Los 3 ganchos: el primero es el gancho del original casi igual (con el toque propio); los otros dos, variantes mínimas del mismo gancho.",
   adaptacion:
     "NIVEL ADAPTACIÓN (~75 %). Conserva: la misma estructura y la misma fórmula del gancho. Cambia: la historia, el ángulo, los ejemplos y la llamada a la acción, que salen del producto y del público de la persona. 'formula_explicada' = la fórmula del gancho explicada en una línea y cómo la usaste. 'original' de cada tramo = el número (desde 0) del tramo del original que cumple la misma función, o null.",
   inspiracion:
@@ -113,8 +115,17 @@ export const NIVEL_REGLAS: Record<Nivel, string> = {
 
 export interface BriefB { product: string; who: string; nicho: string; oferta: string; palabra: string; handle: string }
 
+/** Lo que se dice en cada tramo del original (la transcripción repartida por segundos). */
+export function tramoTexts(b: Base): string[] {
+  return b.estructura.map((t, i) => {
+    const last = i === b.estructura.length - 1;
+    return b.transcripcion.filter(x => x.s >= t.inicio && (last || x.s < t.fin)).map(x => x.texto).join(" ").slice(0, 700);
+  });
+}
+
 export function promptB(b: Base, nivel: Nivel, brief: BriefB): string {
-  const tramos = b.estructura.map((t, i) => `${i}. ${t.inicio}–${t.fin} s · ${t.funcion}${t.etiqueta ? ` (${t.etiqueta})` : ""}: ${t.que_pasa}${t.se_ve ? ` | Se ve: ${t.se_ve}` : ""}`).join("\n");
+  const dice = nivel === "espejo" ? tramoTexts(b) : [];
+  const tramos = b.estructura.map((t, i) => `${i}. ${t.inicio}–${t.fin} s · ${t.funcion}${t.etiqueta ? ` (${t.etiqueta})` : ""}: ${t.que_pasa}${t.se_ve ? ` | Se ve: ${t.se_ve}` : ""}${dice[i] ? ` | Dice: «${dice[i]}»` : ""}`).join("\n");
   const habla = b.transcripcion.map(t => `[${t.s}s] ${t.texto}`).join(" ").slice(0, 5000);
   const palabra = brief.palabra || b.cta.palabra || "GRUPO";
   return [
@@ -128,7 +139,9 @@ export function promptB(b: Base, nivel: Nivel, brief: BriefB): string {
     `Mecanismo: ${b.mecanismo}`,
     `CTA: ${b.cta.tipo}${b.cta.palabra ? ` (palabra ${b.cta.palabra})` : ""}`,
     "Tramos:", tramos,
-    habla ? `Lo que se dice (solo para entender; no lo copies si está en español): ${habla}` : "",
+    habla ? (nivel === "espejo"
+      ? `Texto completo del original (es la BASE de tu versión: síguelo frase por frase): ${habla}`
+      : `Lo que se dice (solo para entender; no lo copies si está en español): ${habla}`) : "",
     `Lo que debe mejorar: ${b.debilidades.join(" · ")}`,
     "",
     NIVEL_REGLAS[nivel],
@@ -141,8 +154,12 @@ export function promptB(b: Base, nivel: Nivel, brief: BriefB): string {
     `Palabra clave del cierre: ${palabra} (en MAYÚSCULAS; el cierre pide comentarla).`,
     "",
     "ESCRIBE, en español latino natural, de tú, para grabar con la cara y el celular:",
-    "- ganchos: 3 opciones distintas para los primeros 3 segundos, máximo 12 palabras cada una. El guion empieza con la primera.",
-    "- guion: tramos con 'inicio' y 'fin' en segundos, 'dices' (lo que se dice, frases cortas y naturales), 'se_ve' (plano, gesto, lugar, corte) y 'texto_pantalla' (máximo 6 palabras).",
+    nivel === "espejo"
+      ? "- ganchos: 3 opciones según las reglas de ESPEJO (el gancho del original casi igual y dos variantes mínimas). El guion empieza con la primera."
+      : "- ganchos: 3 opciones distintas para los primeros 3 segundos, máximo 12 palabras cada una. El guion empieza con la primera.",
+    nivel === "espejo"
+      ? "- guion: un tramo por cada tramo del original, con sus mismos 'inicio' y 'fin', 'dices' (el texto del original con los cambios mínimos de ESPEJO), 'se_ve' (el mismo plano y gesto del original) y 'texto_pantalla' (el mismo del original adaptado, máximo 6 palabras)."
+      : "- guion: tramos con 'inicio' y 'fin' en segundos, 'dices' (lo que se dice, frases cortas y naturales), 'se_ve' (plano, gesto, lugar, corte) y 'texto_pantalla' (máximo 6 palabras).",
     "- cierre: UNA sola llamada a la acción que pide comentar la palabra clave.",
     "- publicar: 'copy' (2–4 líneas, sin hashtags), 'palabra_clave', 5 'hashtags' del tema y 'comentario_fijado' (lo que la persona fija en los comentarios: qué recibe quien comenta la palabra).",
     "- que_se_mantuvo y que_cambio: 2 a 4 frases cortas cada uno, para que la persona entienda qué tomaste del original y qué es suyo.",

@@ -873,7 +873,14 @@ export type CloneInfo = {
   /** "tema" = mismo tema e ideas en español con nuestras palabras; "producto" = su ADN en tu producto. */
   mode?: CloneMode;
   source: { url: string; images: string[]; owner: string; likes: number | null; comments: number | null };
+  /** Si salió de un Reel (Reel → Carrusel, 17-oct-2026): qué tan bien se presta para láminas y por qué. */
+  reel?: { shortcode: string; fit: ReelFit; why: string };
 };
+export type ReelFit = "alto" | "medio" | "bajo";
+/** Enlace de un Reel de Instagram (para Reel → Carrusel en "Modelar uno que ya funciona"). */
+export const REEL_LINK_RE = /instagram\.com\/(?:[A-Za-z0-9._]+\/)?reels?\/([A-Za-z0-9_-]{5,})/;
+/** "Analiza un Reel" → "Convertir en carrusel" deja aquí el Reel para que Carrusel lo abra puesto. */
+export const REEL_TO_CAROUSEL_KEY = "supernova:reel-to-carousel";
 export const MAX_KEEP = 3;
 export type CloneMode = "tema" | "producto";
 export const CLONE_MODES: Record<CloneMode, { label: string; line: string }> = {
@@ -881,7 +888,17 @@ export const CLONE_MODES: Record<CloneMode, { label: string; line: string }> = {
   producto: { label: "Su ADN en mi producto", line: "Mantiene las 3 partes que lo hicieron funcionar y cambia el tema por tu producto." },
 };
 
-/** Lee la respuesta de carousel-clone: el análisis (CloneInfo) y el borrador ya armado. */
+function reelOf(v: unknown): CloneInfo["reel"] | undefined {
+  if (!v || typeof v !== "object") return undefined;
+  const o = v as Record<string, unknown>;
+  const c = (o.convertible ?? {}) as Record<string, unknown>;
+  const shortcode = clean(o.shortcode, 40);
+  if (!shortcode) return undefined;
+  const fit: ReelFit = c.nivel === "alto" || c.nivel === "bajo" ? c.nivel : "medio";
+  return { shortcode, fit, why: txt(c.por_que, 300) };
+}
+
+/** Lee la respuesta de carousel-clone (o de Reel → Carrusel): el análisis (CloneInfo) y el borrador ya armado. */
 export function parseClone(r: Record<string, unknown>, start: "claro" | "oscuro" = "oscuro", mode: CloneMode = "tema"): { info: CloneInfo; draft: CarouselDraft } | null {
   const a = (r.analisis ?? {}) as Record<string, unknown>;
   const st = (a.estilo ?? {}) as Record<string, unknown>;
@@ -907,6 +924,7 @@ export function parseClone(r: Record<string, unknown>, start: "claro" | "oscuro"
     hook: txt(a.gancho_original, 160) || undefined,
     id: /^[0-9a-f-]{36}$/.test(String(r.clone_id ?? "")) ? String(r.clone_id) : undefined,
     needs: (Array.isArray(r.necesitas) ? r.necesitas : []).map(x => txt(x, 220)).filter(Boolean).slice(0, 4),
+    ...(reelOf(r.reel) ? { reel: reelOf(r.reel) } : {}),
     source: {
       url: clean(src.url, 200), images: (Array.isArray(src.images) ? src.images : []).filter((u): u is string => typeof u === "string" && u.startsWith("https://")).slice(0, 10),
       owner: clean(src.owner, 40), likes: typeof src.likes === "number" ? src.likes : null, comments: typeof src.comments === "number" ? src.comments : null,

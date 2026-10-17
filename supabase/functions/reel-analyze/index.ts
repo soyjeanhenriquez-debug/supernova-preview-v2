@@ -10,6 +10,12 @@
 //     versión sin video (capa B) según el nivel: Espejo / Adaptación / Inspiración. La primera versión
 //     de cada análisis va incluida (se reclama con un UPDATE atómico); cada versión siguiente cobra
 //     reel_level = 5 créditos y queda en su propia fila (historial).
+//  3) { step: "carrusel", analysis_id | url, mode, goal?, brief?, handle?, world?, line? } (Reel → Carrusel,
+//     17-oct-2026): convierte el análisis base en un carrusel con la forma de carousel-clone, sin volver
+//     a mirar el video. Si el análisis todavía no usó su versión incluida, el carrusel va incluido (mismo
+//     UPDATE atómico); si no, cobra reel_carousel = 10 créditos. Con url y sin análisis propio de ese
+//     Reel responde { need_base: true } sin cobrar: la app primero paga el análisis (25) y el carrusel
+//     va incluido.
 // Si algo falla después de cobrar, se devuelve el crédito. El video solo se usa para el análisis: no
 // se guarda. "Roba como un artista": se modela estructura, ritmo, gancho y mecanismo; nunca su cara,
 // su nombre, su marca ni sus números.
@@ -19,6 +25,7 @@ import { admin, billingHeaders, caller, charge, type Caller, type Gate, json, re
 import { b64, geminiMedia, logMediaCost, MEDIA_MODEL } from "../_shared/geminiMedia.ts";
 import { getReel, REEL_RE, type ReelExtraction } from "../_shared/reelSource.ts";
 import { asNivel, cleanBase, cleanVersion, palabraClave, porQue, promptA, promptB, tramoTexts } from "../_shared/reelLayers.ts";
+import { asCarouselMode, cleanReelCarousel, promptC } from "../_shared/reelCarousel.ts";
 
 const FN = "reel-analyze";
 const MAX_VIDEO_BYTES = 18 * 1024 * 1024; // cabe en una sola solicitud a Gemini
@@ -204,6 +211,110 @@ async function stepVersion(who: Caller, body: Record<string, unknown>, t0: numbe
   }
 }
 
+// ---------------- Paso 3: Reel → Carrusel ----------------
+async function stepCarrusel(who: Caller, body: Record<string, unknown>, t0: number): Promise<Response> {
+  const db = admin();
+  const id = String(body.analysis_id ?? "");
+  let a: { id: string; shortcode: string; result: unknown } | null = null;
+  if (UUID.test(id)) {
+    const { data } = await db.from("reel_analyses").select("id, shortcode, result").eq("id", id).eq("user_id", who.id).maybeSingle();
+    a = data;
+  } else {
+    const m = REEL_RE.exec(String(body.url ?? "").trim());
+    if (!m) return json({ error: "Pega el enlace de un Reel de Instagram (instagram.com/reel/…)." }, 400);
+    // El análisis más reciente de este Reel hecho por esta cuenta (si ya lo pagó, no paga 25 otra vez).
+    const { data } = await db.from("reel_analyses").select("id, shortcode, result").eq("user_id", who.id).eq("shortcode", m[1])
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    a = data;
+    if (!a) return json({ need_base: true }, 200); // sin cobro: la app primero pide el análisis
+  }
+  if (!a) return json({ error: "No encontramos ese análisis. Vuelve a analizar el Reel." }, 404);
+  const { data: ex } = await db.from("reel_extractions").select("base, url, owner, likes, comments").eq("shortcode", a.shortcode).maybeSingle();
+  const base = cleanBase(ex?.base);
+  if (!base) return json({ need_base: true }, 200);
+
+  const mode = asCarouselMode(body.mode);
+  const b = body.brief && typeof body.brief === "object" ? body.brief as Record<string, unknown> : {};
+  const brief = {
+    product: clean(b.product, 200), who: clean(b.who, 200), promise: clean(b.promise, 200), price: clean(b.price, 30),
+    goal: body.goal === "ensenar" ? "ensenar" as const : "vender" as const,
+    handle: clean(body.handle, 30).replace(/[^A-Za-z0-9._]/g, ""), world: clean(body.world, 160), line: clean(body.line, 80),
+  };
+
+  // Va incluido si el análisis todavía no usó su versión (mismo UPDATE atómico que el paso 2).
+  const now = new Date().toISOString();
+  const stale = new Date(Date.now() - 3 * 60_000).toISOString();
+  const since = new Date(Date.now() - 2 * 3_600_000).toISOString();
+  const { data: claimed } = await db.from("reel_analyses").update({ stage: "escribiendo", updated_at: now })
+    .eq("id", a.id).eq("user_id", who.id).gte("created_at", since)
+    .or(`stage.eq.base,and(stage.eq.escribiendo,updated_at.lt.${stale})`).select("id");
+  const free = !!claimed?.length;
+  let g: Gate | null = null;
+  if (!free) {
+    const c = await charge(FN, who.id, "reel_carousel", `Reel → Carrusel · ${a.shortcode}`, 20, 80);
+    if (c instanceof Response) return c;
+    g = c;
+  }
+  const undo = async (reason: string) => {
+    if (free) await db.from("reel_analyses").update({ stage: "base", updated_at: new Date().toISOString() }).eq("id", a!.id);
+    else await refund(g!.txId, reason);
+  };
+
+  try {
+    const { out, cost, usage } = await geminiMedia([{ text: promptC(base, mode, brief) + "\n\n" + HONESTY_RULES }], 10_000, left(t0), mode === "tema" ? 0.4 : 0.6);
+    await logMediaCost(who.id, FN, cost, usage);
+    const car = cleanReelCarousel(out, base);
+    if (!car) {
+      await undo("json inválido");
+      return json({ error: "La IA no pudo armar el carrusel. No se te cobró: inténtalo de nuevo." }, 502);
+    }
+    const prev = (a.result && typeof a.result === "object" ? a.result : {}) as Record<string, unknown>;
+    const src = (prev.source && typeof prev.source === "object" ? prev.source : {}) as Record<string, unknown>;
+    const source = {
+      url: String(src.url ?? ex?.url ?? `https://www.instagram.com/reel/${a.shortcode}/`), images: [] as string[],
+      owner: clean(src.owner ?? ex?.owner, 40),
+      likes: typeof src.likes === "number" ? src.likes : null, comments: typeof src.comments === "number" ? src.comments : null,
+    };
+    const view = { source: prev.source ?? null, por_que_funciona: prev.por_que_funciona ?? porQue(base), carrusel: car, mode };
+    let outId = a.id;
+    if (free) {
+      const { error } = await db.from("reel_analyses").update({ stage: "listo", kind: "carrusel", result: view, llm_b_usd: cost, updated_at: new Date().toISOString() }).eq("id", a.id);
+      if (error) console.error(`${FN}: guardar carrusel`, error.message);
+    } else {
+      const { data: ins, error } = await db.from("reel_analyses").insert({
+        user_id: who.id, shortcode: a.shortcode, nivel: "adaptacion", kind: "carrusel", source: "app", result: view, stage: "listo",
+        cache_hit: true, apify_usd: 0, llm_a_usd: 0, llm_b_usd: cost, credits: g!.charged,
+      }).select("id").single();
+      if (error || !ins) console.error(`${FN}: guardar carrusel`, error?.message);
+      else outId = ins.id;
+    }
+    // Para aprender (Admin → Aprendizaje y "¿Te sirvió?"): solo texto, nunca el video.
+    let cloneId: string | null = null;
+    try {
+      const { data: row } = await db.from("carousel_clones").insert({
+        user_id: who.id, url: `https://www.instagram.com/reel/${a.shortcode}/`, mode, owner: source.owner || null, likes: source.likes, comments: source.comments,
+        hook: clean(car.analisis.gancho_original, 200) || null, summary: clean(car.analisis.resumen, 300) || null, why: clean(car.analisis.por_que_funciona, 600) || null,
+        analysis: { laminas: car.analisis.laminas, adn: car.adn, mantener: car.mantener, necesitas: car.necesitas, reel: true, convertible: car.convertible },
+        result: {
+          portadas: (car.carrusel.portadas as Record<string, unknown>[]).map(c => clean(c.titulo, 120)),
+          tipos: car.carrusel.laminas.map(l => clean(l.tipo, 20)), originales: car.carrusel.laminas.map(l => Number(l.original) || 0),
+          palabra: clean(car.carrusel.laminas.at(-1)?.palabra, 20),
+        },
+      }).select("id").single();
+      cloneId = row?.id ?? null;
+    } catch (e) { console.error(`${FN}: guardar clon`, e); }
+
+    const billing = { charged: g?.charged ?? 0, balance: g?.balance ?? null };
+    return json({ ...car, analysis_id: outId, clone_id: cloneId, source, reel: { shortcode: a.shortcode, convertible: car.convertible }, billing }, 200, g ? billingHeaders(g) : {});
+  } catch (e) {
+    await undo(isTimeout(e) ? "la ia tardó demasiado" : "excepción");
+    console.error(`${FN}: carrusel`, e instanceof Error ? e.message : e);
+    return isTimeout(e)
+      ? json({ error: "La IA tardó demasiado en armar el carrusel. Inténtalo de nuevo. No se te cobró." }, 504)
+      : json({ error: "No se pudo armar el carrusel. No se te cobró." }, 500);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const t0 = Date.now();
@@ -217,6 +328,7 @@ Deno.serve(async (req) => {
     if (!Deno.env.get("GEMINI_API_KEY") || (body.step === "base" && !apify)) return json({ error: "Esta función llega pronto.", pronto: true }, 503);
     if (body.step === "base") return await stepBase(who, body, apify!, t0);
     if (body.step === "version") return await stepVersion(who, body, t0);
+    if (body.step === "carrusel") return await stepCarrusel(who, body, t0);
     // Una pestaña abierta con la versión anterior de la app: se avisa antes de cobrar nada.
     return json({ error: "Recarga la página para usar el nuevo Analiza un Reel. No se te cobró." }, 400);
   } catch (e) {

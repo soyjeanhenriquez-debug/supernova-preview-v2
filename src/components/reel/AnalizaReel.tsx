@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Captions, ChevronDown, Clapperboard, Copy, History, Loader2, Play, RotateCcw, Search, Sparkles } from "lucide-react";
+import { Captions, ChevronDown, Clapperboard, Copy, History, LayoutTemplate, Loader2, Play, RotateCcw, Search, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { invokeErrorMessage } from "@/lib/fnAuth";
 import { useBusinessProfile } from "@/lib/businessProfile";
@@ -9,6 +9,7 @@ import { ToolShell } from "@/components/tool/ToolShell";
 import { ToolFeedback } from "@/components/ToolFeedback";
 import { AddToTracker } from "@/components/AddToTracker";
 import { Teleprompter } from "@/components/reel/Teleprompter";
+import { REEL_TO_CAROUSEL_KEY } from "@/lib/carousel";
 import {
   editingText, NIVEL_BY_ID, NIVELES, notionGuion, notionPorQue, parecido, publishText, REEL_URL_RE, speakSeconds, teleprompterLines,
   type Nivel, type ReelView,
@@ -64,7 +65,7 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
   const loadHistory = useCallback(async () => {
     const { data } = await db().from("reel_analyses")
       .select("id, shortcode, nivel, stage, created_at, owner:result->source->>owner, resumen:result->por_que_funciona->>resumen")
-      .order("created_at", { ascending: false }).limit(12);
+      .eq("kind", "guion").order("created_at", { ascending: false }).limit(12);
     setHist(((data ?? []) as Hist[]).filter(h => h.resumen));
   }, []);
   useEffect(() => { void loadHistory(); }, [loadHistory]);
@@ -137,6 +138,12 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
   };
 
   const startOver = () => { setView(null); setUrl(""); setRecorded(false); go([]); };
+  // Reel → Carrusel (17-oct-2026): Carrusel abre "Modelar uno que ya funciona" con este Reel puesto.
+  const toCarousel = () => {
+    if (!view?.source?.url) return;
+    try { localStorage.setItem(REEL_TO_CAROUSEL_KEY, JSON.stringify({ url: view.source.url, at: Date.now() })); } catch { /* sin almacenamiento */ }
+    onNavigate("Carrusel");
+  };
   const v = view?.version;
   const lines = useMemo(() => (v ? teleprompterLines(v, hook) : []), [v, hook]);
   const validUrl = REEL_URL_RE.test(url.trim());
@@ -316,6 +323,7 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={() => { setTeleOpen(true); setRecorded(true); }} className="btn-primary-nova inline-flex min-h-[44px] items-center gap-2 rounded-xl px-4 text-sm font-semibold"><Clapperboard className="w-4 h-4" /> Grabar con el teleprompter</button>
                 <button type="button" onClick={onUpload} className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-border px-4 text-sm text-foreground hover:bg-secondary/60"><Captions className="w-4 h-4" /> Ya lo grabé: ponerle subtítulos</button>
+                <button type="button" onClick={toCarousel} className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-border px-4 text-sm text-foreground hover:bg-secondary/60"><LayoutTemplate className="w-4 h-4" /> Convertirlo en carrusel · {CREDIT_COSTS.reel_carousel} créditos</button>
                 <button type="button" onClick={startOver} className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-border px-4 text-sm text-foreground hover:bg-secondary/60"><Search className="w-4 h-4" /> Analizar otro Reel</button>
               </div>
             </div>

@@ -13,7 +13,7 @@ import {
   carouselRequest, cleanHandle, coverCheck, draftCarousel, parseCarousel, posterPrompt, posterScenePrompt, posterTextPrompt, retone, slideTwoScore, storyTest, withCover,
   FORMATS, planFor, type FormatId,
   parseSlideObj, hasContent, trimSpec, withRefs, slideOrder, remapByOrder, fitKind, MAX_SLIDES, MIN_SLIDES, type SlideOp, type SlideTemplate,
-  brandFromClone, parseClone, parseReclone, photoPrompt, recloneRequest, MAX_KEEP, COVER_TEMPLATES, CLONE_MODES, type CoverTemplateId, type CloneMode,
+  brandFromClone, parseClone, parseReclone, photoPrompt, recloneRequest, MAX_KEEP, COVER_TEMPLATES, CLONE_MODES, REEL_LINK_RE, REEL_TO_CAROUSEL_KEY, type CoverTemplateId, type CloneMode,
   type CarouselDesign, type CarouselDraft, type CarouselGoal, type Item, type Slide, type StyleId,
 } from "@/lib/carousel";
 import { FONTS, fontEmbedCss, loadStyleFonts, slideToBlob } from "@/lib/carouselTheme";
@@ -97,6 +97,9 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
   const [cloneUrl, setCloneUrl] = useState("");
   const [cloneMode2, setCloneMode2] = useState<CloneMode>("tema");
   const [cloning, setCloning] = useState(false);
+  // Reel → Carrusel (17-oct-2026): ¿esta cuenta ya analizó ese Reel? Decide el precio (10 o 25).
+  const [reelDone, setReelDone] = useState<boolean | null>(null);
+  const [cloneStage, setCloneStage] = useState<"" | "analizando" | "laminas">("");
   const [keep, setKeep] = useState<string[]>([]);
   const [past, setPast] = useState<string[]>([]);
   const nodes = useRef<(HTMLDivElement | null)[]>([]);
@@ -314,24 +317,76 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
 
   const cloneInfo = draft?.clone;
   useEffect(() => { setKeep(cloneInfo?.keep ?? []); }, [cloneInfo]);
-  const cloneCost = CREDIT_COSTS.clone_carousel;
+  const reelCode = REEL_LINK_RE.exec(cloneUrl)?.[1] ?? null;
+  const cloneCost = !reelCode ? CREDIT_COSTS.clone_carousel : reelDone ? CREDIT_COSTS.reel_carousel : CREDIT_COSTS.reel_analyze;
+
+  // Llegó desde "Analiza un Reel" → "Convertir en carrusel": se abre "Modelar uno que ya funciona" con el Reel puesto.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(REEL_TO_CAROUSEL_KEY);
+      if (!raw) return;
+      localStorage.removeItem(REEL_TO_CAROUSEL_KEY);
+      const r = JSON.parse(raw) as { url?: string; at?: number };
+      if (typeof r.url === "string" && REEL_LINK_RE.test(r.url) && Date.now() - (r.at ?? 0) < 15 * 60_000) {
+        setFmt("clonar"); setCloneUrl(r.url);
+        toast("Tu Reel ya está puesto", { description: "Elige cómo modelarlo y toca Modelar." });
+      }
+    } catch { /* sin almacenamiento */ }
+  }, []);
+
+  useEffect(() => {
+    if (!reelCode) { setReelDone(null); return; }
+    let alive = true;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    void (supabase as any).from("reel_analyses").select("id").eq("shortcode", reelCode).limit(1)
+      .then(({ data }: { data: unknown[] | null }) => { if (alive) setReelDone(!!data?.length); });
+    return () => { alive = false; };
+  }, [reelCode]);
+
+  const reelToCarousel = async () => {
+    const body = { step: "carrusel", url: cloneUrl.trim(), mode: cloneMode2, brief, goal: goal === "ensenar" ? "ensenar" : "vender", handle: design.handle, world: design.world ?? "", line: design.line ?? "" };
+    const fail = "No se pudo convertir el Reel. No se te cobró.";
+    setCloneStage("laminas");
+    let { data, error } = await supabase.functions.invoke("reel-analyze", { body });
+    if (error) throw new Error(await invokeErrorMessage(error, fail));
+    if (data?.need_base) {
+      // Primero el análisis del Reel (25 créditos): el carrusel va incluido.
+      setCloneStage("analizando");
+      const base = await supabase.functions.invoke("reel-analyze", { body: { step: "base", url: cloneUrl.trim() } });
+      if (base.error || !base.data?.analysis_id) throw new Error(base.error ? await invokeErrorMessage(base.error, "No se pudo analizar el Reel. No se te cobró.") : (base.data?.error || "No se pudo analizar el Reel. No se te cobró."));
+      if (base.data.billing) applyServerCharge("reel_analyze", base.data.billing, "Analizar un Reel");
+      setReelDone(true);
+      setCloneStage("laminas");
+      ({ data, error } = await supabase.functions.invoke("reel-analyze", { body: { ...body, url: undefined, analysis_id: base.data.analysis_id } }));
+      if (error) throw new Error(await invokeErrorMessage(error, "El análisis quedó guardado, pero no se pudo armar el carrusel. Toca Modelar otra vez: va incluido."));
+    }
+    if (!data?.carrusel) throw new Error(data?.error || fail);
+    if (data.billing?.charged) applyServerCharge("reel_carousel", data.billing, "Reel → Carrusel");
+    return data as Record<string, unknown>;
+  };
 
   const cloneCarousel = async () => {
     if (cloning) return;
-    if (!/instagram\.com\/(?:[A-Za-z0-9._]+\/)?p\/[A-Za-z0-9_-]{5,}/.test(cloneUrl)) { toast("Pega el enlace de un carrusel de Instagram (instagram.com/p/…)."); return; }
+    if (!reelCode && !/instagram\.com\/(?:[A-Za-z0-9._]+\/)?p\/[A-Za-z0-9_-]{5,}/.test(cloneUrl)) { toast("Pega el enlace de un carrusel (instagram.com/p/…) o de un Reel (instagram.com/reel/…)."); return; }
+    if (reelCode && reelDone === null) { toast("Un segundo: estamos revisando si ya analizaste ese Reel."); return; }
     if (balance < cloneCost) { toast.error(`Te faltan créditos: esto cuesta ${cloneCost}`); return; }
     setCloning(true);
     try {
-      const { data, error } = await supabase.functions.invoke("carousel-clone", { body: { url: cloneUrl.trim(), mode: cloneMode2, brief, goal: goal === "ensenar" ? "ensenar" : "vender", handle: design.handle, world: design.world ?? "", line: design.line ?? "" } });
-      if (error || !data?.carrusel) throw new Error(error ? await invokeErrorMessage(error, "No se pudo modelar el carrusel. No se te cobró.") : (data?.error || "No se pudo modelar el carrusel. No se te cobró."));
-      if (data.billing) applyServerCharge("clone_carousel", data.billing, "Modelar carrusel viral");
+      let data: Record<string, unknown>;
+      if (reelCode) data = await reelToCarousel();
+      else {
+        const r = await supabase.functions.invoke("carousel-clone", { body: { url: cloneUrl.trim(), mode: cloneMode2, brief, goal: goal === "ensenar" ? "ensenar" : "vender", handle: design.handle, world: design.world ?? "", line: design.line ?? "" } });
+        if (r.error || !r.data?.carrusel) throw new Error(r.error ? await invokeErrorMessage(r.error, "No se pudo modelar el carrusel. No se te cobró.") : (r.data?.error || "No se pudo modelar el carrusel. No se te cobró."));
+        if (r.data.billing) applyServerCharge("clone_carousel", r.data.billing, "Modelar carrusel viral");
+        data = r.data;
+      }
       const parsed = parseClone(data, design.start, cloneMode2);
       if (!parsed) throw new Error("La IA respondió en un formato raro. Escríbenos y te devolvemos los créditos.");
       setDraft({ ...parsed.draft, clone: parsed.info }); setSel(0); setCount(parsed.draft.slides.length); setScenePaths({}); setRefPick(null);
-      toast.success("Carrusel modelado con su ADN", { description: "Mira abajo qué 3 partes se mantuvieron y cómo lo mejoramos." });
+      toast.success(reelCode ? "Tu Reel ya es un carrusel" : "Carrusel modelado con su ADN", { description: "Mira abajo qué 3 partes se mantuvieron y cómo lo mejoramos." });
     } catch (e) {
       toast.error(e instanceof Error && e.message ? e.message : "No se pudo modelar el carrusel.");
-    } finally { setCloning(false); }
+    } finally { setCloning(false); setCloneStage(""); }
   };
 
   const reclone = async () => {
@@ -522,11 +577,11 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
         {fmt === "clonar" ? (
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row gap-2">
-              <input value={cloneUrl} onChange={e => setCloneUrl(e.target.value.slice(0, 300))} placeholder="Pega el enlace: https://www.instagram.com/p/…" aria-label="Enlace del carrusel de Instagram" className={input} />
+              <input value={cloneUrl} onChange={e => setCloneUrl(e.target.value.slice(0, 300))} placeholder="Pega un carrusel (…/p/…) o un Reel (…/reel/…)" aria-label="Enlace del carrusel o del Reel de Instagram" className={input} />
               <button type="button" onClick={() => void cloneCarousel()} disabled={cloning}
                 className="btn-primary-nova shrink-0 min-h-[48px] inline-flex items-center justify-center gap-2 rounded-xl px-5 text-[14px] font-semibold disabled:opacity-60">
                 {cloning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                {cloning ? "Analizando el carrusel…" : `Modelar · ${cloneCost} créditos`}
+                {cloning ? (cloneStage === "analizando" ? "Analizando el Reel…" : cloneStage === "laminas" ? "Armando las láminas…" : "Analizando el carrusel…") : `Modelar · ${cloneCost} créditos`}
               </button>
             </div>
             <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Cómo modelarlo">
@@ -538,7 +593,11 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                 </button>
               ))}
             </div>
-            <p className="text-[11px] text-muted-foreground">Carruseles públicos de Instagram. Tarda cerca de un minuto. La IA lo lee lámina por lámina y te dice por qué funcionó. No traduce palabra por palabra ni usa sus fotos, su cara ni su marca. Si falla, no se te cobra.</p>
+            {reelCode ? (
+              <p className="text-[11px] text-muted-foreground">Es un Reel: lo convertimos en carrusel (cada idea del video, una lámina). {reelDone ? `Ya lo analizaste, así que cuesta ${CREDIT_COSTS.reel_carousel} créditos.` : `Incluye el análisis del Reel (${CREDIT_COSTS.reel_analyze} créditos); si después quieres otro carrusel de ese Reel, cuesta ${CREDIT_COSTS.reel_carousel}.`} Tarda cerca de un minuto. No usa sus fotos, su cara ni su marca. Si falla, no se te cobra.</p>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">Carruseles o Reels públicos de Instagram. Tarda cerca de un minuto. La IA lo lee lámina por lámina y te dice por qué funcionó. No traduce palabra por palabra ni usa sus fotos, su cara ni su marca. Si falla, no se te cobra.</p>
+            )}
           </div>
         ) : (
           <>
@@ -687,6 +746,11 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
             <h2 className="font-display font-semibold text-[15px] text-foreground">El ADN ganador{cloneInfo.source.owner ? ` de @${cloneInfo.source.owner}` : ""}</h2>
             {cloneInfo.source.likes != null && <span className="text-[12px] text-muted-foreground">{cloneInfo.source.likes.toLocaleString("es")} me gusta · {(cloneInfo.source.comments ?? 0).toLocaleString("es")} comentarios</span>}
           </div>
+          {cloneInfo.reel && (
+            <p className={`rounded-lg border p-3 text-[12px] ${cloneInfo.reel.fit === "bajo" ? "border-primary/40 bg-primary/10 text-foreground" : "border-border text-muted-foreground"}`}>
+              Salió de un Reel: se presta <b className="text-foreground">{cloneInfo.reel.fit === "alto" ? "mucho" : cloneInfo.reel.fit === "medio" ? "bastante" : "poco"}</b> para carrusel.{cloneInfo.reel.why ? ` ${cloneInfo.reel.why}` : ""}
+            </p>
+          )}
           {cloneInfo.source.images.length > 0 && (
             <div className="space-y-2">
               <p className="text-[12px] text-muted-foreground">Toca una lámina del original para modelarla y sumarla a tu carrusel.</p>

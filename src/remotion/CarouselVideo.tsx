@@ -2,7 +2,7 @@ import { AbsoluteFill, Img, interpolate, Sequence, useCurrentFrame, useVideoConf
 
 /**
  * Carrusel animado (17-oct-2026, opcional): las láminas ya diseñadas (PNG) pasan una tras otra con un
- * movimiento suave. "reel" = 1080×1920 con la lámina centrada sobre un fondo de tu color; "feed" = 1080×1350.
+ * movimiento suave. "reel" = 1080×1920 con la lámina centrada sobre negro; "feed" = 1080×1350.
  * Se ve en el Player y se descarga gratis armado en el navegador (renderMediaOnWeb).
  */
 export type CarouselAnim = "deslizar" | "zoom" | "aparecer";
@@ -30,10 +30,11 @@ function Slide({ src, anim, len, aspect }: { src: string; anim: CarouselAnim; le
   );
 }
 
-export function CarouselVideo({ frames, per, anim, brand, aspect }: CarouselVideoProps) {
+// Fondo negro liso: el armado en el navegador no pinta degradados CSS, así la vista previa y el video son iguales.
+export function CarouselVideo({ frames, per, anim, aspect }: CarouselVideoProps) {
   const len = Math.round(per * FPS);
   return (
-    <AbsoluteFill style={{ background: `radial-gradient(120% 80% at 50% 0%, ${brand} 0%, #000000 75%)` }}>
+    <AbsoluteFill style={{ backgroundColor: "#000000" }}>
       {frames.map((src, i) => (
         <Sequence key={i} from={i * len} durationInFrames={len}>
           <Slide src={src} anim={anim} len={len} aspect={aspect} />

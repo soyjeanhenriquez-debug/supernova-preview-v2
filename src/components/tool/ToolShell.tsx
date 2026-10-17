@@ -12,7 +12,7 @@ import { useVia } from "@/lib/tools";
  */
 export type Crumb = { label: string; onClick?: () => void };
 
-export function ToolShell({ crumbs, title, line, onBack, backLabel = "Volver", steps, step = 0, onStep, aside, children, onNavigate }: {
+export function ToolShell({ crumbs, title, line, onBack, backLabel = "Volver", steps, step = 0, onStep, aside, children, onNavigate, previewFirst }: {
   crumbs: Crumb[];
   title: string;
   line?: string;
@@ -26,6 +26,8 @@ export function ToolShell({ crumbs, title, line, onBack, backLabel = "Volver", s
   aside?: ReactNode;
   children: ReactNode;
   onNavigate: (page: string) => void;
+  /** En el teléfono, el resultado (`children`, p. ej. la vista previa del video) va arriba de las opciones. */
+  previewFirst?: boolean;
 }) {
   return (
     <div className="space-y-5">
@@ -57,9 +59,9 @@ export function ToolShell({ crumbs, title, line, onBack, backLabel = "Volver", s
       {steps && steps.length > 1 && <Steps steps={steps} step={step} onStep={onStep} />}
 
       {aside ? (
-        <div className="grid gap-5 lg:grid-cols-[minmax(300px,380px)_minmax(0,1fr)] items-start">
-          <aside className="space-y-4 lg:sticky lg:top-20">{aside}</aside>
-          <section className="min-w-0 space-y-4">{children}</section>
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(300px,380px)_minmax(0,1fr)] items-start">
+          <aside className={`space-y-4 lg:sticky lg:top-20 ${previewFirst ? "order-2 lg:order-1" : ""}`}>{aside}</aside>
+          <section className={`min-w-0 space-y-4 ${previewFirst ? "order-1 lg:order-2" : ""}`}>{children}</section>
         </div>
       ) : <section className="min-w-0 space-y-4">{children}</section>}
     </div>

@@ -2,7 +2,7 @@
 
 Para que "Sube tu video" entregue el video con subtítulos en cualquier navegador y celular, el video se
 arma en la nube con Remotion Lambda (AWS). Estos dos archivos son los permisos que pide Remotion
-(generados con `remotion lambda policies role|user`, versión 4.0.506). No tienen claves.
+(generados con `remotion lambda policies role|user`, versión 4.0.536). No tienen claves.
 
 - `remotion-lambda-policy.json` → política del ROL `remotion-lambda-role` (lo que puede hacer la función).
 - `remotion-user-policy.json` → política del USUARIO `remotion-user` (lo que puede hacer SUPERNOVA con AWS).

@@ -1,5 +1,5 @@
 import { useCreditsLeft } from "@/hooks/useCreditsLeft";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowLeft, ArrowRight, Check, Copy, Download, ImagePlus, Loader2, Plus, Sparkles, Star, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +21,8 @@ import { SLIDE_W, SlideView, slideH } from "@/components/image/carousel/SlideVie
 import { loadDesign, loadDraft, saveDesign, saveDraft } from "@/lib/carouselStore";
 import { AddToTracker } from "@/components/AddToTracker";
 import { ToolFeedback } from "@/components/ToolFeedback";
+// Remotion solo se carga si la persona abre "Animar mi carrusel".
+const AnimateCarousel = lazy(() => import("@/components/image/carousel/AnimateCarousel").then(m => ({ default: m.AnimateCarousel })));
 
 /**
  * Carrusel (05-oct-2026, v2): la IA escribe el texto con los 5 tiempos (Gancho → Promesa → Tirón →
@@ -532,6 +534,17 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     } catch {
       toast.error("No se pudo descargar. Intenta de nuevo.");
     } finally { setSaving(false); }
+  };
+
+  // Las láminas como PNG (las mismas que se descargan), para "Animar mi carrusel".
+  const slideFrames = async (): Promise<string[]> => {
+    const fontEmbedCSS = await fontEmbedCss(design.style).catch(() => "");
+    const out: string[] = [];
+    for (let i = 0; i < slides.length; i++) {
+      const n = nodes.current[i];
+      if (n) out.push(URL.createObjectURL(await slideToBlob(n, SLIDE_W, slideH(aspect), fontEmbedCSS)));
+    }
+    return out;
   };
 
   const copyCaption = async () => {
@@ -1130,6 +1143,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
           className="min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 text-[13px] text-foreground hover:border-foreground/40 disabled:opacity-60">
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Descargar las {slides.length} láminas
         </button>
+        <Suspense fallback={null}><AnimateCarousel getFrames={slideFrames} count={slides.length} aspect={aspect} brand={design.brand} /></Suspense>
         {!isSample && <AddToTracker kind="carrusel" title={slides[0]?.title ?? brief.product} keyword={slides[slides.length - 1]?.cta} source="carrusel" className="sm:ml-2" />}
         {!isSample && (
           <ToolFeedback tool={cloneInfo ? "carrusel-clon" : "carrusel"} refId={cloneInfo?.id ?? null}

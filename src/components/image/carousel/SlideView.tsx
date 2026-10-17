@@ -1,5 +1,5 @@
 import { forwardRef, type CSSProperties, type ReactNode } from "react";
-import { accentRuns, galleryCols, type CarouselDesign, type Slide } from "@/lib/carousel";
+import { accentRuns, galleryCols, tweetText, type CarouselDesign, type Slide } from "@/lib/carousel";
 import { FONTS, palette, rgba, toneColors, type ToneColors } from "@/lib/carouselTheme";
 
 /**
@@ -12,7 +12,8 @@ export const SLIDE_W = 1080;
 const MONTHS = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
 export const slideH = (aspect: "4:5" | "1:1") => (aspect === "4:5" ? 1350 : 1080);
 
-type Props = { slide: Slide; index: number; total: number; design: CarouselDesign; aspect: "4:5" | "1:1" };
+/** `photos` = tus fotos del kit de marca (URLs firmadas): fondo y foto de perfil del estilo "Tuit". */
+type Props = { slide: Slide; index: number; total: number; design: CarouselDesign; aspect: "4:5" | "1:1"; photos?: string[] };
 
 /** Tamaño de titular según lo largo que sea: corto = enorme, largo = más chico. */
 function fitSize(text: string, max: number, min: number, ref = 18) {
@@ -42,7 +43,7 @@ const Icon = {
   chevron: (color: string) => <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7" /></svg>,
 };
 
-export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ slide, index, total, design, aspect }, ref) {
+export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ slide, index, total, design, aspect, photos = [] }, ref) {
   const H = slideH(aspect);
   const k = H / 1350; // 1:1 comprime un poco todo
   // La lámina CTA con foto siempre va con texto claro sobre un velo oscuro.
@@ -80,6 +81,8 @@ export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ 
       </div>
     );
   }
+
+  if (design.style === "tuit") return <TweetSlide ref={ref} slide={slide} index={index} design={design} H={H} photos={photos} />;
 
   let body: ReactNode = null;
   switch (slide.kind) {
@@ -428,3 +431,54 @@ export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ 
     </div>
   );
 });
+
+/**
+ * Estilo "Tuit" (plantilla de Jean, 17-oct-2026, del carrusel de @hormozi): tu foto a todo lo ancho que
+ * se funde a negro y, encima, una tarjeta blanca tipo publicación de X con tu foto de perfil, tu nombre,
+ * tu @ y UNA idea. La portada lleva la flecha en un círculo para invitar a deslizar. Sin insignia de
+ * verificado (no se muestra algo que la cuenta quizá no tiene). La foto: la de la lámina (IA) o una de
+ * tus fotos del kit, rotando; si no hay, un fondo negro con un toque de tu color.
+ */
+const TweetSlide = forwardRef<HTMLDivElement, { slide: Slide; index: number; design: CarouselDesign; H: number; photos: string[] }>(
+  function TweetSlide({ slide, index, design, H, photos }, ref) {
+    const bg = slide.photo ?? (photos.length ? photos[index % photos.length] : undefined);
+    const avatar = photos[0];
+    const name = design.name || (design.handle ? design.handle : "Tu nombre");
+    const handle = design.handle ? `@${design.handle}` : "@tucuenta";
+    const { head, rest } = tweetText(slide, index);
+    const len = head.length + rest.join(" ").length;
+    const size = len <= 40 ? 50 : len <= 90 ? 44 : len <= 160 ? 38 : 33;
+    const initials = name.replace(/^@/, "").split(/\s+/).map(w => w[0] ?? "").join("").slice(0, 2).toUpperCase();
+    const font = '"Inter", system-ui, -apple-system, "Segoe UI", sans-serif';
+    return (
+      <div ref={ref} style={{ position: "relative", width: SLIDE_W, height: H, overflow: "hidden", background: "#000000", fontFamily: font }}>
+        {bg ? (
+          <img src={bg} alt="" crossOrigin="anonymous" style={{ position: "absolute", left: 0, top: 0, width: "100%", height: H * 0.78, objectFit: "cover", objectPosition: "center 25%", display: "block" }} />
+        ) : (
+          <div style={{ position: "absolute", inset: 0, background: `radial-gradient(120% 70% at 50% 0%, ${rgba(design.brand, 0.45)} 0%, #000000 70%)` }} />
+        )}
+        <div style={{ position: "absolute", left: 0, right: 0, top: H * 0.4, height: H * 0.42, background: "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 55%, #000000 100%)" }} />
+        <div style={{ position: "absolute", left: 92, right: 92, bottom: H * 0.17, background: "#ffffff", border: "4px solid #0b0b0b", borderRadius: 40, padding: "40px 46px 44px", color: "#0f1419", boxShadow: "0 24px 60px rgba(0,0,0,0.35)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 26 }}>
+            {avatar ? (
+              <img src={avatar} alt="" crossOrigin="anonymous" style={{ width: 118, height: 118, borderRadius: 999, objectFit: "cover", flexShrink: 0, display: "block" }} />
+            ) : (
+              <div style={{ width: 118, height: 118, borderRadius: 999, background: design.brand, color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 46, fontWeight: 700, flexShrink: 0 }}>{initials || "T"}</div>
+            )}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 44, fontWeight: 700, lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
+              <div style={{ fontSize: 34, color: "#536471", lineHeight: 1.3 }}>{handle}</div>
+            </div>
+          </div>
+          <div style={{ marginTop: 30, fontSize: size, lineHeight: 1.3, fontWeight: 400, whiteSpace: "pre-line" }}>{head}</div>
+          {rest.map((r, i) => <div key={i} style={{ marginTop: 14, fontSize: Math.round(size * 0.82), lineHeight: 1.35, color: "#0f1419" }}>{r}</div>)}
+          {slide.kind === "portada" && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
+              <div style={{ width: 76, height: 76, borderRadius: 999, border: "4px solid #0f1419", display: "flex", alignItems: "center", justifyContent: "center" }}>{Icon.arrow("#0f1419", 38)}</div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  },
+);

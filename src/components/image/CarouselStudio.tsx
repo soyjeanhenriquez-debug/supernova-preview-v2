@@ -62,10 +62,12 @@ function Scaled({ width, aspect, children }: { width: number; aspect: "4:5" | "1
   );
 }
 
-export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors, kitRefs = [], useRefs = true, photoPanel, onAutostart }: {
+export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors, kitRefs = [], kitPhotos = [], useRefs = true, photoPanel, onAutostart }: {
   brief: Brief; seed: Seed; uid: string | null; productId: string | null; folder: string | null; kitColors: string[];
   /** Fotos del producto o logo del kit de marca (rutas propias de "creativos"). */
   kitRefs?: string[];
+  /** Solo tus fotos del kit (sin el logo): fondo y foto de perfil del estilo "Tuit". */
+  kitPhotos?: string[];
   /** ¿Usar esas fotos como referencia? (se decide en el panel de fotos). */
   useRefs?: boolean;
   /** Panel para subir tu foto (tu cara), tu logo o tu producto: la protagonista de las fotos IA. */
@@ -99,6 +101,8 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
   const [cloning, setCloning] = useState(false);
   // Reel → Carrusel (17-oct-2026): ¿esta cuenta ya analizó ese Reel? Decide el precio (10 o 25).
   const [reelDone, setReelDone] = useState<boolean | null>(null);
+  // Estilo "Tuit" (17-oct-2026): tus fotos del kit, firmadas, para el fondo y la foto de perfil.
+  const [tweetPhotos, setTweetPhotos] = useState<string[]>([]);
   const [cloneStage, setCloneStage] = useState<"" | "analizando" | "laminas">("");
   const [keep, setKeep] = useState<string[]>([]);
   const [past, setPast] = useState<string[]>([]);
@@ -317,6 +321,17 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
 
   const cloneInfo = draft?.clone;
   useEffect(() => { setKeep(cloneInfo?.keep ?? []); }, [cloneInfo]);
+  const photoKey = kitPhotos.join("|");
+  useEffect(() => {
+    if (design.style !== "tuit" || !kitPhotos.length) { setTweetPhotos([]); return; }
+    let alive = true;
+    void supabase.storage.from("creativos").createSignedUrls(kitPhotos.slice(0, 6), 3600).then(({ data }) => {
+      if (alive) setTweetPhotos((data ?? []).map(d => d.signedUrl).filter((u): u is string => !!u));
+    });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [design.style, photoKey]);
+
   const reelCode = REEL_LINK_RE.exec(cloneUrl)?.[1] ?? null;
   const cloneCost = !reelCode ? CREDIT_COSTS.clone_carousel : reelDone ? CREDIT_COSTS.reel_carousel : CREDIT_COSTS.reel_analyze;
 
@@ -683,6 +698,14 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
             </div>
           </div>
 
+          {design.style === "tuit" && (
+            <p className="rounded-lg border border-border p-3 text-[12px] text-muted-foreground">
+              Cada lámina es una tarjeta tipo tuit con tu nombre y tu @ sobre tu foto, con una idea por lámina.{" "}
+              {kitPhotos.length ? `Usamos tus ${kitPhotos.length === 1 ? "foto" : `${Math.min(kitPhotos.length, 6)} fotos`} de "Tu foto", una por lámina.` : "Sube 3 a 6 fotos tuyas en \"Tu foto\" para que salgas en cada lámina; mientras, va un fondo negro con tu color."}
+              {!design.name && " Escribe tu nombre abajo para que salga en la tarjeta."}
+            </p>
+          )}
+
           <div className="space-y-2">
             <p className="text-[13px] text-foreground font-medium">Empieza en</p>
             <div className="flex gap-2">
@@ -887,7 +910,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
             <button key={i} type="button" onClick={() => setSel(i)} aria-label={`Lámina ${i + 1}: ${KIND_LABEL[s.kind]}`}
               className={`snap-start shrink-0 rounded-xl overflow-hidden border text-left ${sel === i ? "border-foreground/60" : "border-border"}`}>
               <Scaled width={THUMB} aspect={aspect}>
-                <SlideView ref={el => { nodes.current[i] = el; }} slide={s} index={i} total={slides.length} design={design} aspect={aspect} />
+                <SlideView ref={el => { nodes.current[i] = el; }} slide={s} index={i} total={slides.length} design={design} aspect={aspect} photos={tweetPhotos} />
               </Scaled>
               <span className="block px-2.5 py-1.5 text-[11px] text-muted-foreground">{i + 1}. {KIND_LABEL[s.kind]}{s.ref ? ` · como la ${s.ref} del original` : ""}</span>
             </button>
@@ -1129,7 +1152,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
           <p className="text-[12px] text-muted-foreground">La gente no sigue un post: abre tu perfil y mira todo junto. Si tus portadas se ven como una sola marca, vas bien.</p>
           <div className="grid grid-cols-3 gap-1 max-w-[360px]">
             <div className="aspect-[3/4] overflow-hidden bg-card flex items-start justify-center">
-              <Scaled width={118} aspect={aspect}><SlideView slide={slides[0]} index={0} total={slides.length} design={design} aspect={aspect} /></Scaled>
+              <Scaled width={118} aspect={aspect}><SlideView slide={slides[0]} index={0} total={slides.length} design={design} aspect={aspect} photos={tweetPhotos} /></Scaled>
             </div>
             {past.slice(0, 8).map((u, i) => <div key={i} className="aspect-[3/4] bg-card overflow-hidden"><img src={u} alt="Portada anterior" className="w-full h-full object-cover" /></div>)}
             {Array.from({ length: Math.max(0, 2 - past.length) }).map((_, i) => <div key={`e${i}`} className="aspect-[3/4] border border-dashed border-border" />)}

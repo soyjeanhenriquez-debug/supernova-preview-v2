@@ -68,7 +68,7 @@ export type Cover = { title: string; subtitle: string; tag: string; why: string 
 /** `rec` = la portada que recomendó la IA; `pick` = la que eligió la persona. */
 /** `idea` = la frase que todo el carrusel defiende. */
 export type CarouselDraft = { covers: Cover[]; pick: number; rec?: number; slides: Slide[]; caption: string; scene?: string; idea?: string; clone?: CloneInfo; template?: CoverTemplateId };
-export type StyleId = "poster" | "editorial" | "moderno" | "impacto" | "elegante";
+export type StyleId = "poster" | "editorial" | "moderno" | "impacto" | "elegante" | "tuit";
 /**
  * Sistema de diseño + la "firma" que no se puede copiar (carrusel "Uncopyable" de Grow with Alex): los
  * colores y letras se roban en 5 minutos; lo que no se roba es tu papel, tu mundo, tu frase y tus datos.
@@ -118,6 +118,9 @@ export const STYLES: Record<StyleId, { name: string; line: string }> = {
   moderno: { name: "Moderno", line: "Limpio y geométrico" },
   impacto: { name: "Impacto", line: "Letra alta y fuerte" },
   elegante: { name: "Elegante", line: "Fino y de lujo" },
+  // Plantilla de Jean (17-oct-2026), del carrusel de @hormozi "5 reasons your offer isn't converting":
+  // tu foto a todo lo ancho + una tarjeta tipo tuit con tu nombre, tu @ y UNA idea por lámina.
+  tuit: { name: "Tuit", line: "Tu foto + tarjeta tipo X" },
 };
 
 export const DEFAULT_DESIGN: CarouselDesign = { brand: "#c96442", name: "", handle: "", style: "editorial", start: "oscuro" };
@@ -512,7 +515,32 @@ const STYLE_TYPE: Record<StyleId, string> = {
   moderno: "una sans geométrica muy gruesa",
   impacto: "una sans condensada altísima en mayúsculas",
   elegante: "una serifa de alto contraste, fina y de lujo",
+  tuit: "una sans limpia y sencilla, como la de una publicación de X",
 };
+
+/**
+ * Texto de una lámina en el estilo "Tuit": una sola publicación corta. La portada es su titular; las
+ * demás llevan su número ("1) …") y, debajo, lo que la lámina explica (texto, lista o veredicto).
+ */
+export function tweetText(s: Slide, index: number): { head: string; rest: string[] } {
+  const plain = (t?: string) => (t ?? "").replace(/\*/g, "").replace(/\s+/g, " ").trim();
+  if (s.kind === "portada") return { head: plain(s.title), rest: [] };
+  const numbered = s.kind !== "llamada" && s.kind !== "giro" && s.kind !== "respuesta";
+  const head = numbered ? `${index}) ${plain(s.title)}` : plain(s.title);
+  const rest: string[] = [];
+  if (s.kind === "llamada") {
+    if (s.cta) rest.push(`Comenta "${plain(s.cta)}"${s.body ? ` y ${plain(s.body).replace(/^./, c => c.toLocaleLowerCase("es"))}` : ""}`);
+    else if (s.body) rest.push(plain(s.body));
+    return { head, rest };
+  }
+  if (s.body) rest.push(plain(s.body));
+  for (const it of s.items.slice(0, 4)) {
+    const t = plain(it.title), x = plain(it.text);
+    if (t || x) rest.push(`• ${t}${t && x ? ": " : ""}${x}`);
+  }
+  if (s.verdict && rest.length < 3) rest.push(plain(s.verdict));
+  return { head, rest };
+}
 
 /**
  * Prompt de la portada tipo póster editorial (para GPT Image 2, Nano Banana Pro, etc.). La IA de

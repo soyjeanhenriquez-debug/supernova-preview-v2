@@ -25,6 +25,8 @@ export const FONTS: Record<StyleId, Fonts> = {
   moderno: { display: "Sora", displayWeight: 700, body: "Manrope", mono: "JetBrains Mono", css: "family=Sora:wght@600;700&family=Manrope:wght@400;600;700&family=JetBrains+Mono:wght@500;700" },
   impacto: { display: "Anton", displayWeight: 400, body: "Inter", mono: "Space Mono", upperTitle: true, css: "family=Anton&family=Inter:wght@400;600;700&family=Space+Mono:wght@400;700" },
   elegante: { display: "Playfair Display", displayWeight: 700, body: "DM Sans", mono: "DM Mono", css: "family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;600;700&family=DM+Mono:wght@500" },
+  // Tarjeta tipo tuit sobre tu foto (17-oct-2026): una sola sans, como la de X.
+  tuit: { display: "Inter", displayWeight: 700, body: "Inter", mono: "Inter", monoWeight: 600, lightBg: "#ffffff", darkBg: "#000000", css: "family=Inter:wght@400;500;600;700;800" },
 };
 
 type RGB = [number, number, number];

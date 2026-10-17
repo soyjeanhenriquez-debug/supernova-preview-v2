@@ -51,6 +51,7 @@ export function promptC(b: Base, mode: CarouselMode, brief: BriefC): string {
     `CTA: ${b.cta.tipo}${b.cta.palabra ? ` (palabra ${b.cta.palabra})` : ""}`,
     "Tramos (cada número es una lámina de referencia):", tramos,
     `Lo que debe mejorar: ${b.debilidades.join(" · ")}`,
+    b.no_comprobable.length ? `Resultados del Reel que NO se pueden comprobar (nunca los repitas ni pongas cifras parecidas): ${b.no_comprobable.join(" · ")}` : "",
     "",
     "CÓMO SE PASA DE REEL A CARRUSEL:",
     "- El gancho del Reel es la portada. Cada idea, paso, ejemplo o punto de la lista del Reel es una lámina, en el mismo orden. Si el Reel es una lista ('7 números', '5 proyectos'), cada punto va en su lámina o en tarjetas, sin saltar ninguno. Si compara dos cosas, usa comparacion. Si enseña pasos, usa pasos.",

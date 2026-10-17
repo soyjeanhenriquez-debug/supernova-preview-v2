@@ -11,7 +11,7 @@ import { AddToTracker } from "@/components/AddToTracker";
 import { Teleprompter } from "@/components/reel/Teleprompter";
 import { REEL_TO_CAROUSEL_KEY } from "@/lib/carousel";
 import {
-  editingText, NIVEL_BY_ID, NIVELES, notionGuion, notionPorQue, parecido, publishText, REEL_URL_RE, speakSeconds, teleprompterLines,
+  editingText, NIVEL_BY_ID, NIVELES, notionGuion, notionPorQue, parecido, publishText, REEL_URL_RE, speakSeconds, teleprompterLines, TIPOS,
   type Nivel, type ReelView,
 } from "@/lib/reel";
 
@@ -420,6 +420,15 @@ function PorQueTab({ view }: { view: ReelView }) {
   const p = view.por_que_funciona;
   return (
     <div className="space-y-4">
+      {p.tipo && (
+        <div className="rounded-xl border border-border p-3 text-[13px] space-y-1">
+          <p className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-secondary px-2.5 py-1 text-[12px] font-semibold text-foreground">{TIPOS[p.tipo].nombre}</span>
+            <span className="text-muted-foreground">{TIPOS[p.tipo].para}</span>
+          </p>
+          {p.tipo_por_que && <p className="text-foreground">{p.tipo_por_que}</p>}
+        </div>
+      )}
       <p className="font-display text-lg sm:text-xl font-semibold leading-snug text-foreground">{p.resumen}</p>
       <div className="rounded-xl border border-border p-3 text-[13px] space-y-1">
         <p className="font-semibold text-foreground">El gancho (0–3 s)</p>
@@ -447,6 +456,13 @@ function PorQueTab({ view }: { view: ReelView }) {
       )}
       {p.mejorar.length > 0 && (
         <div className="text-[13px]"><p className="font-semibold text-foreground">Qué mejorar en tu versión</p><ul className="mt-1 list-disc pl-5 text-muted-foreground">{p.mejorar.map(m => <li key={m}>{m}</li>)}</ul></div>
+      )}
+      {!!p.no_comprobable?.length && (
+        <div role="note" className="rounded-xl border border-primary/40 bg-primary/10 p-3 text-[13px]">
+          <p className="font-semibold text-foreground">Ojo: esto no se puede comprobar</p>
+          <ul className="mt-1 list-disc pl-5 text-foreground">{p.no_comprobable.map(x => <li key={x}>{x}</li>)}</ul>
+          <p className="mt-1 text-[12px] text-muted-foreground">Tu versión no lo repite ni pone cifras parecidas: muestra solo resultados tuyos y reales.</p>
+        </div>
       )}
       <button type="button" onClick={() => copy(notionPorQue(p), "Copiado en formato Notion")} className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-border px-3 text-[13px] text-foreground hover:bg-secondary/60"><Copy className="w-4 h-4" /> Copiar ¿Por qué funciona? (Notion)</button>
     </div>

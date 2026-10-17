@@ -24,7 +24,17 @@ export interface Base {
   formula_gancho: string; mecanismo: string; claves: string[];
   cta: { tipo: string; palabra: string };
   debilidades: string[];
+  /**
+   * Regla 30/70 (17-oct-2026, lección de @profesiondelfuturo): "descubrimiento" = algo útil que se
+   * comparte solo y atrae gente nueva de tu nicho (arriba del embudo); "nicho" = lo que convierte
+   * (oferta, prueba, historia, CTA de venta). "" = análisis viejo todavía sin clasificar.
+   */
+  tipo: Tipo | "";
+  tipo_por_que: string;
+  /** Resultados que el Reel muestra y no se pueden comprobar (cifras de ventas, "de 3 a 3.000 comentarios"…). */
+  no_comprobable: string[];
 }
+export type Tipo = "descubrimiento" | "nicho";
 export interface Linea { inicio: number; fin: number; dices: string; se_ve: string; texto_pantalla: string; original: number | null; original_texto?: string }
 export interface Version {
   nivel: Nivel; que_se_mantuvo: string[]; que_cambio: string[]; formula_explicada: string;
@@ -60,11 +70,48 @@ export function promptA(o: { caption: string; owner: string; views: number | nul
     "6) claves: 3 razones concretas de por qué funciona (ritmo, cortes, texto en pantalla, promesa, formato). Si las cifras son bajas, di con honestidad qué le falló.",
     "7) cta: tipo de llamada a la acción (comentar palabra, seguir, guardar, enlace, ninguna) y la palabra clave si la hay.",
     "8) debilidades: 3 cosas concretas que una versión nueva debería mejorar.",
+    TIPO_RULE,
+    NO_COMPROBABLE_RULE,
     "Escribe todo en español latino neutro (menos la transcripción, que va en su idioma original).",
     "",
     "RESPONDE SOLO con JSON válido con esta forma:",
-    `{"idioma":"es","duracion_s":0,"resumen":"","transcripcion":[{"s":0,"texto":""}],"gancho":{"se_ve":"","se_dice":"","texto_pantalla":"","por_que":""},"estructura":[{"inicio":0,"fin":3,"funcion":"gancho","etiqueta":"","que_pasa":"","se_ve":""}],"formula_gancho":"","mecanismo":"","claves":["","",""],"cta":{"tipo":"","palabra":""},"debilidades":["","",""]}`,
+    `{"idioma":"es","duracion_s":0,"resumen":"","transcripcion":[{"s":0,"texto":""}],"gancho":{"se_ve":"","se_dice":"","texto_pantalla":"","por_que":""},"estructura":[{"inicio":0,"fin":3,"funcion":"gancho","etiqueta":"","que_pasa":"","se_ve":""}],"formula_gancho":"","mecanismo":"","claves":["","",""],"cta":{"tipo":"","palabra":""},"debilidades":["","",""],"tipo":"descubrimiento","tipo_por_que":"","no_comprobable":[]}`,
   ].filter(Boolean).join("\n");
+}
+
+const TIPO_RULE = "9) tipo: \"descubrimiento\" si comparte algo útil que se guarda y se comparte solo y atrae gente NUEVA del nicho (una herramienta, un truco, un dato, una lista útil): arriba del embudo. \"nicho\" si está hecho para convertir a quien ya sigue (oferta, prueba, historia personal, objeciones, llamado a comprar o a escribir). tipo_por_que: por qué, en una frase.";
+const NO_COMPROBABLE_RULE = "10) no_comprobable: los resultados que el Reel muestra o promete y que no se pueden comprobar (cifras de ventas o de ingresos, \"de 3 a 3.000 comentarios\", seguidores ganados en días, testimonios sin fuente). Cópialos cortos, tal como se dicen o se ven. Si no hay, lista vacía. Nunca se repiten en una versión nueva.";
+
+/**
+ * Para análisis viejos de la caché que no traen tipo: lo clasifica solo con el texto (sin volver a
+ * mirar el video). Es una llamada corta.
+ */
+export function promptTipo(b: Base): string {
+  return [
+    "Te paso el análisis de un Reel de Instagram (no el video). Clasifícalo.",
+    `Resumen: ${b.resumen}`,
+    `Gancho: dice «${b.gancho.se_dice}»; texto en pantalla «${b.gancho.texto_pantalla}».`,
+    `Mecanismo: ${b.mecanismo}`,
+    `Tramos: ${b.estructura.map(t => `${t.funcion}: ${t.que_pasa}`).join(" · ")}`,
+    `CTA: ${b.cta.tipo}${b.cta.palabra ? ` (${b.cta.palabra})` : ""}`,
+    `Lo que se dice: ${b.transcripcion.map(t => t.texto).join(" ").slice(0, 3000)}`,
+    "",
+    TIPO_RULE.replace(/^9\) /, ""),
+    NO_COMPROBABLE_RULE.replace(/^10\) /, ""),
+    "Escribe en español latino neutro.",
+    `RESPONDE SOLO con JSON válido: {"tipo":"descubrimiento","tipo_por_que":"","no_comprobable":[]}`,
+  ].join("\n");
+}
+
+/** Deja tipo, su porqué y los resultados no comprobables con la forma pactada. */
+export function cleanTipo(v: unknown): Pick<Base, "tipo" | "tipo_por_que" | "no_comprobable"> {
+  const o = obj(v);
+  const t = s(o.tipo, 20).toLowerCase();
+  return {
+    tipo: t === "descubrimiento" || t === "nicho" ? t : "",
+    tipo_por_que: s(o.tipo_por_que, 240),
+    no_comprobable: list(o.no_comprobable, 4, 160),
+  };
 }
 
 /** Deja el análisis base con la forma pactada (lo que diga la IA no se confía). null si no sirve. */
@@ -87,6 +134,7 @@ export function cleanBase(v: unknown): Base | null {
     claves: list(o.claves ?? o.por_que_funciona, 4, 300),
     cta: { tipo: s(obj(o.cta).tipo, 60), palabra: palabraClave(obj(o.cta).palabra) },
     debilidades: list(o.debilidades ?? o.mejorar, 4, 300),
+    ...cleanTipo(o),
   };
   return base.estructura.length && (base.resumen || base.claves.length) ? base : null;
 }
@@ -97,6 +145,7 @@ export function porQue(b: Base) {
     resumen: b.resumen, gancho: b.gancho, claves: b.claves, mejorar: b.debilidades,
     timeline: b.estructura.map(t => ({ inicio: t.inicio, fin: t.fin, etiqueta: t.etiqueta || t.funcion, descripcion: t.que_pasa, se_ve: t.se_ve })),
     formula_gancho: b.formula_gancho, mecanismo: b.mecanismo, cta: b.cta, idioma: b.idioma, duracion_s: b.duracion_s,
+    tipo: b.tipo, tipo_por_que: b.tipo_por_que, no_comprobable: b.no_comprobable,
   };
 }
 
@@ -143,6 +192,7 @@ export function promptB(b: Base, nivel: Nivel, brief: BriefB): string {
       ? `Texto completo del original (es la BASE de tu versión: síguelo frase por frase): ${habla}`
       : `Lo que se dice (solo para entender; no lo copies si está en español): ${habla}`) : "",
     `Lo que debe mejorar: ${b.debilidades.join(" · ")}`,
+    b.no_comprobable.length ? `Resultados del original que NO se pueden comprobar (nunca los repitas ni pongas cifras parecidas): ${b.no_comprobable.join(" · ")}` : "",
     "",
     NIVEL_REGLAS[nivel],
     "",

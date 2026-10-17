@@ -29,6 +29,15 @@ export type PorQue = {
   timeline: { inicio: number; fin: number; etiqueta: string; descripcion: string; se_ve?: string }[];
   formula_gancho: string; mecanismo: string; cta?: { tipo: string; palabra: string };
   idioma?: string; duracion_s?: number | null;
+  /** Regla 30/70 (17-oct-2026): descubrimiento atrae gente nueva; nicho convierte. Vacío en análisis viejos. */
+  tipo?: Tipo | ""; tipo_por_que?: string;
+  /** Resultados del original que no se pueden comprobar (no se repiten en tu versión). */
+  no_comprobable?: string[];
+};
+export type Tipo = "descubrimiento" | "nicho";
+export const TIPOS: Record<Tipo, { nombre: string; para: string }> = {
+  descubrimiento: { nombre: "Descubrimiento", para: "Atrae gente nueva de tu nicho: se guarda y se comparte solo. Va en el 30 % de lo que publicas." },
+  nicho: { nombre: "Nicho", para: "Convierte a quien ya te sigue en mensajes y ventas. Va en el 70 % de lo que publicas." },
 };
 export type ReelView = {
   analysis_id: string;
@@ -92,9 +101,11 @@ export function notionPorQue(p: PorQue): string {
   const gancho = [p.gancho.se_dice && `«${p.gancho.se_dice}»`, p.gancho.por_que].filter(Boolean).join(" — ");
   return [
     `RESUMEN: ${p.resumen}`,
+    ...(p.tipo ? [`TIPO: ${TIPOS[p.tipo].nombre}${p.tipo_por_que ? ` — ${p.tipo_por_que}` : ""}`] : []),
     `GANCHO: ${gancho}`,
     "CLAVES:", ...p.claves.slice(0, 3).map(c => `- ${c}`),
     "MEJORAR:", ...p.mejorar.slice(0, 2).map(m => `- ${m}`),
+    ...(p.no_comprobable?.length ? ["NO SE PUEDE COMPROBAR (no lo repitas):", ...p.no_comprobable.map(x => `- ${x}`)] : []),
   ].join("\n");
 }
 

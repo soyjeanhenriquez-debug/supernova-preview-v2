@@ -1,6 +1,6 @@
 // Prueba de reelLayers (funciones puras). Correr: deno test -A supabase/functions/_shared/reelLayers_test.ts
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { asNivel, cleanBase, cleanVersion, palabraClave, porQue, promptA, promptB, tramoTexts } from "./reelLayers.ts";
+import { asNivel, cleanBase, cleanTipo, cleanVersion, palabraClave, porQue, promptA, promptB, promptTipo, tramoTexts } from "./reelLayers.ts";
 
 const BASE_IA = {
   idioma: "es", duracion_s: 88, resumen: "Advierte que quedan pocas semanas del año.",
@@ -87,4 +87,31 @@ Deno.test("Espejo: cada tramo lleva lo que dice el original y la regla de 9 de c
   assert(p.includes("9 de cada 10 palabras"));
   assert(p.includes("es la BASE de tu versión"));
   assert(!promptB(b, "adaptacion", { product: "", who: "", nicho: "", oferta: "", palabra: "", handle: "" }).includes("Dice: «"));
+});
+
+Deno.test("regla 30/70: la capa A pide el tipo y los resultados que no se pueden comprobar", () => {
+  const p = promptA({ caption: "", owner: "", views: null, likes: null, comments: null, seconds: null });
+  assert(p.includes("\"descubrimiento\""));
+  assert(p.includes("no_comprobable"));
+  assert(p.includes("\"tipo\":\"descubrimiento\""));
+});
+
+Deno.test("cleanTipo: solo descubrimiento o nicho; lo demás queda sin clasificar", () => {
+  assertEquals(cleanTipo({ tipo: "NICHO", tipo_por_que: "Vende la clase", no_comprobable: ["De 3 a 3.000 comentarios", ""] }),
+    { tipo: "nicho", tipo_por_que: "Vende la clase", no_comprobable: ["De 3 a 3.000 comentarios"] });
+  assertEquals(cleanTipo({ tipo: "viral" }).tipo, "");
+});
+
+Deno.test("el tipo llega a 'Por qué funciona' y lo no comprobable se prohíbe en tu versión", () => {
+  const b = cleanBase({ ...BASE_IA, tipo: "descubrimiento", tipo_por_que: "Comparte una herramienta útil", no_comprobable: ["Pasó de 3 a 3.000 comentarios"] })!;
+  const v = porQue(b);
+  assertEquals(v.tipo, "descubrimiento");
+  assertEquals(v.no_comprobable, ["Pasó de 3 a 3.000 comentarios"]);
+  const pb = promptB(b, "adaptacion", { product: "Curso", who: "", nicho: "", oferta: "", palabra: "", handle: "" });
+  assert(pb.includes("NO se pueden comprobar"));
+  assert(pb.includes("Pasó de 3 a 3.000 comentarios"));
+  // Un análisis viejo, sin tipo, no rompe nada y se puede clasificar después solo con el texto.
+  const viejo = cleanBase(BASE_IA)!;
+  assertEquals(viejo.tipo, "");
+  assert(promptTipo(viejo).includes("Clasifícalo"));
 });

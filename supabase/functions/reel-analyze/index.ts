@@ -24,7 +24,7 @@ import { HONESTY_RULES } from "../_shared/honesty.ts";
 import { admin, billingHeaders, caller, charge, type Caller, type Gate, json, refund } from "../_shared/media.ts";
 import { b64, geminiMedia, logMediaCost, MEDIA_MODEL } from "../_shared/geminiMedia.ts";
 import { getReel, REEL_RE, type ReelExtraction } from "../_shared/reelSource.ts";
-import { asNivel, cleanBase, cleanVersion, palabraClave, porQue, promptA, promptB, tramoTexts } from "../_shared/reelLayers.ts";
+import { asNivel, cleanBase, cleanTipo, cleanVersion, palabraClave, porQue, promptA, promptB, promptTipo, tramoTexts } from "../_shared/reelLayers.ts";
 import { asCarouselMode, cleanReelCarousel, promptC } from "../_shared/reelCarousel.ts";
 
 const FN = "reel-analyze";
@@ -113,6 +113,21 @@ async function stepBase(who: Caller, body: Record<string, unknown>, apify: strin
         base, base_model: MEDIA_MODEL, llm_a_usd: cost, analyzed_at: new Date().toISOString(),
       }).eq("shortcode", shortcode);
       if (baseErr) console.error(`${FN}: guardar base`, baseErr.message);
+    }
+
+    // Análisis viejo de la caché sin "Descubrimiento o Nicho" (17-oct-2026): se clasifica solo con el
+    // texto, una vez, y queda guardado para todas las cuentas. Si falla, se sigue sin clasificar.
+    if (!base.tipo) {
+      try {
+        const { out, cost, usage } = await geminiMedia([{ text: promptTipo(base) }], 800, Math.min(25_000, left(t0)), 0.2);
+        await logMediaCost(who.id, FN, cost, usage);
+        const extra = cleanTipo(out);
+        if (extra.tipo) {
+          base = { ...base, ...extra };
+          const { error: tipoErr } = await db.from("reel_extractions").update({ base }).eq("shortcode", shortcode);
+          if (tipoErr) console.error(`${FN}: guardar tipo`, tipoErr.message);
+        }
+      } catch (e) { console.error(`${FN}: tipo`, e instanceof Error ? e.message : e); }
     }
 
     const view = { source: sourceOf(row!), por_que_funciona: porQue(base) };

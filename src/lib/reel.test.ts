@@ -85,3 +85,13 @@ describe("parecido al original (Espejo)", () => {
     expect(parecido(V)).toBeNull();
   });
 });
+
+describe("regla 30/70 en el formato Notion", () => {
+  it("agrega el tipo y lo que no se puede comprobar cuando vienen", () => {
+    const P2: PorQue = { resumen: "R", gancho: { se_ve: "", se_dice: "Hola", texto_pantalla: "", por_que: "Frena" }, claves: ["a"], mejorar: ["b"], timeline: [], formula_gancho: "", mecanismo: "",
+      tipo: "descubrimiento", tipo_por_que: "Comparte una herramienta útil", no_comprobable: ["De 3 a 3.000 comentarios"] };
+    const t = notionPorQue(P2);
+    expect(t).toContain("TIPO: Descubrimiento — Comparte una herramienta útil");
+    expect(t).toContain("NO SE PUEDE COMPROBAR (no lo repitas):\n- De 3 a 3.000 comentarios");
+  });
+});

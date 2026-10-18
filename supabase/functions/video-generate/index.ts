@@ -1,6 +1,8 @@
 // SUPERNOVA — Videos del personaje ("Vende sin mostrar tu cara") con el catálogo de fal.ai.
 //
-// El navegador manda { model_id, prompt, image_path }. El servidor decide todo lo demás desde
+// El navegador manda { model_id, prompt, image_path, source? }. source = "carrusel" (17-oct-2026, "Dar vida
+// a esta lámina"): la foto sale de la carpeta del usuario en "creativos" (lámina o kit de marca), no del
+// personaje. El servidor decide todo lo demás desde
 // media_models (endpoint, parámetros fijos, plan necesario, estado) y credit_prices (precio):
 //   status 'admin' = solo admins (pruebas) · 'live' = clientes · 'soon' = PRONTO · 'off' = oculto
 //   tier 'comunidad' = plan Comunidad Creativos 10X (o admin); 'pro' = cualquier plan activo.
@@ -11,7 +13,7 @@
 //   ?ping=1 → prueba la llave de fal sin gastar (solo admins con sesión).
 import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 import {
-  FAL_KEY, admin, appOf, billingHeaders, caller, charge, fal, json, logCost, pickModel, refund, signedPhoto,
+  FAL_KEY, admin, appOf, billingHeaders, caller, charge, fal, json, logCost, pickModel, refund, signedCreative, signedPhoto,
 } from "../_shared/media.ts";
 
 const FN = "video-generate";
@@ -71,8 +73,9 @@ Deno.serve(async (req) => {
     if (!FAL_KEY) return json({ error: "Los videos llegan pronto.", pronto: true }, 503);
     const m = await pickModel(body.model_id, "video", who);
     if (m instanceof Response) return m;
-    const photo = await signedPhoto(who.id, body.image_path);
-    if (!photo || !m.image_field) return json({ error: "Primero crea la foto de tu personaje." }, 400);
+    const carrusel = body.source === "carrusel";
+    const photo = carrusel ? await signedCreative(who.id, body.image_path) : await signedPhoto(who.id, body.image_path);
+    if (!photo || !m.image_field) return json({ error: carrusel ? "Esta lámina no tiene una foto guardada para animar." : "Primero crea la foto de tu personaje." }, 400);
 
     const g = await charge(FN, who.id, m.action, `${m.label} · ${prompt.slice(0, 50)}`, 10, 30);
     if (g instanceof Response) return g;

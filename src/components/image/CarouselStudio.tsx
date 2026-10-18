@@ -17,12 +17,13 @@ import {
   type CarouselDesign, type CarouselDraft, type CarouselGoal, type Item, type Slide, type StyleId,
 } from "@/lib/carousel";
 import { FONTS, fontEmbedCss, loadStyleFonts, slideToBlob } from "@/lib/carouselTheme";
-import { SLIDE_W, SlideView, slideH } from "@/components/image/carousel/SlideView";
+import { canAnimate, SLIDE_W, SlideView, slideH } from "@/components/image/carousel/SlideView";
 import { loadDesign, loadDraft, saveDesign, saveDraft } from "@/lib/carouselStore";
 import { AddToTracker } from "@/components/AddToTracker";
 import { ToolFeedback } from "@/components/ToolFeedback";
-// Remotion solo se carga si la persona abre "Animar mi carrusel".
+// Remotion solo se carga si la persona abre "Convertir en video para Reels" o "Dar vida a esta lámina".
 const AnimateCarousel = lazy(() => import("@/components/image/carousel/AnimateCarousel").then(m => ({ default: m.AnimateCarousel })));
+const LiveSlide = lazy(() => import("@/components/image/carousel/LiveSlide").then(m => ({ default: m.LiveSlide })));
 
 /**
  * Carrusel (05-oct-2026, v2): la IA escribe el texto con los 5 tiempos (Gancho → Promesa → Tirón →
@@ -536,7 +537,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     } finally { setSaving(false); }
   };
 
-  // Las láminas como PNG (las mismas que se descargan), para "Animar mi carrusel".
+  // Las láminas como PNG (las mismas que se descargan), para "Convertir en video para Reels".
   const slideFrames = async (): Promise<string[]> => {
     const fontEmbedCSS = await fontEmbedCss(design.style).catch(() => "");
     const out: string[] = [];
@@ -1111,6 +1112,14 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
               <p className="text-[11px] text-muted-foreground">La IA escribe el texto dentro de la foto: revisa que diga exactamente lo mismo antes de publicar. Si falla, no se te cobra.</p>
             </div>
           </div>
+        )}
+        {/* Dar vida a esta lámina (17-oct-2026): solo administradores mientras se prueba. */}
+        {isAdmin && !isSample && current && canAnimate(current, design, kitPhotos.length > 0) && (
+          <Suspense fallback={null}>
+            <LiveSlide slide={current} index={sel} total={slides.length} design={design} aspect={aspect} photos={tweetPhotos}
+              sourcePath={current.photoPath ?? (design.style === "tuit" && kitPhotos.length ? kitPhotos.slice(0, 6)[sel % Math.min(6, kitPhotos.length)] : null)}
+              onMotion={url => editSlide(sel, { motion: url })} />
+          </Suspense>
         )}
       </section>
 

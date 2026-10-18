@@ -108,6 +108,17 @@ export function fal(url: string, init: RequestInit = {}) {
 /** La cola de fal consulta por la APP (dos primeros tramos), no por la ruta completa del modelo. */
 export const appOf = (endpoint: string) => endpoint.split("/").slice(0, 2).join("/");
 
+/**
+ * Foto de una lámina de carrusel o del kit de marca (bucket "creativos"), para "Dar vida a esta lámina"
+ * (17-oct-2026): solo de la carpeta del propio usuario; URL firmada temporal para fal.
+ */
+export async function signedCreative(userId: string, path: unknown): Promise<string | null> {
+  const p = ownStoragePath(userId, path);
+  if (!p) return null;
+  const { data } = await admin().storage.from("creativos").createSignedUrl(p, 60 * 30);
+  return data?.signedUrl ?? null;
+}
+
 /** Foto del personaje: solo de la carpeta del propio usuario; URL firmada temporal para fal. */
 export async function signedPhoto(userId: string, path: unknown): Promise<string | null> {
   const p = ownStoragePath(userId, path);

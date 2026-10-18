@@ -170,7 +170,8 @@ export function fontEmbedCss(s: StyleId): Promise<string> {
  */
 export async function slideToBlob(node: HTMLElement, width: number, height: number, fontEmbedCSS: string, type: "image/png" | "image/webp" = "image/png"): Promise<Blob> {
   const { toSvg } = await import("html-to-image");
-  const svg = await toSvg(node, { width, height, fontEmbedCSS, cacheBust: false });
+  // El video de "Dar vida" (data-motion) no va en la imagen: queda la foto quieta debajo.
+  const svg = await toSvg(node, { width, height, fontEmbedCSS, cacheBust: false, filter: n => !(n instanceof HTMLElement && n.dataset.motion) });
   const img = new Image();
   await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error("No se pudo preparar la lámina.")); img.src = svg; });
   const c = document.createElement("canvas");

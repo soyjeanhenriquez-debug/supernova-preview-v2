@@ -53,6 +53,8 @@ export type Slide = {
   /** Foto IA de la lámina (sin texto): de fondo, o en tarjeta en las de tipo regla. */
   photo?: string;
   photoPath?: string;
+  /** "Dar vida a esta lámina" (17-oct-2026): video IA de la foto de fondo, en bucle, como un GIF. */
+  motion?: string;
   /** Escena sugerida para esa foto. */
   scene?: string;
   /** Objeto que invade el primer plano en 3D (mano, teléfono, libreta…), ligado a la historia. */

@@ -5,7 +5,7 @@ import { Download, Film, Loader2 } from "lucide-react";
 import { CarouselVideo, carouselFrames, carouselSize, FPS, type CarouselAnim, type CarouselVideoProps } from "@/remotion/CarouselVideo";
 
 /**
- * "Animar mi carrusel" (opcional, 17-oct-2026): convierte las láminas ya diseñadas en un video para Reels
+ * "Convertir en video para Reels" (opcional, 17-oct-2026; antes "Animar mi carrusel"): convierte las láminas ya diseñadas en un video para Reels
  * o para el feed. Gratis: se arma en el navegador; no se sube nada.
  */
 const ANIMS: { id: CarouselAnim; label: string }[] = [{ id: "deslizar", label: "Deslizar" }, { id: "zoom", label: "Zoom suave" }, { id: "aparecer", label: "Aparecer" }];
@@ -43,7 +43,7 @@ export function AnimateCarousel({ getFrames, count, aspect, brand }: { getFrames
   return (
     <details className="group rounded-xl border border-border p-4">
       <summary className="flex cursor-pointer list-none items-center gap-2 text-[13px] text-foreground">
-        <Film className="w-4 h-4 text-primary" /> Animar mi carrusel <span className="text-muted-foreground">(opcional · video para Reels o feed, gratis)</span>
+        <Film className="w-4 h-4 text-primary" /> Convertir en video para Reels <span className="text-muted-foreground">(opcional · tus láminas una tras otra, gratis)</span>
       </summary>
       <div className="mt-3 space-y-3">
         <div className="flex flex-wrap gap-2">

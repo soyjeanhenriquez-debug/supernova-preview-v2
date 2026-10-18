@@ -13,7 +13,28 @@ const MONTHS = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "
 export const slideH = (aspect: "4:5" | "1:1") => (aspect === "4:5" ? 1350 : 1080);
 
 /** `photos` = tus fotos del kit de marca (URLs firmadas): fondo y foto de perfil del estilo "Tuit". */
-type Props = { slide: Slide; index: number; total: number; design: CarouselDesign; aspect: "4:5" | "1:1"; photos?: string[] };
+/** `hole` = capa de texto para el video: sin la foto de fondo y con el fondo transparente ("Dar vida a esta lámina"). */
+type Props = { slide: Slide; index: number; total: number; design: CarouselDesign; aspect: "4:5" | "1:1"; photos?: string[]; hole?: boolean };
+
+/**
+ * La foto de fondo; si la lámina tiene vida, encima va su video en bucle. El video lleva data-motion para
+ * que la descarga en PNG lo deje fuera (la imagen queda con la foto quieta).
+ */
+function BgPhoto({ src, motion, style }: { src: string; motion?: string; style: CSSProperties }) {
+  return (
+    <>
+      <img src={src} alt="" crossOrigin="anonymous" style={style} />
+      {motion && <video data-motion="1" src={motion} autoPlay muted loop playsInline crossOrigin="anonymous" style={style} />}
+    </>
+  );
+}
+
+/** ¿Esta lámina puede tener vida? Solo si la foto va de fondo (o es estilo Tuit) y no es una lámina póster. */
+export function canAnimate(slide: Slide, design: CarouselDesign, hasKitPhoto: boolean): boolean {
+  if (slide.image) return false;
+  if (design.style === "tuit") return !!slide.photo || hasKitPhoto;
+  return !!slide.photo && slide.kind !== "regla" && slide.kind !== "galeria";
+}
 
 /** Tamaño de titular según lo largo que sea: corto = enorme, largo = más chico. */
 function fitSize(text: string, max: number, min: number, ref = 18) {
@@ -43,7 +64,7 @@ const Icon = {
   chevron: (color: string) => <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7" /></svg>,
 };
 
-export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ slide, index, total, design, aspect, photos = [] }, ref) {
+export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ slide, index, total, design, aspect, photos = [], hole = false }, ref) {
   const H = slideH(aspect);
   const k = H / 1350; // 1:1 comprime un poco todo
   // La lámina CTA con foto siempre va con texto claro sobre un velo oscuro.
@@ -82,7 +103,7 @@ export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ 
     );
   }
 
-  if (design.style === "tuit") return <TweetSlide ref={ref} slide={slide} index={index} design={design} H={H} photos={photos} />;
+  if (design.style === "tuit") return <TweetSlide ref={ref} slide={slide} index={index} design={design} H={H} photos={photos} hole={hole} />;
 
   let body: ReactNode = null;
   switch (slide.kind) {
@@ -378,12 +399,12 @@ export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ 
 
   return (
     <div ref={ref} style={{
-      position: "relative", width: SLIDE_W, height: H, overflow: "hidden", boxSizing: "border-box", background: c.bg, color: c.text,
+      position: "relative", width: SLIDE_W, height: H, overflow: "hidden", boxSizing: "border-box", background: hole ? "transparent" : c.bg, color: c.text,
       fontFamily: `"${f.body}", system-ui, sans-serif`, padding: `${76 * k}px 88px ${176 * k}px`, display: "flex", flexDirection: "column",
     }}>
       {slide.photo && slide.kind !== "regla" && slide.kind !== "galeria" && (
         <>
-          <img src={slide.photo} alt="" crossOrigin="anonymous" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+          {!hole && <BgPhoto src={slide.photo} motion={slide.motion} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
           <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, ${rgba(veil, 0.55)} 0%, ${rgba(veil, 0.35)} 45%, ${rgba(veil, 0.85)} 100%)` }} />
         </>
       )}
@@ -439,8 +460,8 @@ export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ 
  * verificado (no se muestra algo que la cuenta quizá no tiene). La foto: la de la lámina (IA) o una de
  * tus fotos del kit, rotando; si no hay, un fondo negro con un toque de tu color.
  */
-const TweetSlide = forwardRef<HTMLDivElement, { slide: Slide; index: number; design: CarouselDesign; H: number; photos: string[] }>(
-  function TweetSlide({ slide, index, design, H, photos }, ref) {
+const TweetSlide = forwardRef<HTMLDivElement, { slide: Slide; index: number; design: CarouselDesign; H: number; photos: string[]; hole?: boolean }>(
+  function TweetSlide({ slide, index, design, H, photos, hole = false }, ref) {
     const bg = slide.photo ?? (photos.length ? photos[index % photos.length] : undefined);
     const avatar = photos[0];
     const name = design.name || (design.handle ? design.handle : "Tu nombre");
@@ -451,9 +472,9 @@ const TweetSlide = forwardRef<HTMLDivElement, { slide: Slide; index: number; des
     const initials = name.replace(/^@/, "").split(/\s+/).map(w => w[0] ?? "").join("").slice(0, 2).toUpperCase();
     const font = '"Inter", system-ui, -apple-system, "Segoe UI", sans-serif';
     return (
-      <div ref={ref} style={{ position: "relative", width: SLIDE_W, height: H, overflow: "hidden", background: "#000000", fontFamily: font }}>
+      <div ref={ref} style={{ position: "relative", width: SLIDE_W, height: H, overflow: "hidden", background: hole ? "transparent" : "#000000", fontFamily: font }}>
         {bg ? (
-          <img src={bg} alt="" crossOrigin="anonymous" style={{ position: "absolute", left: 0, top: 0, width: "100%", height: H * 0.78, objectFit: "cover", objectPosition: "center 25%", display: "block" }} />
+          !hole && <BgPhoto src={bg} motion={slide.motion} style={{ position: "absolute", left: 0, top: 0, width: "100%", height: H * 0.78, objectFit: "cover", objectPosition: "center 25%", display: "block" }} />
         ) : (
           <div style={{ position: "absolute", inset: 0, background: `radial-gradient(120% 70% at 50% 0%, ${rgba(design.brand, 0.45)} 0%, #000000 70%)` }} />
         )}

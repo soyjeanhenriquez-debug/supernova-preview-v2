@@ -4,6 +4,7 @@ import { AlertTriangle, BookmarkPlus, Captions, Check, ChevronDown, Clapperboard
 import { supabase } from "@/integrations/supabase/client";
 import { invokeErrorMessage } from "@/lib/fnAuth";
 import { useProducts } from "@/contexts/ProductContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   charCount, cleanConceptos, dnaProgress, FIDELIDAD_AYUDA, modoAviso, OBJETIVOS, OFFER_STATUSES, useBrandDna, useEditorialPrefs,
   type Intensidad, type Objetivo, type OfferStatus,
@@ -50,6 +51,8 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
   onNavigate: (page: string) => void;
 }) {
   const { products, activeId } = useProducts();
+  const { user } = useAuth();
+  const uid = user?.id ?? null;
   const { dna, loaded: dnaLoaded } = useBrandDna();
   const prefs = useEditorialPrefs();
   const { applyServerCharge } = useCredits();
@@ -67,6 +70,8 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
   const [conceptosTocados, setConceptosTocados] = useState(false);
   const [nuevoConcepto, setNuevoConcepto] = useState("");
   const [toque, setToque] = useState("");
+  /** El toque personal y las palabras son de UN Reel: al cambiar de Reel no se arrastran (19-oct-2026). */
+  const resetPersonal = () => { setToque(""); setConceptos([]); setConceptosTocados(false); setNuevoConcepto(""); setOpts({ palabra_clave: "" }); setWaitlistOk(false); };
   const [view, setView] = useState<ReelView | null>(null);
   const [loadingView, setLoadingView] = useState(false);
   const [busy, setBusy] = useState<null | "base" | "version">(null);
@@ -78,11 +83,13 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
   const [hist, setHist] = useState<Hist[]>([]);
 
   const loadHistory = useCallback(async () => {
+    // Solo los análisis propios: a un admin la base le deja leer los de todas las cuentas (19-oct-2026).
+    if (!uid) return;
     const { data } = await db().from("reel_analyses")
       .select("id, shortcode, nivel, stage, created_at, owner:result->source->>owner, resumen:result->por_que_funciona->>resumen")
-      .eq("kind", "guion").order("created_at", { ascending: false }).limit(12);
+      .eq("kind", "guion").eq("user_id", uid).order("created_at", { ascending: false }).limit(12);
     setHist(((data ?? []) as Hist[]).filter(h => h.resumen));
-  }, []);
+  }, [uid]);
   useEffect(() => { void loadHistory(); }, [loadHistory]);
 
   // Abrir un análisis desde su dirección (recargar, Atrás, historial): se lee de la base, sin costo.
@@ -91,6 +98,7 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
     if (view?.analysis_id === routeId) return;
     let alive = true;
     setLoadingView(true);
+    resetPersonal();
     db().from("reel_analyses").select("id, nivel, result").eq("id", routeId).maybeSingle()
       .then(({ data }: { data: { id: string; nivel: Nivel; result: Omit<ReelView, "analysis_id"> } | null }) => {
         if (!alive) return;
@@ -161,7 +169,7 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
     }
   };
 
-  const startOver = () => { setView(null); setUrl(""); setRecorded(false); go([]); };
+  const startOver = () => { setView(null); setUrl(""); setRecorded(false); resetPersonal(); go([]); };
   // Reel → Carrusel (17-oct-2026): Carrusel abre "Modelar uno que ya funciona" con este Reel puesto.
   const toCarousel = () => {
     if (!view?.source?.url) return;

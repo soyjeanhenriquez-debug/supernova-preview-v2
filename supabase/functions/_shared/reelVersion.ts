@@ -35,13 +35,14 @@ export async function reviewPieza(base: Base, nivel: Nivel, pieza: Pieza, qa: Qa
     modo: nivel, policy: qa.policy, pieza, ofertas: qa.ofertas, privada: qa.privada,
     original: base.transcripcion.map(t => t.texto).join(" "), originalEnEspanol: isSpanish(base.idioma),
   });
-  if (remainingMs() < 15_000) return { checks: local, semantica: false };
+  if (remainingMs() < 20_000) return { checks: local, semantica: false };
   try {
     const out = await generate(judgePrompt({ modo: nivel, objetivo: qa.objetivo, policy: qa.policy, referencia: referenciaTexto(base), pieza, estilo: qa.estilo }), 0.1);
     const judged = cleanJudge(out, nivel);
     return judged ? { checks: [...local, ...judged], semantica: true } : { checks: local, semantica: false };
-  } catch (e) {
-    if (e instanceof Error && e.name === "TimeoutError") throw e;
+  } catch {
+    // Si la revisión semántica se tarda o falla, la versión no se pierde: queda con los chequeos fijos
+    // y la pantalla dice "revisión básica" (19-oct-2026, prueba real de Vender).
     return { checks: local, semantica: false };
   }
 }

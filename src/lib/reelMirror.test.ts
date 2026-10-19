@@ -73,6 +73,16 @@ describe("ESPEJO con fidelidad creativa", () => {
     expect(r.version).toBeNull();
   });
 
+  it("si la revisión semántica se cuelga, la versión no se pierde: queda con los chequeos fijos", async () => {
+    const generate = vi.fn(async (p: string) => {
+      if (isJudge(p)) throw new DOMException("Tiempo agotado", "TimeoutError");
+      return guion("Quien es grande ayuda en silencio.");
+    });
+    const r = await writeReelVersion(base, "espejo", brief, "", qa, { generate, remainingMs: () => 120_000 });
+    expect(r.version?.revision?.semantica).toBe(false);
+    expect(r.version?.revision?.ok).toBe(true);
+  });
+
   it("sin tiempo para la revisión semántica, entrega solo con los chequeos fijos y lo marca", async () => {
     const generate = vi.fn(async () => guion("Quien es grande ayuda en silencio."));
     const r = await writeReelVersion(base, "espejo", brief, "", qa, { generate, remainingMs: () => 10_000 });

@@ -127,7 +127,7 @@ async function stepBase(who: Caller, body: Record<string, unknown>, apify: strin
     // cuentas. Si falla, se sigue con lo que hay.
     if (needsExtra(base)) {
       try {
-        const { out, cost, usage } = await geminiMedia([{ text: promptTipo(base) }], 1_600, Math.min(25_000, left(t0)), 0.2);
+        const { out, cost, usage } = await geminiMedia([{ text: promptTipo(base) }], 4_000, Math.min(25_000, left(t0)), 0.2);
         await logMediaCost(who.id, FN, cost, usage);
         const extra = cleanTipo(out);
         if (extra.tipo || extra.referencia.tema) {
@@ -166,8 +166,22 @@ async function stepVersion(who: Caller, body: Record<string, unknown>, t0: numbe
   const { data: a } = await db.from("reel_analyses").select("id, shortcode, result").eq("id", id).eq("user_id", who.id).maybeSingle();
   if (!a) return json({ error: "No encontramos ese análisis. Vuelve a analizar el Reel." }, 404);
   const { data: ex } = await db.from("reel_extractions").select("base").eq("shortcode", a.shortcode).maybeSingle();
-  const base = cleanBase(ex?.base);
+  let base = cleanBase(ex?.base);
   if (!base) return json({ error: "Ese Reel hay que analizarlo de nuevo. No se te cobró." }, 409);
+  // Análisis viejo sin el análisis estructurado de la referencia (A6): se completa una vez, solo con el
+  // texto, y queda en la caché para todas las cuentas. Si falla, se sigue con lo que hay.
+  if (needsExtra(base)) {
+    try {
+      const { out, cost, usage } = await geminiMedia([{ text: promptTipo(base) }], 4_000, 25_000, 0.2);
+      await logMediaCost(who.id, FN, cost, usage);
+      const extra = cleanTipo(out);
+      if (extra.referencia.tema) {
+        base = { ...base, ...extra, tipo: extra.tipo || base.tipo, tipo_por_que: extra.tipo_por_que || base.tipo_por_que };
+        const { error } = await db.from("reel_extractions").update({ base }).eq("shortcode", a.shortcode);
+        if (error) console.error(`${FN}: completar referencia`, error.message);
+      }
+    } catch (e) { console.error(`${FN}: completar referencia`, e instanceof Error ? e.message : e); }
+  }
   if (!base.transcripcion.length && !base.estructura.length) {
     // Sin texto ni tramos no hay de dónde modelar: se pide el material, nunca se inventa (A6).
     return json({ error: "No tenemos suficiente del original para modelarlo. Pega otro Reel o vuelve a analizarlo. No se cobró esta versión." }, 422);
@@ -206,7 +220,8 @@ async function stepVersion(who: Caller, body: Record<string, unknown>, t0: numbe
     const generate = async (prompt: string, temperature: number) => {
       const ms = remainingMs();
       if (ms <= 0) throw new DOMException("Tiempo agotado", "TimeoutError");
-      const result = await geminiMedia([{ text: prompt }], 8_000, Math.min(60_000, ms), temperature);
+      // La revisión (temperatura 0,1) es corta: 30 s como máximo para no comerse el tiempo de la versión.
+      const result = await geminiMedia([{ text: prompt }], 8_000, Math.min(temperature <= 0.1 ? 30_000 : 60_000, ms), temperature);
       cost += result.cost;
       await logMediaCost(who.id, FN, result.cost, result.usage);
       return result.out;

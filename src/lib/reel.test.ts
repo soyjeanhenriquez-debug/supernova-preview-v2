@@ -95,3 +95,13 @@ describe("regla 30/70 en el formato Notion", () => {
     expect(t).toContain("NO SE PUEDE COMPROBAR (no lo repitas):\n- De 3 a 3.000 comentarios");
   });
 });
+
+describe("regla 30/70 en lo que se copia", () => {
+  it("sin palabra clave (Descubrimiento) no dice 'Comenta'; 'verificar' va en el guion de Notion", () => {
+    const v = { ...V, publicar: { ...V.publicar, palabra_clave: "" }, verificar: ["AgentKit es de @soyenriquerocha"] };
+    expect(publishText(v)).not.toMatch(/^Comenta /m);
+    expect(publishText(V)).toMatch(/Comenta GRUPO/);
+    expect(notionGuion(v)).toMatch(/VERIFICA ANTES DE GRABAR:\n- AgentKit es de @soyenriquerocha/);
+    expect(notionGuion(V)).not.toMatch(/VERIFICA/);
+  });
+});

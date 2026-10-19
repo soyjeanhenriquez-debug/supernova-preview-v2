@@ -24,7 +24,7 @@ import { HONESTY_RULES } from "../_shared/honesty.ts";
 import { admin, billingHeaders, caller, charge, type Caller, type Gate, json, refund } from "../_shared/media.ts";
 import { b64, geminiMedia, logMediaCost, MEDIA_MODEL } from "../_shared/geminiMedia.ts";
 import { getReel, REEL_RE, type ReelExtraction } from "../_shared/reelSource.ts";
-import { asNivel, cleanBase, cleanTipo, cleanVersion, palabraClave, porQue, promptA, promptB, promptTipo, tramoTexts } from "../_shared/reelLayers.ts";
+import { asNivel, cierreDe, cleanBase, cleanTipo, cleanVersion, palabraClave, porQue, promptA, promptB, promptTipo, tramoTexts } from "../_shared/reelLayers.ts";
 import { asCarouselMode, cleanReelCarousel, promptC } from "../_shared/reelCarousel.ts";
 
 const FN = "reel-analyze";
@@ -189,7 +189,7 @@ async function stepVersion(who: Caller, body: Record<string, unknown>, t0: numbe
     // Espejo pide fidelidad al texto original: menos "creatividad" (temperatura baja).
     const { out, cost, usage } = await geminiMedia([{ text: promptB(base, nivel, brief) + "\n\n" + HONESTY_RULES }], 8_000, left(t0), nivel === "espejo" ? 0.3 : 0.6);
     await logMediaCost(who.id, FN, cost, usage);
-    const version = cleanVersion(out, nivel, opciones.palabra_clave || base.cta.palabra, base.estructura.length);
+    const version = cleanVersion(out, nivel, cierreDe(base, opciones.palabra_clave), base.estructura.length);
     if (!version) {
       await undo("json inválido");
       return json({ error: "La IA no pudo escribir tu versión. No se te cobró: inténtalo de nuevo." }, 502);
@@ -204,12 +204,12 @@ async function stepVersion(who: Caller, body: Record<string, unknown>, t0: numbe
     let outId = id;
     if (free) {
       const { error } = await db.from("reel_analyses").update({
-        stage: "listo", nivel, palabra_clave: version.publicar.palabra_clave, result: view, llm_b_usd: cost, updated_at: new Date().toISOString(),
+        stage: "listo", nivel, palabra_clave: version.publicar.palabra_clave || null, result: view, llm_b_usd: cost, updated_at: new Date().toISOString(),
       }).eq("id", id);
       if (error) console.error(`${FN}: guardar versión`, error.message);
     } else {
       const { data: ins, error } = await db.from("reel_analyses").insert({
-        user_id: who.id, shortcode: a.shortcode, nivel, palabra_clave: version.publicar.palabra_clave, source: "app",
+        user_id: who.id, shortcode: a.shortcode, nivel, palabra_clave: version.publicar.palabra_clave || null, source: "app",
         result: view, stage: "listo", cache_hit: true, apify_usd: 0, llm_a_usd: 0, llm_b_usd: cost, credits: g!.charged,
       }).select("id").single();
       if (error || !ins) console.error(`${FN}: guardar versión`, error?.message);

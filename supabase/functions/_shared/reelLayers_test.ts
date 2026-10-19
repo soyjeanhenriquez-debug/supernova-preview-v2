@@ -1,6 +1,6 @@
 // Prueba de reelLayers (funciones puras). Correr: deno test -A supabase/functions/_shared/reelLayers_test.ts
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { asNivel, cleanBase, cleanTipo, cleanVersion, palabraClave, porQue, promptA, promptB, promptTipo, tramoTexts } from "./reelLayers.ts";
+import { asNivel, cierreDe, cleanBase, cleanTipo, cleanVersion, palabraClave, porQue, promptA, promptB, promptTipo, tramoTexts } from "./reelLayers.ts";
 
 const BASE_IA = {
   idioma: "es", duracion_s: 88, resumen: "Advierte que quedan pocas semanas del año.",
@@ -50,7 +50,9 @@ Deno.test("la capa B lleva las reglas del nivel, el producto y la palabra clave"
   const p = promptB(b, "espejo", { product: "Muscle Booster", who: "hombres ocupados", nicho: "", oferta: "", palabra: "", handle: "" });
   assert(p.includes("NIVEL ESPEJO"));
   assert(p.includes("Producto: Muscle Booster"));
-  assert(p.includes("Palabra clave del cierre: ACTIVATE"));
+  // Sin palabra de la persona no se copia la del original: la IA propone una en español.
+  assert(!p.includes("Palabra clave del cierre: ACTIVATE"));
+  assert(p.includes("nunca «ACTIVATE»"));
   const q = promptB(b, "inspiracion", { product: "", who: "", nicho: "", oferta: "", palabra: "VIP", handle: "" });
   assert(q.includes("NIVEL INSPIRACIÓN") && q.includes("Palabra clave del cierre: VIP"));
 });
@@ -61,7 +63,7 @@ Deno.test("cleanVersion: guion válido, 'original' dentro de rango y hashtags co
     guion: [{ inicio: 0, fin: 5, dices: "Hola", se_ve: "x", texto_pantalla: "y", original: 1 }, { inicio: 5, fin: 9, dices: "Chao", original: 7 }, { dices: "" }],
     cierre: "Comenta GRUPO", publicar: { copy: "Texto", palabra_clave: "grupo", hashtags: ["fitness", "#rutina"], comentario_fijado: "Te mando la guía" },
     ideas: [{ titulo: "no aplica" }],
-  }, "espejo", "", 2)!;
+  }, "espejo", { modo: "palabra", palabra: "" }, 2)!;
   assertEquals(v.ganchos.length, 3);
   assertEquals(v.guion.length, 2);
   assertEquals(v.guion[0].original, 1);
@@ -72,8 +74,8 @@ Deno.test("cleanVersion: guion válido, 'original' dentro de rango y hashtags co
 });
 
 Deno.test("cleanVersion: sin guion no hay versión; en Inspiración guarda las ideas", () => {
-  assertEquals(cleanVersion({ ganchos: ["a"] }, "adaptacion", "", 2), null);
-  const v = cleanVersion({ guion: [{ dices: "x", original: 0 }], ideas: [{ titulo: "Idea 1", por_que: "p" }] }, "inspiracion", "", 2)!;
+  assertEquals(cleanVersion({ ganchos: ["a"] }, "adaptacion", { modo: "palabra", palabra: "" }, 2), null);
+  const v = cleanVersion({ guion: [{ dices: "x", original: 0 }], ideas: [{ titulo: "Idea 1", por_que: "p" }] }, "inspiracion", { modo: "palabra", palabra: "" }, 2)!;
   assertEquals(v.ideas.length, 1);
   assertEquals(v.guion[0].original, null);
   assertEquals(v.publicar.palabra_clave, "GRUPO");
@@ -114,4 +116,29 @@ Deno.test("el tipo llega a 'Por qué funciona' y lo no comprobable se prohíbe e
   const viejo = cleanBase(BASE_IA)!;
   assertEquals(viejo.tipo, "");
   assert(promptTipo(viejo).includes("Clasifícalo"));
+});
+
+Deno.test("regla 30/70 en el cierre: Descubrimiento pide seguir; Nicho pide palabra; la de la persona manda", () => {
+  const desc = cleanBase({ ...BASE_IA, tipo: "descubrimiento", cta: { tipo: "comentar palabra", palabra: "DISCOVERY" } })!;
+  const nicho = cleanBase({ ...BASE_IA, tipo: "nicho", cta: { tipo: "comentar palabra", palabra: "DISCOVERY" } })!;
+  assertEquals(cierreDe(desc, ""), { modo: "seguir", palabra: "" });
+  assertEquals(cierreDe(desc, "CLAUDE"), { modo: "palabra", palabra: "CLAUDE" });
+  assertEquals(cierreDe(nicho, ""), { modo: "palabra", palabra: "" });
+  const brief = { product: "SUPERNOVA", who: "", nicho: "", oferta: "", palabra: "", handle: "" };
+  const pd = promptB(desc, "espejo", brief);
+  assert(pd.includes("NO pide comentar ninguna palabra"));
+  assert(pd.includes("por el CIERRE que se pide abajo"));
+  assert(!pd.includes("DISCOVERY\""));
+  const pn = promptB(nicho, "adaptacion", brief);
+  assert(pn.includes("propón UNA palabra corta en español") && pn.includes("nunca «DISCOVERY»"));
+  assert(promptB(desc, "adaptacion", { ...brief, palabra: "CLAUDE" }).includes("Palabra clave del cierre: CLAUDE"));
+});
+
+Deno.test("cleanVersion: Descubrimiento sin palabra; la palabra de la persona gana; 'verificar' con nombres de otros", () => {
+  const out = { guion: [{ dices: "Hola", original: 0 }], publicar: { palabra_clave: "DISCOVERY" }, verificar: ["AgentKit es de @soyenriquerocha", "", "Ten lista la guía"] };
+  const d = cleanVersion(out, "espejo", { modo: "seguir", palabra: "" }, 2)!;
+  assertEquals(d.publicar.palabra_clave, "");
+  assertEquals(d.verificar, ["AgentKit es de @soyenriquerocha", "Ten lista la guía"]);
+  assertEquals(cleanVersion(out, "espejo", { modo: "palabra", palabra: "CLAUDE" }, 2)!.publicar.palabra_clave, "CLAUDE");
+  assertEquals(cleanVersion({ guion: [{ dices: "x" }] }, "adaptacion", { modo: "palabra", palabra: "" }, 2)!.verificar, []);
 });

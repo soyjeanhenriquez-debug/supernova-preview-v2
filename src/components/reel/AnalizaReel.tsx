@@ -190,7 +190,7 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
           </summary>
           <div className="mt-2 space-y-2">
             <p className="text-[12px] text-muted-foreground">Si lo dejas vacío usamos tu producto: <b className="text-foreground">{profile.product || "sin producto"}</b>.</p>
-            {([["nicho", "Nicho", "Ej.: entrenamiento en casa para hombres ocupados"], ["palabra_clave", "Palabra clave del cierre", "GRUPO"], ["oferta", "Oferta que empuja", "Ej.: rutina de 20 minutos en PDF"]] as const).map(([k, label, ph]) => (
+            {([["nicho", "Nicho", "Ej.: entrenamiento en casa para hombres ocupados"], ["palabra_clave", "Palabra clave del cierre", "Vacía: la ponemos según el tipo de Reel"], ["oferta", "Oferta que empuja", "Ej.: rutina de 20 minutos en PDF"]] as const).map(([k, label, ph]) => (
               <label key={k} className="block text-[12px] text-muted-foreground">{label}
                 <input value={opts[k]} onChange={e => setOpts(o => ({ ...o, [k]: e.target.value }))} placeholder={ph} maxLength={k === "palabra_clave" ? 20 : 200}
                   className={`mt-1 w-full min-h-[40px] rounded-lg border border-border bg-background px-3 text-sm text-foreground ${k === "palabra_clave" ? "uppercase" : ""}`} />
@@ -306,12 +306,14 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
             {tab === "publicar" && v && (
               <div className="space-y-3 text-[13px]">
                 <p className="whitespace-pre-line text-foreground">{v.publicar.copy}</p>
-                <p className="text-muted-foreground">Palabra clave: <span className="rounded-md bg-primary/15 px-2 py-0.5 font-semibold text-foreground">{v.publicar.palabra_clave}</span></p>
+                {v.publicar.palabra_clave
+                  ? <p className="text-muted-foreground">Palabra clave: <span className="rounded-md bg-primary/15 px-2 py-0.5 font-semibold text-foreground">{v.publicar.palabra_clave}</span></p>
+                  : <p className="text-muted-foreground">Sin palabra clave: es de Descubrimiento, así que el cierre pide seguir, guardar o compartir.</p>}
                 <p className="text-muted-foreground">{v.publicar.hashtags.join(" ")}</p>
                 {v.publicar.comentario_fijado && <p className="text-foreground"><b className="font-medium">Comentario fijado:</b> {v.publicar.comentario_fijado}</p>}
                 <div className="flex flex-wrap items-center gap-2">
                   <button type="button" onClick={() => copy(publishText(v))} className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-border px-3 text-[13px] text-foreground hover:bg-secondary/60"><Copy className="w-4 h-4" /> Copiar todo</button>
-                  <AddToTracker kind="corto" title={v.ganchos[hook] ?? "Mi Reel"} keyword={v.publicar.palabra_clave} source="analiza-reel" />
+                  <AddToTracker kind="corto" title={v.ganchos[hook] ?? "Mi Reel"} keyword={v.publicar.palabra_clave || undefined} source="analiza-reel" />
                 </div>
               </div>
             )}
@@ -407,6 +409,13 @@ function VersionSummary({ view }: { view: ReelView }) {
         <div><p className="font-semibold text-foreground">Lo que tomamos del original</p><ul className="mt-1 list-disc pl-4 text-muted-foreground space-y-0.5">{v.que_se_mantuvo.map(x => <li key={x}>{x}</li>)}</ul></div>
         <div><p className="font-semibold text-foreground">Lo que es tuyo</p><ul className="mt-1 list-disc pl-4 text-muted-foreground space-y-0.5">{v.que_cambio.map(x => <li key={x}>{x}</li>)}</ul></div>
       </div>
+      {!!v.verificar?.length && (
+        <div role="note" className="rounded-xl border border-primary/40 bg-primary/10 p-3 text-[13px]">
+          <p className="font-semibold text-foreground">Verifica esto antes de grabar</p>
+          <ul className="mt-1 list-disc pl-5 text-foreground">{v.verificar.map(x => <li key={x}>{x}</li>)}</ul>
+          <p className="mt-1 text-[12px] text-muted-foreground">Si nombras algo de otra persona, dale el crédito. Si prometes una guía, tenla lista antes de publicar.</p>
+        </div>
+      )}
       {v.formula_explicada && <p className="text-[13px] text-muted-foreground"><b className="text-foreground font-medium">La fórmula del gancho:</b> {v.formula_explicada}</p>}
       {v.ideas.length > 0 && (
         <div className="text-[13px]"><p className="font-semibold text-foreground">3 ideas con el mismo truco (el guion es de la primera)</p>

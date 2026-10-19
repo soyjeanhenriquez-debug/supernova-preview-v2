@@ -20,7 +20,10 @@ export type Version = {
   nivel: Nivel; que_se_mantuvo: string[]; que_cambio: string[]; formula_explicada: string;
   ideas: { titulo: string; por_que: string }[];
   ganchos: string[]; guion: Linea[]; cierre: string;
+  /** palabra_clave vacía = Reel de Descubrimiento: el cierre pide seguir, guardar o compartir (regla 30/70). */
   publicar: { copy: string; palabra_clave: string; hashtags: string[]; comentario_fijado: string };
+  /** Nombres de otros y promesas del cierre que hay que comprobar antes de grabar (versiones viejas no lo traen). */
+  verificar?: string[];
 };
 export type PorQue = {
   resumen: string;
@@ -116,6 +119,7 @@ export function notionGuion(v: Version, hook = 0): string {
     out.push(rango(t.inicio, t.fin), `Dices: ${t.dices}`, `Se ve: ${t.se_ve}`, `Texto en pantalla: ${t.texto_pantalla}`);
   }
   out.push("", `CIERRE: ${v.cierre}`);
+  if (v.verificar?.length) out.push("", "VERIFICA ANTES DE GRABAR:", ...v.verificar.map(x => `- ${x}`));
   return out.join("\n");
 }
 
@@ -127,7 +131,7 @@ export function editingText(v: Version): string {
 /** Texto de la pestaña Publicar. */
 export function publishText(v: Version): string {
   const p = v.publicar;
-  return [p.copy, "", `Comenta ${p.palabra_clave}`, "", p.hashtags.join(" "), "", `Comentario fijado: ${p.comentario_fijado}`].join("\n").trim();
+  return [p.copy, ...(p.palabra_clave ? ["", `Comenta ${p.palabra_clave}`] : []), "", p.hashtags.join(" "), "", `Comentario fijado: ${p.comentario_fijado}`].join("\n").trim();
 }
 
 /** ¿Es un enlace de Reel que el servidor acepta? (la misma forma que REEL_RE del servidor). */

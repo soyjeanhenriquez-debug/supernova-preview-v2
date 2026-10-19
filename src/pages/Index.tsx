@@ -43,6 +43,7 @@ const CreditsPage = lazy(() => import("@/pages/CreditsPage").then(m => ({ defaul
 const CrearPage = lazy(() => import("@/pages/CrearPage").then(m => ({ default: m.CrearPage })));
 const PricingPage = lazy(() => import("@/pages/PricingPage").then(m => ({ default: m.PricingPage })));
 const MyBusinessPage = lazy(() => import("@/pages/MyBusinessPage").then(m => ({ default: m.MyBusinessPage })));
+const BrandDnaPage = lazy(() => import("@/pages/BrandDnaPage").then(m => ({ default: m.BrandDnaPage })));
 const ValidationPage = lazy(() => import("@/pages/ValidationPage").then(m => ({ default: m.ValidationPage })));
 const LaunchPlanPage = lazy(() => import("@/pages/LaunchPlanPage").then(m => ({ default: m.LaunchPlanPage })));
 const RecoveryPage = lazy(() => import("@/pages/RecoveryPage").then(m => ({ default: m.RecoveryPage })));
@@ -181,6 +182,7 @@ const Index = () => {
       case "Sin mostrar tu cara": return <PersonajePage onNavigate={setActivePage} />;
       case "Resultados": return <MandalaPage key="resultados" onNavigate={setActivePage} initialTab="mis" />;
       case "Mi negocio": return <MyBusinessPage onNavigate={setActivePage} />;
+      case "Tu ADN": return <BrandDnaPage onNavigate={setActivePage} />;
       case "Validar": return <ValidationPage onNavigate={setActivePage} />;
       case "Plan": return <LaunchPlanPage onNavigate={setActivePage} />;
       case "Contenido": return <ContentPage onNavigate={setActivePage} />;

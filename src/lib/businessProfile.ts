@@ -6,6 +6,7 @@ import { notifyJourneyChanged } from "@/contexts/JourneyContext";
 import type { Gemelo } from "@/lib/gemelo";
 import type { PersonajeState } from "@/lib/personaje";
 import { currentScenario, fmtMoney, parseAmount } from "@/lib/pricing";
+import { charCount, OFFER_MAX, type OfferStatus, type PriceMode } from "../../supabase/functions/_shared/brandDna";
 
 /**
  * "Mi negocio" (tabla business_profile): lo que vende cada usuario, guardado una vez y usado en
@@ -46,10 +47,16 @@ export type BusinessProfile = {
   launch_plan: LaunchPlan | null;
   recovery: Recovery | null;
   product: string; who: string; promise: string; price: string; proof: string; store_url: string;
+  /** Oferta (19-oct-2026): cada producto es una oferta con estado, precio estructurado y extras opcionales. */
+  offer_status: OfferStatus;
+  price_amount: number | null; price_currency: string | null; price_mode: PriceMode | null;
+  problem: string; delivers: string; differentiator: string; limitations: string; next_action: string;
 };
 export const EMPTY_PROFILE: BusinessProfile = {
   business_type: null, copy_level: 2, pricing: null, journey: null, validation: null, launch_plan: null, recovery: null,
   product: "", who: "", promise: "", price: "", proof: "", store_url: "",
+  offer_status: "borrador", price_amount: null, price_currency: null, price_mode: null,
+  problem: "", delivers: "", differentiator: "", limitations: "", next_action: "",
 };
 
 /** Tono de los anuncios: lo elige cada usuario en "Mi negocio" y lo respetan todas las herramientas. */
@@ -86,7 +93,11 @@ export const PROFILE_EXAMPLES: Record<"default" | "ecommerce", Record<"product" 
 };
 
 // Campos que la base guarda como JSON (o el tipo de negocio): vacíos = null, no "".
-const JSON_KEYS = new Set(["business_type", "pricing", "journey", "validation", "launch_plan", "recovery"]);
+const JSON_KEYS = new Set(["business_type", "pricing", "journey", "validation", "launch_plan", "recovery", "price_amount", "price_currency", "price_mode"]);
+const COLS = "business_type,copy_level,pricing,journey,validation,launch_plan,recovery,product,who,promise,price,proof,store_url,offer_status,price_amount,price_currency,price_mode,problem,delivers,differentiator,limitations,next_action";
+/** Topes de texto de la ficha (los mismos que la base). Nunca se recorta: lo que pasa no se guarda. */
+export const FIELD_MAX: Record<string, number> = { ...OFFER_MAX, store_url: 300, price: 40 };
+export const tooLong = (k: string, v: unknown) => typeof v === "string" && FIELD_MAX[k] != null && charCount(v.trim()) > FIELD_MAX[k];
 
 // Tabla nueva, aún no está en los tipos generados de Supabase.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -166,11 +177,12 @@ export function useBusinessProfile() {
     let alive = true;
     setLoaded(false);
     (async () => {
-      const { data, error } = await table().select("business_type,copy_level,pricing,journey,validation,launch_plan,recovery,product,who,promise,price,proof,store_url").eq("id", activeId).maybeSingle();
+      const { data, error } = await table().select(COLS).eq("id", activeId).maybeSingle();
       if (error) console.error("products:", error.message);
       let p: BusinessProfile = { ...EMPTY_PROFILE };
       if (data) {
-        p = Object.fromEntries(Object.entries({ ...EMPTY_PROFILE, ...data }).map(([k, v]) => [k, v ?? (JSON_KEYS.has(k) ? null : k === "copy_level" ? 2 : "")])) as BusinessProfile;
+        p = Object.fromEntries(Object.entries({ ...EMPTY_PROFILE, ...data }).map(([k, v]) => [k, v ?? (JSON_KEYS.has(k) ? null : k === "copy_level" ? 2 : k === "offer_status" ? "borrador" : "")])) as BusinessProfile;
+        if (p.price_amount != null) p.price_amount = Number(p.price_amount);
       }
       // Producto sin tipo todavía: se deduce de la encuesta de registro (cómo trabaja el usuario).
       if (!p.business_type) {
@@ -188,15 +200,18 @@ export function useBusinessProfile() {
   /**
    * Guarda SOLO los campos indicados en el producto activo (y los aplica al estado local). Es el
    * único guardado: así una pantalla con la ficha desactualizada nunca pisa lo que guardó otra.
-   * Recorta los textos al tamaño que acepta la base (precio 40, el resto 300).
+   * Los textos que pasan su tope (FIELD_MAX, los mismos de la base) NO se recortan: no se guardan y el
+   * formulario lo avisa (19-oct-2026: nunca truncar en silencio).
    * `typing: true` es el autoguardado mientras se escribe: no toca el estado local (si no, el recorte
    * se comería el espacio que acabas de escribir) ni renombra el producto con una palabra a medias.
    */
   const savePatch = useCallback(async (patch: Partial<BusinessProfile>, opts: { typing?: boolean } = {}) => {
     if (!user || !activeId) return false;
     const clean: Record<string, unknown> = { ...patch };
-    for (const k of ["product", "who", "promise", "proof", "store_url", "price"] as const) {
-      if (typeof clean[k] === "string") clean[k] = (clean[k] as string).trim().slice(0, k === "price" ? PRICE_MAX : 300);
+    for (const k of Object.keys(FIELD_MAX)) {
+      if (typeof clean[k] !== "string") continue;
+      if (tooLong(k, clean[k])) return false;
+      clean[k] = (clean[k] as string).trim();
     }
     if (!opts.typing) setProfile(prev => ({ ...prev, ...(clean as Partial<BusinessProfile>) }));
     const { error } = await table().update(clean).eq("id", activeId);

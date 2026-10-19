@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sun, Search, Plus, Gem, LayoutGrid, Briefcase, FolderKanban, Coins, KeyRound, LogOut, BadgeDollarSign, GraduationCap, Menu, ChevronRight, Trophy } from "lucide-react";
+import { Sun, Search, Plus, Gem, LayoutGrid, Briefcase, Fingerprint, FolderKanban, Coins, KeyRound, LogOut, BadgeDollarSign, GraduationCap, Menu, ChevronRight, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,7 +20,7 @@ interface Props {
   onSearch: () => void;
 }
 
-const MORE_PAGES = new Set(["Buscar Ofertas Winner", "Mi negocio", "Proyectos", "Créditos", "Recompensas", "Aprende"]);
+const MORE_PAGES = new Set(["Buscar Ofertas Winner", "Mi negocio", "Tu ADN", "Proyectos", "Créditos", "Recompensas", "Aprende"]);
 
 export function MobileBottomNav({ activePage, onNavigate, onSearch }: Props) {
   const [sheet, setSheet] = useState<null | "crear" | "mas">(null);
@@ -107,6 +107,7 @@ export function MobileBottomNav({ activePage, onNavigate, onSearch }: Props) {
                 {[
                   { icon: FolderKanban, label: "Lo que creaste", page: "Proyectos" },
                   { icon: Briefcase, label: "Mi ficha", page: "Mi negocio" },
+                  { icon: Fingerprint, label: "Tu ADN", page: "Tu ADN" },
                   { icon: BadgeDollarSign, label: "Gana con tu contenido", page: "Recompensas" },
                 ].filter(i => canSee(i.page)).map(i => <Row key={i.page} icon={i.icon} label={i.label} onClick={() => go(i.page)} />)}
 

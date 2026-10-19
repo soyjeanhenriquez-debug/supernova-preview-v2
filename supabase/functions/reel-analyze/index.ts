@@ -6,8 +6,11 @@
 //     si el Reel ya tiene análisis base (lo hizo cualquier cuenta), se reusa sin Apify ni IA; si no,
 //     se lee (caché global o Apify), Gemini MIRA y ESCUCHA el video y se guarda el análisis base (capa A).
 //     Devuelve "Por qué funciona" y deja una fila en reel_analyses con stage = 'base'.
-//  2) { step: "version", analysis_id, nivel, nicho?, palabra_clave?, oferta?, brief? } → escribe tu
-//     versión sin video (capa B) según el nivel: Espejo / Adaptación / Inspiración. La primera versión
+//  2) { step: "version", analysis_id, nivel, objetivo?, offer_id?, waitlist_ok?, conceptos?, toque?,
+//     intensidad?, palabra_clave? } → escribe tu versión sin video (capa B) según el modo: Espejo / Recrear /
+//     Reinventar (inspiracion) / Vender (adaptacion). El ADN, las preferencias y la oferta se leen de la
+//     base con el usuario real (nunca del navegador) y solo entra lo que el modo necesita (brandDna.ts).
+//     La versión pasa por la revisión de calidad (contentQa.ts) antes de entregarse. La primera versión
 //     de cada análisis va incluida (se reclama con un UPDATE atómico); cada versión siguiente cobra
 //     reel_level = 5 créditos y queda en su propia fila (historial).
 //  3) { step: "carrusel", analysis_id | url, mode, goal?, brief?, handle?, world?, line? } (Reel → Carrusel,
@@ -24,9 +27,12 @@ import { HONESTY_RULES } from "../_shared/honesty.ts";
 import { admin, billingHeaders, caller, charge, type Caller, type Gate, json, refund } from "../_shared/media.ts";
 import { b64, geminiMedia, logMediaCost, MEDIA_MODEL } from "../_shared/geminiMedia.ts";
 import { getReel, REEL_RE, type ReelExtraction } from "../_shared/reelSource.ts";
-import { asNivel, cleanBase, cleanTipo, palabraClave, porQue, promptA, promptTipo } from "../_shared/reelLayers.ts";
-import { isSpanish, mirrorBase, writeReelVersion } from "../_shared/reelVersion.ts";
-import { asCarouselMode, cleanReelCarousel, promptC } from "../_shared/reelCarousel.ts";
+import { asNivel, cleanBase, cleanTipo, needsExtra, palabraClave, porQue, promptA, promptTipo } from "../_shared/reelLayers.ts";
+import { writeReelVersion } from "../_shared/reelVersion.ts";
+import { loadCreator } from "../_shared/creatorContext.ts";
+import { carouselPieza, cleanReelCarousel, nivelFromBody, promptC, storedMode } from "../_shared/reelCarousel.ts";
+import { reviewPieza } from "../_shared/reelVersion.ts";
+import { correctionNote, criticas, failMessage, revision } from "../_shared/contentQa.ts";
 
 const FN = "reel-analyze";
 const MAX_VIDEO_BYTES = 18 * 1024 * 1024; // cabe en una sola solicitud a Gemini
@@ -116,15 +122,16 @@ async function stepBase(who: Caller, body: Record<string, unknown>, apify: strin
       if (baseErr) console.error(`${FN}: guardar base`, baseErr.message);
     }
 
-    // Análisis viejo de la caché sin "Descubrimiento o Nicho" (17-oct-2026): se clasifica solo con el
-    // texto, una vez, y queda guardado para todas las cuentas. Si falla, se sigue sin clasificar.
-    if (!base.tipo) {
+    // Análisis viejo de la caché sin "Descubrimiento o Nicho" (17-oct-2026) o sin el análisis de la
+    // referencia (19-oct-2026): se completa solo con el texto, una vez, y queda guardado para todas las
+    // cuentas. Si falla, se sigue con lo que hay.
+    if (needsExtra(base)) {
       try {
-        const { out, cost, usage } = await geminiMedia([{ text: promptTipo(base) }], 800, Math.min(25_000, left(t0)), 0.2);
+        const { out, cost, usage } = await geminiMedia([{ text: promptTipo(base) }], 1_600, Math.min(25_000, left(t0)), 0.2);
         await logMediaCost(who.id, FN, cost, usage);
         const extra = cleanTipo(out);
-        if (extra.tipo) {
-          base = { ...base, ...extra };
+        if (extra.tipo || extra.referencia.tema) {
+          base = { ...base, ...extra, tipo: extra.tipo || base.tipo, tipo_por_que: extra.tipo_por_que || base.tipo_por_que };
           const { error: tipoErr } = await db.from("reel_extractions").update({ base }).eq("shortcode", shortcode);
           if (tipoErr) console.error(`${FN}: guardar tipo`, tipoErr.message);
         }
@@ -154,9 +161,6 @@ async function stepVersion(who: Caller, body: Record<string, unknown>, t0: numbe
   const id = String(body.analysis_id ?? "");
   if (!UUID.test(id)) return json({ error: "Falta el análisis del Reel." }, 400);
   const nivel = asNivel(body.nivel);
-  const b = body.brief && typeof body.brief === "object" ? body.brief as Record<string, unknown> : {};
-  const opciones = { nicho: clean(body.nicho, 120), oferta: clean(body.oferta, 200), palabra_clave: palabraClave(body.palabra_clave) };
-  const handle = clean(body.handle, 30).replace(/[^A-Za-z0-9._]/g, "");
   const db = admin();
 
   const { data: a } = await db.from("reel_analyses").select("id, shortcode, result").eq("id", id).eq("user_id", who.id).maybeSingle();
@@ -164,9 +168,15 @@ async function stepVersion(who: Caller, body: Record<string, unknown>, t0: numbe
   const { data: ex } = await db.from("reel_extractions").select("base").eq("shortcode", a.shortcode).maybeSingle();
   const base = cleanBase(ex?.base);
   if (!base) return json({ error: "Ese Reel hay que analizarlo de nuevo. No se te cobró." }, 409);
-  if (nivel === "espejo" && !base.transcripcion.length) {
-    return json({ error: "Ese análisis no tiene transcripción para comprobar el mínimo del 90 %. No se cobró esta versión. Prueba otro Reel o elige Adaptación." }, 422);
+  if (!base.transcripcion.length && !base.estructura.length) {
+    // Sin texto ni tramos no hay de dónde modelar: se pide el material, nunca se inventa (A6).
+    return json({ error: "No tenemos suficiente del original para modelarlo. Pega otro Reel o vuelve a analizarlo. No se cobró esta versión." }, 422);
   }
+  // ADN, preferencias y oferta: de la base, con el usuario real. Lo que mande el navegador no se confía.
+  const creator = await loadCreator(db, who.id, nivel, body);
+  if (creator instanceof Response) return creator;
+  const opciones = { ...creator.opciones, palabra_clave: palabraClave(body.palabra_clave) };
+  const handle = clean(body.handle, 30).replace(/[^A-Za-z0-9._]/g, "");
 
   // La primera versión de un análisis va incluida. Se reclama con un solo UPDATE (atómico): si dos
   // pedidos llegan juntos, solo uno la gana. Si quedó a medias hace más de 3 min, se puede volver a reclamar.
@@ -189,7 +199,7 @@ async function stepVersion(who: Caller, body: Record<string, unknown>, t0: numbe
   };
 
   try {
-    const brief = { product: clean(b.product, 200), who: clean(b.who, 160), nicho: opciones.nicho, oferta: opciones.oferta, palabra: opciones.palabra_clave, handle };
+    const brief = { palabra: opciones.palabra_clave, handle };
     let cost = 0;
     // Reserva 8 s para guardar o devolver el cobro. Nunca repetir el video ni Apify para corregir.
     const remainingMs = () => WALL_MS - (Date.now() - t0) - 8_000;
@@ -201,23 +211,13 @@ async function stepVersion(who: Caller, body: Record<string, unknown>, t0: numbe
       await logMediaCost(who.id, FN, result.cost, result.usage);
       return result.out;
     };
-    const reference = nivel === "espejo" ? await mirrorBase(base, generate) : base;
-    if (nivel === "espejo" && !isSpanish(base.idioma) && reference.espejo_traduccion !== base.espejo_traduccion) {
-      const { error } = await db.from("reel_extractions").update({ base: { ...base, espejo_traduccion: reference.espejo_traduccion } }).eq("shortcode", a.shortcode);
-      if (error) console.error(`${FN}: guardar traducción`, error.message);
-    }
-    const { version } = await writeReelVersion(reference, nivel, brief, { generate, remainingMs });
+    const { version, reason } = await writeReelVersion(base, nivel, brief, creator.ctx, creator.qa, { generate, remainingMs });
     if (!version) {
-      await undo(nivel === "espejo" ? "espejo no alcanzó el mínimo del 90 %" : "json inválido");
-      return json({ error: nivel === "espejo"
-        ? "No se pudo conservar al menos el 90 % del guion con esos cambios. No se cobró esta versión. Tu análisis sigue disponible: reduce la personalización o elige Adaptación."
-        : "La IA no pudo escribir tu versión. No se cobró esta versión: inténtalo de nuevo." }, 422);
-    }
-    if (nivel === "espejo") {
-      version.espejo_referencia = isSpanish(base.idioma) ? "original" : "traduccion";
+      await undo("no pasó la revisión de calidad");
+      return json({ error: reason }, 422);
     }
     const prev = (a.result && typeof a.result === "object" ? a.result : {}) as Record<string, unknown>;
-    const view = { source: prev.source, por_que_funciona: prev.por_que_funciona ?? porQue(base), version, opciones };
+    const view = { source: prev.source, por_que_funciona: porQue(base), version, opciones };
     let outId = id;
     if (free) {
       const { error } = await db.from("reel_analyses").update({
@@ -265,11 +265,11 @@ async function stepCarrusel(who: Caller, body: Record<string, unknown>, t0: numb
   const base = cleanBase(ex?.base);
   if (!base) return json({ need_base: true }, 200);
 
-  const mode = asCarouselMode(body.mode);
-  const b = body.brief && typeof body.brief === "object" ? body.brief as Record<string, unknown> : {};
+  const nivel = nivelFromBody(body);
+  const mode = storedMode(nivel);
+  const creator = await loadCreator(db, who.id, nivel, body);
+  if (creator instanceof Response) return creator;
   const brief = {
-    product: clean(b.product, 200), who: clean(b.who, 200), promise: clean(b.promise, 200), price: clean(b.price, 30),
-    goal: body.goal === "ensenar" ? "ensenar" as const : "vender" as const,
     handle: clean(body.handle, 30).replace(/[^A-Za-z0-9._]/g, ""), world: clean(body.world, 160), line: clean(body.line, 80),
   };
 
@@ -293,12 +293,37 @@ async function stepCarrusel(who: Caller, body: Record<string, unknown>, t0: numb
   };
 
   try {
-    const { out, cost, usage } = await geminiMedia([{ text: promptC(base, mode, brief) + "\n\n" + HONESTY_RULES }], 10_000, left(t0), mode === "tema" ? 0.4 : 0.6);
-    await logMediaCost(who.id, FN, cost, usage);
-    const car = cleanReelCarousel(out, base);
+    let cost = 0;
+    const remainingMs = () => WALL_MS - (Date.now() - t0) - 8_000;
+    const generate = async (prompt: string, temperature: number, maxTokens = 10_000) => {
+      const ms = remainingMs();
+      if (ms <= 0) throw new DOMException("Tiempo agotado", "TimeoutError");
+      const r = await geminiMedia([{ text: prompt }], maxTokens, Math.min(90_000, ms), temperature);
+      cost += r.cost;
+      await logMediaCost(who.id, FN, r.cost, r.usage);
+      return r.out;
+    };
+    const prompt = promptC(base, nivel, brief, creator.ctx) + "\n\n" + HONESTY_RULES;
+    const temp = nivel === "espejo" ? 0.4 : nivel === "inspiracion" ? 0.8 : 0.6;
+    let car = cleanReelCarousel(await generate(prompt, temp), base);
     if (!car) {
       await undo("json inválido");
       return json({ error: "La IA no pudo armar el carrusel. No se te cobró: inténtalo de nuevo." }, 502);
+    }
+    // Revisión de calidad (la misma del Reel) y, si falla en lo crítico, UNA corrección.
+    const judge = (p: string, t: number) => generate(p, t, 2_000);
+    let rev = await reviewPieza(base, nivel, carouselPieza(car), creator.qa, judge, remainingMs);
+    let corregida = false;
+    if (criticas(rev.checks).length) {
+      const fixed = remainingMs() > 50_000
+        ? cleanReelCarousel(await generate([prompt, correctionNote(rev.checks), `Intento anterior: ${JSON.stringify(car.carrusel)}`].join("\n\n"), Math.min(temp, 0.4)), base)
+        : null;
+      const rev2 = fixed ? await reviewPieza(base, nivel, carouselPieza(fixed), creator.qa, judge, remainingMs) : null;
+      if (!fixed || !rev2 || criticas(rev2.checks).length) {
+        await undo("no pasó la revisión de calidad");
+        return json({ error: failMessage((rev2 ?? rev).checks).replace("versión", "versión del carrusel") }, 422);
+      }
+      car = fixed; rev = rev2; corregida = true;
     }
     const prev = (a.result && typeof a.result === "object" ? a.result : {}) as Record<string, unknown>;
     const src = (prev.source && typeof prev.source === "object" ? prev.source : {}) as Record<string, unknown>;
@@ -307,14 +332,14 @@ async function stepCarrusel(who: Caller, body: Record<string, unknown>, t0: numb
       owner: clean(src.owner ?? ex?.owner, 40),
       likes: typeof src.likes === "number" ? src.likes : null, comments: typeof src.comments === "number" ? src.comments : null,
     };
-    const view = { source: prev.source ?? null, por_que_funciona: prev.por_que_funciona ?? porQue(base), carrusel: car, mode };
+    const view = { source: prev.source ?? null, por_que_funciona: porQue(base), carrusel: car, mode, opciones: creator.opciones, revision: revision(rev.checks, corregida, rev.semantica) };
     let outId = a.id;
     if (free) {
-      const { error } = await db.from("reel_analyses").update({ stage: "listo", kind: "carrusel", result: view, llm_b_usd: cost, updated_at: new Date().toISOString() }).eq("id", a.id);
+      const { error } = await db.from("reel_analyses").update({ stage: "listo", kind: "carrusel", nivel, result: view, llm_b_usd: cost, updated_at: new Date().toISOString() }).eq("id", a.id);
       if (error) console.error(`${FN}: guardar carrusel`, error.message);
     } else {
       const { data: ins, error } = await db.from("reel_analyses").insert({
-        user_id: who.id, shortcode: a.shortcode, nivel: "adaptacion", kind: "carrusel", source: "app", result: view, stage: "listo",
+        user_id: who.id, shortcode: a.shortcode, nivel, kind: "carrusel", source: "app", result: view, stage: "listo",
         cache_hit: true, apify_usd: 0, llm_a_usd: 0, llm_b_usd: cost, credits: g!.charged,
       }).select("id").single();
       if (error || !ins) console.error(`${FN}: guardar carrusel`, error?.message);
@@ -326,7 +351,7 @@ async function stepCarrusel(who: Caller, body: Record<string, unknown>, t0: numb
       const { data: row } = await db.from("carousel_clones").insert({
         user_id: who.id, url: `https://www.instagram.com/reel/${a.shortcode}/`, mode, owner: source.owner || null, likes: source.likes, comments: source.comments,
         hook: clean(car.analisis.gancho_original, 200) || null, summary: clean(car.analisis.resumen, 300) || null, why: clean(car.analisis.por_que_funciona, 600) || null,
-        analysis: { laminas: car.analisis.laminas, adn: car.adn, mantener: car.mantener, necesitas: car.necesitas, reel: true, convertible: car.convertible },
+        analysis: { laminas: car.analisis.laminas, adn: car.adn, mantener: car.mantener, necesitas: car.necesitas, reel: true, convertible: car.convertible, nivel, objetivo: creator.opciones.objetivo },
         result: {
           portadas: (car.carrusel.portadas as Record<string, unknown>[]).map(c => clean(c.titulo, 120)),
           tipos: car.carrusel.laminas.map(l => clean(l.tipo, 20)), originales: car.carrusel.laminas.map(l => Number(l.original) || 0),
@@ -337,7 +362,7 @@ async function stepCarrusel(who: Caller, body: Record<string, unknown>, t0: numb
     } catch (e) { console.error(`${FN}: guardar clon`, e); }
 
     const billing = { charged: g?.charged ?? 0, balance: g?.balance ?? null };
-    return json({ ...car, analysis_id: outId, clone_id: cloneId, source, reel: { shortcode: a.shortcode, convertible: car.convertible }, billing }, 200, g ? billingHeaders(g) : {});
+    return json({ ...car, analysis_id: outId, clone_id: cloneId, source, reel: { shortcode: a.shortcode, convertible: car.convertible }, nivel, opciones: creator.opciones, revision: view.revision, billing }, 200, g ? billingHeaders(g) : {});
   } catch (e) {
     await undo(isTimeout(e) ? "la ia tardó demasiado" : "excepción");
     console.error(`${FN}: carrusel`, e instanceof Error ? e.message : e);

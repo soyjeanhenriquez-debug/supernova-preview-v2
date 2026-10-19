@@ -20,6 +20,7 @@ const EXTRA_PAGES: Record<string, { title: string; desc: string }> = {
   "Productos": { title: "Mis productos", desc: "Todos tus productos y cuánto avanzó cada uno." },
   "Proyectos": { title: "Lo que creaste", desc: "Todo lo que creas y guardas queda aquí para retomarlo." },
   "Mi negocio": { title: "Mi ficha", desc: "Qué vendes, para quién y qué logra. La usan todas las herramientas." },
+  "Tu ADN": { title: "Tu ADN", desc: "Quién eres y cómo hablas, una vez. Lo que modelas suena a ti, sin cambiar el tema." },
   "Créditos": { title: "Mis créditos", desc: `PRO trae 2.000 créditos al mes para lo que hace la IA (${creditEquivalentsLine(2000, { withOr: true })}). Mirar ofertas, el radar y los ganchos es gratis.` },
 };
 

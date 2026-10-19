@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Captions, ChevronDown, Clapperboard, Copy, History, LayoutTemplate, Loader2, Play, RotateCcw, Search, Sparkles } from "lucide-react";
+import { AlertTriangle, BookmarkPlus, Captions, Check, ChevronDown, Clapperboard, Copy, History, LayoutTemplate, Loader2, Play, RotateCcw, Search, Sparkles, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { invokeErrorMessage } from "@/lib/fnAuth";
-import { useBusinessProfile } from "@/lib/businessProfile";
+import { useProducts } from "@/contexts/ProductContext";
+import {
+  charCount, cleanConceptos, dnaProgress, FIDELIDAD_AYUDA, modoAviso, OBJETIVOS, OFFER_STATUSES, useBrandDna, useEditorialPrefs,
+  type Intensidad, type Objetivo, type OfferStatus,
+} from "@/lib/brandDna";
 import { CREDIT_COSTS, useCredits } from "@/hooks/useCredits";
 import { ToolShell } from "@/components/tool/ToolShell";
 import { ToolFeedback } from "@/components/ToolFeedback";
@@ -11,7 +15,7 @@ import { AddToTracker } from "@/components/AddToTracker";
 import { Teleprompter } from "@/components/reel/Teleprompter";
 import { REEL_TO_CAROUSEL_KEY } from "@/lib/carousel";
 import {
-  editingText, NIVEL_BY_ID, NIVELES, notionGuion, notionPorQue, parecido, publishText, REEL_URL_RE, speakSeconds, teleprompterLines, TIPOS,
+  CHECK_LABEL, editingText, NIVEL_BY_ID, NIVELES, notionGuion, notionPorQue, publishText, REEL_URL_RE, speakSeconds, teleprompterLines, TIPOS,
   type Nivel, type ReelView,
 } from "@/lib/reel";
 
@@ -45,13 +49,24 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
   onHome: () => void;
   onNavigate: (page: string) => void;
 }) {
-  const { profile } = useBusinessProfile();
+  const { products, activeId } = useProducts();
+  const { dna, loaded: dnaLoaded } = useBrandDna();
+  const prefs = useEditorialPrefs();
   const { applyServerCharge } = useCredits();
   const routeId = route[0] && UUID.test(route[0]) ? route[0] : null;
 
   const [url, setUrl] = useState("");
-  const [nivel, setNivel] = useState<Nivel>("adaptacion");
-  const [opts, setOpts] = useState({ nicho: "", palabra_clave: "", oferta: "" });
+  // ESPEJO es el modo por defecto (Jean, 19-oct-2026).
+  const [nivel, setNivel] = useState<Nivel>("espejo");
+  const [opts, setOpts] = useState({ palabra_clave: "" });
+  const [objetivo, setObjetivo] = useState<Objetivo>("atraer");
+  const [intensidad, setIntensidad] = useState<Intensidad>("equilibrada");
+  const [offerId, setOfferId] = useState<string>("");
+  const [waitlistOk, setWaitlistOk] = useState(false);
+  const [conceptos, setConceptos] = useState<string[]>([]);
+  const [conceptosTocados, setConceptosTocados] = useState(false);
+  const [nuevoConcepto, setNuevoConcepto] = useState("");
+  const [toque, setToque] = useState("");
   const [view, setView] = useState<ReelView | null>(null);
   const [loadingView, setLoadingView] = useState(false);
   const [busy, setBusy] = useState<null | "base" | "version">(null);
@@ -82,9 +97,16 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
         setLoadingView(false);
         if (!data?.result?.por_que_funciona) { toast.error("No encontramos ese análisis."); go([], true); return; }
         setView({ analysis_id: data.id, ...data.result });
-        setNivel(data.result.version?.nivel ?? data.nivel ?? "adaptacion");
+        setNivel(data.result.version?.nivel ?? data.nivel ?? "espejo");
         if (data.result.source?.url) setUrl(data.result.source.url);
-        if (data.result.opciones) setOpts(o => ({ ...o, ...data.result.opciones }));
+        const o = data.result.opciones;
+        if (o) {
+          setOpts({ palabra_clave: o.palabra_clave ?? "" });
+          if (o.objetivo === "atraer" || o.objetivo === "autoridad") setObjetivo(o.objetivo);
+          if (o.offer_id) setOfferId(o.offer_id);
+          if (o.toque) setToque(o.toque);
+          if (o.conceptos?.length) { setConceptos(o.conceptos); setConceptosTocados(true); }
+        }
         setHook(0);
       });
     return () => { alive = false; };
@@ -103,7 +125,9 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
     setBusy("version");
     try {
       const { data, error } = await supabase.functions.invoke("reel-analyze", {
-        body: { step: "version", analysis_id: analysisId, nivel, ...opts, brief: { product: profile.product ?? "", who: profile.who ?? "" } },
+        // Solo elecciones: el ADN, las preferencias y la oferta los lee el servidor de la base.
+        body: { step: "version", analysis_id: analysisId, nivel, objetivo, offer_id: nivel === "adaptacion" ? offerId || null : null,
+          waitlist_ok: waitlistOk, conceptos, toque, intensidad, palabra_clave: opts.palabra_clave },
       });
       if (error || !data?.version) throw new Error(error ? await invokeErrorMessage(error, "No se pudo escribir tu versión. No se te cobró.") : (data?.error || "No se pudo escribir tu versión. No se te cobró."));
       if (data.billing?.charged) applyServerCharge("reel_level", data.billing, "Otra versión de un Reel");
@@ -148,7 +172,27 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
   const lines = useMemo(() => (v ? teleprompterLines(v, hook) : []), [v, hook]);
   const validUrl = REEL_URL_RE.test(url.trim());
   const step = v ? (recorded ? 3 : 2) : view || busy ? 2 : validUrl ? 1 : 0;
-  const sameAsShown = v && v.nivel === nivel && (view?.opciones?.nicho ?? "") === opts.nicho && (view?.opciones?.oferta ?? "") === opts.oferta && (view?.opciones?.palabra_clave ?? "") === opts.palabra_clave.toUpperCase();
+  const o = view?.opciones;
+  const sameAsShown = v && v.nivel === nivel && (o?.palabra_clave ?? "") === opts.palabra_clave.toUpperCase() && (o?.toque ?? "") === toque
+    && (o?.objetivo ?? "atraer") === (nivel === "adaptacion" ? "vender" : objetivo) && (o?.offer_id ?? "") === (nivel === "adaptacion" ? offerId : "")
+    && JSON.stringify(o?.conceptos ?? []) === JSON.stringify(conceptos);
+  // Palabras orientadoras (A7): salen del análisis de la referencia; en Reinventar, de sus mecanismos.
+  const pq = view?.por_que_funciona;
+  useEffect(() => {
+    if (conceptosTocados || !pq) return;
+    setConceptos(cleanConceptos(nivel === "inspiracion" ? pq.mecanismos ?? [] : pq.conceptos ?? []));
+  }, [pq, nivel, conceptosTocados]);
+  // VENDER: la oferta elegida (por defecto, el producto activo). Solo se listan ofertas activas.
+  const offers = products.filter(p => p.status === "activo");
+  useEffect(() => { if (!offerId && activeId) setOfferId(activeId); }, [activeId, offerId]);
+  const offer = nivel === "adaptacion" ? offers.find(p => p.id === offerId) ?? null : null;
+  const offerStatus = (offer?.offer_status ?? "borrador") as OfferStatus;
+  const aviso = modoAviso(nivel, offer ? { offer_status: offerStatus, name: offer.name } : null, waitlistOk);
+  const adn = dnaProgress(dna);
+  const saveToque = async () => {
+    const err = await prefs.add(toque);
+    if (err) toast.error(err); else toast.success("Guardado como preferencia", { description: "Se aplica a todo lo que modelas. Lo ves en Tu ADN." });
+  };
 
   const action = !view
     ? { label: `Analizar y escribir mi versión · ${CREDIT_COSTS.reel_analyze} créditos`, run: analyze, disabled: !validUrl }
@@ -170,32 +214,104 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
       </div>
 
       <div className="card-surface rounded-2xl p-4 space-y-2">
-        <p className="text-[11px] uppercase tracking-wider text-muted-foreground">2 · Elige cuánto se parece tu versión</p>
-        <div role="radiogroup" aria-label="Nivel de parecido" className="space-y-2">
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground">2 · ¿Cómo quieres transformarlo?</p>
+        <div role="radiogroup" aria-label="Modo de modelado" className="grid grid-cols-2 gap-2">
           {NIVELES.map(n => (
-            <button key={n.id} type="button" role="radio" aria-checked={nivel === n.id} onClick={() => setNivel(n.id)} title={n.para} disabled={!!busy}
-              className={`w-full text-left rounded-xl border p-3 transition-colors ${nivel === n.id ? "border-primary/60 bg-primary/10" : "border-border hover:bg-secondary/40"}`}>
-              <span className="flex items-baseline justify-between gap-2">
-                <span className="text-sm font-semibold text-foreground">{n.nombre}{n.id === "adaptacion" && <span className="ml-2 text-[11px] font-normal text-primary">recomendado</span>}</span>
-                <span className="text-[11px] text-muted-foreground">{n.pct}</span>
+            <button key={n.id} type="button" role="radio" aria-checked={nivel === n.id} onClick={() => setNivel(n.id)} title={n.quiere} disabled={!!busy}
+              className={`min-h-[76px] text-left rounded-xl border p-3 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${nivel === n.id ? "border-primary/60 bg-primary/10" : "border-border hover:bg-secondary/40"}`}>
+              <span className="flex items-baseline justify-between gap-1">
+                <span className="text-sm font-semibold text-foreground">{n.nombre}</span>
+                {n.pct && <span className="text-[11px] tabular-nums text-muted-foreground">{n.pct}</span>}
               </span>
-              <span className="mt-1 block text-[12px] text-muted-foreground"><b className="text-foreground font-medium">Conserva:</b> {n.conserva}</span>
-              <span className="block text-[12px] text-muted-foreground"><b className="text-foreground font-medium">Cambia:</b> {n.cambia}</span>
+              <span className="mt-1 block text-[12px] leading-snug text-muted-foreground">{n.line}</span>
             </button>
           ))}
         </div>
+        <p className="text-[11px] text-muted-foreground">{FIDELIDAD_AYUDA}</p>
+        {aviso && <p role="note" className="text-[12px] text-foreground"><AlertTriangle className="inline w-3.5 h-3.5 mr-1 text-primary" />{aviso}</p>}
+        {dnaLoaded && !adn.ready && (
+          <p className="text-[12px] text-muted-foreground">Para que suene a ti, <button type="button" onClick={() => onNavigate("Tu ADN")} className="text-primary hover:underline">completa tu ADN</button> (unos minutos). Sin él, igual funciona.</p>
+        )}
+
+        {view && (
+          <div className="space-y-2 rounded-xl border border-border p-3">
+            <p className="text-[13px] font-semibold text-foreground">Dale tu toque personal <span className="font-normal text-muted-foreground">(opcional)</span></p>
+            <div className="flex flex-wrap gap-1.5" aria-label="Palabras orientadoras">
+              {conceptos.map((c, i) => (
+                <span key={`${c}-${i}`} className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/40 pl-2.5 pr-1 py-1 text-[12px] text-foreground">
+                  {c}
+                  <button type="button" aria-label={`Quitar ${c}`} onClick={() => { setConceptos(cs => cs.filter((_, j) => j !== i)); setConceptosTocados(true); }}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /></button>
+                </span>
+              ))}
+              {conceptos.length < 3 && (
+                <form onSubmit={e => { e.preventDefault(); const c = cleanConceptos([...conceptos, nuevoConcepto]); setConceptos(c); setNuevoConcepto(""); setConceptosTocados(true); }} className="inline-flex">
+                  <input value={nuevoConcepto} onChange={e => setNuevoConcepto(e.target.value)} placeholder="+ palabra" aria-label="Agregar palabra orientadora"
+                    className="w-28 min-h-[32px] rounded-full border border-dashed border-border bg-background px-3 text-[12px] text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60" />
+                </form>
+              )}
+            </div>
+            <label className="block text-[12px] text-muted-foreground">¿Qué quieres destacar o cambiar?
+              <textarea value={toque} onChange={e => setToque(e.target.value)} rows={2} placeholder="Ej.: que suene más cercano y con un ejemplo de RD"
+                className={`mt-1 w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${charCount(toque) > 200 ? "border-destructive" : "border-border"}`} />
+            </label>
+            <div className="flex items-center justify-between gap-2 text-[11px]">
+              <button type="button" onClick={saveToque} disabled={charCount(toque.trim()) < 3 || charCount(toque) > 200}
+                className="inline-flex min-h-[32px] items-center gap-1 text-primary hover:underline disabled:opacity-40 disabled:no-underline"><BookmarkPlus className="w-3.5 h-3.5" /> Guardar como preferencia</button>
+              <span className={`tabular-nums ${charCount(toque) > 200 ? "text-destructive" : "text-muted-foreground"}`}>{charCount(toque)}/200</span>
+            </div>
+          </div>
+        )}
+
         <details className="group rounded-xl border border-border px-3 py-2">
-          <summary className="flex cursor-pointer list-none items-center justify-between text-[13px] text-foreground">
-            Personalizar (opcional) <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-180" />
+          <summary className="flex min-h-[40px] cursor-pointer list-none items-center justify-between text-[13px] text-foreground">
+            Opciones avanzadas <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-180" />
           </summary>
-          <div className="mt-2 space-y-2">
-            <p className="text-[12px] text-muted-foreground">Si lo dejas vacío usamos tu producto: <b className="text-foreground">{profile.product || "sin producto"}</b>.</p>
-            {([["nicho", "Nicho", "Ej.: entrenamiento en casa para hombres ocupados"], ["palabra_clave", "Palabra clave del cierre", "GRUPO"], ["oferta", "Oferta que empuja", "Ej.: rutina de 20 minutos en PDF"]] as const).map(([k, label, ph]) => (
-              <label key={k} className="block text-[12px] text-muted-foreground">{label}
-                <input value={opts[k]} onChange={e => setOpts(o => ({ ...o, [k]: e.target.value }))} placeholder={ph} maxLength={k === "palabra_clave" ? 20 : 200}
-                  className={`mt-1 w-full min-h-[40px] rounded-lg border border-border bg-background px-3 text-sm text-foreground ${k === "palabra_clave" ? "uppercase" : ""}`} />
-              </label>
-            ))}
+          <div className="mt-2 space-y-3">
+            {nivel !== "adaptacion" ? (
+              <div role="radiogroup" aria-label="Objetivo" className="space-y-1">
+                <p className="text-[12px] text-muted-foreground">Objetivo</p>
+                {OBJETIVOS.filter(x => x.id !== "vender").map(x => (
+                  <button key={x.id} type="button" role="radio" aria-checked={objetivo === x.id} onClick={() => setObjetivo(x.id)}
+                    className={`w-full min-h-[44px] rounded-lg border px-3 py-2 text-left ${objetivo === x.id ? "border-primary/60 bg-primary/10" : "border-border hover:bg-secondary/40"}`}>
+                    <span className="block text-[13px] font-semibold text-foreground">{x.nombre}</span>
+                    <span className="block text-[11px] text-muted-foreground">{x.line}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <label className="block text-[12px] text-muted-foreground">Oferta (opcional)
+                  <select value={offerId} onChange={e => setOfferId(e.target.value)}
+                    className="mt-1 w-full min-h-[44px] rounded-lg border border-border bg-background px-3 text-sm text-foreground">
+                    <option value="">Sin oferta: invitar a seguir o comentar</option>
+                    {offers.map(p => <option key={p.id} value={p.id}>{p.name} · {OFFER_STATUSES.find(x => x.id === (p.offer_status ?? "borrador"))?.label}</option>)}
+                  </select>
+                </label>
+                {offer && offerStatus === "validacion" && (
+                  <label className="flex items-start gap-2 text-[12px] text-foreground">
+                    <input type="checkbox" checked={waitlistOk} onChange={e => setWaitlistOk(e.target.checked)} className="mt-0.5 h-4 w-4" />
+                    Invitar a una lista de espera (sin pedir la compra)
+                  </label>
+                )}
+                <button type="button" onClick={() => onNavigate("Mi negocio")} className="text-[12px] text-primary hover:underline">Editar mis ofertas</button>
+              </div>
+            )}
+            {nivel === "recrear" && (
+              <div role="radiogroup" aria-label="Intensidad de tu marca" className="space-y-1">
+                <p className="text-[12px] text-muted-foreground">Cuánto de ti</p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {([["sutil", "Sutil"], ["equilibrada", "Equilibrada"], ["profunda", "Profunda"]] as const).map(([id, label]) => (
+                    <button key={id} type="button" role="radio" aria-checked={intensidad === id} onClick={() => setIntensidad(id)}
+                      className={`min-h-[40px] rounded-lg border text-[12px] ${intensidad === id ? "border-primary/60 bg-primary/10 text-foreground" : "border-border text-muted-foreground"}`}>{label}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <label className="block text-[12px] text-muted-foreground">Palabra clave del cierre (si pide comentar)
+              <input value={opts.palabra_clave} onChange={e => setOpts({ palabra_clave: e.target.value })} placeholder="GUIA" maxLength={20}
+                className="mt-1 w-full min-h-[40px] rounded-lg border border-border bg-background px-3 text-sm uppercase text-foreground" />
+            </label>
           </div>
         </details>
         <button type="button" onClick={action.run} disabled={!!busy || action.disabled}
@@ -288,9 +404,7 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
                     return (
                       <li key={i} className="rounded-xl border border-border p-3 text-[13px] space-y-1">
                         <p className="tabular-nums text-muted-foreground">{t.inicio}–{t.fin} s</p>
-                        {v.nivel === "espejo" && t.original_texto && <p className="text-[12px] text-muted-foreground"><b className="font-medium">{v.espejo_referencia === "traduccion" ? "Traducción de referencia:" : "El original dice:"}</b> «{t.original_texto}»</p>}
-                        {v.nivel === "espejo" && <p className="text-foreground"><b className="font-medium">Tú dices:</b> {t.dices}</p>}
-                        {v.nivel === "espejo" && !t.original_texto && orig && <p className="text-[12px] text-muted-foreground">Original ({orig.inicio}–{orig.fin} s): {orig.descripcion}</p>}
+                        {v.nivel === "espejo" && orig && <p className="text-[12px] text-muted-foreground">Original ({orig.inicio}–{orig.fin} s): {orig.descripcion}</p>}
                         <p className="text-foreground"><b className="font-medium">Se ve:</b> {t.se_ve || "—"}</p>
                         <p className="text-foreground"><b className="font-medium">Texto en pantalla:</b> {t.texto_pantalla ? `«${t.texto_pantalla}»` : "—"}</p>
                       </li>
@@ -363,8 +477,8 @@ function HowItWorks() {
       <ol className="grid gap-3 sm:grid-cols-3">
         {[
           ["Pega el enlace", "De un Reel que te guste y que ya tenga vistas: tuyo o de otra persona."],
-          ["Elige cuánto se parece", "Espejo, Adaptación o Inspiración. Te decimos qué se conserva y qué es tuyo."],
-          ["Grábalo con el teleprompter", "Te damos los ganchos, el guion para leer y el texto para publicar. En Espejo, cada gancho ofrecido conserva el mínimo del 90 % y se busca llegar al 95 %."],
+          ["Elige cómo transformarlo", "Espejo, Recrear, Reinventar o Vender. Te decimos qué se conserva y qué es tuyo."],
+          ["Grábalo con el teleprompter", "Te damos los ganchos, el guion para leer y el texto para publicar. Antes de entregarlo, revisamos que conserve el tema y que no meta nada que no toca."],
         ].map(([t, d], i) => (
           <li key={t} className="rounded-xl border border-border p-3">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[12px] font-semibold text-primary-foreground">{i + 1}</span>
@@ -394,24 +508,44 @@ function SourceCard({ view }: { view: ReelView }) {
   );
 }
 
-function VersionSummary({ view, hook }: { view: ReelView; hook: number }) {
+function VersionSummary({ view }: { view: ReelView; hook: number }) {
   const v = view.version!;
-  const n = NIVEL_BY_ID[v.nivel];
-  const p = v.nivel === "espejo" ? parecido(v, hook) : null;
-  const verified = v.espejo_validado && p != null && p >= 90;
+  const n = NIVEL_BY_ID[v.nivel] ?? NIVEL_BY_ID.espejo;
+  const r = v.revision;
+  const avisos = v.que_cambio.filter(x => /^aviso:/i.test(x));
+  const o = view.opciones;
+  const objetivo = o?.objetivo === "autoridad" ? "Ganar autoridad" : o?.objetivo === "vender" ? "Vender" : o?.objetivo === "atraer" ? "Atraer" : "";
   return (
     <div className="card-surface rounded-2xl p-4 sm:p-5 space-y-3">
-      <p className="text-sm text-foreground"><span className="rounded-full bg-primary/15 px-2.5 py-1 text-[12px] font-semibold">{n.nombre} {v.nivel === "espejo" ? (verified ? "· mínimo 90 % verificado" : "· sin verificar") : n.pct}</span>
-        {p != null && <span className="ml-2 text-[12px] text-foreground">Coincidencia del texto {v.espejo_referencia === "traduccion" ? "con la traducción" : "con el original"}: <b>{p.toLocaleString("es-DO")} %</b></span>}
-        {view.opciones?.nicho && <span className="ml-2 text-[12px] text-muted-foreground">Nicho: {view.opciones.nicho}</span>}</p>
-      {v.nivel === "espejo" && !verified && <p className="text-[12px] text-muted-foreground">Esta versión no tiene la verificación del mínimo del 90 %. Genera otra con Espejo para aplicar el nuevo mínimo.</p>}
+      <p className="flex flex-wrap items-center gap-2 text-sm text-foreground">
+        <span className="rounded-full bg-primary/15 px-2.5 py-1 text-[12px] font-semibold">{n.nombre}{n.pct ? ` · ${n.pct} de fidelidad creativa` : ""}</span>
+        {objetivo && <span className="text-[12px] text-muted-foreground">Objetivo: {objetivo}</span>}
+        {o?.offer_name && <span className="text-[12px] text-muted-foreground">Oferta: {o.offer_name}</span>}
+      </p>
+      <p className="text-[12px] text-muted-foreground">{n.line}</p>
+      {avisos.map(a => <p key={a} role="note" className="rounded-lg border border-primary/40 bg-primary/10 p-2 text-[12px] text-foreground">{a}</p>)}
+      {r ? (
+        <div className="rounded-xl border border-border p-3 text-[12px] space-y-1.5">
+          <p className="font-semibold text-foreground">{r.semantica ? "Revisión de calidad" : "Revisión básica (la revisión completa no alcanzó a correr)"}{r.corregida ? " · corregida una vez" : ""}</p>
+          <ul className="grid gap-1 sm:grid-cols-2">
+            {r.checks.map(c => (
+              <li key={c.id} className="flex items-start gap-1.5" title={c.nota}>
+                {c.ok ? <Check className="mt-0.5 w-3.5 h-3.5 shrink-0 text-emerald-400" aria-label="Bien" /> : <AlertTriangle className="mt-0.5 w-3.5 h-3.5 shrink-0 text-primary" aria-label="A revisar" />}
+                <span className={c.ok ? "text-muted-foreground" : "text-foreground"}>{CHECK_LABEL[c.id] ?? c.id}{!c.ok && c.nota ? `: ${c.nota}` : ""}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <p className="text-[12px] text-muted-foreground">Versión hecha con el criterio anterior, sin la revisión de calidad nueva. Genera otra para revisarla.</p>
+      )}
       <div className="grid gap-3 sm:grid-cols-2 text-[13px]">
         <div><p className="font-semibold text-foreground">Lo que tomamos del original</p><ul className="mt-1 list-disc pl-4 text-muted-foreground space-y-0.5">{v.que_se_mantuvo.map(x => <li key={x}>{x}</li>)}</ul></div>
-        <div><p className="font-semibold text-foreground">Lo que es tuyo</p><ul className="mt-1 list-disc pl-4 text-muted-foreground space-y-0.5">{v.que_cambio.map(x => <li key={x}>{x}</li>)}</ul></div>
+        <div><p className="font-semibold text-foreground">Lo que es tuyo</p><ul className="mt-1 list-disc pl-4 text-muted-foreground space-y-0.5">{v.que_cambio.filter(x => !/^aviso:/i.test(x)).map(x => <li key={x}>{x}</li>)}</ul></div>
       </div>
       {v.formula_explicada && <p className="text-[13px] text-muted-foreground"><b className="text-foreground font-medium">La fórmula del gancho:</b> {v.formula_explicada}</p>}
       {v.ideas.length > 0 && (
-        <div className="text-[13px]"><p className="font-semibold text-foreground">3 ideas con el mismo truco (el guion es de la primera)</p>
+        <div className="text-[13px]"><p className="font-semibold text-foreground">3 ideas con la misma fórmula (el guion es de la mejor)</p>
           <ol className="mt-1 list-decimal pl-4 text-muted-foreground space-y-0.5">{v.ideas.map(i => <li key={i.titulo}><span className="text-foreground">{i.titulo}</span> — {i.por_que}</li>)}</ol></div>
       )}
     </div>

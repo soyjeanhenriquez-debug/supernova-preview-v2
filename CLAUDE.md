@@ -112,15 +112,16 @@ su moneda.
   que suene propia). Lo único que no se hace es publicar como propio lo que es de otro sin
   transformarlo: copiar y pegar en el mismo idioma, traducir palabra por palabra, usar sus fotos,
   su cara, su nombre o su marca, o presentar sus números y resultados como si fueran nuestros.
-  **Nivel Espejo (decisión de Jean, 19-oct-2026):** objetivo del **95 %** y mínimo obligatorio
-  del **90 % de coincidencia textual verificada en el servidor**. Se cuentan sustituciones,
-  añadidos y borrados, con el mismo orden; se valida el guion y el teleprompter con gancho y cierre.
-  Se conservan los tramos y sus tiempos, con un toque propio: normalmente hasta un 5 % de cambios, como máximo un 10 %. Si no
-  alcanza el 95 %, una sola corrección de texto y se conserva el mejor resultado válido. Si
-  ninguno alcanza el 90 %, no se entrega esa versión y se devuelve su cobro (o se libera
-  la versión incluida). En otro idioma se compara contra una traducción fiel al español,
-  guardada para reutilizarla e identificada en pantalla. La app usa la misma medición y nunca
-  etiqueta una versión antigua como verificada. Las reglas de honestidad siguen mandando.
+  **Los 4 modos de modelado (decisión de Jean, 19-oct-2026, reemplaza el "Nivel Espejo" de texto
+  del mismo día):** ESPEJO 95 % · RECREAR 75 % · REINVENTAR 50 % · VENDER. Los porcentajes son
+  **fidelidad creativa** (idea, estructura, intención), nunca similitud de palabras ni una medición.
+  ESPEJO = misma enseñanza con la voz de la persona, sin copiar frases distintivas; se valida en el
+  servidor por sentido (tema, tesis, mecanismo del gancho, estructura, intención emocional, nada ajeno,
+  redacción original) más chequeos fijos (copia literal, ofertas que no tocan, CTA que la oferta no
+  permite, promesas de dinero, experiencia privada). Una falla crítica permite UNA corrección; si
+  sigue, no se entrega y se devuelve el cobro. El ADN de la persona nunca cambia el tema de una
+  referencia; la oferta solo entra en VENDER y solo una oferta "Disponible" puede pedir la compra.
+  Todo en `supabase/functions/_shared/brandDna.ts` y `contentQa.ts`. Las reglas de honestidad mandan.
 - Los embudos de los usuarios se publican en un dominio aparte, nunca en el de la app.
 - NUNCA inflar cifras para parecer más grandes que la competencia. Cada número que ve el
   cliente es real y dice qué cuenta ("más de 7.500 ofertas analizadas", no "+7.500" suelto).

@@ -18,6 +18,9 @@ export type ProductSummary = {
   launch_plan: { tasks?: { done: boolean; group?: string }[] } | null;
   recovery: { messages?: unknown[] } | null;
   journey: { done?: Record<string, boolean> } | null;
+  /** Oferta (19-oct-2026): estado y precio estructurado. Los viejos sin migrar llegan null. */
+  offer_status?: "borrador" | "validacion" | "disponible" | "pausado" | null;
+  price_amount?: number | null; price_currency?: string | null; price_mode?: string | null;
 };
 
 type Ctx = {
@@ -39,7 +42,7 @@ type Ctx = {
 const ProductContext = createContext<Ctx | null>(null);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = () => supabase as any;
-const COLS = "id,name,status,created_at,product,who,promise,business_type,validation,pricing,launch_plan,recovery,journey";
+const COLS = "id,name,status,created_at,product,who,promise,business_type,validation,pricing,launch_plan,recovery,journey,offer_status,price_amount,price_currency,price_mode";
 
 /** Mensaje claro cuando se pasa del límite de productos (lo lanza el trigger products_enforce_limit). */
 export function productLimitMessage(e: unknown, limit: number) {

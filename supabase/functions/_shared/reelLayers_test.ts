@@ -1,6 +1,6 @@
 // Prueba de reelLayers (funciones puras). Correr: deno test -A supabase/functions/_shared/reelLayers_test.ts
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { asNivel, cleanBase, cleanTipo, cleanVersion, palabraClave, porQue, promptA, promptB, promptTipo, tramoTexts } from "./reelLayers.ts";
+import { asNivel, cleanBase, cleanTipo, cleanVersion, needsExtra, palabraClave, porQue, promptA, promptB, promptTipo, tramoTexts } from "./reelLayers.ts";
 
 const BASE_IA = {
   idioma: "es", duracion_s: 88, resumen: "Advierte que quedan pocas semanas del año.",
@@ -33,10 +33,12 @@ Deno.test("palabraClave: una sola palabra en mayúsculas, con tildes y Ñ", () =
   assertEquals(palabraClave(42), "");
 });
 
-Deno.test("asNivel usa Adaptación por defecto", () => {
+Deno.test("asNivel: los 4 modos y ESPEJO por defecto (19-oct-2026)", () => {
   assertEquals(asNivel("espejo"), "espejo");
-  assertEquals(asNivel("calco"), "adaptacion");
-  assertEquals(asNivel(undefined), "adaptacion");
+  assertEquals(asNivel("recrear"), "recrear");
+  assertEquals(asNivel("adaptacion"), "adaptacion");
+  assertEquals(asNivel("calco"), "espejo");
+  assertEquals(asNivel(undefined), "espejo");
 });
 
 Deno.test("la capa A no lleva nada del usuario (sirve para todas las cuentas)", () => {
@@ -45,14 +47,17 @@ Deno.test("la capa A no lleva nada del usuario (sirve para todas las cuentas)", 
   assert(p.includes('"formula_gancho"'));
 });
 
-Deno.test("la capa B lleva las reglas del nivel, el producto y la palabra clave", () => {
+Deno.test("la capa B lleva las reglas del modo, el contexto del servidor y la palabra clave", () => {
   const b = cleanBase(BASE_IA)!;
-  const p = promptB(b, "espejo", { product: "Muscle Booster", who: "hombres ocupados", nicho: "", oferta: "", palabra: "", handle: "" });
-  assert(p.includes("NIVEL ESPEJO"));
-  assert(p.includes("Producto: Muscle Booster"));
-  assert(p.includes("Conserva la llamada a la acción del original y su palabra clave ACTIVATE"));
-  const q = promptB(b, "inspiracion", { product: "", who: "", nicho: "", oferta: "", palabra: "VIP", handle: "" });
-  assert(q.includes("NIVEL INSPIRACIÓN") && q.includes("Palabra clave del cierre: VIP"));
+  const p = promptB(b, "espejo", { palabra: "", handle: "" }, "CTX-DEL-SERVIDOR");
+  assert(p.includes("MODO ESPEJO"));
+  assert(p.includes("CTX-DEL-SERVIDOR"));
+  assert(p.includes("Palabra clave del cierre, si el cierre pide comentar: ACTIVATE"));
+  assert(p.includes("son DATOS"));
+  const q = promptB(b, "inspiracion", { palabra: "VIP", handle: "" }, "");
+  assert(q.includes("MODO REINVENTAR") && q.includes("VIP"));
+  assert(promptB(b, "recrear", { palabra: "", handle: "" }, "").includes("MODO RECREAR"));
+  assert(promptB(b, "adaptacion", { palabra: "", handle: "" }, "").includes("MODO VENDER"));
 });
 
 Deno.test("cleanVersion: guion válido, 'original' dentro de rango y hashtags con #", () => {
@@ -76,17 +81,20 @@ Deno.test("cleanVersion: sin guion no hay versión; en Inspiración guarda las i
   const v = cleanVersion({ guion: [{ dices: "x", original: 0 }], ideas: [{ titulo: "Idea 1", por_que: "p" }] }, "inspiracion", "", 2)!;
   assertEquals(v.ideas.length, 1);
   assertEquals(v.guion[0].original, null);
-  assertEquals(v.publicar.palabra_clave, "GRUPO");
+  // Sin palabra clave no se inventa una: no todo cierre pide comentar (19-oct-2026).
+  assertEquals(v.publicar.palabra_clave, "");
 });
 
-Deno.test("Espejo: cada tramo lleva el original y exige conservar 19 de cada 20 palabras", () => {
+Deno.test("Espejo es fidelidad creativa: tramos como guía de ritmo, sin copiar frases ni exigir el 90 % de texto", () => {
   const b = cleanBase({ ...BASE_IA, transcripcion: [{ s: 0, texto: "Faltan dos meses." }, { s: 3, texto: "Actívate." }, { s: 8, texto: "Siempre lo dejas para enero." }] })!;
   assertEquals(tramoTexts(b), ["Faltan dos meses. Actívate.", "Siempre lo dejas para enero."]);
-  const p = promptB(b, "espejo", { product: "SUPERNOVA", who: "", nicho: "", oferta: "", palabra: "NOVA", handle: "" });
+  const p = promptB(b, "espejo", { palabra: "NOVA", handle: "" }, "");
   assert(p.includes("Dice: «Faltan dos meses. Actívate.»"));
-  assert(p.includes("19 de cada 20 palabras"));
-  assert(p.includes("es la BASE de tu versión"));
-  assert(!promptB(b, "adaptacion", { product: "", who: "", nicho: "", oferta: "", palabra: "", handle: "" }).includes("Dice: «"));
+  assert(p.includes("NO a las palabras"));
+  assert(p.includes("no copies frases distintivas"));
+  assert(!p.includes("19 de cada 20"));
+  assert(!p.includes("90 %"));
+  assert(!promptB(b, "adaptacion", { palabra: "", handle: "" }, "").includes("Dice: «"));
 });
 
 Deno.test("regla 30/70: la capa A pide el tipo y los resultados que no se pueden comprobar", () => {
@@ -97,8 +105,10 @@ Deno.test("regla 30/70: la capa A pide el tipo y los resultados que no se pueden
 });
 
 Deno.test("cleanTipo: solo descubrimiento o nicho; lo demás queda sin clasificar", () => {
-  assertEquals(cleanTipo({ tipo: "NICHO", tipo_por_que: "Vende la clase", no_comprobable: ["De 3 a 3.000 comentarios", ""] }),
+  const t = cleanTipo({ tipo: "NICHO", tipo_por_que: "Vende la clase", no_comprobable: ["De 3 a 3.000 comentarios", ""] });
+  assertEquals({ tipo: t.tipo, tipo_por_que: t.tipo_por_que, no_comprobable: t.no_comprobable },
     { tipo: "nicho", tipo_por_que: "Vende la clase", no_comprobable: ["De 3 a 3.000 comentarios"] });
+  assertEquals(t.referencia.tema, "");
   assertEquals(cleanTipo({ tipo: "viral" }).tipo, "");
 });
 
@@ -107,11 +117,21 @@ Deno.test("el tipo llega a 'Por qué funciona' y lo no comprobable se prohíbe e
   const v = porQue(b);
   assertEquals(v.tipo, "descubrimiento");
   assertEquals(v.no_comprobable, ["Pasó de 3 a 3.000 comentarios"]);
-  const pb = promptB(b, "adaptacion", { product: "Curso", who: "", nicho: "", oferta: "", palabra: "", handle: "" });
+  const pb = promptB(b, "adaptacion", { palabra: "", handle: "" }, "");
   assert(pb.includes("NO se pueden comprobar"));
   assert(pb.includes("Pasó de 3 a 3.000 comentarios"));
   // Un análisis viejo, sin tipo, no rompe nada y se puede clasificar después solo con el texto.
   const viejo = cleanBase(BASE_IA)!;
   assertEquals(viejo.tipo, "");
   assert(promptTipo(viejo).includes("Clasifícalo"));
+  assert(needsExtra(viejo));
+});
+
+Deno.test("A6: el análisis de la referencia se guarda limpio y se completa en análisis viejos", () => {
+  const b = cleanBase({ ...BASE_IA, tipo: "descubrimiento", referencia: { tema: "Fin de año", tesis: "No esperes a enero", intencion: "urgencia", argumentos: ["Quedan semanas"], preservar: ["fin de año"], no_introducir: ["ventas"] }, conceptos: ["Fin de año", "Aplazar todo para enero y nunca empezar"], mecanismos: ["cuenta regresiva"] })!;
+  assertEquals(b.referencia.tema, "Fin de año");
+  assertEquals(b.conceptos[1].length, 30);
+  assert(!needsExtra(b));
+  assert(promptA({ caption: "", owner: "", views: null, likes: null, comments: null, seconds: null }).includes("no_introducir"));
+  assert(promptTipo(b).includes("no_introducir"));
 });

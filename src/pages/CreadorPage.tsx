@@ -55,7 +55,7 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
 
       <div className="grid gap-3 sm:grid-cols-2">
         {([
-          ["reel", Search, "Analiza un Reel", "Pega un Reel que funciona → elige Espejo, Adaptación o Inspiración → grábalo con el teleprompter.", `${CREDIT_COSTS.reel_analyze} créditos`],
+          ["reel", Search, "Analiza un Reel", "Pega un Reel que funciona → elige Espejo, Recrear, Reinventar o Vender → grábalo con el teleprompter.", `${CREDIT_COSTS.reel_analyze} créditos`],
           ["video", Captions, "Sube tu video", "Ya grabaste: subtítulos con sus tiempos, el texto para publicar y si tu inicio engancha.", `${CREDIT_COSTS.video_subtitles} créditos`],
         ] as const).map(([id, Icon, title, desc, cost]) => (
           <button key={id} type="button" onClick={() => go([id])}

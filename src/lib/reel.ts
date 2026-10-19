@@ -3,23 +3,36 @@
  * que se copian (teleprompter y formato Notion de Jean). Funciones puras: se prueban en reel.test.ts.
  */
 import { scriptFidelity, spokenLines } from "../../supabase/functions/_shared/reelFidelity";
+import { MODOS, type Modo } from "../../supabase/functions/_shared/brandDna";
 export { splitPhrases } from "../../supabase/functions/_shared/reelFidelity";
 
-export type Nivel = "espejo" | "adaptacion" | "inspiracion";
-
-export const NIVELES: { id: Nivel; nombre: string; pct: string; conserva: string; cambia: string; para: string }[] = [
-  { id: "espejo", nombre: "Espejo", pct: "95 % · mínimo 90 %", conserva: "Busca conservar el 95 % del texto, su orden, sus tramos y su ritmo. Nunca entrega menos del 90 % verificado.",
-    cambia: "Lo mínimo para hacerlo tuyo: normalmente hasta un 5 %, con un máximo del 10 %.", para: "Para un Reel de tu mismo tema. En otro idioma se compara con una traducción fiel al español." },
-  { id: "adaptacion", nombre: "Adaptación", pct: "~75 %", conserva: "La estructura y la fórmula del gancho.",
-    cambia: "La historia, el ángulo, los ejemplos y el cierre, con tu producto.", para: "Lo recomendado: lo que funcionó, contado con lo tuyo." },
-  { id: "inspiracion", nombre: "Inspiración", pct: "~50 %", conserva: "Solo el truco de por qué funcionó.",
-    cambia: "Todo el contenido: te damos 3 ideas nuevas y el guion de la mejor.", para: "Para cuando el Reel es de otro tema." },
-];
+/**
+ * Los 4 modos (Jean, 19-oct-2026). Ids internos sin cambiar: inspiracion = REINVENTAR, adaptacion = VENDER
+ * (las versiones viejas "adaptacion" se leen como VENDER). Nombres, líneas y porcentajes salen de la
+ * misma definición que usa el servidor (brandDna.ts). El porcentaje es fidelidad creativa, no texto.
+ */
+export type Nivel = Modo;
+export const NIVELES = MODOS.map(m => ({
+  id: m.id, nombre: m.nombre, pct: m.pct, line: m.line, quiere: m.quiere,
+}));
 export const NIVEL_BY_ID = Object.fromEntries(NIVELES.map(n => [n.id, n])) as Record<Nivel, (typeof NIVELES)[number]>;
+export type Revision = { ok: boolean; checks: { id: string; ok: boolean; nota: string; critico: boolean }[]; corregida: boolean; semantica: boolean };
+/** Nombre corto de cada punto de la revisión, para la pantalla. */
+export const CHECK_LABEL: Record<string, string> = {
+  tema: "Mismo tema", tesis: "Misma enseñanza", gancho_mecanismo: "Gancho con la misma función", estructura: "Estructura reconocible",
+  intencion: "Misma emoción", nada_ajeno: "Nada ajeno al original", redaccion_original: "Redacción propia", idea_central: "Idea central reconocible",
+  interpretacion_propia: "Interpretación tuya", tratamiento_nuevo: "Historia nueva", usa_mecanismo: "Usa su fórmula",
+  conexion_natural: "Conexión natural con la oferta", coherencia_oferta: "Coherente con la oferta", sin_promesas: "Sin promesas de resultados",
+  cta_correcto: "Llamada a la acción correcta", sin_inventos: "Sin datos inventados", tono: "Tu tono", aporta: "Aporta algo concreto",
+  sin_copia: "Sin frases copiadas", sin_ofertas: "Sin ofertas que no tocan", cta_permitido: "Llamada a la acción permitida",
+  sin_promesas_dinero: "Sin promesas de dinero", sin_privada: "Sin tu experiencia privada",
+};
 
 export type Linea = { inicio: number; fin: number; dices: string; se_ve: string; texto_pantalla: string; original: number | null; original_texto?: string };
 export type Version = {
+  /** Solo versiones viejas (criterio de texto 90 %, retirado el 19-oct-2026). */
   espejo_validado?: boolean;
+  revision?: Revision;
   espejo_referencia?: "original" | "traduccion";
   nivel: Nivel; que_se_mantuvo: string[]; que_cambio: string[]; formula_explicada: string;
   ideas: { titulo: string; por_que: string }[];
@@ -37,6 +50,9 @@ export type PorQue = {
   tipo?: Tipo | ""; tipo_por_que?: string;
   /** Resultados del original que no se pueden comprobar (no se repiten en tu versión). */
   no_comprobable?: string[];
+  /** A6 (19-oct-2026): análisis de la referencia y palabras orientadoras. Vacío en análisis viejos. */
+  referencia?: { tema: string; tesis: string; intencion: string; argumentos: string[]; preservar: string[]; no_introducir: string[] };
+  conceptos?: string[]; mecanismos?: string[];
 };
 export type Tipo = "descubrimiento" | "nicho";
 export const TIPOS: Record<Tipo, { nombre: string; para: string }> = {
@@ -48,7 +64,12 @@ export type ReelView = {
   source: { url: string; shortcode: string; owner: string; views: number | null; likes: number | null; comments: number | null; cover: string | null; duracion_s: number | null };
   por_que_funciona: PorQue;
   version?: Version;
-  opciones?: { nicho: string; oferta: string; palabra_clave: string };
+  /** Lo elegido en esa generación (19-oct-2026). Las viejas traían { nicho, oferta, palabra_clave }. */
+  opciones?: {
+    palabra_clave?: string; modo?: Nivel; objetivo?: string; offer_id?: string | null; offer_name?: string; offer_status?: string;
+    waitlist_ok?: boolean; conceptos?: string[]; toque?: string; intensidad?: string; con_adn?: boolean;
+    nicho?: string; oferta?: string;
+  };
 };
 
 /** Lo que se dice, una frase por párrafo, sin "Dices:" ni segundos. El gancho elegido reemplaza la primera frase. */

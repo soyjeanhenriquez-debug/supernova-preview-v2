@@ -1,7 +1,7 @@
 // Prueba de reelCarousel (funciones puras). Correr: deno test -A supabase/functions/_shared/reelCarousel_test.ts
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { cleanBase } from "./reelLayers.ts";
-import { asCarouselMode, cleanReelCarousel, promptC, reelAnalisis, slidesFor } from "./reelCarousel.ts";
+import { asCarouselMode, cleanReelCarousel, nivelFromBody, promptC, reelAnalisis, slidesFor, storedMode } from "./reelCarousel.ts";
 
 const BASE = cleanBase({
   idioma: "es", duracion_s: 40, resumen: "Siete números que todo dueño de negocio debe conocer.",
@@ -22,23 +22,35 @@ const BASE = cleanBase({
   cta: { tipo: "comentar palabra", palabra: "scorecard" }, debilidades: ["Muy rápido"],
 })!;
 
-const BRIEF = { product: "Curso de finanzas para emprendedores", who: "dueños de negocio", promise: "", price: "", goal: "vender" as const, handle: "jean", world: "", line: "" };
+const BRIEF = { handle: "jean", world: "", line: "" };
 
 Deno.test("cuántas láminas: una por idea, entre 4 y 9", () => {
   assertEquals(slidesFor(BASE), 4); // 3 ideas → mínimo 4
 });
 
 Deno.test("el prompt lleva los tramos con lo que dice cada uno y el modo pedido", () => {
-  const tema = promptC(BASE, "tema", BRIEF);
+  const tema = promptC(BASE, "espejo", BRIEF, "CTX");
   assert(tema.includes("1. 0–4 s · gancho (Lista cerrada)"));
   assert(tema.includes("Dice: «Uno: cuánto te cuesta conseguir un cliente.»"));
-  assert(tema.includes("ESPEJO EN LÁMINAS"));
-  assert(tema.includes("9 de cada 10 palabras"));
+  assert(tema.includes("ESPEJO (95 % de fidelidad creativa)"));
+  assert(tema.includes("NO a las palabras"));
+  assert(!tema.includes("9 de cada 10 palabras"));
   assert(tema.includes("Palabra clave del remate: SCORECARD"));
-  const prod = promptC(BASE, "producto", BRIEF);
-  assert(prod.includes("SU ADN EN TU PRODUCTO"));
-  assert(prod.includes("Curso de finanzas para emprendedores"));
-  assert(!prod.includes("ESPEJO EN LÁMINAS"));
+  assert(tema.includes("CTX"));
+  const prod = promptC(BASE, "adaptacion", BRIEF, "OFERTA: Curso de finanzas");
+  assert(prod.includes("TU VERSIÓN · VENDER"));
+  assert(prod.includes("Curso de finanzas"));
+  assert(!prod.includes("ESPEJO (95 %"));
+  assert(promptC(BASE, "recrear", BRIEF, "").includes("RECREAR (75 %)"));
+  assert(promptC(BASE, "inspiracion", BRIEF, "").includes("REINVENTAR (50 %)"));
+});
+
+Deno.test("modos del carrusel: pedidos viejos y lo que se guarda en la base", () => {
+  assertEquals(nivelFromBody({ mode: "producto" }), "adaptacion");
+  assertEquals(nivelFromBody({ mode: "tema" }), "espejo");
+  assertEquals(nivelFromBody({ nivel: "recrear", mode: "producto" }), "recrear");
+  assertEquals(storedMode("adaptacion"), "producto");
+  assertEquals(storedMode("inspiracion"), "tema");
 });
 
 Deno.test("el análisis de referencia sale del Reel, no de la IA", () => {

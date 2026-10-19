@@ -1,4 +1,4 @@
-import { Sun, FolderKanban, Coins, Shield, LogOut, PanelLeftClose, PanelLeftOpen, X, KeyRound, Briefcase, LayoutGrid, GraduationCap, Lock, BadgeDollarSign, ChevronRight, MoreHorizontal, type LucideIcon } from "lucide-react";
+import { Sun, FolderKanban, Coins, Fingerprint, Shield, LogOut, PanelLeftClose, PanelLeftOpen, X, KeyRound, Briefcase, LayoutGrid, GraduationCap, Lock, BadgeDollarSign, ChevronRight, MoreHorizontal, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
@@ -59,6 +59,7 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
   const moreItems: NavItem[] = [
     { icon: FolderKanban, key: "Proyectos", label: t("nav.projects"), hint: t("nav.hint.projects") },
     { icon: Briefcase, key: "Mi negocio", label: "Mi ficha", hint: "Qué vendes, para quién y qué logra este producto. Lo usan todas las herramientas." },
+    { icon: Fingerprint, key: "Tu ADN", label: "Tu ADN", hint: "Quién eres y cómo hablas. Lo que modelas suena a ti, sin cambiar el tema." },
     ...visible(GRID_TOOLS.filter(tl => !inVia.has(tl.id))),
     // Recompensas (07-oct-2026): clips de SUPERNOVA o de Jean pagados por vistas en Whop. Sin candado.
     ...(canSee("Recompensas") ? [{ icon: BadgeDollarSign, key: "Recompensas", label: "Gana con tu contenido", hint: "Haz clips sobre SUPERNOVA o sobre Jean y cobra por cada 1.000 vistas en Whop." }] : []),

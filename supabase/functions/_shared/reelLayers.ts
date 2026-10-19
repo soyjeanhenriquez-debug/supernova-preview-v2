@@ -6,7 +6,7 @@
 //  · Capa B (por usuario × nivel): sin video. Recibe el análisis base + el producto de la persona y
 //    escribe su versión según el nivel. Es la parte barata y la que se repite al "probar otro nivel".
 //
-// Niveles (decisión de Jean): Espejo (~90 %), Adaptación (~75 %, por defecto) e Inspiración (~50 %).
+// Niveles: Espejo (objetivo 95 %, mínimo 90 % verificado), Adaptación (~75 %) e Inspiración (~50 %).
 // "Roba como un artista" (manual): se toma estructura, ritmo, gancho y mecanismo; nunca se copia y pega
 // en el mismo idioma, ni su cara, su nombre, su marca o sus números.
 // Sin imports: solo texto y funciones puras (se prueban con reelLayers_test.ts).
@@ -19,6 +19,8 @@ export interface Tramo { inicio: number; fin: number; funcion: string; etiqueta:
 export interface Base {
   idioma: string; duracion_s: number | null; resumen: string;
   transcripcion: { s: number; texto: string }[];
+  /** Traducción de referencia para Espejo, reutilizable por todas las cuentas. */
+  espejo_traduccion?: { s: number; texto: string }[];
   gancho: { se_ve: string; se_dice: string; texto_pantalla: string; por_que: string };
   estructura: Tramo[];
   formula_gancho: string; mecanismo: string; claves: string[];
@@ -37,6 +39,8 @@ export interface Base {
 export type Tipo = "descubrimiento" | "nicho";
 export interface Linea { inicio: number; fin: number; dices: string; se_ve: string; texto_pantalla: string; original: number | null; original_texto?: string }
 export interface Version {
+  espejo_validado?: boolean;
+  espejo_referencia?: "original" | "traduccion";
   nivel: Nivel; que_se_mantuvo: string[]; que_cambio: string[]; formula_explicada: string;
   ideas: { titulo: string; por_que: string }[];
   ganchos: string[]; guion: Linea[]; cierre: string;
@@ -127,6 +131,7 @@ export function cleanBase(v: unknown): Base | null {
     duracion_s: Number.isFinite(Number(o.duracion_s)) && Number(o.duracion_s) > 0 ? n(o.duracion_s) : null,
     resumen: s(o.resumen, 600),
     transcripcion: arr(o.transcripcion).slice(0, 80).map(t => ({ s: n(obj(t).s), texto: s(obj(t).texto, 400) })).filter(t => t.texto),
+    ...(Array.isArray(o.espejo_traduccion) ? { espejo_traduccion: o.espejo_traduccion.slice(0, 80).map(t => ({ s: n(obj(t).s), texto: s(obj(t).texto, 1200) })) } : {}),
     gancho: { se_ve: s(g.se_ve, 300), se_dice: s(g.se_dice, 300), texto_pantalla: s(g.texto_pantalla, 200), por_que: s(g.por_que, 400) },
     estructura,
     formula_gancho: s(o.formula_gancho, 200),
@@ -152,10 +157,9 @@ export function porQue(b: Base) {
 // ---------------- Capa B ----------------
 
 export const NIVEL_REGLAS: Record<Nivel, string> = {
-  // Jean, 16-oct-2026: "que el 90 % espejo sea realmente el 90 %". Misma regla que el modo "tema" de
-  // Carrusel (06-oct): casi sus mismas palabras con un toque propio, nunca idéntico.
+  // Jean, 19-oct-2026: objetivo 95 % y mínimo medido del 90 %, no solo una intención en el prompt.
   espejo:
-    "NIVEL ESPEJO (~90 % igual al original). Tu guion es el MISMO texto del original, tramo por tramo: las mismas frases, en el mismo orden, con las mismas pausas, muletillas, preguntas y remates. Cambia SOLO: (1) las palabras propias del tema del original por las del nicho de la persona, (2) los ejemplos concretos, (3) la llamada a la acción final por la palabra clave, y (4) un toque propio mínimo en cada tramo (un sinónimo, una palabra o el orden de dos palabras) para que nunca sea idéntico. Al menos 9 de cada 10 palabras de cada tramo deben ser las mismas del original. Si el original está en otro idioma, tradúcelo fiel al español latino: misma idea y mismo remate, casi frase por frase, natural. Tu guion tiene exactamente un tramo por cada tramo del original, con sus mismas duraciones, y cada tramo lleva 'original' = el número (desde 0) del tramo que espeja. Los 3 ganchos: el primero es el gancho del original casi igual (con el toque propio); los otros dos, variantes mínimas del mismo gancho.",
+    "NIVEL ESPEJO (objetivo 95 %; mínimo obligatorio 90 % verificado). Conserva normalmente 19 de cada 20 palabras del original, en el mismo orden: mismas frases, pausas, muletillas, preguntas, ejemplos y remates. El servidor cuenta sustituciones, palabras añadidas y borradas en TODO el guion, incluido el gancho elegido y el cierre: busca no superar un 5 % de cambios; solo si es necesario admite hasta un 10 %, nunca más. No resumas, no mejores el argumento ni cambies ejemplos que ya sirven. Adapta solo lo imprescindible del nicho, la identidad y la palabra clave; un toque propio mínimo en el conjunto, sin obligarte a cambiar cada frase corta. Nunca repitas cifras, experiencias, marcas ni resultados ajenos como propios para alcanzar el porcentaje. Tu guion tiene exactamente un tramo por cada tramo del original, con sus mismos 'inicio' y 'fin' y 'original' = su índice desde 0. Los ganchos: el primero coincide exactamente con la primera frase de tu guion; los otros dos son variantes mínimas de esa misma frase. El cierre ya está integrado en el último tramo: no añadas otro discurso al final.",
   adaptacion:
     "NIVEL ADAPTACIÓN (~75 %). Conserva: la misma estructura y la misma fórmula del gancho. Cambia: la historia, el ángulo, los ejemplos y la llamada a la acción, que salen del producto y del público de la persona. 'formula_explicada' = la fórmula del gancho explicada en una línea y cómo la usaste. 'original' de cada tramo = el número (desde 0) del tramo del original que cumple la misma función, o null.",
   inspiracion:
@@ -168,15 +172,15 @@ export interface BriefB { product: string; who: string; nicho: string; oferta: s
 export function tramoTexts(b: Base): string[] {
   return b.estructura.map((t, i) => {
     const last = i === b.estructura.length - 1;
-    return b.transcripcion.filter(x => x.s >= t.inicio && (last || x.s < t.fin)).map(x => x.texto).join(" ").slice(0, 700);
+    return b.transcripcion.filter(x => x.s >= t.inicio && (last || x.s < t.fin)).map(x => x.texto).join(" ");
   });
 }
 
 export function promptB(b: Base, nivel: Nivel, brief: BriefB): string {
   const dice = nivel === "espejo" ? tramoTexts(b) : [];
   const tramos = b.estructura.map((t, i) => `${i}. ${t.inicio}–${t.fin} s · ${t.funcion}${t.etiqueta ? ` (${t.etiqueta})` : ""}: ${t.que_pasa}${t.se_ve ? ` | Se ve: ${t.se_ve}` : ""}${dice[i] ? ` | Dice: «${dice[i]}»` : ""}`).join("\n");
-  const habla = b.transcripcion.map(t => `[${t.s}s] ${t.texto}`).join(" ").slice(0, 5000);
-  const palabra = brief.palabra || b.cta.palabra || "GRUPO";
+  const habla = b.transcripcion.map(t => `[${t.s}s] ${t.texto}`).join(" ");
+  const palabra = brief.palabra || b.cta.palabra || (nivel === "espejo" ? "" : "GRUPO");
   return [
     "Eres guionista de Reels de marca personal en Latinoamérica. Vas a escribir la versión de una persona a partir del análisis de un Reel que ya funciona (no tienes el video: tienes su análisis).",
     "",
@@ -191,7 +195,7 @@ export function promptB(b: Base, nivel: Nivel, brief: BriefB): string {
     habla ? (nivel === "espejo"
       ? `Texto completo del original (es la BASE de tu versión: síguelo frase por frase): ${habla}`
       : `Lo que se dice (solo para entender; no lo copies si está en español): ${habla}`) : "",
-    `Lo que debe mejorar: ${b.debilidades.join(" · ")}`,
+    nivel === "espejo" ? "Conserva el guion: no lo reescribas para resolver las debilidades del original." : `Lo que debe mejorar: ${b.debilidades.join(" · ")}`,
     b.no_comprobable.length ? `Resultados del original que NO se pueden comprobar (nunca los repitas ni pongas cifras parecidas): ${b.no_comprobable.join(" · ")}` : "",
     "",
     NIVEL_REGLAS[nivel],
@@ -201,16 +205,20 @@ export function promptB(b: Base, nivel: Nivel, brief: BriefB): string {
     brief.nicho ? `Nicho: ${brief.nicho}.` : "",
     brief.oferta ? `Oferta que empuja este Reel: ${brief.oferta}.` : "",
     brief.handle ? `Su cuenta: @${brief.handle}.` : "",
-    `Palabra clave del cierre: ${palabra} (en MAYÚSCULAS; el cierre pide comentarla).`,
+    nivel === "espejo" && !brief.palabra
+      ? `Conserva la llamada a la acción del original${palabra ? ` y su palabra clave ${palabra}` : ""}. Si no tenía llamada a la acción, no agregues una.`
+      : `Palabra clave del cierre: ${palabra} (en MAYÚSCULAS; el cierre pide comentarla).`,
     "",
     "ESCRIBE, en español latino natural, de tú, para grabar con la cara y el celular:",
     nivel === "espejo"
       ? "- ganchos: 3 opciones según las reglas de ESPEJO (el gancho del original casi igual y dos variantes mínimas). El guion empieza con la primera."
       : "- ganchos: 3 opciones distintas para los primeros 3 segundos, máximo 12 palabras cada una. El guion empieza con la primera.",
     nivel === "espejo"
-      ? "- guion: un tramo por cada tramo del original, con sus mismos 'inicio' y 'fin', 'dices' (el texto del original con los cambios mínimos de ESPEJO), 'se_ve' (el mismo plano y gesto del original) y 'texto_pantalla' (el mismo del original adaptado, máximo 6 palabras)."
+      ? "- guion: un tramo por cada tramo del original, con sus mismos 'inicio' y 'fin', 'dices' (el texto completo con los cambios mínimos de ESPEJO), 'se_ve' (el mismo plano y gesto) y 'texto_pantalla' (conserva el texto original con los cambios imprescindibles)."
       : "- guion: tramos con 'inicio' y 'fin' en segundos, 'dices' (lo que se dice, frases cortas y naturales), 'se_ve' (plano, gesto, lugar, corte) y 'texto_pantalla' (máximo 6 palabras).",
-    "- cierre: UNA sola llamada a la acción que pide comentar la palabra clave.",
+    nivel === "espejo" && !brief.palabra
+      ? "- cierre: la llamada a la acción original con cambios mínimos, ya integrada en el último tramo; vacío si el original no tiene cierre."
+      : "- cierre: UNA sola llamada a la acción que pide comentar la palabra clave.",
     "- publicar: 'copy' (2–4 líneas, sin hashtags), 'palabra_clave', 5 'hashtags' del tema y 'comentario_fijado' (lo que la persona fija en los comentarios: qué recibe quien comenta la palabra).",
     "- que_se_mantuvo y que_cambio: 2 a 4 frases cortas cada uno, para que la persona entienda qué tomaste del original y qué es suyo.",
     "Nunca uses el nombre, la cara, la marca ni los números del original como si fueran de la persona. No inventes resultados ni testimonios.",
@@ -225,23 +233,23 @@ export function cleanVersion(v: unknown, nivel: Nivel, palabra: string, tramosOr
   const o = obj(v);
   const guion = arr(o.guion).slice(0, 16).map(t => {
     const x = obj(t);
-    const orig = Number(x.original);
+    const orig = x.original == null ? NaN : Number(x.original);
     return {
       inicio: n(x.inicio ?? x.desde), fin: n(x.fin ?? x.hasta),
-      dices: s(x.dices, 500), se_ve: s(x.se_ve, 300), texto_pantalla: s(x.texto_pantalla, 80),
+      dices: s(x.dices, nivel === "espejo" ? 32_000 : 500), se_ve: s(x.se_ve, 300), texto_pantalla: s(x.texto_pantalla, nivel === "espejo" ? 200 : 80),
       original: nivel !== "inspiracion" && Number.isInteger(orig) && orig >= 0 && orig < tramosOriginal ? orig : null,
     };
-  }).filter(t => t.dices);
+  }).filter(t => t.dices || (nivel === "espejo" && t.se_ve));
   if (!guion.length) return null;
   const p = obj(o.publicar);
-  const clave = palabraClave(p.palabra_clave) || palabraClave(palabra) || "GRUPO";
+  const clave = palabraClave(p.palabra_clave) || palabraClave(palabra) || (nivel === "espejo" ? "" : "GRUPO");
   return {
     nivel,
     que_se_mantuvo: list(o.que_se_mantuvo, 4, 200),
     que_cambio: list(o.que_cambio, 4, 200),
     formula_explicada: s(o.formula_explicada, 300),
     ideas: nivel === "inspiracion" ? arr(o.ideas).slice(0, 3).map(i => ({ titulo: s(obj(i).titulo, 120), por_que: s(obj(i).por_que, 300) })).filter(i => i.titulo) : [],
-    ganchos: list(o.ganchos, 3, 140),
+    ganchos: list(o.ganchos, 3, nivel === "espejo" ? 1000 : 140),
     guion,
     cierre: s(o.cierre, 300),
     publicar: {

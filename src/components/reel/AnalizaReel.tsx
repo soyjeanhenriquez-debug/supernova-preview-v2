@@ -239,7 +239,7 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
       {view && !loadingView && (
         <>
           <SourceCard view={view} />
-          {v && <VersionSummary view={view} />}
+          {v && <VersionSummary view={view} hook={hook} />}
 
           <div className="card-surface rounded-2xl p-4 sm:p-5 space-y-4">
             <div role="tablist" aria-label="Tu Reel" className="scroll-row flex gap-1.5">
@@ -288,7 +288,7 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
                     return (
                       <li key={i} className="rounded-xl border border-border p-3 text-[13px] space-y-1">
                         <p className="tabular-nums text-muted-foreground">{t.inicio}–{t.fin} s</p>
-                        {v.nivel === "espejo" && t.original_texto && <p className="text-[12px] text-muted-foreground"><b className="font-medium">El original dice:</b> «{t.original_texto}»</p>}
+                        {v.nivel === "espejo" && t.original_texto && <p className="text-[12px] text-muted-foreground"><b className="font-medium">{v.espejo_referencia === "traduccion" ? "Traducción de referencia:" : "El original dice:"}</b> «{t.original_texto}»</p>}
                         {v.nivel === "espejo" && <p className="text-foreground"><b className="font-medium">Tú dices:</b> {t.dices}</p>}
                         {v.nivel === "espejo" && !t.original_texto && orig && <p className="text-[12px] text-muted-foreground">Original ({orig.inicio}–{orig.fin} s): {orig.descripcion}</p>}
                         <p className="text-foreground"><b className="font-medium">Se ve:</b> {t.se_ve || "—"}</p>
@@ -306,7 +306,7 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
             {tab === "publicar" && v && (
               <div className="space-y-3 text-[13px]">
                 <p className="whitespace-pre-line text-foreground">{v.publicar.copy}</p>
-                <p className="text-muted-foreground">Palabra clave: <span className="rounded-md bg-primary/15 px-2 py-0.5 font-semibold text-foreground">{v.publicar.palabra_clave}</span></p>
+                {v.publicar.palabra_clave && <p className="text-muted-foreground">Palabra clave: <span className="rounded-md bg-primary/15 px-2 py-0.5 font-semibold text-foreground">{v.publicar.palabra_clave}</span></p>}
                 <p className="text-muted-foreground">{v.publicar.hashtags.join(" ")}</p>
                 {v.publicar.comentario_fijado && <p className="text-foreground"><b className="font-medium">Comentario fijado:</b> {v.publicar.comentario_fijado}</p>}
                 <div className="flex flex-wrap items-center gap-2">
@@ -364,7 +364,7 @@ function HowItWorks() {
         {[
           ["Pega el enlace", "De un Reel que te guste y que ya tenga vistas: tuyo o de otra persona."],
           ["Elige cuánto se parece", "Espejo, Adaptación o Inspiración. Te decimos qué se conserva y qué es tuyo."],
-          ["Grábalo con el teleprompter", "Te damos 3 ganchos, el guion para leer y el texto para publicar."],
+          ["Grábalo con el teleprompter", "Te damos los ganchos, el guion para leer y el texto para publicar. En Espejo, cada gancho ofrecido conserva el mínimo del 90 % y se busca llegar al 95 %."],
         ].map(([t, d], i) => (
           <li key={t} className="rounded-xl border border-border p-3">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[12px] font-semibold text-primary-foreground">{i + 1}</span>
@@ -394,15 +394,17 @@ function SourceCard({ view }: { view: ReelView }) {
   );
 }
 
-function VersionSummary({ view }: { view: ReelView }) {
+function VersionSummary({ view, hook }: { view: ReelView; hook: number }) {
   const v = view.version!;
   const n = NIVEL_BY_ID[v.nivel];
-  const p = v.nivel === "espejo" ? parecido(v) : null;
+  const p = v.nivel === "espejo" ? parecido(v, hook) : null;
+  const verified = v.espejo_validado && p != null && p >= 90;
   return (
     <div className="card-surface rounded-2xl p-4 sm:p-5 space-y-3">
-      <p className="text-sm text-foreground"><span className="rounded-full bg-primary/15 px-2.5 py-1 text-[12px] font-semibold">{n.nombre} {n.pct}</span>
-        {p != null && <span className="ml-2 text-[12px] text-foreground">Parecido al original: <b>{p} %</b></span>}
+      <p className="text-sm text-foreground"><span className="rounded-full bg-primary/15 px-2.5 py-1 text-[12px] font-semibold">{n.nombre} {v.nivel === "espejo" ? (verified ? "· mínimo 90 % verificado" : "· sin verificar") : n.pct}</span>
+        {p != null && <span className="ml-2 text-[12px] text-foreground">Coincidencia del texto {v.espejo_referencia === "traduccion" ? "con la traducción" : "con el original"}: <b>{p.toLocaleString("es-DO")} %</b></span>}
         {view.opciones?.nicho && <span className="ml-2 text-[12px] text-muted-foreground">Nicho: {view.opciones.nicho}</span>}</p>
+      {v.nivel === "espejo" && !verified && <p className="text-[12px] text-muted-foreground">Esta versión no tiene la verificación del mínimo del 90 %. Genera otra con Espejo para aplicar el nuevo mínimo.</p>}
       <div className="grid gap-3 sm:grid-cols-2 text-[13px]">
         <div><p className="font-semibold text-foreground">Lo que tomamos del original</p><ul className="mt-1 list-disc pl-4 text-muted-foreground space-y-0.5">{v.que_se_mantuvo.map(x => <li key={x}>{x}</li>)}</ul></div>
         <div><p className="font-semibold text-foreground">Lo que es tuyo</p><ul className="mt-1 list-disc pl-4 text-muted-foreground space-y-0.5">{v.que_cambio.map(x => <li key={x}>{x}</li>)}</ul></div>

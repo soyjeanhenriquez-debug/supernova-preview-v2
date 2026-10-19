@@ -112,10 +112,15 @@ su moneda.
   que suene propia). Lo único que no se hace es publicar como propio lo que es de otro sin
   transformarlo: copiar y pegar en el mismo idioma, traducir palabra por palabra, usar sus fotos,
   su cara, su nombre o su marca, o presentar sus números y resultados como si fueran nuestros.
-  **Nivel Espejo (decisión de Jean, 16-oct-2026):** cuando la persona elige Espejo (~90 %), aun en el
-  mismo idioma se conservan unas 9 de cada 10 palabras del original, tramo por tramo; cambian el
-  tema por su nicho, los ejemplos, el cierre y un toque propio en cada tramo, para que nunca sea
-  idéntico (la misma regla del modo "tema" de Carrusel). La app muestra el % de parecido.
+  **Nivel Espejo (decisión de Jean, 19-oct-2026):** objetivo del **95 %** y mínimo obligatorio
+  del **90 % de coincidencia textual verificada en el servidor**. Se cuentan sustituciones,
+  añadidos y borrados, con el mismo orden; se valida el guion y el teleprompter con gancho y cierre.
+  Se conservan los tramos y sus tiempos, con un toque propio: normalmente hasta un 5 % de cambios, como máximo un 10 %. Si no
+  alcanza el 95 %, una sola corrección de texto y se conserva el mejor resultado válido. Si
+  ninguno alcanza el 90 %, no se entrega esa versión y se devuelve su cobro (o se libera
+  la versión incluida). En otro idioma se compara contra una traducción fiel al español,
+  guardada para reutilizarla e identificada en pantalla. La app usa la misma medición y nunca
+  etiqueta una versión antigua como verificada. Las reglas de honestidad siguen mandando.
 - Los embudos de los usuarios se publican en un dominio aparte, nunca en el de la app.
 - NUNCA inflar cifras para parecer más grandes que la competencia. Cada número que ve el
   cliente es real y dice qué cuenta ("más de 7.500 ofertas analizadas", no "+7.500" suelto).

@@ -2,12 +2,14 @@
  * Analiza un Reel v2 (16-oct-2026): tipos de lo que devuelve reel-analyze, los 3 niveles y los textos
  * que se copian (teleprompter y formato Notion de Jean). Funciones puras: se prueban en reel.test.ts.
  */
+import { scriptFidelity, spokenLines } from "../../supabase/functions/_shared/reelFidelity";
+export { splitPhrases } from "../../supabase/functions/_shared/reelFidelity";
 
 export type Nivel = "espejo" | "adaptacion" | "inspiracion";
 
 export const NIVELES: { id: Nivel; nombre: string; pct: string; conserva: string; cambia: string; para: string }[] = [
-  { id: "espejo", nombre: "Espejo", pct: "~90 %", conserva: "La misma estructura, los mismos tramos, el mismo tipo de gancho y el mismo ritmo.",
-    cambia: "Solo tu nicho, los ejemplos y el cierre.", para: "Para cuando el Reel es de tu mismo tema y quieres ir a lo seguro." },
+  { id: "espejo", nombre: "Espejo", pct: "95 % · mínimo 90 %", conserva: "Busca conservar el 95 % del texto, su orden, sus tramos y su ritmo. Nunca entrega menos del 90 % verificado.",
+    cambia: "Lo mínimo para hacerlo tuyo: normalmente hasta un 5 %, con un máximo del 10 %.", para: "Para un Reel de tu mismo tema. En otro idioma se compara con una traducción fiel al español." },
   { id: "adaptacion", nombre: "Adaptación", pct: "~75 %", conserva: "La estructura y la fórmula del gancho.",
     cambia: "La historia, el ángulo, los ejemplos y el cierre, con tu producto.", para: "Lo recomendado: lo que funcionó, contado con lo tuyo." },
   { id: "inspiracion", nombre: "Inspiración", pct: "~50 %", conserva: "Solo el truco de por qué funcionó.",
@@ -17,6 +19,8 @@ export const NIVEL_BY_ID = Object.fromEntries(NIVELES.map(n => [n.id, n])) as Re
 
 export type Linea = { inicio: number; fin: number; dices: string; se_ve: string; texto_pantalla: string; original: number | null; original_texto?: string };
 export type Version = {
+  espejo_validado?: boolean;
+  espejo_referencia?: "original" | "traduccion";
   nivel: Nivel; que_se_mantuvo: string[]; que_cambio: string[]; formula_explicada: string;
   ideas: { titulo: string; por_que: string }[];
   ganchos: string[]; guion: Linea[]; cierre: string;
@@ -49,42 +53,15 @@ export type ReelView = {
 
 /** Lo que se dice, una frase por párrafo, sin "Dices:" ni segundos. El gancho elegido reemplaza la primera frase. */
 export function teleprompterLines(v: Version, hook = 0): string[] {
-  // Sin renglones que son solo puntos suspensivos o signos (la IA a veces deja "..." como pausa).
-  const lines = v.guion.flatMap(t => splitPhrases(t.dices)).filter(l => /[\p{L}\p{N}]/u.test(l));
-  const g = v.ganchos[hook]?.trim();
-  if (g) { if (lines.length) lines[0] = g; else lines.push(g); }
-  // El cierre solo se agrega si el guion no lo dice ya (sin importar mayúsculas ni signos).
-  const plain = (t: string) => t.toLowerCase().normalize("NFD").replace(/[^\p{L}\p{N} ]/gu, "").replace(/\s+/g, " ").trim();
-  const cierre = plain(v.cierre);
-  if (cierre && !lines.some(l => plain(l).includes(cierre))) lines.push(...splitPhrases(v.cierre));
-  return lines;
+  return spokenLines(v, hook);
 }
-
-/** Corta un texto en frases (punto, signo de interrogación o exclamación). */
-export function splitPhrases(t: string): string[] {
-  return (t.match(/[^.!?¡¿]*[¡¿]?[^.!?]*[.!?]+|[^.!?]+$/g) ?? [])
-    .map(x => x.replace(/\s+/g, " ").trim()).filter(Boolean);
-}
-
-const words = (t: string) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").match(/[\p{L}\p{N}]+/gu) ?? [];
 
 /**
- * Cuánto se parece tu versión al original (Espejo): de las palabras que dice el original, qué parte
- * sigue en tu guion, tramo por tramo. null si no hay texto del original para comparar.
+ * Coincidencia textual del teleprompter, incluido el gancho seleccionado y el cierre.
+ * Misma métrica que el servidor; null si falta referencia completa para comparar.
  */
-export function parecido(v: Version): number | null {
-  let total = 0, kept = 0;
-  for (const t of v.guion) {
-    if (!t.original_texto) continue;
-    const mine = new Map<string, number>();
-    for (const w of words(t.dices)) mine.set(w, (mine.get(w) ?? 0) + 1);
-    for (const w of words(t.original_texto)) {
-      total++;
-      const n = mine.get(w) ?? 0;
-      if (n > 0) { kept++; mine.set(w, n - 1); }
-    }
-  }
-  return total ? Math.round((kept / total) * 100) : null;
+export function parecido(v: Version, hook = 0): number | null {
+  return scriptFidelity(v, hook)?.percent ?? null;
 }
 
 /** Duración estimada al hablar: palabras / 2,5 = segundos. */
@@ -127,7 +104,7 @@ export function editingText(v: Version): string {
 /** Texto de la pestaña Publicar. */
 export function publishText(v: Version): string {
   const p = v.publicar;
-  return [p.copy, "", `Comenta ${p.palabra_clave}`, "", p.hashtags.join(" "), "", `Comentario fijado: ${p.comentario_fijado}`].join("\n").trim();
+  return [p.copy, "", ...(p.palabra_clave ? [`Comenta ${p.palabra_clave}`, ""] : []), p.hashtags.join(" "), "", `Comentario fijado: ${p.comentario_fijado}`].join("\n").trim();
 }
 
 /** ¿Es un enlace de Reel que el servidor acepta? (la misma forma que REEL_RE del servidor). */

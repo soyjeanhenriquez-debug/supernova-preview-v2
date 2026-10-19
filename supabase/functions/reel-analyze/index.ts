@@ -24,7 +24,8 @@ import { HONESTY_RULES } from "../_shared/honesty.ts";
 import { admin, billingHeaders, caller, charge, type Caller, type Gate, json, refund } from "../_shared/media.ts";
 import { b64, geminiMedia, logMediaCost, MEDIA_MODEL } from "../_shared/geminiMedia.ts";
 import { getReel, REEL_RE, type ReelExtraction } from "../_shared/reelSource.ts";
-import { asNivel, cleanBase, cleanTipo, cleanVersion, palabraClave, porQue, promptA, promptB, promptTipo, tramoTexts } from "../_shared/reelLayers.ts";
+import { asNivel, cleanBase, cleanTipo, palabraClave, porQue, promptA, promptTipo } from "../_shared/reelLayers.ts";
+import { isSpanish, mirrorBase, writeReelVersion } from "../_shared/reelVersion.ts";
 import { asCarouselMode, cleanReelCarousel, promptC } from "../_shared/reelCarousel.ts";
 
 const FN = "reel-analyze";
@@ -163,6 +164,9 @@ async function stepVersion(who: Caller, body: Record<string, unknown>, t0: numbe
   const { data: ex } = await db.from("reel_extractions").select("base").eq("shortcode", a.shortcode).maybeSingle();
   const base = cleanBase(ex?.base);
   if (!base) return json({ error: "Ese Reel hay que analizarlo de nuevo. No se te cobró." }, 409);
+  if (nivel === "espejo" && !base.transcripcion.length) {
+    return json({ error: "Ese análisis no tiene transcripción para comprobar el mínimo del 90 %. No se cobró esta versión. Prueba otro Reel o elige Adaptación." }, 422);
+  }
 
   // La primera versión de un análisis va incluida. Se reclama con un solo UPDATE (atómico): si dos
   // pedidos llegan juntos, solo uno la gana. Si quedó a medias hace más de 3 min, se puede volver a reclamar.
@@ -186,18 +190,31 @@ async function stepVersion(who: Caller, body: Record<string, unknown>, t0: numbe
 
   try {
     const brief = { product: clean(b.product, 200), who: clean(b.who, 160), nicho: opciones.nicho, oferta: opciones.oferta, palabra: opciones.palabra_clave, handle };
-    // Espejo pide fidelidad al texto original: menos "creatividad" (temperatura baja).
-    const { out, cost, usage } = await geminiMedia([{ text: promptB(base, nivel, brief) + "\n\n" + HONESTY_RULES }], 8_000, left(t0), nivel === "espejo" ? 0.3 : 0.6);
-    await logMediaCost(who.id, FN, cost, usage);
-    const version = cleanVersion(out, nivel, opciones.palabra_clave || base.cta.palabra, base.estructura.length);
-    if (!version) {
-      await undo("json inválido");
-      return json({ error: "La IA no pudo escribir tu versión. No se te cobró: inténtalo de nuevo." }, 502);
+    let cost = 0;
+    // Reserva 8 s para guardar o devolver el cobro. Nunca repetir el video ni Apify para corregir.
+    const remainingMs = () => WALL_MS - (Date.now() - t0) - 8_000;
+    const generate = async (prompt: string, temperature: number) => {
+      const ms = remainingMs();
+      if (ms <= 0) throw new DOMException("Tiempo agotado", "TimeoutError");
+      const result = await geminiMedia([{ text: prompt }], 8_000, Math.min(60_000, ms), temperature);
+      cost += result.cost;
+      await logMediaCost(who.id, FN, result.cost, result.usage);
+      return result.out;
+    };
+    const reference = nivel === "espejo" ? await mirrorBase(base, generate) : base;
+    if (nivel === "espejo" && !isSpanish(base.idioma) && reference.espejo_traduccion !== base.espejo_traduccion) {
+      const { error } = await db.from("reel_extractions").update({ base: { ...base, espejo_traduccion: reference.espejo_traduccion } }).eq("shortcode", a.shortcode);
+      if (error) console.error(`${FN}: guardar traducción`, error.message);
     }
-    // En Espejo, cada tramo lleva lo que dice el original, para verlo al lado y medir el parecido.
+    const { version } = await writeReelVersion(reference, nivel, brief, { generate, remainingMs });
+    if (!version) {
+      await undo(nivel === "espejo" ? "espejo no alcanzó el mínimo del 90 %" : "json inválido");
+      return json({ error: nivel === "espejo"
+        ? "No se pudo conservar al menos el 90 % del guion con esos cambios. No se cobró esta versión. Tu análisis sigue disponible: reduce la personalización o elige Adaptación."
+        : "La IA no pudo escribir tu versión. No se cobró esta versión: inténtalo de nuevo." }, 422);
+    }
     if (nivel === "espejo") {
-      const dice = tramoTexts(base);
-      version.guion = version.guion.map(t => (t.original != null && dice[t.original] ? { ...t, original_texto: dice[t.original] } : t));
+      version.espejo_referencia = isSpanish(base.idioma) ? "original" : "traduccion";
     }
     const prev = (a.result && typeof a.result === "object" ? a.result : {}) as Record<string, unknown>;
     const view = { source: prev.source, por_que_funciona: prev.por_que_funciona ?? porQue(base), version, opciones };

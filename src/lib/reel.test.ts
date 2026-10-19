@@ -78,10 +78,10 @@ describe("enlace de Reel", () => {
 
 describe("parecido al original (Espejo)", () => {
   it("cuenta qué parte de las palabras del original sigue en tu guion", () => {
-    const v: Version = { ...V, guion: [
+    const v: Version = { ...V, ganchos: [], cierre: "", guion: [
       { inicio: 0, fin: 5, dices: "Yo te enseño a emprender, pero no me pidas que trabaje por ti.", se_ve: "", texto_pantalla: "", original: 0, original_texto: "Yo te enseño a cocinar, pero no me pidas que cocine por ti." },
     ] };
-    expect(parecido(v)).toBe(85);
+    expect(parecido(v)).toBe(84.6);
     expect(parecido(V)).toBeNull();
   });
 });

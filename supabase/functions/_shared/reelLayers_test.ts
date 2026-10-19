@@ -50,7 +50,7 @@ Deno.test("la capa B lleva las reglas del nivel, el producto y la palabra clave"
   const p = promptB(b, "espejo", { product: "Muscle Booster", who: "hombres ocupados", nicho: "", oferta: "", palabra: "", handle: "" });
   assert(p.includes("NIVEL ESPEJO"));
   assert(p.includes("Producto: Muscle Booster"));
-  assert(p.includes("Palabra clave del cierre: ACTIVATE"));
+  assert(p.includes("Conserva la llamada a la acción del original y su palabra clave ACTIVATE"));
   const q = promptB(b, "inspiracion", { product: "", who: "", nicho: "", oferta: "", palabra: "VIP", handle: "" });
   assert(q.includes("NIVEL INSPIRACIÓN") && q.includes("Palabra clave del cierre: VIP"));
 });
@@ -79,12 +79,12 @@ Deno.test("cleanVersion: sin guion no hay versión; en Inspiración guarda las i
   assertEquals(v.publicar.palabra_clave, "GRUPO");
 });
 
-Deno.test("Espejo: cada tramo lleva lo que dice el original y la regla de 9 de cada 10 palabras", () => {
+Deno.test("Espejo: cada tramo lleva el original y exige conservar 19 de cada 20 palabras", () => {
   const b = cleanBase({ ...BASE_IA, transcripcion: [{ s: 0, texto: "Faltan dos meses." }, { s: 3, texto: "Actívate." }, { s: 8, texto: "Siempre lo dejas para enero." }] })!;
   assertEquals(tramoTexts(b), ["Faltan dos meses. Actívate.", "Siempre lo dejas para enero."]);
   const p = promptB(b, "espejo", { product: "SUPERNOVA", who: "", nicho: "", oferta: "", palabra: "NOVA", handle: "" });
   assert(p.includes("Dice: «Faltan dos meses. Actívate.»"));
-  assert(p.includes("9 de cada 10 palabras"));
+  assert(p.includes("19 de cada 20 palabras"));
   assert(p.includes("es la BASE de tu versión"));
   assert(!promptB(b, "adaptacion", { product: "", who: "", nicho: "", oferta: "", palabra: "", handle: "" }).includes("Dice: «"));
 });

@@ -6,8 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { invokeErrorMessage } from "@/lib/fnAuth";
 import { useBusinessProfile } from "@/lib/businessProfile";
 import { CREDIT_COSTS, useCredits } from "@/hooks/useCredits";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { extractAudio, MAX_VIDEO_SECONDS, NO_IMAGE_MSG, toSrt, videoHasImage, type Subtitle } from "@/lib/burnSubtitles";
-import { SUB_STYLES, wordsFromSubs, type StyleId } from "@/lib/subtitleStyles";
+import { SUB_STYLE_BY_ID, SUB_STYLES, wordsFromSubs, type StyleId } from "@/lib/subtitleStyles";
 import { deepVoice } from "@/lib/voiceFx";
 import { ToolShell } from "@/components/tool/ToolShell";
 import { ToolFeedback } from "@/components/ToolFeedback";
@@ -62,6 +63,10 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
   const [portada, setPortada] = useState({ titulo: "", acento: "" });
   const [tituloArriba, setTituloArriba] = useState("");
   const [cierre, setCierre] = useState("");
+  const [zoom, setZoom] = useState(true);
+  const { isAdmin } = useIsAdmin();
+  const styles = SUB_STYLES.filter(s => !s.soloAdmin || isAdmin);
+  const conTitulo = !!SUB_STYLE_BY_ID[style].tituloArriba;
   const [voz, setVoz] = useState(false);
   const [vozUrl, setVozUrl] = useState<string | null>(null);
   const [webIssue, setWebIssue] = useState<string | null>(null);
@@ -122,7 +127,8 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
   const durationInFrames = Math.max(FPS, Math.round((meta?.dur ?? 1) * FPS));
   const props: SubsProps = {
     src: url ?? "", audioSrc: voz ? vozUrl : null, words, style,
-    portada: portadaOn ? portada : null, tituloArriba: style === "impacto" ? tituloArriba : "", cierre,
+    portada: portadaOn ? portada : null, tituloArriba: conTitulo ? tituloArriba : "", cierre,
+    zoom: style === "conversacion" && zoom,
   };
   const composition = { id: "subs", component: SubsVideo, durationInFrames, fps: FPS, ...size, defaultProps: props };
   // El armador de video (web-renderer) pesa: se baja recién al tocar "Descargar".
@@ -238,7 +244,7 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
           <p className="text-[12px] text-muted-foreground">Toca uno y míralo en tu video.</p>
         </div>
         <div role="radiogroup" aria-label="Estilo de subtítulos" className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:grid-cols-2 lg:overflow-visible lg:px-0">
-          {SUB_STYLES.map(s => (
+          {styles.map(s => (
             <button key={s.id} type="button" role="radio" aria-checked={style === s.id} onClick={() => setStyle(s.id)}
               className={`group w-[42vw] max-w-[180px] shrink-0 snap-start overflow-hidden rounded-xl border text-left transition-colors lg:w-auto lg:max-w-none ${style === s.id ? "border-primary ring-1 ring-primary" : "border-border hover:border-foreground/30"}`}>
               <StyleThumb id={s.id} />
@@ -258,8 +264,11 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
               <Field label="Palabra a mano" value={portada.acento} max={18} onChange={v => setPortada(p => ({ ...p, acento: v }))} placeholder="Dios" />
             </div>
           )}
-          {style === "impacto" && (
-            <Field label="Título arriba (las palabras entre *asteriscos* van en azul)" value={tituloArriba} max={70} onChange={setTituloArriba} placeholder="3 errores que *frenan tus ventas*" />
+          {conTitulo && (
+            <Field label="Título arriba (opcional; las palabras entre *asteriscos* van en azul)" value={tituloArriba} max={70} onChange={setTituloArriba} placeholder="3 errores que *frenan tus ventas*" />
+          )}
+          {style === "conversacion" && (
+            <Toggle on={zoom} onClick={() => setZoom(v => !v)} title="Acercamientos" line="Entre frases la cámara se acerca y se aleja, como cortes de edición." />
           )}
           <Field label="Cierre: palabra que comentan (opcional)" value={cierre} max={20} onChange={v => setCierre(v.replace(/\s+/g, "").toUpperCase())} placeholder="GEMELO" />
           <Toggle on={voz} onClick={toggleVoz} busy={busy === "voz"} icon={<Mic className="w-4 h-4" />} title="Voz grave" line="Tu voz más grave y con cuerpo, como de locutor." disabled={!file} />
@@ -364,6 +373,12 @@ function StyleThumb({ id }: { id: StyleId }) {
     <span className={base}>
       <span className="absolute top-3 bg-black px-1.5 text-[10px] text-white" style={{ fontFamily: FONTS.anton }}>3 ERRORES QUE <span className="text-sky-400">FRENAN</span></span>
       <span className="absolute bottom-6 text-[22px] text-white" style={{ fontFamily: FONTS.anton, WebkitTextStroke: "1px #000", paintOrder: "stroke" }}>TUS VENTAS</span>
+    </span>
+  );
+  if (id === "conversacion") return (
+    <span className={base}>
+      <span className="absolute top-3 text-[10px] font-extrabold text-white" style={{ fontFamily: FONTS.manrope, textShadow: "0 1px 4px rgba(0,0,0,.6)" }}>1- Tu título</span>
+      <span className="absolute top-[56%] text-[11px] font-bold text-white" style={{ fontFamily: FONTS.manrope, textShadow: "0 1px 3px rgba(0,0,0,.55)" }}>primera, la persona</span>
     </span>
   );
   if (id === "minimal") return <span className={base}><span className="absolute top-[58%] text-[12px] font-semibold text-white" style={{ fontFamily: FONTS.manrope }}>gracias a</span></span>;

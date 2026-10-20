@@ -5,7 +5,7 @@
  */
 import type { Subtitle } from "@/lib/burnSubtitles";
 
-export type StyleId = "impacto" | "minimal" | "brillo" | "resaltado" | "clasico" | "caja";
+export type StyleId = "impacto" | "minimal" | "brillo" | "resaltado" | "clasico" | "caja" | "conversacion";
 
 export type SubStyleDef = {
   id: StyleId;
@@ -17,15 +17,24 @@ export type SubStyleDef = {
   mayusculas: boolean;
   /** Dónde va el texto, de 0 (arriba) a 1 (abajo). */
   y: number;
+  /** Deja las comas como se dicen ("primera, la"). */
+  comas?: boolean;
+  /** Se puede poner un título fijo arriba. */
+  tituloArriba?: boolean;
+  /** Por ahora solo lo ven las cuentas admin (decisión de Jean, 20-oct-2026). */
+  soloAdmin?: boolean;
 };
 
 export const SUB_STYLES: SubStyleDef[] = [
-  { id: "impacto", nombre: "Impacto", linea: "Mayúsculas gruesas abajo y título arriba. Para retener.", porPantalla: 3, mayusculas: true, y: 0.74 },
+  { id: "impacto", nombre: "Impacto", linea: "Mayúsculas gruesas abajo y título arriba. Para retener.", porPantalla: 3, mayusculas: true, y: 0.74, tituloArriba: true },
   { id: "minimal", nombre: "Minimal", linea: "Dos palabras chicas al pecho. La emoción la pone tu cara.", porPantalla: 2, mayusculas: false, y: 0.62 },
   { id: "brillo", nombre: "Una palabra", linea: "Una palabra a la vez, cursiva y con brillo.", porPantalla: 1, mayusculas: false, y: 0.6 },
   { id: "resaltado", nombre: "Palabra en color", linea: "La palabra que dices se pinta en ámbar.", porPantalla: 3, mayusculas: false, y: 0.7 },
   { id: "clasico", nombre: "Clásico", linea: "Blanco con borde negro: se lee en cualquier fondo.", porPantalla: 4, mayusculas: false, y: 0.72 },
   { id: "caja", nombre: "En caja", linea: "Texto en una caja oscura, limpio y serio.", porPantalla: 4, mayusculas: false, y: 0.72 },
+  // Modelado de un reel de referencia de Jean (20-oct-2026): hablando a cámara, letra chica al pecho,
+  // 3-4 palabras con sus comas, sin borde ni color, y acercamientos alternos como cortes en salto.
+  { id: "conversacion", nombre: "Conversación", linea: "Letra chica al pecho y acercamientos entre frases. Para hablar a cámara.", porPantalla: 4, mayusculas: false, y: 0.58, comas: true, tituloArriba: true, soloAdmin: true },
 ];
 export const SUB_STYLE_BY_ID = Object.fromEntries(SUB_STYLES.map(s => [s.id, s])) as Record<StyleId, SubStyleDef>;
 
@@ -74,7 +83,33 @@ export function screenAt(screens: Screen[], t: number): Screen | null {
 }
 
 /** Quita la puntuación final de una palabra para mostrarla (las comas sueltas se ven mal en pantalla). */
-export const showWord = (w: string, upper: boolean) => {
-  const clean = w.replace(/[.,;:]+$/, "");
+export const showWord = (w: string, upper: boolean, comas = false) => {
+  const clean = w.replace(comas ? /[.;:]+$/ : /[.,;:]+$/, "");
   return upper ? clean.toLocaleUpperCase("es") : clean;
 };
+
+/** Escala del acercamiento: plano normal o acercado, como un corte en salto. */
+export const ZOOM_IN = 1.12;
+
+/**
+ * Momentos en que cambia el encuadre (estilo Conversación): al empezar una frase nueva (después de
+ * . ? ! o de una pausa de más de 0,35 s), pero nunca antes de `gap` segundos desde el cambio anterior,
+ * para que no salte a cada rato. El primero siempre es el inicio del video.
+ */
+export function zoomCuts(words: Word[], gap = 2.5): number[] {
+  const cuts = [0];
+  words.forEach((w, i) => {
+    const prev = words[i - 1];
+    if (!prev) return;
+    const nueva = /[.?!…]$/.test(prev.w) || w.t0 - prev.t1 > 0.35;
+    if (nueva && w.t0 - cuts[cuts.length - 1] >= gap) cuts.push(w.t0);
+  });
+  return cuts;
+}
+
+/** Escala en el segundo `t`: alterna plano normal (tramos pares) y acercado (impares). */
+export function zoomAt(cuts: number[], t: number): number {
+  let i = 0;
+  while (i + 1 < cuts.length && cuts[i + 1] <= t) i++;
+  return i % 2 ? ZOOM_IN : 1;
+}

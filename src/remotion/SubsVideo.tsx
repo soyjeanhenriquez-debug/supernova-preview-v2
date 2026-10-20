@@ -5,7 +5,7 @@ import { loadFont as loadAnton } from "@remotion/google-fonts/Anton";
 import { loadFont as loadManrope } from "@remotion/google-fonts/Manrope";
 import { loadFont as loadSerif } from "@remotion/google-fonts/InstrumentSerif";
 import { loadFont as loadScript } from "@remotion/google-fonts/KaushanScript";
-import { screenAt, screensOf, showWord, SUB_STYLE_BY_ID, type StyleId, type Word } from "@/lib/subtitleStyles";
+import { screenAt, screensOf, showWord, SUB_STYLE_BY_ID, zoomAt, zoomCuts, type StyleId, type Word } from "@/lib/subtitleStyles";
 
 /**
  * Plantilla de "Sube tu video" (16-oct-2026, Fase A): tu video + subtítulos con estilo + portada +
@@ -15,7 +15,7 @@ import { screenAt, screensOf, showWord, SUB_STYLE_BY_ID, type StyleId, type Word
  * brillo se hace con trazos en capas (los filtros no funcionan en Safari).
  */
 const anton = loadAnton("normal", { weights: ["400"], subsets: ["latin", "latin-ext"] }).fontFamily;
-const manrope = loadManrope("normal", { weights: ["600", "800"], subsets: ["latin", "latin-ext"] }).fontFamily;
+const manrope = loadManrope("normal", { weights: ["600", "700", "800"], subsets: ["latin", "latin-ext"] }).fontFamily;
 const serif = loadSerif("italic", { weights: ["400"], subsets: ["latin", "latin-ext"] }).fontFamily;
 const script = loadScript("normal", { weights: ["400"], subsets: ["latin", "latin-ext"] }).fontFamily;
 /** Las mismas letras, para que las tarjetas de estilos se vean como el video. */
@@ -32,8 +32,10 @@ export type SubsProps = {
   words: Word[];
   style: StyleId;
   portada: { titulo: string; acento: string } | null;
-  /** Solo en Impacto. Las palabras entre *asteriscos* van en azul. */
+  /** En los estilos que lo permiten (Impacto, Conversación). Las palabras entre *asteriscos* van en azul. */
   tituloArriba: string;
+  /** Acercamiento alterno entre frases, como cortes en salto (estilo Conversación). */
+  zoom?: boolean;
   /** Palabra clave del cierre ("COMENTA «PALABRA»"), en los últimos 2,5 s. Vacío = sin cierre. */
   cierre: string;
 };
@@ -57,13 +59,17 @@ export function SubsVideo(p: SubsProps) {
   const showPortada = !!p.portada?.titulo.trim() && t < 1.3;
   const showCierre = !!p.cierre.trim() && t > end - 2.5;
   const sc = showPortada || showCierre ? null : screenAt(screens, t);
+  const cuts = useMemo(() => (p.zoom ? zoomCuts(p.words) : [0]), [p.zoom, p.words]);
+  const scale = zoomAt(cuts, t);
+  const titulo = def.tituloArriba && p.tituloArriba.trim() && !showPortada;
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#000000" }}>
-      <Video src={p.src} muted={!!p.audioSrc} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      {/* El acercamiento va hacia la cara (arriba del centro); los textos no se mueven. */}
+      <Video src={p.src} muted={!!p.audioSrc} style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${scale})`, transformOrigin: "50% 35%" }} />
       {p.audioSrc && <Audio src={p.audioSrc} />}
       <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ position: "absolute", left: 0, top: 0 }}>
-        {p.style === "impacto" && p.tituloArriba.trim() && !showPortada && <TopTitle text={p.tituloArriba} W={W} H={H} />}
+        {titulo && (p.style === "impacto" ? <TopTitle text={p.tituloArriba} W={W} H={H} /> : <SoftTitle text={p.tituloArriba} W={W} H={H} />)}
         {sc && <Caption key={sc.t0} words={sc.words} t={t} style={p.style} W={W} H={H} startFrame={Math.round(sc.t0 * fps)} />}
         {showPortada && p.portada && <Portada titulo={p.portada.titulo} acento={p.portada.acento} W={W} H={H} />}
         {showCierre && <Cierre palabra={p.cierre} W={W} H={H} startFrame={Math.round((end - 2.5) * fps)} />}
@@ -75,7 +81,7 @@ export function SubsVideo(p: SubsProps) {
 function Caption({ words, t, style, W, H, startFrame }: { words: Word[]; t: number; style: StyleId; W: number; H: number; startFrame: number }) {
   const def = SUB_STYLE_BY_ID[style];
   const pop = usePop(startFrame);
-  const shown = words.map(w => showWord(w.w, def.mayusculas));
+  const shown = words.map(w => showWord(w.w, def.mayusculas, def.comas));
   const line = shown.join(" ");
   const cx = W / 2, cy = H * def.y, maxW = W * 0.88;
   const g = (s: number) => `translate(${cx} ${cy}) scale(${s}) translate(${-cx} ${-cy})`;
@@ -86,6 +92,17 @@ function Caption({ words, t, style, W, H, startFrame }: { words: Word[]; t: numb
       <g transform={g(pop)} fontFamily={anton} fontSize={fs} textAnchor="middle">
         <text x={cx + fs * 0.05} y={cy + fs * 0.06} fill="#000000" fillOpacity={0.55}>{line}</text>
         <text x={cx} y={cy} fill="#FFFFFF" stroke="#000000" strokeWidth={fs * 0.09} paintOrder="stroke" strokeLinejoin="round">{line}</text>
+      </g>
+    );
+  }
+  if (style === "conversacion") {
+    // Como el reel de referencia: chica, seminegrita, sin borde; una sombra suave la despega del fondo.
+    const fs = fit(W * 0.046, line, maxW, 0.55);
+    return (
+      <g fontFamily={manrope} fontWeight={700} fontSize={fs} textAnchor="middle">
+        <text x={cx} y={cy + fs * 0.06} fill="#000000" fillOpacity={0.18} stroke="#000000" strokeOpacity={0.18} strokeWidth={fs * 0.22} strokeLinejoin="round">{line}</text>
+        <text x={cx + fs * 0.03} y={cy + fs * 0.05} fill="#000000" fillOpacity={0.45}>{line}</text>
+        <text x={cx} y={cy} fill="#FFFFFF">{line}</text>
       </g>
     );
   }
@@ -152,6 +169,42 @@ function TopTitle({ text, W, H }: { text: string; W: number; H: number }) {
         return (
           <g key={i}>
             <rect x={W / 2 - bw / 2} y={y - fs * 0.92} width={bw} height={fs * 1.14} fill="#000000" />
+            <text x={W / 2} y={y}>
+              {ln.map((tk, j) => {
+                const starts = tk.startsWith("*"), ends = tk.endsWith("*");
+                if (starts) blue = true;
+                const color = blue ? BLUE : "#FFFFFF";
+                if (ends) blue = false;
+                return <tspan key={j} fill={color}>{(j ? " " : "") + tk.replace(/\*/g, "")}</tspan>;
+              })}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+/** Título arriba de Conversación: blanco grueso con sombra suave, sin caja; *asteriscos* en azul. */
+function SoftTitle({ text, W, H }: { text: string; W: number; H: number }) {
+  const tokens = text.split(/\s+/).filter(Boolean);
+  const lines: string[][] = [[]];
+  for (const tk of tokens) {
+    const cur = lines[lines.length - 1];
+    if (cur.join(" ").replace(/\*/g, "").length + tk.length > 24 && cur.length) lines.push([tk]); else cur.push(tk);
+  }
+  const shown = lines.slice(0, 3);
+  const longest = Math.max(...shown.map(ln => ln.join(" ").replace(/\*/g, "").length));
+  const fs = fit(W * 0.066, "x".repeat(longest), W * 0.9, 0.58);
+  let blue = false;
+  return (
+    <g fontFamily={manrope} fontWeight={800} fontSize={fs} textAnchor="middle" strokeLinejoin="round">
+      {shown.map((ln, i) => {
+        const y = H * 0.1 + i * fs * 1.18;
+        const plain = ln.join(" ").replace(/\*/g, "");
+        return (
+          <g key={i}>
+            <text x={W / 2} y={y + fs * 0.06} fill="#000000" fillOpacity={0.3} stroke="#000000" strokeOpacity={0.3} strokeWidth={fs * 0.24}>{plain}</text>
             <text x={W / 2} y={y}>
               {ln.map((tk, j) => {
                 const starts = tk.startsWith("*"), ends = tk.endsWith("*");

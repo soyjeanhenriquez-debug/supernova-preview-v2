@@ -59,14 +59,14 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
         {([
           ["reel", Search, "Analiza un Reel", "Pega un Reel que funciona → elige Espejo, Recrear, Reinventar o Vender → grábalo con el teleprompter.", `${CREDIT_COSTS.reel_analyze} créditos`],
           ["video", Captions, "Sube tu video", "Ya grabaste: subtítulos con sus tiempos, el texto para publicar y si tu inicio engancha.", `${CREDIT_COSTS.video_subtitles} créditos`],
-          ["teleprompter", ScrollText, "Teleprompter", "Pega cualquier texto y léelo mirando a la cámara, a pantalla completa.", "Gratis"],
+          ["teleprompter", ScrollText, "Teleprompter", "Pega cualquier texto y léelo mirando a la cámara, a pantalla completa.", ""],
         ] as const).map(([id, Icon, title, desc, cost]) => (
           <button key={id} type="button" onClick={() => go([id])}
             className="card-surface group rounded-2xl p-5 text-left hover:border-primary/50 transition-colors">
             <span className="flex items-center gap-2 text-foreground"><Icon className="w-5 h-5 text-primary" /><span className="font-display text-lg font-semibold">{title}</span>
               <ChevronRight className="ml-auto w-4 h-4 text-muted-foreground group-hover:text-foreground" /></span>
             <span className="mt-1.5 block text-[13px] text-muted-foreground">{desc}</span>
-            <span className="mt-3 block text-[12px] text-muted-foreground">{cost}</span>
+            {cost && <span className="mt-3 block text-[12px] text-muted-foreground">{cost}</span>}
           </button>
         ))}
       </div>

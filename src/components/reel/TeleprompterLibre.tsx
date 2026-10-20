@@ -5,7 +5,7 @@ import { promptLines, speakSeconds } from "@/lib/reel";
 
 /**
  * Teleprompter libre (19-oct-2026, pedido de Jean): pegas cualquier texto (un guion tuyo, uno de otra
- * herramienta, un discurso) y lo lees en el mismo teleprompter de Analiza un Reel. Gratis: no usa IA
+ * herramienta, un discurso) y lo lees en el mismo teleprompter de Analiza un Reel. No usa IA
  * ni créditos y el texto no sale de tu navegador. Se recuerda el último texto en este dispositivo.
  * Dirección: #/con-tu-cara/teleprompter
  */
@@ -30,7 +30,7 @@ export function TeleprompterLibre({ onHome }: { onHome: () => void }) {
       </button>
       <header className="space-y-1">
         <h1 className="font-display font-bold text-2xl text-foreground flex items-center gap-2"><ScrollText className="w-5 h-5 text-primary" /> Teleprompter</h1>
-        <p className="text-sm text-muted-foreground">Pega tu texto y léelo mirando a la cámara. Gratis: no usa créditos y el texto se queda en tu dispositivo.</p>
+        <p className="text-sm text-muted-foreground">Pega tu texto y léelo mirando a la cámara. El texto se queda en tu dispositivo.</p>
       </header>
 
       <div className="card-surface rounded-2xl p-4 space-y-2">

@@ -5,8 +5,12 @@
 // terminar y una falla no cueste el video entero:
 //   voice        { text ≤ 600, voice, lang, scene?, speed? (1–1,25) } → cobra yt_voice_scene ANTES → APIMart
 //                gpt-4o-mini-tts → audio en base64 (no se guarda en el servidor).
-//   scene_image  { visual ≤ 600, style, aspect, scene? } → cobra yt_scene_image ANTES → APIMart
+//   scene_image  { visual ≤ 600, style, aspect, scene?, ref_path? } → cobra yt_scene_image ANTES → APIMart
 //                gpt-image-2 → imagen en base64 (el navegador la guarda comprimida en WebP).
+//                ref_path (Mi historia animada, 20-oct-2026): el personaje de la persona, en SU carpeta de
+//                "creativos" ({uid}/historia/…); el servidor firma la URL y la pasa como referencia.
+//   character    { photo_path } → mismo precio (yt_scene_image) → la persona de su foto como personaje de
+//                animación 3D, vertical. La foto también debe estar en {uid}/historia/….
 // Compuerta: usuario real (auth.getUser con su token; verify_jwt no protege) + edge_guard_charge
 // con su propio tope (120/h, 300/día: un video de 16 escenas son 32 piezas y el tope de
 // generate-ad-creative, 20/h, no alcanza). Si APIMart falla → refund_charge. Costo real en ai_usage.
@@ -45,7 +49,17 @@ const STYLE_HINT: Record<string, string> = {
   "Pintura": "classical oil painting, visible brush strokes, warm soft light",
   "Minimalista": "minimalist illustration, simple shapes, lots of negative space, limited palette",
   "Documental": "documentary photograph, realistic, natural light, authentic setting",
+  "Animación 3D": "3D animated feature film style, stylized expressive characters with big eyes, soft cinematic lighting, warm colors, detailed environments",
 };
+
+/** Fotos y personajes de Mi historia animada: solo de la carpeta del propio usuario. */
+const historiaPath = (uid: string, v: unknown) =>
+  typeof v === "string" && v.startsWith(`${uid}/historia/`) && !v.includes("..") && /^[\w/.-]{10,200}$/.test(v) && /\.(webp|png|jpe?g)$/i.test(v) ? v : null;
+
+async function signed(path: string): Promise<string | null> {
+  const { data } = await admin().storage.from("creativos").createSignedUrl(path, 600);
+  return data?.signedUrl ?? null;
+}
 
 const RULES = "Sin texto, letras, subtítulos ni marcas de agua en la imagen. Sin logotipos, marcas, personajes con derechos ni personas famosas reales. Sin contenido sexual, violencia explícita ni sangre. Sin dinero, billetes ni cifras de ingresos.";
 
@@ -147,24 +161,55 @@ Deno.serve(async (req) => {
       const style = typeof body.style === "string" && STYLE_HINT[body.style] ? body.style : "Cinematográfico";
       const aspect = typeof body.aspect === "string" && ASPECTS.has(body.aspect) ? body.aspect : "16:9";
       const scene = sceneOf(body.scene);
+      const refPath = body.ref_path === undefined ? null : historiaPath(uid, body.ref_path);
+      if (body.ref_path !== undefined && !refPath) return json({ error: "Esa imagen del personaje no es válida." }, 400);
       if (!hasApimart()) return json({ error: "Las imágenes de escena llegan pronto.", pronto: true }, 503);
+      const refUrl = refPath ? await signed(refPath) : null;
+      if (refPath && !refUrl) return json({ error: "No encontramos la imagen de tu personaje. Vuelve a crearla." }, 400);
 
       const g = await charge(uid, "yt_scene_image", `Imagen de escena${scene ? ` ${scene}` : ""} · ${visual.slice(0, 50)}`);
       if (g instanceof Response) return g;
       txId = g.txId;
 
-      const prompt = `Escena para un video de YouTube narrado (canal sin rostro): ${visual}\n\nEstilo: ${style} — ${STYLE_HINT[style]}. Composición clara que se entienda en pantalla de celular, sujeto principal centrado con aire alrededor (la imagen tendrá un zoom suave). Formato ${aspect}.\n\n${RULES}`;
+      const prompt = refUrl
+        ? `Escena de una historia de vida animada, vertical para Reels: ${visual}\n\nEl protagonista es EXACTAMENTE el personaje de la imagen de referencia: misma cara, pelo, color de piel, rasgos y estilo; cambia solo la ropa, la edad o la expresión si la escena lo pide. Otras personas de la escena son personajes nuevos del mismo estilo. Estilo: ${style} — ${STYLE_HINT[style]}. Encuadre de cine con el protagonista bien visible en el centro y aire alrededor (la imagen tendrá un zoom suave). Formato ${aspect}.\n\n${RULES}`
+        : `Escena para un video de YouTube narrado (canal sin rostro): ${visual}\n\nEstilo: ${style} — ${STYLE_HINT[style]}. Composición clara que se entienda en pantalla de celular, sujeto principal centrado con aire alrededor (la imagen tendrá un zoom suave). Formato ${aspect}.\n\n${RULES}`;
       // Un reintento en el servidor (mismo cobro) solo si la falla fue rápida: apimartImage espera
       // hasta 90 s y la función tiene ~150 s de tope; si ya se agotó la espera, reintenta el navegador
       // (un 502 a los 92,8 s del 11-oct fue justo eso: la imagen tardó más de 90 s).
       const t0 = Date.now();
-      let img = await apimartImage(prompt, aspect);
-      if (!img && Date.now() - t0 < 30_000) img = await apimartImage(prompt, aspect);
+      const refs = refUrl ? [refUrl] : undefined;
+      let img = await apimartImage(prompt, aspect, refs);
+      if (!img && Date.now() - t0 < 30_000) img = await apimartImage(prompt, aspect, refs);
       if (!img) {
         await refund(txId, "imagen falló");
         return json({ error: "La imagen tardó demasiado. Te devolvimos los créditos.", code: "provider_failed", refunded: true }, 502);
       }
-      await logCost(uid, `apimart:${IMAGE_MODEL}`, COST.image, 1);
+      // Con referencia se anota el costo que reporta APIMart (para medir si sube y cuidar el margen 5×).
+      await logCost(uid, `apimart:${IMAGE_MODEL}${refUrl ? ":ref" : ""}`, refUrl && img.cost !== null ? img.cost : COST.image, 1);
+      return json({ image: `data:${img.mime};base64,${img.b64}`, billing: { charged: g.charged, balance: g.balance } }, 200, billingHeaders(g));
+    }
+
+    if (body.action === "character") {
+      const photo = historiaPath(uid, body.photo_path);
+      if (!photo) return json({ error: "Sube una foto tuya para crear tu personaje." }, 400);
+      if (!hasApimart()) return json({ error: "Los personajes llegan pronto.", pronto: true }, 503);
+      const url = await signed(photo);
+      if (!url) return json({ error: "No encontramos tu foto. Súbela de nuevo." }, 400);
+
+      const g = await charge(uid, "yt_scene_image", "Tu personaje animado");
+      if (g instanceof Response) return g;
+      txId = g.txId;
+
+      const prompt = `Convierte a la persona de la foto en el protagonista de una película de animación 3D: misma cara, forma de la cabeza, pelo, color de piel, barba o lentes si los tiene, y la misma edad aproximada. Estilo: ${STYLE_HINT["Animación 3D"]}. Retrato de medio cuerpo, de frente, expresión amable y natural, ropa sencilla de diario, fondo de casa desenfocado con luz cálida. Formato 9:16.\n\n${RULES}`;
+      const t0 = Date.now();
+      let img = await apimartImage(prompt, "9:16", [url]);
+      if (!img && Date.now() - t0 < 30_000) img = await apimartImage(prompt, "9:16", [url]);
+      if (!img) {
+        await refund(txId, "personaje falló");
+        return json({ error: "No se pudo crear tu personaje. Te devolvimos los créditos.", code: "provider_failed", refunded: true }, 502);
+      }
+      await logCost(uid, `apimart:${IMAGE_MODEL}:personaje`, img.cost ?? COST.image, 1);
       return json({ image: `data:${img.mime};base64,${img.b64}`, billing: { charged: g.charged, balance: g.balance } }, 200, billingHeaders(g));
     }
 

@@ -95,17 +95,7 @@ function Caption({ words, t, style, W, H, startFrame }: { words: Word[]; t: numb
       </g>
     );
   }
-  if (style === "conversacion") {
-    // Como el reel de referencia: chica, seminegrita, sin borde; una sombra suave la despega del fondo.
-    const fs = fit(W * 0.046, line, maxW, 0.55);
-    return (
-      <g fontFamily={manrope} fontWeight={700} fontSize={fs} textAnchor="middle">
-        <text x={cx} y={cy + fs * 0.06} fill="#000000" fillOpacity={0.18} stroke="#000000" strokeOpacity={0.18} strokeWidth={fs * 0.22} strokeLinejoin="round">{line}</text>
-        <text x={cx + fs * 0.03} y={cy + fs * 0.05} fill="#000000" fillOpacity={0.45}>{line}</text>
-        <text x={cx} y={cy} fill="#FFFFFF">{line}</text>
-      </g>
-    );
-  }
+  if (style === "conversacion") return <ConvText line={line} cx={cx} cy={cy} W={W} />;
   if (style === "minimal") {
     const fs = fit(W * 0.05, line, maxW, 0.55);
     return (
@@ -149,6 +139,21 @@ function Caption({ words, t, style, W, H, startFrame }: { words: Word[]; t: numb
   );
 }
 
+/**
+ * Subtítulo del estilo Conversación (reel de referencia de Jean): chico, seminegrito, sin borde; una
+ * sombra suave lo despega del fondo. También lo usa Mi historia animada (StoryVideo).
+ */
+export function ConvText({ line, cx, cy, W, size = 0.046 }: { line: string; cx: number; cy: number; W: number; size?: number }) {
+  const fs = fit(W * size, line, W * 0.88, 0.55);
+  return (
+    <g fontFamily={manrope} fontWeight={700} fontSize={fs} textAnchor="middle">
+      <text x={cx} y={cy + fs * 0.06} fill="#000000" fillOpacity={0.18} stroke="#000000" strokeOpacity={0.18} strokeWidth={fs * 0.22} strokeLinejoin="round">{line}</text>
+      <text x={cx + fs * 0.03} y={cy + fs * 0.05} fill="#000000" fillOpacity={0.45}>{line}</text>
+      <text x={cx} y={cy} fill="#FFFFFF">{line}</text>
+    </g>
+  );
+}
+
 /** Título fijo arriba (Impacto), en caja negra; las palabras entre *asteriscos* van en azul. */
 function TopTitle({ text, W, H }: { text: string; W: number; H: number }) {
   const tokens = text.toLocaleUpperCase("es").split(/\s+/).filter(Boolean);
@@ -186,7 +191,7 @@ function TopTitle({ text, W, H }: { text: string; W: number; H: number }) {
 }
 
 /** Título arriba de Conversación: blanco grueso con sombra suave, sin caja; *asteriscos* en azul. */
-function SoftTitle({ text, W, H }: { text: string; W: number; H: number }) {
+export function SoftTitle({ text, W, H }: { text: string; W: number; H: number }) {
   const tokens = text.split(/\s+/).filter(Boolean);
   const lines: string[][] = [[]];
   for (const tk of tokens) {

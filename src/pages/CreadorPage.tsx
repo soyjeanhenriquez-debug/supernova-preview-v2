@@ -1,14 +1,18 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Captions, ChevronRight, Loader2, ScrollText, Search, Video } from "lucide-react";
+import { Captions, ChevronRight, Clapperboard, Loader2, ScrollText, Search, Video } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { AnalizaReel } from "@/components/reel/AnalizaReel";
 import { TeleprompterLibre } from "@/components/reel/TeleprompterLibre";
 import { useSubRoute } from "@/lib/useSubRoute";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { openTool, TOOLS } from "@/lib/tools";
+import { useAuth } from "@/contexts/AuthContext";
+import { isGenjutsuOwner } from "@/lib/genjutsuOwner";
 
 // Sube tu video carga Remotion (vista previa y armado del video): solo se baja cuando se abre.
 const SubeTuVideo = lazy(() => import("@/components/subs/SubeTuVideo").then(m => ({ default: m.SubeTuVideo })));
+// Mi historia animada (20-oct-2026): por ahora solo la cuenta de Jean, mientras la prueba.
+const HistoriaAnimada = lazy(() => import("@/components/historia/HistoriaAnimada").then(m => ({ default: m.HistoriaAnimada })));
 
 /**
  * "Con tu cara" (13-oct-2026, pedido de Jean): para creadores que salen en sus videos.
@@ -24,6 +28,8 @@ const SubeTuVideo = lazy(() => import("@/components/subs/SubeTuVideo").then(m =>
 export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { segs, go } = useSubRoute("con-tu-cara");
   const nav = onNavigate ?? (() => undefined);
+  const { user } = useAuth();
+  const jean = isGenjutsuOwner(user?.id);
 
   // Direcciones viejas (#/analiza-reel, #/subtitulos) y enlaces guardados: se llevan a la nueva.
   useEffect(() => {
@@ -34,6 +40,13 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
 
   if (segs[0] === "reel") {
     return <AnalizaReel route={segs.slice(1)} go={(s, r) => go(["reel", ...s], r)} onUpload={() => go(["video"])} onHome={() => go([])} onNavigate={nav} />;
+  }
+  if (segs[0] === "historia" && jean) {
+    return (
+      <Suspense fallback={<div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
+        <HistoriaAnimada onHome={() => go([])} onNavigate={nav} />
+      </Suspense>
+    );
   }
   if (segs[0] === "teleprompter") return <TeleprompterLibre onHome={() => go([])} />;
   if (segs[0] === "video") {
@@ -60,6 +73,7 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
           ["reel", Search, "Analiza un Reel", "Pega un Reel que funciona → elige Espejo, Recrear, Reinventar o Vender → grábalo con el teleprompter.", `${CREDIT_COSTS.reel_analyze} créditos`],
           ["video", Captions, "Sube tu video", "Ya grabaste: subtítulos con sus tiempos, el texto para publicar y si tu inicio engancha.", `${CREDIT_COSTS.video_subtitles} créditos`],
           ["teleprompter", ScrollText, "Teleprompter", "Pega cualquier texto y léelo mirando a la cámara, a pantalla completa.", ""],
+          ...(jean ? [["historia", Clapperboard, "Mi historia animada · solo tú", "Tu historia real con tu personaje en 3D, escena por escena, con tu voz o voz IA.", "Unos 200 créditos sin animaciones"]] as const : []),
         ] as const).map(([id, Icon, title, desc, cost]) => (
           <button key={id} type="button" onClick={() => go([id])}
             className="card-surface group rounded-2xl p-5 text-left hover:border-primary/50 transition-colors">

@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Captions, ChevronRight, Loader2, Search, Video } from "lucide-react";
+import { Captions, ChevronRight, Loader2, ScrollText, Search, Video } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { AnalizaReel } from "@/components/reel/AnalizaReel";
+import { TeleprompterLibre } from "@/components/reel/TeleprompterLibre";
 import { useSubRoute } from "@/lib/useSubRoute";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { openTool, TOOLS } from "@/lib/tools";
@@ -34,6 +35,7 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
   if (segs[0] === "reel") {
     return <AnalizaReel route={segs.slice(1)} go={(s, r) => go(["reel", ...s], r)} onUpload={() => go(["video"])} onHome={() => go([])} onNavigate={nav} />;
   }
+  if (segs[0] === "teleprompter") return <TeleprompterLibre onHome={() => go([])} />;
   if (segs[0] === "video") {
     return (
       <Suspense fallback={<div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
@@ -53,10 +55,11 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
           "Se modela la estructura y el ritmo, nunca se copian las palabras, la cara ni la marca de otra persona.",
         ]} />
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-3">
         {([
           ["reel", Search, "Analiza un Reel", "Pega un Reel que funciona → elige Espejo, Recrear, Reinventar o Vender → grábalo con el teleprompter.", `${CREDIT_COSTS.reel_analyze} créditos`],
           ["video", Captions, "Sube tu video", "Ya grabaste: subtítulos con sus tiempos, el texto para publicar y si tu inicio engancha.", `${CREDIT_COSTS.video_subtitles} créditos`],
+          ["teleprompter", ScrollText, "Teleprompter", "Pega cualquier texto y léelo mirando a la cámara, a pantalla completa.", "Gratis"],
         ] as const).map(([id, Icon, title, desc, cost]) => (
           <button key={id} type="button" onClick={() => go([id])}
             className="card-surface group rounded-2xl p-5 text-left hover:border-primary/50 transition-colors">

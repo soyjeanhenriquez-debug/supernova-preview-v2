@@ -4,7 +4,8 @@
  */
 import { scriptFidelity, spokenLines } from "../../supabase/functions/_shared/reelFidelity";
 import { MODOS, type Modo } from "../../supabase/functions/_shared/brandDna";
-export { splitPhrases } from "../../supabase/functions/_shared/reelFidelity";
+import { splitPhrases } from "../../supabase/functions/_shared/reelFidelity";
+export { splitPhrases };
 
 /**
  * Los 4 modos (Jean, 19-oct-2026). Ids internos sin cambiar: inspiracion = REINVENTAR, adaptacion = VENDER
@@ -83,6 +84,13 @@ export function teleprompterLines(v: Version, hook = 0): string[] {
  */
 export function parecido(v: Version, hook = 0): number | null {
   return scriptFidelity(v, hook)?.percent ?? null;
+}
+
+/** Teleprompter libre: cada salto de línea es un párrafo; una línea larga se parte en frases para leer cómodo. */
+export function promptLines(text: string): string[] {
+  return text.split(/\n+/).map(l => l.trim()).filter(Boolean)
+    .flatMap(l => (l.length > 140 ? splitPhrases(l) : [l]))
+    .filter(l => /[\p{L}\p{N}]/u.test(l));
 }
 
 /** Duración estimada al hablar: palabras / 2,5 = segundos. */

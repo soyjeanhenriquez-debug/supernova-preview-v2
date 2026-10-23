@@ -23,7 +23,7 @@ describe("CreateFromIdeaSheet", () => {
     render(<CreateFromIdeaSheet idea={idea} input={{ source: "radar", media: "video" }} onClose={() => {}} />);
     expect(screen.getByText("¿No sabes cuál elegir?")).toBeInTheDocument();
     expect(screen.getByText("120 días pagando anuncios")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Crear .*· 225 créditos/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Crear .*· 267 créditos/ })).toBeInTheDocument();
     expect(screen.getByText(/Nunca copia este texto/)).toBeInTheDocument();
     expect(screen.getByText("Te quedan 2.000 créditos")).toBeInTheDocument();
   });
@@ -47,7 +47,7 @@ describe("CreateFromIdeaSheet", () => {
   it("sin créditos suficientes no pone semilla", () => {
     state.balance = 50;
     render(<CreateFromIdeaSheet idea={idea} input={{ source: "radar", media: "video" }} onClose={() => {}} />);
-    fireEvent.click(screen.getByRole("button", { name: /^Crear .*· 225 créditos/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Crear .*· 267 créditos/ }));
     expect(sessionStorage.getItem(SEED_KEY)).toBeNull();
   });
 

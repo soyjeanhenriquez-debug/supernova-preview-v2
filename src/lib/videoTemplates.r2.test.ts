@@ -24,11 +24,11 @@ const brief: VideoBrief = { product: "Guía digital de recetas rápidas", who: "
 const SRC = (p: string) => fs.readFileSync(path.resolve(__dirname, "..", p), "utf8");
 
 describe("R2 · costo del anuncio en video", () => {
-  it("cualquier plantilla de anuncio = 3 tomas de 5 s = 225 créditos", () => {
+  it("cualquier plantilla de anuncio = 3 tomas de 5 s = 267 créditos (costo × 6, 22-oct-2026)", () => {
     for (const t of VIDEO_TEMPLATES) {
       const shots = buildShots("anuncio", t.id, brief);
       expect(shots.map(s => s.seconds), t.id).toEqual([5, 5, 5]);
-      expect(planCost(shots), t.id).toBe(225);
+      expect(planCost(shots), t.id).toBe(267);
     }
   });
 

@@ -22,7 +22,8 @@ export type VideoBrief = { product: string; who: string; promise: string; angle?
 export type Shot = { role: ShotRole; label: string; seconds: 5 | 10; scene: string; line: string };
 
 /** Créditos por clip (credit_prices: vid_mini_5 / vid_mini_10). Lo cobra el servidor. */
-export const VIDEO_PRICE = { 5: 75, 10: 150 } as const;
+/** = CREDIT_COSTS.vid_mini_5 / vid_mini_10 (costo × 6, 22-oct-2026). Lo comprueba videoTemplates.test.ts. */
+export const VIDEO_PRICE = { 5: 89, 10: 177 } as const;
 
 export const VIDEO_TEMPLATES: { id: VideoTemplateId; label: string; desc: string }[] = [
   { id: "problema_solucion", label: "Problema y solución", desc: "Muestra el problema y presenta tu producto como la salida." },

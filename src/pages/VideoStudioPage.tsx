@@ -21,6 +21,7 @@ import {
 import { PresenterPicker } from "@/components/video/PresenterPicker";
 import { ReadyToPublish } from "@/components/video/ReadyToPublish";
 import { AdFinalVideo } from "@/components/video/AdFinalVideo";
+import { AdStudio } from "@/components/video/AdStudio";
 import { MotionStudio } from "@/components/video/MotionStudio";
 import { isGenjutsuOwner } from "@/lib/genjutsuOwner";
 import {
@@ -33,7 +34,10 @@ import {
  * en APIMart, vía la función video-studio (cobra el servidor antes de generar y devuelve si falla):
  * - Clip: una escena suelta (55 / 110 créditos).
  * - Serie: escenas encadenadas por el último cuadro (novela, dibujos, short).
- * - Anuncio: 3 tomas de 5 s (gancho, demo, llamada) = 225. La IA elige la plantilla.
+ * - Anuncio: 3 tomas de 5 s (gancho, demo, llamada). La IA elige la plantilla.
+ *   22-oct-2026: con el estudio abierto (interruptor avatar-studio:open; hoy solo admins) el anuncio va por
+ *   escenas en AdStudio: foto del producto, presentador, motor, segundos y "cómo se ve" en cada escena.
+ *   Sin el estudio abierto sigue esta versión (Seedance Mini, video-studio) hasta que Jean lo abra.
  * - UGC: un presentador IA habla a cámara 10 s en español = 110. Nunca testimonio.
  * - Genjutsu (08-oct-2026): botón SOLO para la cuenta de Jean que abre /genjutsu (Seedance 2.0). La
  *   compuerta real está en el servidor; para los demás el botón no existe.
@@ -71,6 +75,18 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
   const [angleId, setAngleId] = useState<string>(ANGLE_AUTO);
   const [levelId, setLevelId] = useState<string>(LEVEL_AUTO);
   const [ugcOpen, setUgcOpen] = useState<boolean | null>(null);
+  // Estudio por escenas (avatar-studio): undefined = consultando; null = no se pudo leer (versión de siempre).
+  const [studio, setStudio] = useState<{ open: boolean; apimart: boolean; higgsfield: boolean } | null | undefined>(undefined);
+  useEffect(() => {
+    if (!user) return;
+    void (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("avatar-studio", { body: { action: "config" } });
+        setStudio(error || !data ? null : data);
+      } catch { setStudio(null); }
+    })();
+  }, [user]);
+  const sceneStudio = mode === "anuncio" && !!studio?.open && !!user;
 
   // Clip y serie
   const [style, setStyle] = useState("real");
@@ -305,8 +321,11 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
     if (mode === "serie") { autoRef.current = true; void startSerie(); return; }
     // UGC cerrado: se pasa al anuncio en video con la misma idea, sin arrancar (el costo es otro).
     if (mode === "ugc" && ugcOpen === false) { autoRef.current = true; setMode("anuncio"); return; }
+    // Con el estudio por escenas no arranca solo: el precio depende del motor y los segundos que elija la persona.
+    if (mode === "anuncio" && studio === undefined) return;
+    if (mode === "anuncio" && studio?.open) { autoRef.current = true; return; }
     if ((mode === "anuncio" || (mode === "ugc" && ugcOpen !== null)) && shots.length) { autoRef.current = true; void startAd(); }
-  }, [seed, user, mode, shots.length, ugcOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [seed, user, mode, shots.length, ugcOpen, studio]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const improve = async () => {
     if (!adMode || !brief || improving || busy) return;
@@ -370,7 +389,45 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
   const runDone = run.filter(s => s.job?.result_url);
   // Tomas en paralelo: se rehacen solo las que fallaron (las que salieron no se vuelven a cobrar).
   const missing = run.length === shots.length ? shots.filter((_, i) => !run[i]?.job) : shots;
-  const t = TITLES[mode];
+  const t = sceneStudio
+    ? { h: "Anuncio en video", p: "Tu producto, quién lo presenta y las escenas: cada una con lo que dice, cómo se ve, el motor y los segundos. Al final las unes en un solo video." }
+    : TITLES[mode];
+
+  const templatePicker = (
+    <div className="space-y-2">
+      <div className="flex items-start gap-2">
+        <Sparkles className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+        <p className="text-[13px] text-foreground min-w-0">
+          <span className="font-semibold">{templateId ? "Tu plantilla" : "Plantilla"}: {VIDEO_TEMPLATES.find(x => x.id === template)?.label}</span>
+          {!templateId && pick && <span className="text-muted-foreground"> · porque {pick.reason}</span>}
+          {" "}<button onClick={() => setShowTemplates(v => !v)} disabled={busy} className="underline underline-offset-2 text-muted-foreground hover:text-foreground">cambiar</button>
+        </p>
+      </div>
+      {showTemplates && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {[...VIDEO_TEMPLATES].sort((a, b) => Number(b.id === pick?.id) - Number(a.id === pick?.id)).map(x => (
+            <button key={x.id} onClick={() => { setTemplateId(x.id === pick?.id ? null : x.id); setShowTemplates(false); }}
+              className={`text-left rounded-xl border px-3 py-2.5 min-h-[44px] ${x.id === template ? "border-foreground/40 bg-card" : "border-border hover:border-foreground/30"}`}>
+              <span className="block text-[13px] text-foreground">{x.label}{x.id === pick?.id ? " · recomendada" : ""}</span>
+              <span className="block text-[11px] text-muted-foreground">{x.desc}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+  const strategy = (
+    <div className="space-y-1">
+      <PieceStrategy level={levelId} onLevel={setLevelId} angle={angleId} onAngle={setAngleId} />
+      {(angleId !== ANGLE_AUTO || levelId !== LEVEL_AUTO) && <p className="text-[11px] text-muted-foreground">Toca «Mejorar con IA» para reescribir {sceneStudio ? "las escenas" : "las tomas"} con este nivel y este ángulo.</p>}
+    </div>
+  );
+  const improveBtn = (
+    <button onClick={() => void improve()} disabled={busy || improving}
+      className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border text-[12px] text-foreground hover:border-foreground/30 disabled:opacity-60">
+      {improving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />} Mejorar con IA · {generatorCost("ugc-script").cost} créditos
+    </button>
+  );
 
   return (
     <div className="max-w-[1180px] mx-auto space-y-6 py-4 min-w-0">
@@ -407,29 +464,14 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
       {adMode && (
         !brief ? (
           loaded ? <QuickBrief profile={profile} savePatch={savePatch} purpose={adMode === "ugc" ? "armar el guion de tu presentador" : "armar tu anuncio en video"} /> : <div className="h-40 rounded-2xl border border-border animate-pulse" />
+        ) : sceneStudio ? (
+          <AdStudio uid={user!.id} productId={productId ?? null} brief={brief} shots={shots} cfg={studio!} size={size} onSize={setSize}
+            busy={busy} setBusy={setBusy}
+            onLine={(i, v) => setLineEdits(cur => shots.map((x, j) => (j === i ? v : cur?.[j] ?? x.line)))}
+            toolbar={<>{templatePicker}{strategy}<div className="flex justify-end">{improveBtn}</div></>} />
         ) : (
           <div className="rounded-2xl border border-border p-4 sm:p-5 space-y-5 min-w-0">
-            <div className="space-y-2">
-              <div className="flex items-start gap-2">
-                <Sparkles className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                <p className="text-[13px] text-foreground min-w-0">
-                  <span className="font-semibold">{templateId ? "Tu plantilla" : "Plantilla"}: {VIDEO_TEMPLATES.find(x => x.id === template)?.label}</span>
-                  {!templateId && pick && <span className="text-muted-foreground"> · porque {pick.reason}</span>}
-                  {" "}<button onClick={() => setShowTemplates(v => !v)} disabled={busy} className="underline underline-offset-2 text-muted-foreground hover:text-foreground">cambiar</button>
-                </p>
-              </div>
-              {showTemplates && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {[...VIDEO_TEMPLATES].sort((a, b) => Number(b.id === pick?.id) - Number(a.id === pick?.id)).map(x => (
-                    <button key={x.id} onClick={() => { setTemplateId(x.id === pick?.id ? null : x.id); setShowTemplates(false); }}
-                      className={`text-left rounded-xl border px-3 py-2.5 min-h-[44px] ${x.id === template ? "border-foreground/40 bg-card" : "border-border hover:border-foreground/30"}`}>
-                      <span className="block text-[13px] text-foreground">{x.label}{x.id === pick?.id ? " · recomendada" : ""}</span>
-                      <span className="block text-[11px] text-muted-foreground">{x.desc}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {templatePicker}
 
             {adMode === "ugc" && user && <PresenterPicker uid={user.id} value={presenter} onChange={setPresenter} disabled={busy} />}
             {adMode === "anuncio" && firstFrame && (
@@ -440,18 +482,12 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
               </div>
             )}
 
-            <div className="space-y-1">
-              <PieceStrategy level={levelId} onLevel={setLevelId} angle={angleId} onAngle={setAngleId} />
-              {(angleId !== ANGLE_AUTO || levelId !== LEVEL_AUTO) && <p className="text-[11px] text-muted-foreground">Toca «Mejorar con IA» para reescribir las tomas con este nivel y este ángulo.</p>}
-            </div>
+            {strategy}
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs text-muted-foreground">{adMode === "ugc" ? "Lo que dice tu presentador" : "Las 3 tomas"}</p>
-                <button onClick={() => void improve()} disabled={busy || improving}
-                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border text-[12px] text-foreground hover:border-foreground/30 disabled:opacity-60">
-                  {improving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />} Mejorar con IA · {generatorCost("ugc-script").cost} créditos
-                </button>
+                {improveBtn}
               </div>
               {shots.map((s, i) => (
                 <label key={`${template}-${i}`} className="block rounded-xl border border-border p-3 space-y-1.5">
@@ -490,7 +526,7 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
         )
       )}
 
-      {adMode && run.length > 0 && (
+      {adMode && !sceneStudio && run.length > 0 && (
         <section className="space-y-4">
           <div className={`grid gap-3 ${size === "16:9" ? "sm:grid-cols-2" : run.length === 1 ? "max-w-sm" : "grid-cols-2 lg:grid-cols-3"}`}>
             {run.map((s, i) => <VideoCard key={i} s={s} label={s.label ?? `Toma ${i + 1}`} step={{ n: i + 1, total: run.length }} />)}
@@ -593,7 +629,7 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
         </section>
       )}
 
-      {mode !== "motion" && recent.length > 0 && (
+      {mode !== "motion" && !sceneStudio && recent.length > 0 && (
         <section>
           <h2 className="text-[11px] uppercase tracking-[0.18em] font-semibold text-foreground mb-3">Tus videos de hoy</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

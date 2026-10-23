@@ -13,7 +13,9 @@
 //             captura?: Ref, aiFace?: { stock } | Ref(estudio-avatar) }, aspect? }
 //           → guarda la imagen en el bucket privado "estudio-avatar/{uid}/…" y devuelve ruta + URL firmada.
 //   gallery (gratis) → las últimas imágenes del estudio de esta cuenta, con URL firmada.
-//   video   { model, seconds, parts, image: Ref, product?: Ref, product_id? } → video_jobs (kind 'avatar').
+//   video   { model, seconds: 5|10|15, aspect?, parts (+ look: "cómo se ve"), image: Ref | { stock }, product?: Ref,
+//             product_id?, label? } → video_jobs (kind 'avatar'). También lo usa "Anuncio en video" (22-oct-2026):
+//             cada escena es una llamada; label = "Escena 1 de 3 · Gancho" (solo texto del recibo).
 //   status  { job_id } (gratis) → consulta al proveedor; si falló, devuelve los créditos.
 // Ref = { bucket: "personajes" | "estudio-avatar", path } — siempre de la carpeta del propio usuario.
 //
@@ -36,8 +38,8 @@ import { ownStoragePath } from "../_shared/paths.ts";
 import { APIMART, apimartImage } from "../_shared/apimart.ts";
 import { poll } from "../_shared/genjutsu.ts";
 import {
-  IMAGE_TIERS, PRESENTER_RULE_EN, VIDEO_FORMATS, buildImagePrompt, buildVideoPrompt, isImageTier, videoModel, videoSeconds, videoUsd,
-  type RefSlot, type VideoFormat, type VideoModel,
+  IMAGE_TIERS, PRESENTER_RULE_EN, VIDEO_FORMATS, buildImagePrompt, buildVideoPrompt, isImageTier, isVideoLen, videoModel, videoSeconds, videoUsd,
+  type RefSlot, type VideoFormat, type VideoLen, type VideoModel,
 } from "../_shared/avatarStudio.ts";
 
 const FN = "avatar-studio";
@@ -49,6 +51,7 @@ const APIMART_VIDEO: Record<string, string> = {
   "seedance-mini": "seedance-2.0-mini", omni: "gemini-omni-1.1-flash-ext", grok: "grok-imagine-1.5-video-ext",
 };
 const ASPECTS = new Set(["9:16", "1:1", "4:5", "16:9"]);
+const VIDEO_ASPECTS = new Set(["9:16", "1:1", "16:9"]);
 const STOCK = new Set(["valentina", "carmen", "andres", "julio"]);
 const APP_URL = (Deno.env.get("APP_PUBLIC_URL") ?? "https://supernova-six-eta.vercel.app").replace(/\/+$/, "");
 const MAX_HOUR = 30, MAX_DAY = 120;
@@ -73,11 +76,10 @@ type Ref = { bucket?: unknown; path?: unknown; stock?: unknown };
 async function signRef(uid: string, ref: unknown, slot: RefSlot): Promise<string | null | undefined> {
   if (ref === undefined || ref === null) return undefined;
   const r = ref as Ref;
-  if (slot === "aiFace") {
-    // Solo caras creadas con IA: un avatar de SUPERNOVA o una imagen que generó este estudio.
-    if (typeof r.stock === "string") return STOCK.has(r.stock) ? `${APP_URL}/avatares/${r.stock}.webp` : null;
-    if (r.bucket !== OUT) return null;
-  }
+  // Avatar de SUPERNOVA (imagen pública de la app): vale como cara nueva y como presentador.
+  if (typeof r.stock === "string") return (slot === "aiFace" || slot === "persona") && STOCK.has(r.stock) ? `${APP_URL}/avatares/${r.stock}.webp` : null;
+  // Cara nueva: solo caras creadas con IA (un avatar de SUPERNOVA o una imagen que generó este estudio).
+  if (slot === "aiFace" && r.bucket !== OUT) return null;
   const bucket = r.bucket === OUT ? OUT : r.bucket === "personajes" ? "personajes" : null;
   const p = bucket ? ownStoragePath(uid, r.path) : null;
   if (!bucket || !p) return null;
@@ -96,7 +98,11 @@ const productId = (v: unknown) => (typeof v === "string" && /^[0-9a-f-]{36}$/i.t
 
 type Submit = { taskId: string } | { error: string; status?: number };
 
-async function submitVideo(m: VideoModel, seconds: 5 | 10, prompt: string, talks: boolean, image: string, product: string | null): Promise<Submit> {
+/** Texto corto y limpio para el recibo (lo manda el cliente; nunca decide precio ni acceso). */
+const receiptLabel = (v: unknown) =>
+  typeof v === "string" ? v.replace(/[^\p{L}\p{N} ·()/-]/gu, "").replace(/\s+/g, " ").trim().slice(0, 40) : "";
+
+async function submitVideo(m: VideoModel, seconds: VideoLen, prompt: string, talks: boolean, image: string, product: string | null, aspect: string): Promise<Submit> {
   if (m.provider === "apimart") {
     const key = apimartKey();
     if (!key) return { error: "sin llave" };
@@ -104,10 +110,10 @@ async function submitVideo(m: VideoModel, seconds: 5 | 10, prompt: string, talks
     if (!model) return { error: "modelo" };
     const duration = videoSeconds(m, seconds);
     const body = m.id === "omni"
-      ? { model, prompt, duration, resolution: "720p", aspect_ratio: "9:16", generation_type: "frame", nsfw_check: true, image_urls: [image] }
+      ? { model, prompt, duration, resolution: "720p", aspect_ratio: aspect, generation_type: "frame", nsfw_check: true, image_urls: [image] }
       : m.id === "grok"
-      ? { model, prompt, duration, resolution: "720p", size: "9:16", nsfw_check: true, image_urls: [image] }
-      : { model, prompt, duration, size: "9:16", resolution: "720p", generate_audio: talks, return_last_frame: true, nsfw_check: true, image_urls: [image] };
+      ? { model, prompt, duration, resolution: "720p", size: aspect, nsfw_check: true, image_urls: [image] }
+      : { model, prompt, duration, size: aspect, resolution: "720p", generate_audio: talks, return_last_frame: true, nsfw_check: true, image_urls: [image] };
     const r = await fetch(`${APIMART}/videos/generations`, {
       method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -124,7 +130,7 @@ async function submitVideo(m: VideoModel, seconds: 5 | 10, prompt: string, talks
   switch (m.id) {
     case "wan30":
       path = "/alibaba/wan-3.0/image-to-video";
-      body = { prompt, image_url: image, duration: seconds, resolution: "720p", aspect_ratio: "9:16", generate_audio: talks };
+      body = { prompt, image_url: image, duration: seconds, resolution: "720p", aspect_ratio: aspect, generate_audio: talks };
       break;
     case "kling25":
       path = "/kling-video/v2.5-turbo/standard/image-to-video";
@@ -137,7 +143,7 @@ async function submitVideo(m: VideoModel, seconds: 5 | 10, prompt: string, talks
     case "seedance20":
       if (product) {
         path = "/bytedance/seedance-2.0/reference-to-video";
-        body = { prompt: `Image 1 is the person (keep their face and identity exactly). Image 2 is the product (keep its shape, colors and label exactly).\n${prompt}`, image_urls: [image, product], duration: seconds, resolution: "720p", aspect_ratio: "9:16", generate_audio: talks };
+        body = { prompt: `Image 1 is the person (keep their face and identity exactly). Image 2 is the product (keep its shape, colors and label exactly).\n${prompt}`, image_urls: [image, product], duration: seconds, resolution: "720p", aspect_ratio: aspect, generate_audio: talks };
       } else {
         path = "/bytedance/seedance-2.0/image-to-video";
         body = { prompt, image_url: image, duration: seconds, resolution: "720p", generate_audio: talks };
@@ -249,8 +255,9 @@ Deno.serve(async (req) => {
     // ---------- video ----------
     const m = videoModel(body.model);
     if (!m) return json({ error: "Elige un modelo de video." }, 400);
-    const seconds: 5 | 10 = body.seconds === 10 ? 10 : 5;
+    const seconds: VideoLen = isVideoLen(body.seconds) ? body.seconds : 5;
     if (!m.seconds.includes(seconds)) return json({ error: "Duración no disponible para ese modelo." }, 400);
+    const aspect = typeof body.aspect === "string" && VIDEO_ASPECTS.has(body.aspect) ? body.aspect : "9:16";
     const realSec = videoSeconds(m, seconds); // Omni y Grok no hacen 5 s: la opción corta entrega 6 s.
     if (m.provider === "higgsfield" && !(await switchOpen(who, HF_SWITCH))) return json({ error: "Este modelo llega pronto.", pronto: true }, 503);
     if (m.provider === "higgsfield" ? !hfAuth() : !apimartKey()) return json({ error: "Este modelo llega pronto.", pronto: true }, 503);
@@ -263,6 +270,7 @@ Deno.serve(async (req) => {
       format: format.id as VideoFormat, camera: parts.camera as string, before: parts.before as string, after: parts.after as string,
       script: parts.script as string, voice: parts.voice as string, accent: parts.accent as string,
       action: parts.action as string, place: parts.place as string, surface: parts.surface as string, seconds: realSec,
+      look: parts.look as string,
     });
     if ("error" in built) return json({ error: built.error }, 400);
 
@@ -272,11 +280,12 @@ Deno.serve(async (req) => {
     if (product === null) return json({ error: "La foto del producto no es válida. Súbela de nuevo." }, 400);
 
     const prompt = format.talks ? built.prompt : `${built.prompt}\n${PRESENTER_RULE_EN}`;
-    const g = await charge(FN, who.id, m.action(seconds), `Estudio · ${m.label} ${realSec} s · ${format.label}`, MAX_HOUR, MAX_DAY);
+    const tag = receiptLabel(body.label);
+    const g = await charge(FN, who.id, m.action(seconds), `${tag ? "Video anuncio" : "Estudio"} · ${m.label} ${realSec} s · ${tag || format.label}`, MAX_HOUR, MAX_DAY);
     if (g instanceof Response) return g;
     txId = g.txId;
 
-    const sent = await submitVideo(m, seconds, prompt, format.talks, image, product ?? null);
+    const sent = await submitVideo(m, seconds, prompt, format.talks, image, product ?? null, aspect);
     if ("error" in sent) {
       await refund(txId, `${m.provider} ${sent.status ?? sent.error}`); txId = null;
       return json({ error: sent.status === 400 || sent.status === 422

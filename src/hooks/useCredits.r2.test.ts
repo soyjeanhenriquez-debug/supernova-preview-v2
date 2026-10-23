@@ -1,6 +1,6 @@
 /**
  * R2-15 · Créditos (12-oct-2026). Precios aprobados por Jean y el desglose "del mes / comprados".
- *  - Imagen de anuncio 7, video de 5 s 75, video de 10 s 150 (decisión de Jean, 12-oct-2026).
+ *  - Imagen de anuncio 7 (12-oct-2026); video de 5 s 89 y de 10 s 177 (costo × 6, decisión de Jean del 22-oct-2026).
  *  - El servidor gasta primero los del mes y después los comprados: lo comprado que se ve es
  *    min(comprados, saldo) y lo del mes es el resto. Nunca negativo, nunca más que el saldo.
  * Sin red: el cliente de Supabase está simulado.
@@ -37,16 +37,16 @@ async function load(row: Record<string, unknown>) {
 }
 
 describe("R2 · precios aprobados (CREDIT_COSTS)", () => {
-  it("imagen 7, video de 5 s 75, video de 10 s 150", async () => {
+  it("imagen 7, video de 5 s 89, video de 10 s 177", async () => {
     const { CREDIT_COSTS } = await import("./useCredits");
     expect(CREDIT_COSTS.gen_ad_image).toBe(7);
-    expect(CREDIT_COSTS.vid_mini_5).toBe(75);
-    expect(CREDIT_COSTS.vid_mini_10).toBe(150);
+    expect(CREDIT_COSTS.vid_mini_5).toBe(89);
+    expect(CREDIT_COSTS.vid_mini_10).toBe(177);
   });
 
-  it("10 s cuesta el doble que 5 s y ningún precio de IA es 0 salvo gen_media (precio del catálogo)", async () => {
+  it("10 s cuesta lo de 10 s (costo × 6, redondeado) y ningún precio de IA es 0 salvo gen_media (precio del catálogo)", async () => {
     const { CREDIT_COSTS } = await import("./useCredits");
-    expect(CREDIT_COSTS.vid_mini_10).toBe(CREDIT_COSTS.vid_mini_5 * 2);
+    expect(CREDIT_COSTS.vid_mini_10 * 0.008).toBeGreaterThanOrEqual(0.236 * 6 - 1e-9);
     for (const [k, v] of Object.entries(CREDIT_COSTS)) {
       if (k === "gen_media") continue;
       expect(v, k).toBeGreaterThan(0);

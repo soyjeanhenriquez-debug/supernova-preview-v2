@@ -54,7 +54,7 @@ describe("retryFromIndex", () => {
 describe("planCost", () => {
   it("costo total = tomas × precio", () => {
     expect(planCost(buildShots("anuncio", "problema_solucion", brief))).toBe(3 * VIDEO_PRICE[5]);
-    expect(planCost(buildShots("anuncio", "demostracion", brief))).toBe(225);
+    expect(planCost(buildShots("anuncio", "demostracion", brief))).toBe(3 * VIDEO_PRICE[5]);
     expect(planCost(buildShots("ugc", "tres_razones", brief))).toBe(VIDEO_PRICE[10]);
     expect(planCost([])).toBe(0);
   });
@@ -196,5 +196,13 @@ describe("estados del anuncio", () => {
   });
   it("una toma no creada por la toma 1 dice que no se cobró", () => {
     expect(SKIPPED_SHOT).toMatch(/No se te cobró/);
+  });
+});
+
+describe("precio del video (22-oct-2026, costo × 6)", () => {
+  it("VIDEO_PRICE es el mismo de CREDIT_COSTS: 89 y 177", async () => {
+    const { CREDIT_COSTS } = await import("@/hooks/useCredits");
+    expect(VIDEO_PRICE).toEqual({ 5: CREDIT_COSTS.vid_mini_5, 10: CREDIT_COSTS.vid_mini_10 });
+    expect(VIDEO_PRICE).toEqual({ 5: 89, 10: 177 });
   });
 });

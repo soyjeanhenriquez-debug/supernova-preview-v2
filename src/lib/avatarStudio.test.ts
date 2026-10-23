@@ -2,11 +2,13 @@ import { readFileSync, existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   IMAGE_TEMPLATES, IMAGE_TIERS, IMAGE_TIER_IDS, VIDEO_MODELS, buildImagePrompt, buildVideoPrompt, creditsFor, imageCredits,
-  isImageTier, isTestimonial, maxWords, videoCredits, videoModel, videoSeconds, videoUsd,
+  fitLen, isImageTier, isTestimonial, isVideoLen, maxWords, videoCredits, videoModel, videoSeconds, videoUsd,
 } from "@/lib/avatarStudio";
 import { bestFor } from "@/lib/modelAdvice";
 
-const migration = readFileSync("supabase/migrations/20261020150000_estudio_avatar.sql", "utf8");
+// Precios del estudio: la migración del 20-oct y la de 15 s (22-oct-2026).
+const migration = ["20261020150000_estudio_avatar.sql", "20261022180000_estudio_video_15s.sql"]
+  .map(f => readFileSync(`supabase/migrations/${f}`, "utf8")).join("\n");
 const priceOf = (action: string) => Number(new RegExp(`'${action}',\\s*(\\d+)`).exec(migration)?.[1]);
 
 describe("precios del estudio (costo × 6)", () => {
@@ -93,5 +95,39 @@ describe("video", () => {
   it("sin hablar lleva no talking", () => {
     const r = buildVideoPrompt({ format: "sin-hablar", seconds: 5, camera: "orbita", action: "cafe", place: "ventana" });
     expect("prompt" in r && r.prompt).toContain("no talking, mouth closed");
+  });
+});
+
+describe("estudio de video por escenas (22-oct-2026)", () => {
+  it("15 s solo en los motores que lo aceptan, a costo × 6", () => {
+    const con15 = VIDEO_MODELS.filter(m => m.seconds.includes(15)).map(m => m.id).sort();
+    expect(con15).toEqual(["grok", "kling30", "seedance-mini", "seedance20", "wan30"]);
+    expect(videoCredits(videoModel("seedance-mini")!, 15)).toBe(266);
+    expect(videoCredits(videoModel("grok")!, 15)).toBe(216);
+    expect(isVideoLen(15)).toBe(true);
+    expect(isVideoLen(20)).toBe(false);
+  });
+  it("fitLen: al cambiar a un motor sin 15 s queda en 10 s", () => {
+    expect(fitLen(videoModel("omni")!, 15)).toBe(10);
+    expect(fitLen(videoModel("kling25")!, 15)).toBe(10);
+    expect(fitLen(videoModel("grok")!, 15)).toBe(15);
+  });
+  it("«cómo se ve» entra al prompt antes de las reglas, y no deja colar testimonios", () => {
+    const ok = buildVideoPrompt({ format: "camara", script: "Te explico cómo organizar tu semana", seconds: 10, look: "cocina luminosa, delantal, cámara en mano" });
+    expect("prompt" in ok && ok.prompt).toMatch(/Scene direction from the creator[^\n]*cocina luminosa/);
+    if ("prompt" in ok) expect(ok.prompt.indexOf("cocina luminosa")).toBeLessThan(ok.prompt.indexOf("No sexual"));
+    const bad = buildVideoPrompt({ format: "camara", script: "Te explico cómo organizar tu semana", seconds: 10, look: "ella dice que lo compré y me funcionó" });
+    expect("error" in bad).toBe(true);
+    // Escena muda: con su descripción no hace falta elegir una acción de la lista.
+    const mute = buildVideoPrompt({ format: "sin-hablar", seconds: 5, look: "abre el congelador y saca los tápers" });
+    expect("prompt" in mute && mute.prompt).toMatch(/tápers/);
+  });
+  it("el texto de 20 palabras de Cindy no cabe en 5 s pero sí en 10 s", () => {
+    const line = "Si trabajas todo el día, lo último que necesitas al llegar a casa es tener que empezar otra jornada cocinando";
+    expect(maxWords(5)).toBeLessThan(20);
+    const r5 = buildVideoPrompt({ format: "camara", script: line, seconds: 5 });
+    const r10 = buildVideoPrompt({ format: "camara", script: line, seconds: 10 });
+    expect("error" in r5).toBe(true);
+    expect("prompt" in r10).toBe(true);
   });
 });

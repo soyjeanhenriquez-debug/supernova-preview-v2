@@ -272,7 +272,19 @@ export const wordCount = (s: string) => (s.trim() ? s.trim().split(/\s+/).length
 export type VideoParts = {
   format: VideoFormat; camera?: string; before?: string; after?: string; script?: string;
   voice?: string; accent?: string; action?: string; place?: string; surface?: string; seconds: number;
+  /** "Cómo se ve" (22-oct-2026, pedido de Jean): la persona describe la escena con sus palabras, como el prompt de
+   *  Higgsfield. Va ANTES de las reglas: si choca con ellas, mandan las reglas. */
+  look?: string;
 };
+
+export const LOOK_MAX = 300;
+/** Texto libre de la escena: sin testimonios ni promesas. "" = no escribió nada. */
+export function cleanLook(v: unknown): { look: string } | { error: string } {
+  const look = cleanFill(v, LOOK_MAX);
+  if (look && isTestimonial(look)) return { error: "La descripción de la escena suena a testimonio o promesa. Describe solo cómo se ve: lugar, luz, cámara, ropa, ambiente." };
+  return { look };
+}
+const lookLine = (look: string) => (look ? `Scene direction from the creator (follow it unless it breaks the rules at the end): ${look}` : "");
 
 const byId = <T extends { id: string }>(list: T[], id: unknown) => list.find(x => x.id === id) ?? null;
 
@@ -281,19 +293,23 @@ export function buildVideoPrompt(p: VideoParts): { prompt: string; talks: boolea
   const f = byId(VIDEO_FORMATS, p.format);
   if (!f) return { error: "Elige un formato." };
   const cam = byId(CAMERAS, p.camera) ?? CAMERAS[0];
+  const l = cleanLook(p.look);
+  if ("error" in l) return l;
+  const direction = lookLine(l.look);
   if (!f.talks) {
     if (f.id === "broll-producto") {
       const surface = cleanFill(p.surface, 80) || "a neutral backdrop";
-      return { talks: false, prompt: `Slow gentle camera move, cinematic, no talking. Using the product from the reference image, a clean beauty shot of the product on ${surface}, soft natural lighting, the product in sharp focus with its label clearly visible and unchanged. No people. ${NO_CUTS}\n\n${RULES_EN}` };
+      return { talks: false, prompt: [`Slow gentle camera move, cinematic, no talking. Using the product from the reference image, a clean beauty shot of the product on ${surface}, soft natural lighting, the product in sharp focus with its label clearly visible and unchanged. No people. ${NO_CUTS}`, direction, RULES_EN].filter(Boolean).join("\n\n") };
     }
     const act = byId(BROLL_ACTIONS, p.action);
     const place = byId(PLACES, p.place);
-    if (!act) return { error: "Elige qué hace tu avatar." };
-    return { talks: false, prompt: `${cam.prompt.replace(` ${NO_CUTS}`, "")}, cinematic, no talking, mouth closed. Keep the SAME person from the reference. They ${act.en}.${place ? ` ${place.en}` : ""} ${NO_CUTS}\n\n${RULES_EN}` };
+    // Con su propia descripción, la acción de la lista es opcional.
+    if (!act && !l.look) return { error: "Elige qué hace tu avatar o describe la escena." };
+    return { talks: false, prompt: [`${cam.prompt.replace(` ${NO_CUTS}`, "")}, cinematic, no talking, mouth closed. Keep the SAME person from the reference.${act ? ` They ${act.en}.` : ""}${place ? ` ${place.en}` : ""} ${NO_CUTS}`, direction, RULES_EN].filter(Boolean).join("\n\n") };
   }
   const script = cleanFill(p.script, 400);
   if (wordCount(script) < 3) return { error: "Escribe lo que va a decir (mínimo 3 palabras)." };
-  if (wordCount(script) > maxWords(p.seconds)) return { error: `Para ${p.seconds} s caben unas ${maxWords(p.seconds)} palabras. Acorta el guion o elige 10 s.` };
+  if (wordCount(script) > maxWords(p.seconds)) return { error: `Para ${p.seconds} s caben unas ${maxWords(p.seconds)} palabras. Acorta el guion o elige más segundos.` };
   if (isTestimonial(script)) return { error: "El guion suena a testimonio o promesa (\"lo compré\", \"me funcionó\", cifras de dinero). Tu avatar solo presenta o explica." };
   const voice = byId(VOICES, p.voice) ?? VOICES[6];
   const accent = byId(ACCENTS, p.accent) ?? ACCENTS[0];
@@ -309,6 +325,7 @@ export function buildVideoPrompt(p: VideoParts): { prompt: string; talks: boolea
     : `The person looks directly at the camera with natural gestures and a clear, friendly influencer tone, and says: "${script}"`;
   const lines = [
     `${cam.prompt}${product}`,
+    ...(direction ? [direction] : []),
     `${say}${after ? ` ${after.en}.` : ""}`,
     voice.prompt,
     `${accent.prompt} Single speaker: only the person from the reference image talks. Clean audio, no background music.`,
@@ -320,18 +337,21 @@ export function buildVideoPrompt(p: VideoParts): { prompt: string; talks: boolea
 // ───────────────────────── Modelos y precios ─────────────────────────
 
 export type Provider = "apimart" | "higgsfield";
+/** Duraciones que se ofrecen (22-oct-2026: + 15 s donde el proveedor lo acepta, docs leídas ese día). */
+export type VideoLen = 5 | 10 | 15;
+export const isVideoLen = (x: unknown): x is VideoLen => x === 5 || x === 10 || x === 15;
 export type VideoModel = {
   id: string; label: string; provider: Provider; note: string;
   /** Costo mínimo publicado por segundo (US$) del proveedor, 720p. */
   usdPerSec: number;
   /** Si el proveedor cobra por video y no por segundo: US$ por duración (manda sobre usdPerSec). */
-  usdFixed?: Partial<Record<5 | 10, number>>;
+  usdFixed?: Partial<Record<VideoLen, number>>;
   /** Duración que entrega de verdad cuando no existe la de la lista (ej.: Omni y Grok no hacen 5 s → 6 s). */
-  realSeconds?: Partial<Record<5 | 10, number>>;
-  seconds: (5 | 10)[];
+  realSeconds?: Partial<Record<VideoLen, number>>;
+  seconds: VideoLen[];
   talks: boolean;            // ¿puede hablar con voz y labios?
   productRef: boolean;       // ¿acepta persona + producto como referencias?
-  action: (s: 5 | 10) => string;
+  action: (s: VideoLen) => string;
 };
 
 export const CREDIT_USD = 0.008;
@@ -342,21 +362,25 @@ export const creditsFor = (usd: number) => Math.ceil((usd * MARKUP) / CREDIT_USD
 // Omni y Grok (decisión de Jean, 20-oct-2026, opción A): Omni = gemini-omni-1.1-flash-ext (cobra por video:
 // 720p 6 s US$0,30 · 10 s US$0,40; solo 4/6/8/10 s) y Grok = grok-imagine-1.5-video-ext (720p US$0,01912/s,
 // 6–15 s). Precios "after_discount" de GET api.apimart.ai/api/pricing/models/all, leídos el 20-oct-2026.
+// 15 s (22-oct-2026, docs del proveedor leídas ese día): Seedance Mini 4–15 (APIMart), Grok 6–15, Wan 3.0 2–30,
+// Kling 3.0 3–15, Seedance 2.0 4–15 (Higgsfield). Omni solo 4/6/8/10 y Kling 2.5 solo 5|10: sin 15 s.
 export const VIDEO_MODELS: VideoModel[] = [
   { id: "omni", label: "Omni", provider: "apimart", note: "La que mejor mueve los labios al hablar a cámara.", usdPerSec: 0.04, usdFixed: { 5: 0.30, 10: 0.40 }, realSeconds: { 5: 6 }, seconds: [5, 10], talks: true, productRef: false, action: s => `av_vid_omni_${s}` },
-  { id: "grok", label: "Grok", provider: "apimart", note: "Escenas sin hablar: voz en off, B-roll y producto.", usdPerSec: 0.01912, realSeconds: { 5: 6 }, seconds: [5, 10], talks: false, productRef: false, action: s => `av_vid_grok_${s}` },
-  { id: "seedance-mini", label: "Seedance 2.0 Mini", provider: "apimart", note: "El más barato. Habla con voz y labios.", usdPerSec: 0.0236 /* 0,118 por 5 s (real_cost de vid_mini_5) */, seconds: [5, 10], talks: true, productRef: false, action: s => `av_vid_smini_${s}` },
-  { id: "wan30", label: "Wan 3.0", provider: "higgsfield", note: "Muy buena relación calidad-precio. Habla.", usdPerSec: 0.05, seconds: [5, 10], talks: true, productRef: false, action: s => `av_vid_wan30_${s}` },
+  { id: "grok", label: "Grok", provider: "apimart", note: "Escenas sin hablar: voz en off, B-roll y producto.", usdPerSec: 0.01912, realSeconds: { 5: 6 }, seconds: [5, 10, 15], talks: false, productRef: false, action: s => `av_vid_grok_${s}` },
+  { id: "seedance-mini", label: "Seedance 2.0 Mini", provider: "apimart", note: "El más barato. Habla con voz y labios.", usdPerSec: 0.0236 /* 0,118 por 5 s (real_cost de vid_mini_5) */, seconds: [5, 10, 15], talks: true, productRef: false, action: s => `av_vid_smini_${s}` },
+  { id: "wan30", label: "Wan 3.0", provider: "higgsfield", note: "Muy buena relación calidad-precio. Habla.", usdPerSec: 0.05, seconds: [5, 10, 15], talks: true, productRef: false, action: s => `av_vid_wan30_${s}` },
   { id: "kling25", label: "Kling 2.5 Turbo", provider: "higgsfield", note: "Movimiento muy natural. Sin voz: para escenas mudas.", usdPerSec: 0.042, seconds: [5, 10], talks: false, productRef: false, action: s => `av_vid_kling25_${s}` },
-  { id: "kling30", label: "Kling 3.0", provider: "higgsfield", note: "Calidad de cine. Sin voz por ahora.", usdPerSec: 0.084, seconds: [5, 10], talks: false, productRef: false, action: s => `av_vid_kling30_${s}` },
-  { id: "seedance20", label: "Seedance 2.0", provider: "higgsfield", note: "Premium: la cara y tu producto en el mismo video, con voz.", usdPerSec: 0.141, seconds: [5, 10], talks: true, productRef: true, action: s => `av_vid_seed20_${s}` },
+  { id: "kling30", label: "Kling 3.0", provider: "higgsfield", note: "Calidad de cine. Sin voz por ahora.", usdPerSec: 0.084, seconds: [5, 10, 15], talks: false, productRef: false, action: s => `av_vid_kling30_${s}` },
+  { id: "seedance20", label: "Seedance 2.0", provider: "higgsfield", note: "Premium: la cara y tu producto en el mismo video, con voz.", usdPerSec: 0.141, seconds: [5, 10, 15], talks: true, productRef: true, action: s => `av_vid_seed20_${s}` },
 ];
 export const videoModel = (id: unknown) => VIDEO_MODELS.find(m => m.id === id) ?? null;
-/** Segundos que entrega de verdad ese modelo para la opción corta (5) o larga (10). */
-export const videoSeconds = (m: VideoModel, s: 5 | 10) => m.realSeconds?.[s] ?? s;
+/** La duración más cercana (sin pasarse) que ofrece ese modelo: al cambiar de modelo no queda una que no existe. */
+export const fitLen = (m: VideoModel, s: VideoLen): VideoLen => [...m.seconds].reverse().find(x => x <= s) ?? m.seconds[0];
+/** Segundos que entrega de verdad ese modelo para la opción elegida (Omni y Grok no hacen 5 s → 6 s). */
+export const videoSeconds = (m: VideoModel, s: VideoLen) => m.realSeconds?.[s] ?? s;
 /** Costo real del proveedor (US$) de un video: precio por video si lo hay, si no por segundo entregado. */
-export const videoUsd = (m: VideoModel, s: 5 | 10) => m.usdFixed?.[s] ?? m.usdPerSec * videoSeconds(m, s);
-export const videoCredits = (m: VideoModel, s: 5 | 10) => creditsFor(videoUsd(m, s));
+export const videoUsd = (m: VideoModel, s: VideoLen) => m.usdFixed?.[s] ?? m.usdPerSec * videoSeconds(m, s);
+export const videoCredits = (m: VideoModel, s: VideoLen) => creditsFor(videoUsd(m, s));
 
 /**
  * Imagen: la persona elige el modelo; cada plantilla trae su predeterminado (`tier`), el mejor del momento

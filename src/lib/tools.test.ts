@@ -26,7 +26,7 @@ describe("herramientas", () => {
       expect(t.cost, t.id).toBeTruthy();
       expect(t.cost).not.toMatch(/US\$|\$|dólar/i);
     }
-    expect(STUDIO_TOOLS.find(t => t.id === "videoanuncio")!.cost).toBe("desde 75 créditos");
+    expect(STUDIO_TOOLS.find(t => t.id === "videoanuncio")!.cost).toBe("desde 89 créditos");
     expect(STUDIO_TOOLS.find(t => t.id === "creativos")!.cost).toBe("21 créditos");
   });
   it("las fusionadas no se pierden: siguen en el buscador, su destino se ve y no salen en las cuadrículas", () => {

@@ -50,7 +50,7 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   // Mapa del negocio: escalera propuesta con IA (edge function business-map).
   business_map: 15,
   // Video IA (edge function video-studio, APIMart seedance-2.0-mini 720p, ~US$0,0217/s ≈ 4×).
-  vid_mini_5: 75, vid_mini_10: 150, // ×5 del costo real (12-oct-2026)
+  vid_mini_5: 89, vid_mini_10: 177, // costo × 6 (22-oct-2026, decisión de Jean; antes 75/150 a ×5)
   // Producir video de YouTube (edge function yt-produce). PROPUESTOS el 04-oct-2026: Jean los confirma
   // antes de aplicar la migración 20261004060000_yt_production.sql.
   yt_voice_scene: 5, // gpt-4o-mini-tts ≤600 caracteres a speed ≥1 (≤US$0,0104) → ~3,9× peor caso, ~5× normal

@@ -84,7 +84,7 @@ describe("PersonajePage (Influencer IA)", () => {
     await screen.findByText("2 · Su voz");
     fireEvent.click(screen.getByRole("radio", { name: /Serena y segura/ }));
     fireEvent.change(screen.getByPlaceholderText(/Ej\.:/), { target: { value: "¿Te cuesta cocinar entre semana? Mira esto." } });
-    fireEvent.click(screen.getByRole("button", { name: /Crear video que habla · 150/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Crear video que habla · 177/ }));
     await waitFor(() => expect(invoke.mock.calls.some(c => c[1].body.kind === "ugc")).toBe(true));
     const body = invoke.mock.calls.find(c => c[1].body.kind === "ugc")![1].body;
     expect(body).toMatchObject({ seconds: 10, audio: true, image_bucket: "personajes", image_path: `${UID}/${PID}/supernova-valentina-1.webp` });

@@ -64,11 +64,11 @@ describe("alternativesFor / targetInfo", () => {
     }
     expect(alternativesFor("youtube", "nicho_yt")).toEqual(["miniaturas", "video_anuncio", "carrusel"]);
   });
-  it("costos del plan: creativos 21, carrusel 15 (texto con IA; las láminas se dibujan gratis), video anuncio 225, UGC 150, YouTube guion 30", () => {
+  it("costos del plan: creativos 21, carrusel 15 (texto con IA; las láminas se dibujan gratis), video anuncio 267, UGC 177, YouTube guion 30", () => {
     expect(targetInfo("creativos").credits).toBe(21);
     expect(targetInfo("carrusel").credits).toBe(15);
-    expect(targetInfo("video_anuncio").credits).toBe(225);
-    expect(targetInfo("video_ugc").credits).toBe(150);
+    expect(targetInfo("video_anuncio").credits).toBe(267);
+    expect(targetInfo("video_ugc").credits).toBe(177);
     expect(targetInfo("youtube")).toMatchObject({ credits: 30, costLabel: "guion 30" });
   });
   it("cada pieza tiene nombre y costo positivo", () => {

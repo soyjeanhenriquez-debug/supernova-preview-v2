@@ -10,12 +10,13 @@ import { track } from "@/lib/analytics";
 import { PageHeader } from "@/components/PageHeader";
 import { downloadVideo, waitForVideo, type VideoJob } from "@/components/video/videoApi";
 import { STOCK_INFLUENCERS } from "@/lib/influencers";
+import { uploadStudioImage, type StudioRef } from "@/lib/studioUpload";
 import { adviceFor, bestFor, imageTag } from "@/lib/modelAdvice";
 import { fmtNumber } from "@/lib/gemelo";
 import {
   ACCENTS, BROLL_ACTIONS, CAMERAS, GESTURES, IMAGE_GROUPS, IMAGE_TEMPLATES, IMAGE_TIERS, IMAGE_TIER_IDS, PLACES, REF_LABEL, VIDEO_FORMATS, VIDEO_MODELS, VOICES,
-  imageCredits, maxWords, videoCredits, videoSeconds, wordCount,
-  type ImageGroup, type ImageModelTier, type ImageTemplate, type RefSlot, type VideoFormat,
+  fitLen, imageCredits, maxWords, videoCredits, videoSeconds, wordCount,
+  type ImageGroup, type ImageModelTier, type ImageTemplate, type RefSlot, type VideoFormat, type VideoLen,
 } from "@/lib/avatarStudio";
 
 /**
@@ -26,7 +27,7 @@ import {
  * · 3) dale vida en video (habla a cámara o escena muda para tu voz en off).
  */
 type Modo = "sin-cara" | "con-cara";
-type Ref = { bucket: "personajes" | "estudio-avatar"; path: string; url: string } | { stock: string; url: string };
+type Ref = StudioRef;
 type Tab = "imagen" | "video";
 
 async function invokeStudio<T>(body: Record<string, unknown>): Promise<T> {
@@ -34,18 +35,6 @@ async function invokeStudio<T>(body: Record<string, unknown>): Promise<T> {
   if (error) throw new Error(await invokeErrorMessage(error, "No se pudo completar."));
   if (data?.error) throw new Error(data.error);
   return data as T;
-}
-
-/** Foto del celular → WebP de máx. 1536 px (menos peso, misma calidad para la IA). */
-async function toWebp(file: Blob, flip = false): Promise<Blob> {
-  const bmp = await createImageBitmap(file);
-  const s = Math.min(1, 1536 / Math.max(bmp.width, bmp.height));
-  const c = document.createElement("canvas");
-  c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
-  const ctx = c.getContext("2d")!;
-  if (flip) { ctx.translate(c.width, 0); ctx.scale(-1, 1); }
-  ctx.drawImage(bmp, 0, 0, c.width, c.height);
-  return await new Promise((res, rej) => c.toBlob(b => (b ? res(b) : rej(new Error("No se pudo leer la imagen."))), "image/webp", 0.9));
 }
 
 const chip = (on: boolean) =>
@@ -119,12 +108,7 @@ export function EstudioAvatarPage({ initialModo }: { onNavigate?: (page: string)
 
   const upload = async (file: Blob, name: string, flip = false): Promise<Ref> => {
     if (!uid) throw new Error("Inicia sesión.");
-    const blob = await toWebp(file, flip);
-    const path = `${uid}/${productId ?? "estudio"}/estudio-${name}-${Date.now()}.webp`;
-    const up = await supabase.storage.from("personajes").upload(path, blob, { contentType: "image/webp", upsert: false });
-    if (up.error) throw new Error("No se pudo subir la imagen. Intenta de nuevo.");
-    const { data } = await supabase.storage.from("personajes").createSignedUrl(path, 3600);
-    return { bucket: "personajes", path, url: data?.signedUrl ?? URL.createObjectURL(blob) };
+    return await uploadStudioImage(uid, productId ?? "estudio", file, name, flip);
   };
 
   const pickStock = async (id: string) => {
@@ -395,7 +379,8 @@ function VideoTab({ base, disabled, balance, upload, higgsfield, productId, onCh
   const [modelId, setModelId] = useState<string | null>(null);
   const recommended = bestFor(f.talks ? "habla" : "sin-hablar", models);
   const model = models.find(m => m.id === modelId) ?? recommended ?? models[0];
-  const [seconds, setSeconds] = useState<5 | 10>(10);
+  const [wanted, setSeconds] = useState<VideoLen>(10);
+  const seconds: VideoLen = model ? fitLen(model, wanted) : wanted;
   const realSec = model ? videoSeconds(model, seconds) : seconds;
   const [camera, setCamera] = useState("quieta-gestos");
   const [before, setBefore] = useState("");
@@ -463,7 +448,7 @@ function VideoTab({ base, disabled, balance, upload, higgsfield, productId, onCh
         <div className="space-y-1.5 sm:col-span-2">
           <span className="text-[13px] text-foreground">Modelo</span>
           <ModelCards label="Modelo de video" value={model?.id} recommended={recommended?.id} onChange={setModelId}
-            items={models.map(m => ({ id: m.id, label: m.label, note: m.note, credits: videoCredits(m, seconds) }))} />
+            items={models.map(m => ({ id: m.id, label: m.label, note: m.note, credits: videoCredits(m, fitLen(m, wanted)) }))} />
           {tip && (tip.ok
             ? <span className="block text-[11px] text-muted-foreground">Buena elección para este video.</span>
             : <span className="block text-[11px] text-muted-foreground">{tip.text}{" "}
@@ -472,7 +457,7 @@ function VideoTab({ base, disabled, balance, upload, higgsfield, productId, onCh
         </div>
         <div className="space-y-1">
           <span className="text-[13px] text-foreground">Duración</span>
-          <div className="flex gap-2">{([5, 10] as const).map(s => <button key={s} type="button" className={chip(seconds === s)} onClick={() => setSeconds(s)}>{model ? videoSeconds(model, s) : s} s</button>)}</div>
+          <div className="flex gap-2">{(model?.seconds ?? [5, 10]).map(s => <button key={s} type="button" className={chip(seconds === s)} onClick={() => setSeconds(s)}>{model ? videoSeconds(model, s) : s} s</button>)}</div>
         </div>
         {format !== "broll-producto" && (
           <label className="space-y-1 block">

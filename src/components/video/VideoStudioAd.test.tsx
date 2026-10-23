@@ -53,7 +53,7 @@ describe("Anuncio en video · continuidad de las 3 tomas", () => {
     createVideo.mockImplementation(async () => running(`job-${++n}`));
     waitForVideo.mockImplementation(async (id: string) => ({ id, status: "done", result_url: `https://x.test/${id}.mp4`, last_frame_url: `https://x.test/${id}.png`, prompt: "", seconds: 5 }));
     render(<VideoStudioPage initialMode="anuncio" />);
-    fireEvent.click(await screen.findByRole("button", { name: /Crear anuncio · 225 créditos/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Crear anuncio · 267 créditos/ }));
     await waitFor(() => expect(createVideo).toHaveBeenCalledTimes(3));
     const bodies = createVideo.mock.calls.map(c => c[0] as Record<string, unknown>);
     expect(bodies[0].from_job_id).toBeUndefined();
@@ -67,9 +67,9 @@ describe("Anuncio en video · continuidad de las 3 tomas", () => {
     createVideo.mockImplementation(async () => running("job-1"));
     waitForVideo.mockImplementation(async (id: string) => ({ id, status: "failed", result_url: null, prompt: "", seconds: 5 }));
     render(<VideoStudioPage initialMode="anuncio" />);
-    fireEvent.click(await screen.findByRole("button", { name: /Crear anuncio · 225 créditos/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Crear anuncio · 267 créditos/ }));
     expect(await screen.findAllByText(/falló la toma 1, que fija a la persona y el lugar\. No se te cobró/)).toHaveLength(2);
     expect(createVideo).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("button", { name: /Intentar de nuevo · 225 créditos/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Intentar de nuevo · 267 créditos/ })).toBeInTheDocument();
   });
 });

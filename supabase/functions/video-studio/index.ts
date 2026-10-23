@@ -43,7 +43,9 @@ const FILE_MAX_BYTES = 60 * 1024 * 1024;
 // Dominios desde los que APIMart entrega los videos. Se pueden añadir más sin redesplegar con el
 // secreto APIMART_MEDIA_HOSTS ("cdn.ejemplo.com,otro.com"). Nunca se baja nada de otro host.
 // getapib.org: CDN con el que APIMart entrega los videos desde oct-2026 (visto en video_jobs).
-const MEDIA_HOSTS = ["apimart.ai", "getapib.org"];
+// higgsfield.ai (22-oct-2026): escenas del anuncio hechas con motores de Higgsfield (avatar-studio) que se unen en
+// "Armar video final". Si entregan desde otro CDN, se añade con APIMART_MEDIA_HOSTS sin redesplegar.
+const MEDIA_HOSTS = ["apimart.ai", "getapib.org", "higgsfield.ai"];
 // Testimonio o resultados en el texto de un anuncio/UGC: se rechaza antes de cobrar.
 const w = (src: string) => new RegExp(`(?<![\\p{L}\\d])(?:${src})(?![\\p{L}])`, "iu");
 const TESTIMONIAL = [

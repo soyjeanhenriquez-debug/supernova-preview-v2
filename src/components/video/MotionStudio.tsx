@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Copy, Download, FileArchive, ImagePlus, Loader2, Mic, Pause, Play, Plus, Sparkles, Upload, Wand2, X } from "lucide-react";
+import { PieceStrategy } from "@/components/PieceStrategy";
+import { ANGLE_AUTO } from "@/lib/angles";
+import { LEVEL_AUTO } from "@/lib/awareness";
 import { toast } from "sonner";
 import { useCredits, CREDIT_COSTS } from "@/hooks/useCredits";
 import { useCreditsLeft } from "@/hooks/useCreditsLeft";
@@ -92,6 +95,9 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
   const [source, setSource] = useState<"anuncio" | "guion">(hasProduct ? "anuncio" : "guion");
   const [script, setScript] = useState("");
   const [seconds, setSeconds] = useState<15 | 30 | 45 | 60>(30);
+  // Nivel de consciencia y ángulo: solo para "Anuncio de mi producto" (con guion propio, manda el guion).
+  const [levelId, setLevelId] = useState<string>(LEVEL_AUTO);
+  const [angleId, setAngleId] = useState<string>(ANGLE_AUTO);
   const [format, setFormat] = useState<MotionFormat>("9:16");
   const [plan, setPlan] = useState<MotionPlan | null>(null);
   const [planning, setPlanning] = useState(false);
@@ -220,7 +226,7 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
     try {
       const resp = await post("motion-graphics", {
         action: "plan", source, seconds, format, style: styleForServer(style),
-        ...(source === "guion" ? { script: script.trim() } : { product_id: productId ?? undefined, hook: hook || undefined }),
+        ...(source === "guion" ? { script: script.trim() } : { product_id: productId ?? undefined, hook: hook || undefined, level: levelId, angle: angleId }),
       });
       const data = await resp.json();
       applyServerCharge("motion_ad", data.billing ?? readBilling(resp), data.plan?.title ?? "Motion graphics");
@@ -404,6 +410,7 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
             <button onClick={() => setSource("guion")} disabled={busy} className={chip(source === "guion")}>Tengo mi guion</button>
           </div>
           {!hasProduct && <p className="text-[11px] text-muted-foreground">Para el anuncio de tu producto, primero créalo en Mi negocio. Mientras, pega tu guion.</p>}
+          {source === "anuncio" && hasProduct && <PieceStrategy level={levelId} onLevel={setLevelId} angle={angleId} onAngle={setAngleId} />}
           {source === "guion" && (
             <textarea value={script} onChange={e => setScript(e.target.value.slice(0, 3000))} rows={5} disabled={busy}
               placeholder="Pega aquí tu guion: una idea por frase. Ej.: Siempre esperas el momento perfecto. Pero la confianza no llega antes de actuar: llega después…"

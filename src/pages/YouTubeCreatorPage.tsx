@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { PieceStrategy } from "@/components/PieceStrategy";
+import { ANGLE_AUTO, angleInstruction } from "@/lib/angles";
+import { LEVEL_AUTO, levelInstruction } from "@/lib/awareness";
 import {
   ArrowLeft, ArrowUp, Check, ChevronDown, Clock, Copy, Film, Languages, Link2, Loader2, Monitor, MonitorPlay, Palette,
   RefreshCw, Shuffle, Sparkles, Youtube, Clapperboard, PlayCircle,
@@ -145,6 +148,9 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
   const [recent, setRecent] = useState<ProductionMeta[]>([]);
   const [tab, setTab] = useState<Tab>("idea");
   const [idea, setIdea] = useState("");
+  // Nivel de consciencia y ángulo del video (solo "Desde una idea"; con guion propio manda el guion).
+  const [levelId, setLevelId] = useState<string>(LEVEL_AUTO);
+  const [angleId, setAngleId] = useState<string>(ANGLE_AUTO);
   const [ownScript, setOwnScript] = useState("");
   const [url, setUrl] = useState("");
   const [size, setSize] = useState<Size>("16:9");
@@ -248,7 +254,7 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
     if (busy || balance < PRICE.idea) { if (balance < PRICE.idea) noCredits(`Te faltan créditos: el guion cuesta ${PRICE.idea}.`); return; }
     const pedido = tab === "guion"
       ? `Adapta este guion mío al formato pedido, manteniendo mi idea y mejorando el gancho y el ritmo:\n${ownScript.trim().slice(0, 8000)}`
-      : `Tema del video: ${idea.trim()}\nEstilo visual: ${style}. Formato ${size}.`;
+      : `Tema del video: ${idea.trim()}\nEstilo visual: ${style}. Formato ${size}.\n\n${levelInstruction(levelId, 1, false)}\n${angleInstruction(angleId, 1, false)}`;
     setBusy("writing"); setScript(""); setAnalysis(null);
     try {
       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
@@ -443,6 +449,7 @@ export function YouTubeCreatorPage({ onNavigate }: { onNavigate: (p: string) => 
             </button>
           </div>
         )}
+        {tab === "idea" && <PieceStrategy level={levelId} onLevel={setLevelId} angle={angleId} onAngle={setAngleId} />}
         {tab === "link" && (previewing || preview || previewErr) && (
           <div className="rounded-xl border border-border/70 p-3 flex gap-3 items-center">
             {previewing ? <p className="text-[12px] text-muted-foreground inline-flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Leyendo el video…</p>

@@ -27,6 +27,7 @@ import { corsHeaders as baseCors } from "npm:@supabase/supabase-js@2.117.1/cors"
 import { HONESTY_RULES } from "../_shared/honesty.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 import { safeRefund } from "../_shared/refund.ts";
+import { pieceStrategyRule } from "../_shared/pieceStrategy.ts";
 import { fitNarration, parseLooseJson, wordsFor } from "./planText.ts";
 
 const FN = "motion-graphics";
@@ -351,12 +352,15 @@ Deno.serve(async (req) => {
     const style = body.style && typeof body.style === "object" && !Array.isArray(body.style) ? cleanStyle(body.style) : null;
     const format = oneOf(body.format, ["9:16", "1:1", "16:9"], "9:16");
     let userMsg: string;
+    // Lo que escribió la persona (o su producto): de aquí salen los únicos números que puede usar la gráfica.
+    let facts: string;
     let tone = "persuasivo y directo";
     let label: string;
     if (source === "guion") {
       const script = typeof body.script === "string" ? body.script.trim().slice(0, MAX_SCRIPT) : "";
       if (script.length < 40) return json(400, { error: "Pega un guion de al menos un par de frases." });
       userMsg = `GUION:\n${script}`;
+      facts = userMsg;
       label = `${ACTIONS.plan.label} · ${clip(script, 50)}`;
     } else {
       const biz = await resolveProduct(admin, userId, body.product_id);
@@ -364,6 +368,10 @@ Deno.serve(async (req) => {
       if (!biz) return json(400, { error: "Primero crea tu producto en Mi negocio, o pega tu propio guion." });
       tone = Number(biz.copy_level) === 1 ? "suave e informativo" : Number(biz.copy_level) === 3 ? "muy persuasivo, dentro de las políticas" : "persuasivo y directo";
       userMsg = `PRODUCTO: ${clip(biz.product, 300)}\nPARA QUIÉN: ${clip(biz.who, 300) || "sin definir"}\nPROMETE: ${clip(biz.promise, 300) || "sin definir"}${biz.price ? `\nPRECIO: ${clip(biz.price, 40)}` : ""}${hook ? `\nGANCHO DE REFERENCIA (estructura de un anuncio que ya vende; escribe uno propio, no lo copies): ${hook}` : ""}`;
+      facts = userMsg;
+      // Nivel de consciencia y ángulo (22-oct-2026): ids validados aquí, nunca texto libre del navegador.
+      // Va después de "facts": sus números ("nivel 3") no cuentan como datos de la persona.
+      userMsg += pieceStrategyRule(body.level, body.angle);
       label = `${ACTIONS.plan.label} · ${clip(biz.product, 50)}`;
     }
     const gate = await charge(admin, userId, "plan", label);
@@ -378,10 +386,10 @@ Deno.serve(async (req) => {
     // reintento usa solo el tiempo que queda (antes eran 90 s + 90 s).
     const deadline = Date.now() + 125_000;
     let out = await askGemini(admin, userId, apiKey, msgs, 16_000, 0, 80_000);
-    let plan = out ? cleanPlan(out, seconds, userMsg) : null;
+    let plan = out ? cleanPlan(out, seconds, facts) : null;
     if (!plan && deadline - Date.now() > 20_000) {
       out = await askGemini(admin, userId, apiKey, msgs, 16_000, 0, deadline - Date.now());
-      plan = out ? cleanPlan(out, seconds, userMsg) : null;
+      plan = out ? cleanPlan(out, seconds, facts) : null;
     }
     if (!plan) {
       const back = await safeRefund(admin, gate.txId, out ? "ia_vacia" : "ia_error", FN);

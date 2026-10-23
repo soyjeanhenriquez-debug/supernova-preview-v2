@@ -54,12 +54,14 @@ export function promptIdeas(p: Pick<BusinessProfile, "product" | "who" | "promis
 }
 
 /** Instrucción para 10 guiones cortos del personaje elegido (generador personaje-guiones). */
-export function promptGuiones(p: Pick<BusinessProfile, "product" | "who" | "promise" | "price">, pj: Personaje, ganchos: string[], pais: string) {
+/** `strategy`: nivel de consciencia y ángulo elegidos (levelInstruction + angleInstruction), opcional. */
+export function promptGuiones(p: Pick<BusinessProfile, "product" | "who" | "promise" | "price">, pj: Personaje, ganchos: string[], pais: string, strategy = "") {
   const system = `Eres el guionista de SUPERNOVA. Escribes guiones de video corto vertical (Reels, TikTok, Shorts) de 20 a 40 segundos para un personaje creado con IA que vende un producto digital en ${pais}. Español latinoamericano neutro, frases cortas, como se habla.\n\n${HONESTY_RULES}\n\nResponde SOLO con un arreglo JSON válido, sin texto antes ni después.`;
   const base = ganchos.length
     ? `\n\nGanchos que llevan meses funcionando en anuncios reales (úsalos como PLANTILLA de estructura, adaptados; nunca copies marcas ni nombres):\n${ganchos.map((g, i) => `${i + 1}. ${g}`).join("\n")}`
     : "";
   const user = `Personaje:\nNombre: ${pj.nombre}\nRol: ${pj.rol}\nHistoria: ${pj.historia}\nVoz: ${pj.voz}\nGancho: ${pj.gancho}\n\nProducto que vende:\n${fichaTexto(p)}${base}\n\nEscribe 10 guiones distintos: 4 de consejo útil, 3 de historia o situación con la que el público se identifica, 2 de "error común" y 1 que presente el producto directo. Solo 1 de cada 3 menciona el producto; los demás dan valor y cierran invitando a seguir la cuenta.\n\nFormato exacto:\n[{"titulo":"","gancho":"primera frase, máximo 12 palabras","guion":"lo que dice el personaje, 50-90 palabras","pantalla":"texto corto para poner encima del video","cta":"cierre"}]`;
+  if (strategy) return { system, user: `${user}\n\n${strategy}` };
   return { system, user };
 }
 

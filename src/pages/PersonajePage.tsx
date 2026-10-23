@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRight, Check, Copy, Crown, Download, Film, ImageIcon, Loader2, Lock, Mic, RefreshCw, ShieldCheck, Sparkles, UserRound, X } from "lucide-react";
+import { PieceStrategy } from "@/components/PieceStrategy";
+import { ANGLE_AUTO, angleInstruction } from "@/lib/angles";
+import { LEVEL_AUTO, levelInstruction } from "@/lib/awareness";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -94,6 +97,9 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
   const [step, setStep] = useState<Step>(initialStep && state.elegido ? initialStep : state.guiones?.length ? 2 : 1);
   const [country, setCountry] = useState<CountryCode>(profile.journey?.gemelo?.country ?? "RD");
   const [busy, setBusy] = useState<"" | "ideas" | "foto" | "guiones">("");
+  // Nivel de consciencia y ángulo de los 10 guiones (uno por guion; en automático la IA reparte).
+  const [levelId, setLevelId] = useState<string>(LEVEL_AUTO);
+  const [angleId, setAngleId] = useState<string>(ANGLE_AUTO);
   const [fotoUrl, setFotoUrl] = useState<string | null>(null);
   // Catálogo de modelos (fal.ai): qué se ve y a qué precio. El servidor decide lo que se puede usar.
   const { isAdmin } = useIsAdmin();
@@ -312,7 +318,7 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
       const { data: hooks } = await supabase.from("hook_vault").select("hook_template, hook_text").eq("language", "es")
         .order("winner_score", { ascending: false }).limit(8);
       const ganchos = ((hooks ?? []) as { hook_template: string | null; hook_text: string }[]).map(h => (h.hook_template || h.hook_text).slice(0, 160));
-      const { system, user: u } = promptGuiones(profile, pj, ganchos, pais);
+      const { system, user: u } = promptGuiones(profile, pj, ganchos, pais, `${levelInstruction(levelId, 10, false)}\n${angleInstruction(angleId, 10, false)}`);
       const { text, resp } = await streamGenerator("personaje-guiones", `Guiones · ${pj.nombre}`, system, u);
       applyServerCharge(guionesCost.action, readBilling(resp), `10 guiones de ${pj.nombre}`);
       const guiones = parseArray<Partial<Guion>>(text).map(cleanGuion).filter((g): g is Guion => !!g).slice(0, 10);
@@ -480,6 +486,7 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
               {state.guiones?.length ? "Otros 10" : "Escribir 10 guiones"} <span className="opacity-70 font-medium">· {guionesCost.cost} ⚡</span>
             </button>
           </div>
+          <PieceStrategy level={levelId} onLevel={setLevelId} angle={angleId} onAngle={setAngleId} />
           {busy === "guiones" && <div className="space-y-2">{[0, 1, 2].map(i => <div key={i} className="h-28 rounded-2xl bg-card border border-border animate-pulse" />)}</div>}
           {!!state.guiones?.length && busy !== "guiones" && (
             <div className="grid md:grid-cols-2 gap-3">

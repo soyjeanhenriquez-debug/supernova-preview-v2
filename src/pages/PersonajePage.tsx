@@ -11,6 +11,7 @@ import { createVideo, downloadVideo, invokeVideo, loadVideoConfig, waitForVideo,
 import { VIDEO_PRICE, buildShots, cleanBrief, hasForbiddenClaim, recommendTemplate, shotPrompt } from "@/lib/videoTemplates";
 import { SPOKEN_MAX, STOCK_INFLUENCERS, VOICES, guessGenero, lineFromGuion, voicePrompt, type Genero, type StockInfluencer } from "@/lib/influencers";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useFeatureAccess } from "@/lib/features";
 import { ModelPicker } from "@/components/media/ModelPicker";
 import { accessOf, hasComunidad, loadMediaModels, type MediaModel } from "@/lib/media";
 import { PLANS, checkoutUrl, formatUsd } from "@/lib/plans";
@@ -96,6 +97,7 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
   const [fotoUrl, setFotoUrl] = useState<string | null>(null);
   // Catálogo de modelos (fal.ai): qué se ve y a qué precio. El servidor decide lo que se puede usar.
   const { isAdmin } = useIsAdmin();
+  const canSeeEstudio = useFeatureAccess().canSee("Estudio de avatar");
   const [models, setModels] = useState<MediaModel[]>([]);
   const [comunidad, setComunidad] = useState(false);
   const [imgModel, setImgModel] = useState<string | null>(null);
@@ -517,6 +519,11 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
 
       {step === 3 && pj && canTalk && (
         <section key="s3v" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          {canSeeEstudio && <button type="button" onClick={() => onNavigate("Estudio de avatar")}
+            className="w-full text-left rounded-xl border border-border p-3 hover:bg-secondary/40 text-[13px]">
+            <span className="font-semibold text-foreground">Estudio de avatar →</span>{" "}
+            <span className="text-muted-foreground">otra ropa, otros ángulos, tu producto en su mano, tu app en pantalla y más modelos de video (Kling, Wan, Seedance).</span>
+          </button>}
           {!state.foto ? (
             <div className="rounded-2xl border border-border bg-card p-6 text-center space-y-3">
               <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground" />

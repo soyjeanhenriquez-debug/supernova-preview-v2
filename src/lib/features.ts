@@ -11,7 +11,9 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 // "UGC con IA" ya no está aquí: abre Influencer IA, que sabe mostrar "pronto" si el servidor lo tiene cerrado.
 // "Recompensas" (11-oct-2026): en pausa para clientes hasta que exista la campaña de Whop (rewards.ts whopUrl):
 // no se promete un pago que todavía no existe.
-export const ADMIN_ONLY_PAGES = new Set(["Media Studio", "Mercado", "Crear", "Oráculo", "Crear producto", "Recompensas"]);
+// "Estudio de avatar" y "Quitar marca" (22-oct-2026, al pasarlas a main con el árbol): solo admin hasta que Jean las abra.
+// Estudio de avatar necesita antes su migración y la función avatar-studio en producción.
+export const ADMIN_ONLY_PAGES = new Set(["Media Studio", "Mercado", "Crear", "Oráculo", "Crear producto", "Recompensas", "Estudio de avatar", "Quitar marca"]);
 
 /** Los idiomas inglés y portugués también quedan en pausa para clientes: la app va en español. */
 export const MULTI_LANGUAGE_FOR_CLIENTS = false;

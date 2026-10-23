@@ -1,5 +1,8 @@
 import { useCreditsLeft } from "@/hooks/useCreditsLeft";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { PieceStrategy } from "@/components/PieceStrategy";
+import { ANGLE_AUTO } from "@/lib/angles";
+import { LEVEL_AUTO } from "@/lib/awareness";
 import { Loader2, Sparkles, Image as ImageIcon, LayoutTemplate, MonitorPlay, Smartphone, Package, Shuffle, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,6 +60,10 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
   const { applyServerCharge, balance } = useCredits();
   const creditsLeft = useCreditsLeft().label;
   const [mode, setMode] = useState<StudioMode>(initialMode);
+  // Ángulo de venta: uno por pieza. Las fotos de producto y "variar" no llevan mensaje propio.
+  const [angleId, setAngleId] = useState<string>(ANGLE_AUTO);
+  const [levelId, setLevelId] = useState<string>(LEVEL_AUTO);
+  const angleOn = mode !== "variar" && mode !== "foto_producto";
   const [seed, setSeedState] = useState<CreativeSeed | null>(null);
   const [aspect, setAspect] = useState<Aspect>(() => aiAspect(initialMode).aspect);
   const [headline, setHeadline] = useState("");
@@ -114,7 +121,7 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
   };
 
   const ctx: PromptCtx = {
-    brief, aspect, headline, hook: seed?.hook, angle: seed?.angle,
+    brief, aspect, headline, hook: seed?.hook, angle: seed?.angle, angleId: angleOn ? angleId : undefined, levelId: angleOn ? levelId : undefined,
     kit: { colors: kit.colors, style: kit.style }, hasRefs: mode !== "variar" && useRefs && kitRefs.length > 0,
     ...(mode === "creativo" ? { concepts, level, customStyle, realTexts } : {}),
   };
@@ -273,6 +280,8 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
           <AiChoiceChip aspect={aspect} reason={choice.aspect === aspect ? choice.reason : "Elegiste este formato."}
             options={aspectOptions(mode)} onChange={setAspect} disabled={running} />
 
+          {angleOn && <PieceStrategy level={levelId} onLevel={setLevelId} angle={angleId} onAngle={setAngleId} />}
+
           {mode === "creativo" && (
             <ConceptPicker level={level} onLevel={l => { setLevel(l); setConcepts([]); }} value={concepts} onChange={setConcepts} custom={customStyle} onCustom={setCustomStyle}
               realTexts={realTexts} onRealText={(id, s) => setRealTexts(r => ({ ...r, [id]: s }))} disabled={running} />
@@ -334,7 +343,7 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
 
       {done.length > 0 && !running && (
         <ReadyToPublish mode={mode} count={done.length} onDownloadAll={downloadAll} title={seed?.title || brief.product}
-          copyRequest={adCopyRequest(mode, { brief, hook: seed?.hook, angle: seed?.angle })} />
+          copyRequest={adCopyRequest(mode, { brief, hook: seed?.hook, angle: seed?.angle, angleId: angleOn ? angleId : undefined, levelId: angleOn ? levelId : undefined })} />
       )}
 
       {folder && (

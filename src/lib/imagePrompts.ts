@@ -6,6 +6,8 @@
  * entra solo como REFERENCIA ("escribe otro con la misma idea"), nunca literal.
  */
 import type { SeedTarget } from "@/lib/creativeSeed";
+import { angleInstruction, angleShort } from "@/lib/angles";
+import { levelInstruction, levelShort } from "@/lib/awareness";
 import { CONCEPT_BY_ID, MAX_CONCEPTS, levelConcepts, type AdConcept, type ConceptGroup } from "@/lib/adConcepts";
 
 export type StudioMode = "creativo" | "carrusel" | "miniatura" | "foto_ugc" | "foto_producto" | "variar";
@@ -23,6 +25,10 @@ export type PromptCtx = {
   hook?: string;
   /** Por qué funciona la idea. */
   angle?: string;
+  /** Ángulo de venta elegido (src/lib/angles.ts). */
+  angleId?: string;
+  /** Nivel de consciencia elegido (src/lib/awareness.ts). */
+  levelId?: string;
   /** Textos de las 5 láminas del carrusel. */
   texts?: string[];
   kit?: KitStyle;
@@ -208,6 +214,8 @@ function tail(ctx: PromptCtx): string {
     ctx.hasRefs ? REFS_LINE : "",
     describe(ctx.brief, 140),
     clean(ctx.angle, 140) ? `Por qué funciona la idea: ${clean(ctx.angle, 140)}.` : "",
+    levelShort(ctx.levelId),
+    angleShort(ctx.angleId),
   ].filter(Boolean).join(" ");
 }
 
@@ -339,7 +347,7 @@ export function publishSteps(mode: StudioMode): { where: string; steps: string[]
 }
 
 /** Pedido para escribir el texto del anuncio (generador mandala-ad de ai-chat). */
-export function adCopyRequest(mode: StudioMode, ctx: Pick<PromptCtx, "brief" | "hook" | "angle">): string {
+export function adCopyRequest(mode: StudioMode, ctx: Pick<PromptCtx, "brief" | "hook" | "angle" | "angleId" | "levelId">): string {
   const fmt = mode === "carrusel" ? "un carrusel de 5 láminas" : mode === "miniatura" ? "un video de YouTube (título y descripción)" : "un anuncio de imagen en Facebook e Instagram";
   return [
     `Escribe el texto para ${fmt}, en español neutro latinoamericano, de tú, frases cortas.`,
@@ -353,6 +361,8 @@ export function adCopyRequest(mode: StudioMode, ctx: Pick<PromptCtx, "brief" | "
     ctx.brief.price ? `Precio: ${clean(ctx.brief.price, 30)}.` : "",
     clean(ctx.hook, 140) ? `Idea de referencia (NO copies estas palabras, escribe otras con la misma idea): «${clean(ctx.hook, 140)}».` : "",
     clean(ctx.angle, 200) ? `Por qué funciona: ${clean(ctx.angle, 200)}.` : "",
+    ctx.levelId ? levelInstruction(ctx.levelId, 1, false) : "",
+    ctx.angleId ? angleInstruction(ctx.angleId, 1, false) : "",
   ].filter(Boolean).join("\n");
 }
 

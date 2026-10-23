@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2.117.1";
 import { safeRefund } from "../_shared/refund.ts";
+import { ESTRATEGA_ACTION, ESTRATEGA_LABEL, ESTRATEGA_STEP_PROMPT, ESTRATEGA_SYSTEM, estrategaContext, isEstrategaStep } from "../_shared/estratega.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,7 +59,7 @@ Usa emojis moderadamente para hacer las respuestas más visuales.`;
 // Para generadores: el entregable va directo (sin "¡Hola! Soy tu asistente…") y con las reglas
 // de publicidad honesta que piden Meta/TikTok, sea cual sea el generador.
 import { GENERATOR_SYSTEM, HONESTY_RULES } from "../_shared/honesty.ts";
-const GENERATOR_GUARD_BASE = "\n\nREGLAS DEL SISTEMA PARA ESTE ENTREGABLE: empieza directamente con el primer título del entregable, sin saludos, sin presentarte y sin frases como 'aquí tienes'. Publicidad honesta: nunca garantices resultados (empleo, ingresos, salud, físico); si el entregable menciona una garantía (solo cuando lo pida el usuario o la oferta ya la tenga), que sea de reembolso y con esas palabras, nunca 'garantizado' junto a un resultado; no añadas garantías por tu cuenta. No inventes testimonios, cifras ni plazos. Contenido apto para todo público y para las políticas de Meta/TikTok: nada sexual explícito ni insinuaciones gráficas, aunque el producto o la cuenta sean para adultos; si te lo piden, entrega la versión apta para redes y dilo en una línea.";
+const GENERATOR_GUARD_BASE = "\n\nREGLAS DEL SISTEMA PARA ESTE ENTREGABLE: empieza directamente con el primer título del entregable, sin saludos, sin presentarte y sin frases como 'aquí tienes'. Publicidad honesta: nunca garantices resultados (empleo, ingresos, salud, físico); si el entregable menciona una garantía (solo cuando lo pida el usuario o la oferta ya la tenga), que sea de reembolso y con esas palabras, nunca 'garantizado' junto a un resultado; no añadas garantías por tu cuenta. No inventes testimonios, cifras ni plazos. Un ángulo de venta por pieza: cada anuncio, video, guion o carrusel sale de UN solo ángulo (problema, mecanismo, comparación…); nunca mezcles dos o tres en la misma pieza. Contenido apto para todo público y para las políticas de Meta/TikTok: nada sexual explícito ni insinuaciones gráficas, aunque el producto o la cuenta sean para adultos; si te lo piden, entrega la versión apta para redes y dilo en una línea.";
 const GENERATOR_GUARD = GENERATOR_GUARD_BASE + "\n" + HONESTY_RULES;
 // 900 se quedaba corto: el modelo gasta parte en razonar y la respuesta salía cortada (prueba de Hany, 11-oct).
 const HELP_MAX_TOKENS = 2_500;
@@ -99,13 +100,16 @@ async function readJson(req: Request, maxChars: number): Promise<any> {
 interface Gate { userId: string; txId: string | null; charged: number; balance: number | null; receipt: string | null }
 interface Billing { action: string; label?: string; kind?: string; receipt?: unknown }
 
+// El Estratega está en prueba solo para admins (20-oct-2026). Para abrirlo a todos: false + desplegar.
+const ESTRATEGA_ADMIN_ONLY = true;
+
 function guardClient() {
   return createGuardClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
 
-async function requireUser(req: Request, fn: string, maxHour: number, maxDay: number, billing?: Billing): Promise<Gate | Response> {
+async function requireUser(req: Request, fn: string, maxHour: number, maxDay: number, billing?: Billing, adminOnly = false): Promise<Gate | Response> {
   const deny = (status: number, error: string, extra: Record<string, unknown> = {}) =>
     new Response(JSON.stringify({ error, ...extra }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
@@ -114,6 +118,11 @@ async function requireUser(req: Request, fn: string, maxHour: number, maxDay: nu
   const { data } = await guard.auth.getUser(token);
   const userId = data?.user?.id;
   if (!userId) return deny(401, "Sesión inválida o expirada. Vuelve a iniciar sesión.");
+  // Antes de cobrar: una función en prueba para admins no le cobra a nadie más.
+  if (adminOnly) {
+    const { data: role } = await guard.from("user_roles").select("user_id").eq("user_id", userId).eq("role", "admin").maybeSingle();
+    if (!role) return deny(403, "Esta función todavía no está disponible.");
+  }
   const receipt = typeof billing?.receipt === "string" && /^[0-9a-f-]{36}$/i.test(billing.receipt) ? billing.receipt : null;
   const { data: g, error } = await guard.rpc("edge_guard_charge", {
     p_user_id: userId, p_fn: fn, p_max_hour: maxHour, p_max_day: maxDay,
@@ -211,21 +220,34 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   let gate: Gate | null = null;
   try {
-    const { messages: rawMessages, systemPrompt: rawSystem, model, generator_id, generator_title } = await readJson(req, 150000);
+    const { messages: rawMessages, systemPrompt: rawSystem, model, generator_id, generator_title, agent, step, product, formats } = await readJson(req, 150000);
     const messages = cleanMessages(rawMessages);
     if (messages.length === 0) {
       return new Response(JSON.stringify({ error: "messages requerido" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const generatorId = typeof generator_id === "string" && /^[a-z0-9-]{2,40}$/.test(generator_id) ? generator_id : null;
+    // El Estratega: el prompt y el precio los pone el servidor según el paso; el cliente no manda sistema.
+    const estratega = agent === "estratega";
+    if (estratega && !isEstrategaStep(step)) {
+      return new Response(JSON.stringify({ error: "Paso desconocido. Recarga la página e inténtalo de nuevo." }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const estStep = estratega && isEstrategaStep(step) ? step : null;
+    const generatorId = estratega ? null : typeof generator_id === "string" && /^[a-z0-9-]{2,40}$/.test(generator_id) ? generator_id : null;
     const genAction = generatorId ? generatorAction(generatorId) : null;
     if (generatorId && !genAction) {
       return new Response(JSON.stringify({ error: "Generador desconocido. Recarga la página e inténtalo de nuevo." }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const g = generatorId && genAction
+    const estAction = estStep ? ESTRATEGA_ACTION[estStep] : null;
+    const g = estStep
+      ? estAction
+        ? await requireUser(req, "ai-chat", 60, 300, { action: estAction, label: ESTRATEGA_LABEL[estStep] }, ESTRATEGA_ADMIN_ONLY)
+        : await requireUser(req, "ai-chat-estratega", 30, 120, undefined, ESTRATEGA_ADMIN_ONLY)
+      : generatorId && genAction
       ? await requireUser(req, "ai-chat", 60, 300, {
           action: genAction,
           label: `Generador: ${String(generator_title ?? generatorId).slice(0, 70)}`,
@@ -238,7 +260,8 @@ serve(async (req) => {
     // Su guía creció (~26 000 caracteres el 06-oct-2026): con el tope viejo de 12 000 el asistente no
     // veía más de la mitad, incluida la nota de secciones pausadas que va al final. Tope de 32 000 SOLO
     // para la ayuda (respuesta corta, 900 tokens, 40 por hora): ~US$0,004 de entrada por pregunta.
-    if (!generatorId) {
+    // Las dudas del Estratega (gratis) llevan el mismo recorte.
+    if (!generatorId && !estAction) {
       while (messages.length > 1 && messages.reduce((n, m) => n + m.content.length, 0) > 20_000) messages.shift();
       const last = messages[messages.length - 1];
       if (last) last.content = last.content.slice(0, 4_000);
@@ -247,13 +270,17 @@ serve(async (req) => {
     // Generadores sin sistema propio (Textos que venden, Mándala, Order bump): sistema de copywriter
     // (GENERATOR_SYSTEM), nunca el del chat de ayuda con emojis. Las pantallas que mandan el suyo
     // (Carrusel, YouTube, Personaje, Video) lo conservan: algunas piden JSON u otro idioma.
-    const systemPrompt = generatorId
+    const systemPrompt = estStep
+      ? ESTRATEGA_SYSTEM + "\n" + HONESTY_RULES + ESTRATEGA_STEP_PROMPT[estStep] + estrategaContext(product, formats)
+      : generatorId
       ? (clientSystem || GENERATOR_SYSTEM) + GENERATOR_GUARD
       : (clientSystem || DEFAULT_SYSTEM) + HELP_GUARD;
     const LOVABLE_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const usedModel = normalizeModel(model);
+    // Tope y razonamiento: las dudas del Estratega como la ayuda; sus entregables como un generador.
+    const tierAction = genAction ?? estAction;
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: {
@@ -262,8 +289,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: usedModel,
-        max_tokens: genAction ? GEN_MAX_TOKENS[genAction] ?? 4_000 : HELP_MAX_TOKENS,
-        ...(!genAction || genAction === "gen_light" ? { reasoning_effort: "low" } : {}),
+        max_tokens: tierAction ? GEN_MAX_TOKENS[tierAction] ?? 4_000 : HELP_MAX_TOKENS,
+        ...(!tierAction || tierAction === "gen_light" ? { reasoning_effort: "low" } : {}),
         messages: [
           {
             role: "system",
@@ -293,8 +320,8 @@ serve(async (req) => {
     }
 
     const body = response.body
-      ? meteredStream(response.body, gate.userId, generatorId ? `ai-chat:${generatorId}` : "ai-chat:ayuda", usedModel,
-        generatorId ? () => refundCut(gate) : undefined)
+      ? meteredStream(response.body, gate.userId, estStep ? `ai-chat:estratega-${estStep}` : generatorId ? `ai-chat:${generatorId}` : "ai-chat:ayuda", usedModel,
+        generatorId || estAction ? () => refundCut(gate) : undefined)
       : response.body;
     return new Response(body, {
       headers: { ...corsHeaders, ...billingHeaders(gate), "Content-Type": "text/event-stream" },

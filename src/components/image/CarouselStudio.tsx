@@ -1,5 +1,8 @@
 import { useCreditsLeft } from "@/hooks/useCreditsLeft";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { PieceStrategy } from "@/components/PieceStrategy";
+import { ANGLE_AUTO } from "@/lib/angles";
+import { LEVEL_AUTO } from "@/lib/awareness";
 import { AlertTriangle, ArrowLeft, ArrowRight, Check, Copy, Download, ImagePlus, Loader2, Plus, Sparkles, Star, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +26,7 @@ import { canAnimate, SLIDE_W, SlideView, slideH } from "@/components/image/carou
 import { loadDesign, loadDraft, saveDesign, saveDraft } from "@/lib/carouselStore";
 import { AddToTracker } from "@/components/AddToTracker";
 import { ToolFeedback } from "@/components/ToolFeedback";
+import { imageTag } from "@/lib/modelAdvice";
 // Remotion solo se carga si la persona abre "Convertir en video para Reels" o "Dar vida a esta lámina".
 const AnimateCarousel = lazy(() => import("@/components/image/carousel/AnimateCarousel").then(m => ({ default: m.AnimateCarousel })));
 const LiveSlide = lazy(() => import("@/components/image/carousel/LiveSlide").then(m => ({ default: m.LiveSlide })));
@@ -90,6 +94,8 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
   const goal: CarouselGoal = FORMATS[fmt].goal;
   const [source, setSource] = useState("");
   const [count, setCount] = useState<number>(DEFAULT_SLIDES);
+  const [angleId, setAngleId] = useState<string>(ANGLE_AUTO);
+  const [levelId, setLevelId] = useState<string>(LEVEL_AUTO);
   const [aspect, setAspect] = useState<"4:5" | "1:1">("4:5");
   const [design, setDesign] = useState<CarouselDesign>(DEFAULT_DESIGN);
   const [designOpen, setDesignOpen] = useState(false);
@@ -180,7 +186,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     try {
       const text = await runGenerator({
         id: GENERATOR_ID, title: label, system: SYSTEM,
-        prompt: carouselRequest({ goal, format: fmt, brief, slides: count, source: fmt === "texto" || fmt === "historia" ? source : undefined, hook: seed?.hook, angle: seed?.angle, evidence: seed?.evidence, handle: design.handle, world: design.world, line: design.line }),
+        prompt: carouselRequest({ goal, format: fmt, brief, slides: count, source: fmt === "texto" || fmt === "historia" ? source : undefined, hook: seed?.hook, angle: seed?.angle, angleId, levelId, evidence: seed?.evidence, handle: design.handle, world: design.world, line: design.line }),
         onCharge: b => applyServerCharge(action, b, label),
       });
       const parsed = parseCarousel(text, count, design.start, { free: !!planFor(fmt, count) });
@@ -583,10 +589,12 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                         <span>{m.label}</span>
                         <span className="text-muted-foreground text-[12px] shrink-0">{CREDIT_COSTS[m.action]} créditos</span>
                       </span>
+                      {imageTag(m) && <span className="block text-[10px] font-semibold tracking-wide uppercase text-primary/90">{imageTag(m)}</span>}
                       <span className="block text-[11px] text-muted-foreground">{m.note}</span>
                     </button>
                   ))}
                 </div>
+                <p className="text-[11px] text-muted-foreground">¿Cuál elegir? Si la foto tiene que parecer real (tú, un avatar, un anuncio estilo cliente), GPT Image 2. Si buscas un estilo creativo o animado, o retocar una foto que ya tienes, Nano Banana Pro.</p>
                 <p className="text-[11px] text-muted-foreground">{kitRefs.length && useRefs ? "Sales tú: se usa tu foto de \"Tu foto\" como protagonista." : "¿Quieres salir tú? Sube tu foto en \"Tu foto\" (en Tu sistema de diseño)."}</p>
     </>
   );
@@ -650,6 +658,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                 placeholder="Cuéntala en pocas líneas, como se la contarías a un amigo: cómo estabas antes, qué pasó, qué cambió y qué aprendiste. Solo lo que pasó de verdad." className={input} />
             )}
             {!FORMATS[fmt].needs && <p className="text-[12px] text-muted-foreground">Sale de tu producto{brief.product ? <>: <span className="text-foreground">{brief.product}</span></> : ""}. No tienes que escribir nada.</p>}
+            <PieceStrategy level={levelId} onLevel={setLevelId} angle={angleId} onAngle={setAngleId} />
             <div className="space-y-1.5">
               <button onClick={() => void write()} disabled={writing}
                 className="btn-primary-nova w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold disabled:opacity-60">

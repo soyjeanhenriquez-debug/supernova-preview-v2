@@ -11,6 +11,8 @@ import { ProductSwitcher } from "@/components/ProductSwitcher";
 import { GRID_TOOLS, ADMIN_EXTRA_TOOLS, VIAS, openTool, useVia, viaToolIds, type Tool } from "@/lib/tools";
 import { TUTORIALS } from "@/lib/tutorials";
 import { useVitrina } from "@/contexts/VitrinaContext";
+import { useTreeMenu } from "@/lib/tree";
+import { TreeNav } from "@/components/tree/TreeNav";
 
 interface SidebarProps {
   activePage: string;
@@ -30,6 +32,8 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
   const { locked, openPlans } = useVitrina();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  // El árbol (21-oct-2026): solo admin mientras se prueba; "Ver menú anterior" lo apaga en este navegador.
+  const { enabled: tree, setTree } = useTreeMenu();
 
   // Las 2 vías (decisión de Jean, 12-oct-2026): "Creador con marca" o "Marketer sin rostro". El menú
   // muestra solo lo de su vía (encontrar, crear, vender y medir). Todo lo demás vive en "Más
@@ -166,8 +170,14 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
             </div>
           )
         ) : <div className="pb-3"><ProductSwitcher collapsed={isCollapsed} onNavigate={handleNav} /></div>}
+        {tree && <TreeNav activePage={activePage} onNavigate={handleNav} collapsed={isCollapsed} />}
+        {!tree && isAdmin && !isCollapsed && (
+          <button onClick={() => setTree(true)} className="mb-3 w-full rounded-xl border border-primary/40 px-3 py-2 text-left text-[12px] text-foreground hover:border-primary">
+            Probar el menú en árbol <span className="block text-[11px] text-muted-foreground">Solo lo ves tú (admin)</span>
+          </button>
+        )}
         {/* Tu vía: cambia el menú, el Inicio y el botón Crear del teléfono. */}
-        {!isCollapsed && (
+        {!tree && !isCollapsed && (
           <div className="pb-3 px-1">
             <p className="px-2 pb-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-semibold">Tu vía</p>
             <div className="grid grid-cols-2 gap-1 rounded-xl border border-border p-1" role="group" aria-label="Tu vía">
@@ -180,7 +190,7 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
             </div>
           </div>
         )}
-        {groups.filter(g => g.items.length).map((g, gi) => (
+        {!tree && groups.filter(g => g.items.length).map((g, gi) => (
           <div key={g.title || gi} className={gi ? (isCollapsed ? "pt-2 mt-2 border-t border-border/50" : "pt-3") : ""}>
             {g.title && !isCollapsed && (
               <p className="px-3 pb-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-semibold">{g.title}</p>
@@ -190,7 +200,7 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
         ))}
 
         {/* Más herramientas: plegado. Nada se borró; aquí sigue todo lo demás. */}
-        <div className={isCollapsed ? "pt-2 mt-2 border-t border-border/50" : "pt-3"}>
+        {!tree && <div className={isCollapsed ? "pt-2 mt-2 border-t border-border/50" : "pt-3"}>
           <button
             onClick={toggleMore}
             aria-expanded={showMore}
@@ -205,7 +215,7 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
             {!isCollapsed && <span className="ml-auto text-[11px] tabular-nums text-muted-foreground/70">{moreItems.length}</span>}
           </button>
           {showMore && moreItems.map(renderItem)}
-        </div>
+        </div>}
 
         {adminItems.length > 0 && (
           <div className={isCollapsed ? "pt-2 mt-2 border-t border-border/50" : "pt-3"}>

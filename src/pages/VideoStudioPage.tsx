@@ -1,5 +1,8 @@
 import { useCreditsLeft } from "@/hooks/useCreditsLeft";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PieceStrategy } from "@/components/PieceStrategy";
+import { ANGLE_AUTO } from "@/lib/angles";
+import { LEVEL_AUTO } from "@/lib/awareness";
 import { Clapperboard, Download, Film, Loader2, Megaphone, Orbit, Play, RefreshCw, Shapes, Sparkles, Volume2, VolumeX, Wand2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -64,6 +67,9 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
   const creditsLeft = useCreditsLeft().label;
   const [mode, setMode] = useState<Mode>(initialMode);
   const [seed, setSeed] = useState<CreativeSeed | null>(null);
+  // Ángulo de venta del anuncio: uno solo; se aplica al reescribir el guion con «Mejorar con IA».
+  const [angleId, setAngleId] = useState<string>(ANGLE_AUTO);
+  const [levelId, setLevelId] = useState<string>(LEVEL_AUTO);
   const [ugcOpen, setUgcOpen] = useState<boolean | null>(null);
 
   // Clip y serie
@@ -308,7 +314,7 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
     if (balance < cost.cost) { toast.error(`Te faltan créditos: mejorar el guion cuesta ${cost.cost}.`); return; }
     setImproving(true);
     try {
-      const { system, user: msg } = improvePrompt(shots, brief, adMode);
+      const { system, user: msg } = improvePrompt(shots, brief, adMode, angleId, levelId);
       const { text, billing } = await streamUgcScript(system, msg);
       applyServerCharge(cost.action, billing, "Guion de video IA");
       const lines = parseImprovedLines(text, shots.length, adMode);
@@ -433,6 +439,11 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
                 <button onClick={() => setFirstFrame(null)} disabled={busy} className="text-[12px] text-muted-foreground hover:text-foreground">Quitar</button>
               </div>
             )}
+
+            <div className="space-y-1">
+              <PieceStrategy level={levelId} onLevel={setLevelId} angle={angleId} onAngle={setAngleId} />
+              {(angleId !== ANGLE_AUTO || levelId !== LEVEL_AUTO) && <p className="text-[11px] text-muted-foreground">Toca «Mejorar con IA» para reescribir las tomas con este nivel y este ángulo.</p>}
+            </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">

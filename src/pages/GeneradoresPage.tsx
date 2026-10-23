@@ -6,7 +6,10 @@ import {
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { useCredits, generatorCost } from "@/hooks/useCredits";
-import { generators, streamGenerator } from "@/lib/generators";
+import { generators, streamGenerator, usesAngle } from "@/lib/generators";
+import { PieceStrategy } from "@/components/PieceStrategy";
+import { ANGLE_AUTO } from "@/lib/angles";
+import { LEVEL_AUTO } from "@/lib/awareness";
 import { useFormAssist } from "@/lib/formAssist";
 import { AssistButton } from "@/components/AssistButton";
 import { useBusinessProfile, profileText, profileReady } from "@/lib/businessProfile";
@@ -60,6 +63,8 @@ export function GeneradoresPage() {
   const [generatorInput, setGeneratorInput] = useState("");
   const [generatorOutput, setGeneratorOutput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [angle, setAngle] = useState<string>(ANGLE_AUTO);
+  const [level, setLevel] = useState<string>(LEVEL_AUTO);
   const { applyServerCharge, canAfford } = useCredits();
   // Un solo ejemplo para todos los generadores: la descripción del producto es la misma en todos.
   const assist = useFormAssist("generator", "", activeGenerator !== null);
@@ -126,6 +131,8 @@ export function GeneradoresPage() {
         generator,
         profile,
         input: generatorInput,
+        angle: usesAngle(generator.id) ? angle : undefined,
+        level: usesAngle(generator.id) ? level : undefined,
         onCharged: (billing) => applyServerCharge(action, billing, generator.title),
         onText: setGeneratorOutput,
       });
@@ -331,6 +338,7 @@ export function GeneradoresPage() {
                   rows={5}
                   className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all resize-none"
                 />
+                {usesAngle(selectedGen.id) && <PieceStrategy level={level} onLevel={setLevel} angle={angle} onAngle={setAngle} />}
                 <button
                   onClick={() => runGenerator(selectedGen)}
                   disabled={loading}

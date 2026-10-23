@@ -30,12 +30,14 @@ export const PAGE_SLUG: Record<string, string> = {
   "Productos": "productos",
   "Crear producto": "crear-producto",
   "Sin mostrar tu cara": "personaje",
+  "Estudio de avatar": "estudio-avatar",
   "Aprende": "aprende",
   "Creativos": "creativos",
   "Carrusel": "carrusel",
   "Miniaturas": "miniaturas",
   "Video IA": "video-ia",
   "Motion graphics": "motion",
+  "Quitar marca": "quitar-marca",
   "Series": "series",
   "Nichos YouTube": "nichos-youtube",
   "Creador YouTube": "creador-youtube",
@@ -47,13 +49,16 @@ export const PAGE_SLUG: Record<string, string> = {
   "UGC con IA": "ugc",
   "Order bump": "order-bump",
   "Recompensas": "recompensas",
+  // El árbol (21-oct-2026, solo admin): #/paso/<rama>[/<hoja>] (src/lib/tree.ts).
+  "Paso": "paso",
 };
 export const SLUG_PAGE: Record<string, string> = {
   "ofertas": "Ofertas", "mini-apps": "Mini Apps", "radar": "Buscar Ofertas Winner", "hooks": "Hooks", "mandala": "Mándala", "mercado": "Mercado",
   "oraculo": "Oráculo", "generadores": "Generadores", "media-studio": "Media Studio",
   "proyectos": "Proyectos", "creditos": "Créditos", "crear": "Crear", "precio": "Precio", "mi-negocio": "Mi negocio", "tu-adn": "Tu ADN", "validar": "Validar", "plan": "Plan", "contenido": "Contenido", "con-tu-cara": "Con tu cara", "subtitulos": "Con tu cara", "analiza-reel": "Con tu cara", "resultados": "Resultados", "recuperar": "Recuperar", "diagnostico": "Diagnóstico", "productos": "Productos",
-  "crear-producto": "Crear producto", "personaje": "Sin mostrar tu cara", "aprende": "Aprende", "creativos": "Creativos", "carrusel": "Carrusel", "miniaturas": "Miniaturas", "video-ia": "Video IA", "motion": "Motion graphics", "series": "Series", "nichos-youtube": "Nichos YouTube", "creador-youtube": "Creador YouTube",
+  "crear-producto": "Crear producto", "personaje": "Sin mostrar tu cara", "estudio-avatar": "Estudio de avatar", "aprende": "Aprende", "creativos": "Creativos", "carrusel": "Carrusel", "miniaturas": "Miniaturas", "video-ia": "Video IA", "motion": "Motion graphics", "quitar-marca": "Quitar marca", "series": "Series", "nichos-youtube": "Nichos YouTube", "creador-youtube": "Creador YouTube",
   "ideas": "Ideas", "fotos-ugc": "Fotos UGC", "foto-producto": "Foto de producto", "video-anuncio": "Video anuncio", "ugc": "UGC con IA",
   "order-bump": "Order bump",
   "recompensas": "Recompensas",
+  "paso": "Paso",
 };

@@ -10,6 +10,8 @@
  * - Todo lo que se habla va en español latino. Se avisa que es un personaje creado con IA.
  * - El gancho de la referencia (Radar/Oferta) es solo una idea: nunca se dice literal.
  */
+import { angleInstruction } from "@/lib/angles";
+import { levelInstruction } from "@/lib/awareness";
 
 export type VideoMode = "clip" | "serie" | "anuncio" | "ugc";
 export type VideoSize = "9:16" | "16:9" | "1:1";
@@ -314,7 +316,7 @@ export const SERIE_STYLES: { id: string; label: string; hint: string }[] = [
 export const SPEECH_HINT = "Si alguien habla, habla en español latino.";
 
 /** Prompt para "Mejorar el guion con IA" (generador ugc-script de ai-chat). */
-export function improvePrompt(shots: Shot[], brief: VideoBrief, mode: "anuncio" | "ugc"): { system: string; user: string } {
+export function improvePrompt(shots: Shot[], brief: VideoBrief, mode: "anuncio" | "ugc", angleId?: string, levelId?: string): { system: string; user: string } {
   const b = cleanBrief(brief);
   const maxWords = mode === "ugc" ? 28 : 12;
   const system =
@@ -326,6 +328,9 @@ export function improvePrompt(shots: Shot[], brief: VideoBrief, mode: "anuncio" 
     `Producto: ${b.product}`, b.who ? `Para quién: ${b.who}` : "", b.promise ? `Qué logra: ${b.promise}` : "",
     b.angle ? `Por qué funciona: ${b.angle}` : "",
     b.hook ? `Gancho de referencia (no lo copies, escribe otro con la misma idea): ${b.hook}` : "",
+    // Ángulo de venta (uno solo para todo el video). Sin nota extra: la respuesta es JSON.
+    levelId ? levelInstruction(levelId, 1, false) : "",
+    angleId ? angleInstruction(angleId, 1, false) : "",
     "Líneas actuales:", ...shots.map((s, i) => `${i + 1}. (${s.label}) ${s.line}`),
   ].filter(Boolean).join("\n");
   return { system, user };

@@ -22,11 +22,15 @@ import { LockedToolPage } from "@/components/LockedToolPage";
 import { TutorialButton } from "@/components/TutorialButton";
 import { tutorialFor } from "@/lib/tutorials";
 import { PAGE_SLUG, SLUG_PAGE } from "@/lib/pageSlugs";
+import { TREE_PAGE, useTreeMenu } from "@/lib/tree";
+import { TreeTabsBar } from "@/components/tree/TreeTabsBar";
+import { TreeBottomNav } from "@/components/tree/TreeBottomNav";
 
 // Carga diferida: cada pantalla es su propio chunk → la primera carga solo
 // baja el Dashboard, el resto llega bajo demanda al navegar.
 // El asistente de ayuda trae react-markdown (~100 KB): se descarga aparte, sin frenar el Inicio.
 const HelpAssistant = lazy(() => import("@/components/HelpAssistant").then(m => ({ default: m.HelpAssistant })));
+const StrategistAssistant = lazy(() => import("@/components/StrategistAssistant").then(m => ({ default: m.StrategistAssistant })));
 const DashboardPage = lazy(() => import("@/pages/DashboardPage").then(m => ({ default: m.DashboardPage })));
 const WinningAdsPage = lazy(() => import("@/pages/WinningAdsPage").then(m => ({ default: m.WinningAdsPage })));
 const OfertasPage = lazy(() => import("@/pages/OfertasPage").then(m => ({ default: m.OfertasPage })));
@@ -36,6 +40,7 @@ const GeneradoresPage = lazy(() => import("@/pages/GeneradoresPage").then(m => (
 const MediaStudioPage = lazy(() => import("@/pages/MediaStudioPage").then(m => ({ default: m.MediaStudioPage })));
 const MercadoPage = lazy(() => import("@/pages/MercadoPage").then(m => ({ default: m.MercadoPage })));
 const MandalaPage = lazy(() => import("@/pages/MandalaPage").then(m => ({ default: m.MandalaPage })));
+const EstudioAvatarPage = lazy(() => import("@/pages/EstudioAvatarPage").then(m => ({ default: m.EstudioAvatarPage })));
 const PersonajePage = lazy(() => import("@/pages/PersonajePage").then(m => ({ default: m.PersonajePage })));
 const HooksPage = lazy(() => import("@/pages/HooksPage").then(m => ({ default: m.HooksPage })));
 const BrainPage = lazy(() => import("@/pages/BrainPage").then(m => ({ default: m.BrainPage })));
@@ -59,6 +64,10 @@ const YouTubeCreatorPage = lazy(() => import("@/pages/YouTubeCreatorPage").then(
 const IdeasPage = lazy(() => import("@/pages/IdeasPage").then(m => ({ default: m.IdeasPage })));
 const OrderBumpPage = lazy(() => import("@/pages/OrderBumpPage").then(m => ({ default: m.OrderBumpPage })));
 const AprendePage = lazy(() => import("@/pages/AprendePage").then(m => ({ default: m.AprendePage })));
+const QuitarMarca = lazy(() => import("@/components/video/QuitarMarca").then(m => ({ default: m.QuitarMarca })));
+// El árbol (21-oct-2026, solo admin): Inicio con Tu norte y la pantalla de cada rama.
+const TreeHome = lazy(() => import("@/components/tree/TreeHome").then(m => ({ default: m.TreeHome })));
+const TreePage = lazy(() => import("@/components/tree/TreePage").then(m => ({ default: m.TreePage })));
 const RecompensasPage = lazy(() => import("@/pages/RecompensasPage").then(m => ({ default: m.RecompensasPage })));
 
 function PageLoader() {
@@ -139,6 +148,7 @@ const Index = () => {
 
   const { canSee, loading: accessLoading } = useFeatureAccess();
   const { productKey } = useProducts();
+  const { enabled: tree } = useTreeMenu();
   const renderPage = () => {
     // Secciones en pausa (src/lib/features.ts): un cliente que llega por un enlace viejo va al inicio.
     // Secciones en pausa (src/lib/features.ts): antes mandaban al Inicio sin decir nada (prueba de Hany,
@@ -166,11 +176,13 @@ const Index = () => {
       case "Series": return <VideoStudioPage key="serie" initialMode="serie" />;
       case "Video anuncio": return <VideoStudioPage key="anuncio" initialMode="anuncio" />;
       case "Motion graphics": return <VideoStudioPage key="motion" initialMode="motion" />;
+      case "Quitar marca": return <QuitarMarca onNavigate={setActivePage} />;
       // UGC con IA vive dentro de Influencer IA (05-oct-2026): mismo flujo, sin duplicar.
       case "UGC con IA": return <PersonajePage key="ugc" onNavigate={setActivePage} initialStep={3} />;
       case "Nichos YouTube": return <YouTubeRadarPage onNavigate={setActivePage} />;
       case "Creador YouTube": return <YouTubeCreatorPage onNavigate={setActivePage} />;
-      case "Dashboard": return <DashboardPage onNavigate={setActivePage} />;
+      case "Dashboard": return tree ? <TreeHome onNavigate={setActivePage} /> : <DashboardPage onNavigate={setActivePage} />;
+      case "Paso": return tree ? <TreePage onNavigate={setActivePage} /> : <DashboardPage onNavigate={setActivePage} />;
       case "Ofertas": return <OfertasPage onNavigate={setActivePage} />;
       case "Mini Apps": return <KitsPage onNavigate={setActivePage} />;
       case "Buscar Ofertas Winner": return <WinningAdsPage />;
@@ -180,6 +192,7 @@ const Index = () => {
       case "Media Studio": return <MediaStudioPage />;
       case "Mándala": return <MandalaPage key="mandala" onNavigate={setActivePage} />;
       case "Sin mostrar tu cara": return <PersonajePage onNavigate={setActivePage} />;
+      case "Estudio de avatar": return <EstudioAvatarPage onNavigate={setActivePage} />;
       case "Resultados": return <MandalaPage key="resultados" onNavigate={setActivePage} initialTab="mis" />;
       case "Mi negocio": return <MyBusinessPage onNavigate={setActivePage} />;
       case "Tu ADN": return <BrandDnaPage onNavigate={setActivePage} />;
@@ -199,7 +212,7 @@ const Index = () => {
       case "Crear": return <CrearPage />;
       case "Precio": return <PricingPage onNavigate={setActivePage} />;
       case "Admin": return <div className="card-surface rounded-xl p-10 text-center"><h3 className="font-display font-bold text-xl">🛡️ Admin Panel</h3><p className="text-sm text-muted-foreground mt-2">Panel administrativo (en construcción)</p></div>;
-      default: return <DashboardPage onNavigate={setActivePage} />;
+      default: return tree ? <TreeHome onNavigate={setActivePage} /> : <DashboardPage onNavigate={setActivePage} />;
     }
   };
 
@@ -248,6 +261,8 @@ const Index = () => {
           {/* "Modelar esta oferta completa": el lanzamiento guiado, paso a paso, en todas las pantallas. */}
           {!locked && <LaunchChainBar onNavigate={setActivePage} />}
           {!locked && tutorialFor(activePage) && <div className="max-w-[1280px] mx-auto flex justify-end mb-3"><TutorialButton page={activePage} /></div>}
+          {/* El árbol: dónde estás y las otras pestañas de esta hoja (solo admin mientras se prueba). */}
+          {tree && !locked && activePage !== "Dashboard" && activePage !== TREE_PAGE && <TreeTabsBar page={activePage} onNavigate={setActivePage} />}
           <ErrorBoundary compact resetKey={activePage}>
             <Suspense fallback={<PageLoader />}>
               {/* Cambiar de producto vuelve a montar la pantalla con los datos del nuevo. */}
@@ -255,14 +270,16 @@ const Index = () => {
             </Suspense>
           </ErrorBoundary>
           {/* Etapa de esta herramienta ya lista → la siguiente a un clic, sin volver al Inicio. */}
-          {!locked && activePage !== "Dashboard" && <NextStepCard page={activePage} onNavigate={setActivePage} />}
+          {!locked && !tree && activePage !== "Dashboard" && <NextStepCard page={activePage} onNavigate={setActivePage} />}
         </main>
       </div>
       {/* Atajo al radar: solo donde se buscan ofertas (Inicio y Ofertas), no encima de las herramientas. */}
       {(activePage === "Dashboard" || activePage === "Ofertas") && <FloatingWinnerButton onClick={() => setActivePage("Buscar Ofertas Winner")} />}
-      <MobileBottomNav activePage={activePage} onNavigate={setActivePage} onSearch={() => setSearchOpen(true)} />
+      {tree ? <TreeBottomNav activePage={activePage} onNavigate={setActivePage} /> : <MobileBottomNav activePage={activePage} onNavigate={setActivePage} onSearch={() => setSearchOpen(true)} />}
       <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} onNavigate={setActivePage} onOpenOffer={openOffer} />
       {!locked && <Suspense fallback={null}><HelpAssistant /></Suspense>}
+      {/* El Estratega de anuncios, al lado de Ayuda (en prueba: solo admins). */}
+      {!locked && <Suspense fallback={null}><StrategistAssistant /></Suspense>}
       <OnboardingTour />
       {/* Edad y país, una sola vez (se guarda en el servidor): va encima de todo. */}
       <AgeCountryGate />

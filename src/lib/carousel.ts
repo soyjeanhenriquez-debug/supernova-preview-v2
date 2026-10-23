@@ -19,6 +19,8 @@
  * marcas ajenas; el gancho de un anuncio ajeno es solo referencia, nunca se copia.
  */
 import type { Brief } from "@/lib/imagePrompts";
+import { angleInstruction } from "@/lib/angles";
+import { levelInstruction } from "@/lib/awareness";
 
 export type CarouselGoal = "vender" | "ensenar" | "texto";
 /** Tipos de lámina (cada uno tiene su diseño en SlideView). */
@@ -249,7 +251,7 @@ export function draftCarousel(b: Brief, n = DEFAULT_SLIDES, hook?: string, start
 }
 
 /** Pedido a la IA (generador carrusel-copy de ai-chat; el servidor cobra antes y devuelve si falla). */
-export function carouselRequest(opts: { goal: CarouselGoal; brief: Brief; slides: number; source?: string; hook?: string; angle?: string; evidence?: string; handle?: string; world?: string; line?: string; format?: FormatId }): string {
+export function carouselRequest(opts: { goal: CarouselGoal; brief: Brief; slides: number; source?: string; hook?: string; angle?: string; angleId?: string; levelId?: string; evidence?: string; handle?: string; world?: string; line?: string; format?: FormatId }): string {
   const plan = planFor(opts.format, opts.slides) ?? kindPlan(opts.slides);
   const fmt = opts.format ? FORMATS[opts.format] : undefined;
   const b = opts.brief;
@@ -305,6 +307,9 @@ export function carouselRequest(opts: { goal: CarouselGoal; brief: Brief; slides
     "- Los únicos números permitidos: los que cuentan lo que hay en el carrusel (ej. '3 pasos') o los que vengan en los datos de abajo.",
     opts.hook ? `- Idea de referencia de un anuncio que ya vende (NO copies sus palabras, escribe otras con la misma idea): «${clean(opts.hook, 160)}».` : null,
     opts.angle ? `- Por qué funciona esa idea: ${clean(opts.angle, 200)}.` : null,
+    // Ángulo de venta: el carrusel entero (portadas incluidas) sale de UNO solo. Sin nota extra: la respuesta es JSON.
+    opts.levelId ? levelInstruction(opts.levelId, 1, false) : null,
+    opts.angleId ? angleInstruction(opts.angleId, 1, false) : null,
     "",
     "PORTADAS: las 3 mejores de tus 8 opciones, DISTINTAS entre sí. Cada una con titulo (3 a 5 palabras), subtitulo (máximo 12 palabras), pastilla (2 a 3 palabras en MAYÚSCULAS, ej. '3 PASOS') y por_que (qué desea la persona después de leerla que antes no). 'recomendada' = la que más ganas da de deslizar.",
     "ETIQUETAS: 3 palabras muy cortas (máximo 2 palabras cada una) sobre el tema, para decorar la portada.",

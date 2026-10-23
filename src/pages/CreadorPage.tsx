@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Captions, ChevronRight, Clapperboard, Loader2, ScrollText, Search, Video } from "lucide-react";
+import { Captions, ChevronRight, Clapperboard, Loader2, ScrollText, Search, Video, Wand2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { AnalizaReel } from "@/components/reel/AnalizaReel";
 import { TeleprompterLibre } from "@/components/reel/TeleprompterLibre";
@@ -8,10 +8,13 @@ import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { openTool, TOOLS } from "@/lib/tools";
 import { useAuth } from "@/contexts/AuthContext";
 import { isGenjutsuOwner } from "@/lib/genjutsuOwner";
+import { useFeatureAccess } from "@/lib/features";
 
 // Sube tu video carga Remotion (vista previa y armado del video): solo se baja cuando se abre.
 const SubeTuVideo = lazy(() => import("@/components/subs/SubeTuVideo").then(m => ({ default: m.SubeTuVideo })));
 // Mi historia animada (20-oct-2026): por ahora solo la cuenta de Jean, mientras la prueba.
+// Estudio de avatar (20-oct-2026) en modo "con tu cara": #/con-tu-cara/estudio.
+const EstudioAvatarPage = lazy(() => import("@/pages/EstudioAvatarPage").then(m => ({ default: m.EstudioAvatarPage })));
 const HistoriaAnimada = lazy(() => import("@/components/historia/HistoriaAnimada").then(m => ({ default: m.HistoriaAnimada })));
 
 /**
@@ -30,6 +33,8 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const nav = onNavigate ?? (() => undefined);
   const { user } = useAuth();
   const jean = isGenjutsuOwner(user?.id);
+  // Estudio de avatar: solo admin mientras se abre (src/lib/features.ts).
+  const estudio = useFeatureAccess().canSee("Estudio de avatar");
 
   // Direcciones viejas (#/analiza-reel, #/subtitulos) y enlaces guardados: se llevan a la nueva.
   useEffect(() => {
@@ -45,6 +50,13 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
     return (
       <Suspense fallback={<div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
         <HistoriaAnimada onHome={() => go([])} onNavigate={nav} />
+      </Suspense>
+    );
+  }
+  if (segs[0] === "estudio" && estudio) {
+    return (
+      <Suspense fallback={<Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />}>
+        <EstudioAvatarPage onNavigate={nav} initialModo="con-cara" />
       </Suspense>
     );
   }
@@ -72,6 +84,7 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
         {([
           ["reel", Search, "Analiza un Reel", "Pega un Reel que funciona → elige Espejo, Recrear, Reinventar o Vender → grábalo con el teleprompter.", `${CREDIT_COSTS.reel_analyze} créditos`],
           ["video", Captions, "Sube tu video", "Ya grabaste: subtítulos con sus tiempos, el texto para publicar y si tu inicio engancha.", `${CREDIT_COSTS.video_subtitles} créditos`],
+          ...(estudio ? [["estudio", Wand2, "Estudio de avatar", "Tu foto en otra ropa, otro ángulo, con tu producto o tu app, y en video hablando.", "Desde 11 créditos"] as const] : []),
           ["teleprompter", ScrollText, "Teleprompter", "Pega cualquier texto y léelo mirando a la cámara, a pantalla completa.", ""],
           ...(jean ? [["historia", Clapperboard, "Mi historia animada · solo tú", "Tu historia real con tu personaje en 3D, escena por escena, con tu voz o voz IA.", "Unos 200 créditos sin animaciones"]] as const : []),
         ] as const).map(([id, Icon, title, desc, cost]) => (

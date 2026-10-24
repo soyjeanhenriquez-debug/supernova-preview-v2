@@ -130,6 +130,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
   const logoRef = useRef<HTMLInputElement>(null);
   const subirRef = useRef<HTMLInputElement>(null);
   const refRef = useRef<HTMLInputElement>(null);
+  const ideaRef = useRef<HTMLInputElement>(null);
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
 
@@ -823,6 +824,16 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
               className={`${field} py-2`} />
             {meta.origen === "guion" && <p className="text-[11px] text-muted-foreground">{meta.idea.trim() ? meta.idea.trim().split(/\s+/).length : 0} palabras · unos {Math.round((meta.idea.trim() ? meta.idea.trim().split(/\s+/).length : 0) / (2.9 * aj.velocidad))} s de voz</p>}
             {meta.origen === "idea" && !meta.idea && <button type="button" onClick={() => commit({ idea: PEDIDO_SUPERNOVA })} className={chip(false)}><Sparkles className="inline w-3.5 h-3.5 mr-1 text-primary" />Reel de SUPERNOVA</button>}
+            {meta.origen !== "referencia" && (
+              // Fotos y clips propios (opcional): van a tu biblioteca y la IA los pone donde se habla de eso.
+              <div className="flex flex-wrap items-center gap-2">
+                <input ref={ideaRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={e => { const f = e.target.files; if (f?.length) void subirBiblio(f); e.target.value = ""; }} />
+                <button type="button" onClick={() => ideaRef.current?.click()} disabled={!!busy} className={chip(false)}>
+                  {busy === "subir" ? <Loader2 className="inline w-3.5 h-3.5 animate-spin mr-1" /> : <Upload className="inline w-3.5 h-3.5 mr-1" />}Añadir tus fotos o clips (opcional)
+                </button>
+                {clips.length > 0 && <span className="text-[11px] text-muted-foreground">{clips.length} en tu biblioteca: se usan solos donde corresponden.</span>}
+              </div>
+            )}
             <button type="button" onClick={preparar} disabled={!!busy} className={primario}>
               {busy === "plan" ? <><Loader2 className="w-4 h-4 animate-spin" /> Preparando guion y escenas…</> : <><Sparkles className="w-4 h-4" /> {r ? "Preparar de nuevo" : "Preparar mi reel"} · {PRICE_PLAN} créditos</>}
             </button>

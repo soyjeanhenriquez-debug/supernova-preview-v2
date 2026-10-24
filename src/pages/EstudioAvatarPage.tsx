@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { downloadVideo, waitForVideo, type VideoJob } from "@/components/video/videoApi";
 import { STOCK_INFLUENCERS } from "@/lib/influencers";
 import { uploadStudioImage, type StudioRef } from "@/lib/studioUpload";
+import { Avatar6CForm } from "@/components/video/Avatar6C";
 import { adviceFor, bestFor, imageTag } from "@/lib/modelAdvice";
 import { fmtNumber } from "@/lib/gemelo";
 import {
@@ -245,20 +246,22 @@ function ImagenTab({ base, disabled, balance, upload, onDone, onLocal, gallery }
 
   const choose = (t: ImageTemplate) => { setTplId(t.id); setFill(""); setPick(null); };
   const slots = tpl.refs.filter(s => s !== "persona");
-  const ready = !!base && slots.every(s => extra[s]) && (!tpl.fill || fill.trim().length >= 3);
+  // "Avatar desde cero" no parte de ninguna foto: no hace falta foto base.
+  const needsBase = tpl.refs.includes("persona") || !!tpl.local;
+  const ready = (!needsBase || !!base) && slots.every(s => extra[s]) && (!tpl.fill || fill.trim().length >= 3);
 
   const crear = async () => {
-    if (!base || busy) return;
+    if ((needsBase && !base) || busy) return;
     if (tpl.local === "flip") {
       setBusy(true);
-      try { onLocal(await upload(await (await fetch(base.url)).blob(), "volteada", true)); toast.success("Listo: imagen volteada (gratis)."); }
+      try { onLocal(await upload(await (await fetch(base!.url)).blob(), "volteada", true)); toast.success("Listo: imagen volteada (gratis)."); }
       catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo voltear."); }
       finally { setBusy(false); }
       return;
     }
     if (balance < cost) { toast.error(`Te faltan créditos: esta imagen cuesta ${cost}.`); return; }
     const refOf = (r: Ref) => ("stock" in r ? { stock: r.stock } : { bucket: r.bucket, path: r.path });
-    const refs: Record<string, unknown> = { persona: refOf(base) };
+    const refs: Record<string, unknown> = base && tpl.refs.includes("persona") ? { persona: refOf(base) } : {};
     for (const s of slots) refs[s] = refOf(extra[s]!);
     setBusy(true);
     try {
@@ -297,11 +300,15 @@ function ImagenTab({ base, disabled, balance, upload, onDone, onLocal, gallery }
           <SlotPicker key={s} slot={s} value={extra[s] ?? null} upload={upload} gallery={gallery}
             onChange={r => setExtra(x => ({ ...x, [s]: r ?? undefined }))} />
         ))}
+        {tpl.id === "avatar-base" && <Avatar6CForm onPrompt={setFill} disabled={disabled || busy} />}
         {tpl.fill && (
           <label className="block space-y-1">
             <span className="text-[13px] text-foreground">{tpl.fill.label}</span>
-            <input value={fill} onChange={e => setFill(e.target.value.slice(0, tpl.fill!.max))} placeholder={tpl.fill.placeholder}
-              className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm" />
+            {tpl.fill.max > 300
+              ? <textarea value={fill} rows={7} onChange={e => setFill(e.target.value.slice(0, tpl.fill!.max))} placeholder={tpl.fill.placeholder}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-[13px] font-mono leading-relaxed" />
+              : <input value={fill} onChange={e => setFill(e.target.value.slice(0, tpl.fill!.max))} placeholder={tpl.fill.placeholder}
+                  className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm" />}
           </label>
         )}
         {!tpl.local && (
@@ -310,7 +317,7 @@ function ImagenTab({ base, disabled, balance, upload, onDone, onLocal, gallery }
             <ModelCards label="Modelo de imagen" items={imageModels} value={tier} recommended={tpl.tier} onChange={id => setPick(id as ImageModelTier)} />
           </div>
         )}
-        {!base && <p className="text-[13px] text-muted-foreground">Primero elige la foto base arriba.</p>}
+        {needsBase && !base && <p className="text-[13px] text-muted-foreground">Primero elige la foto base arriba.</p>}
         <button type="button" onClick={crear} disabled={disabled || !ready || busy}
           className="h-11 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}

@@ -44,8 +44,9 @@ export const REF_LABEL: Record<RefSlot, string> = {
   producto: "Foto del producto", captura: "Captura de tu app o web", aiFace: "Cara creada con IA",
 };
 
-export type ImageGroup = "ropa" | "aspecto" | "angulos" | "producto" | "pantalla";
+export type ImageGroup = "crear" | "ropa" | "aspecto" | "angulos" | "producto" | "pantalla";
 export const IMAGE_GROUPS: { id: ImageGroup; label: string; line: string }[] = [
+  { id: "crear", label: "Crear avatar", line: "Una persona nueva desde cero con el método 6C: describes cómo es y la IA escribe el prompt." },
   { id: "ropa", label: "Ropa y fondo", line: "La misma persona con otra ropa o en otro lugar." },
   { id: "aspecto", label: "Cambiar el aspecto", line: "La misma cara en otra situación, o una persona nueva." },
   { id: "angulos", label: "Ángulos", line: "La misma persona desde otro ángulo: más variedad, más valor percibido." },
@@ -65,6 +66,8 @@ export type ImageTemplate = {
   prompt: (fill: string) => string;
 };
 
+export const AVATAR_PROMPT_MAX = 2000;
+
 const SAME = "Using this image as reference, keep the SAME person (same face and identity), the same outfit and the same setting.";
 const REAL = "Photorealistic, natural skin texture and lighting.";
 const angle = (id: string, label: string, desc: string, render: string): ImageTemplate => ({
@@ -73,6 +76,12 @@ const angle = (id: string, label: string, desc: string, render: string): ImageTe
 });
 
 export const IMAGE_TEMPLATES: ImageTemplate[] = [
+  // Crear avatar (24-oct-2026, "UGC sin producto"): sin foto de referencia; el prompt 6C lo escribe la IA
+  // (generador avatar-6c) o la persona. Nunca parecido a alguien real: la cara es siempre nueva.
+  { id: "avatar-base", group: "crear", label: "Avatar desde cero", desc: "Una persona nueva, como foto de iPhone.", refs: [], tier: "gpt",
+    fill: { label: "Prompt del avatar (método 6C, en inglés)", placeholder: "A candid iPhone photo of a female content creator in her early 20s…", max: AVATAR_PROMPT_MAX },
+    prompt: f => `${f} The person is a new, AI-generated character: do not resemble any real or famous person.` },
+
   // Ropa y fondo
   { id: "ropa", group: "ropa", label: "Cambiar la ropa", desc: "Misma persona, mismo lugar, otra ropa.", refs: ["persona"], tier: "gpt",
     fill: { label: "¿Qué ropa?", placeholder: "Ej.: blusa blanca de lino y jeans claros", max: 160 },
@@ -139,6 +148,58 @@ export const IMAGE_TEMPLATES: ImageTemplate[] = [
 ];
 
 export const imageTemplate = (id: unknown) => IMAGE_TEMPLATES.find(t => t.id === id) ?? null;
+
+// ───────────────────────── Avatar 6C (24-oct-2026) ─────────────────────────
+// La persona describe su avatar en español con pocos datos; el generador avatar-6c (ai-chat, ligero) escribe el
+// prompt en inglés con el método 6C: Character, Camera, Clothing, Context, Cinematic light, Consistency anchors.
+
+export const AVATAR_6C_GENERATOR = "avatar-6c";
+export type Avatar6C = {
+  estilo: "influencer" | "creador";
+  persona: string;  // edad, género, piel, pelo, rasgos
+  ropa: string;
+  lugar: string;
+  luz: string;
+  accion: string;   // qué hace: habla a cámara con micrófono, selfie, camina…
+};
+export const AVATAR_6C_EMPTY: Avatar6C = { estilo: "creador", persona: "", ropa: "", lugar: "", luz: "", accion: "habla a cámara sosteniendo un micrófono inalámbrico pequeño" };
+
+export const AVATAR_6C_SYSTEM = [
+  "Eres un experto en prompts de imagen hiperrealistas estilo foto de iPhone para avatares de creadores de contenido (UGC).",
+  "Escribes SIEMPRE un único prompt en inglés con el Método 6C, en este orden, en párrafos cortos:",
+  "C1 Character: edad, vibe, rasgos de la cara, piel realista (visible pores, subtle freckles, natural imperfections).",
+  "C2 Camera: iPhone photo, shot vertically, eye-level, medium portrait, natural smartphone lens look, authentic social media reel aesthetic.",
+  "C3 Clothing: outfit, styling y accesorios.",
+  "C4 Context: lugar y fondo concreto, despejado, que deje toda la atención en la persona.",
+  "C5 Cinematic light: luz natural y/o direct iPhone flash, sombras, slight grain, candid dump vibe.",
+  "C6 Consistency anchors: 'Maintain the same pose, hairstyle, outfit, framing, expression, background and overall composition. Preserve realistic proportions, accurate hands and facial features, natural skin texture, true-to-life colors, sharp focus.'",
+  "Reglas: nunca menciones AI, CGI, render ni 'hyperrealistic'. Nada sexual ni insinuante. Nunca nombres ni describas a una persona famosa o real: la persona es nueva.",
+  "Estilo 'influencer' = Instagram influencer, model-level aesthetic. Estilo 'creador' = relatable creator, real UGC vibe.",
+  "Termina SIEMPRE con: No text, no watermark, no distortion.",
+  "Responde SOLO con el prompt, sin títulos, sin comillas, sin bloque de código y sin texto antes ni después.",
+].join("\n");
+
+/** Pedido al generador con lo que escribió la persona (son datos, no instrucciones). */
+export function avatar6cRequest(d: Avatar6C): string {
+  const f = (v: string, max = 240) => cleanFill(v, max) || "(elige tú algo natural y coherente)";
+  return [
+    `Escribe el prompt 6C de este avatar. Estilo: ${d.estilo === "influencer" ? "influencer (opción A)" : "creador real UGC (opción B)"}.`,
+    `Persona: ${f(d.persona)}`,
+    `Ropa: ${f(d.ropa)}`,
+    `Lugar: ${f(d.lugar)}`,
+    `Luz: ${f(d.luz)}`,
+    `Qué hace: ${f(d.accion)}`,
+  ].join("\n");
+}
+
+/** Limpia la respuesta del generador: sin bloques de código ni comillas, con el cierre obligatorio. */
+export function parse6c(text: string): string | null {
+  const t = text.replace(/```[a-z]*\n?/gi, "").replace(/```/g, "").trim().replace(/^["“]|["”]$/g, "").trim();
+  if (t.length < 80) return null;
+  const end = "No text, no watermark, no distortion.";
+  const body = t.includes(end) ? t.slice(0, t.lastIndexOf(end) + end.length) : `${t}\n\n${end}`;
+  return body.slice(0, AVATAR_PROMPT_MAX);
+}
 
 /** Limpia el hueco que escribe la persona (sin comillas ni saltos que rompan el prompt). */
 export function cleanFill(v: unknown, max: number): string {
@@ -288,8 +349,25 @@ const lookLine = (look: string) => (look ? `Scene direction from the creator (fo
 
 const byId = <T extends { id: string }>(list: T[], id: unknown) => list.find(x => x.id === id) ?? null;
 
+/** Partes del prompt de un clip, con la etiqueta de color que se ve en la app (como en el curso de UGC). */
+export type PromptTag = "camara" | "escena" | "guion" | "voz" | "acento" | "reglas";
+export const PROMPT_TAGS: Record<PromptTag, string> = {
+  camara: "Cámara", escena: "Cómo se ve", guion: "Guion y micro-acción", voz: "Voz", acento: "Acento", reglas: "Reglas",
+};
+
+/** El prompt de video separado por partes. buildVideoPrompt une estas mismas partes: lo que se ve es lo que se manda. */
+export function videoPromptParts(p: VideoParts): { parts: { tag: PromptTag; text: string }[]; talks: boolean } | { error: string } {
+  const r = buildVideoPromptInternal(p);
+  return "error" in r ? r : { parts: r.parts, talks: r.talks };
+}
+
 /** Prompt final de video (lo arma el servidor). */
 export function buildVideoPrompt(p: VideoParts): { prompt: string; talks: boolean } | { error: string } {
+  const r = buildVideoPromptInternal(p);
+  return "error" in r ? r : { prompt: r.prompt, talks: r.talks };
+}
+
+function buildVideoPromptInternal(p: VideoParts): { prompt: string; parts: { tag: PromptTag; text: string }[]; talks: boolean } | { error: string } {
   const f = byId(VIDEO_FORMATS, p.format);
   if (!f) return { error: "Elige un formato." };
   const cam = byId(CAMERAS, p.camera) ?? CAMERAS[0];
@@ -299,13 +377,19 @@ export function buildVideoPrompt(p: VideoParts): { prompt: string; talks: boolea
   if (!f.talks) {
     if (f.id === "broll-producto") {
       const surface = cleanFill(p.surface, 80) || "a neutral backdrop";
-      return { talks: false, prompt: [`Slow gentle camera move, cinematic, no talking. Using the product from the reference image, a clean beauty shot of the product on ${surface}, soft natural lighting, the product in sharp focus with its label clearly visible and unchanged. No people. ${NO_CUTS}`, direction, RULES_EN].filter(Boolean).join("\n\n") };
+      return muted([
+        { tag: "camara", text: `Slow gentle camera move, cinematic, no talking. Using the product from the reference image, a clean beauty shot of the product on ${surface}, soft natural lighting, the product in sharp focus with its label clearly visible and unchanged. No people. ${NO_CUTS}` },
+        { tag: "escena", text: direction }, { tag: "reglas", text: RULES_EN },
+      ]);
     }
     const act = byId(BROLL_ACTIONS, p.action);
     const place = byId(PLACES, p.place);
     // Con su propia descripción, la acción de la lista es opcional.
     if (!act && !l.look) return { error: "Elige qué hace tu avatar o describe la escena." };
-    return { talks: false, prompt: [`${cam.prompt.replace(` ${NO_CUTS}`, "")}, cinematic, no talking, mouth closed. Keep the SAME person from the reference.${act ? ` They ${act.en}.` : ""}${place ? ` ${place.en}` : ""} ${NO_CUTS}`, direction, RULES_EN].filter(Boolean).join("\n\n") };
+    return muted([
+      { tag: "camara", text: `${cam.prompt.replace(` ${NO_CUTS}`, "")}, cinematic, no talking, mouth closed. Keep the SAME person from the reference.${act ? ` They ${act.en}.` : ""}${place ? ` ${place.en}` : ""} ${NO_CUTS}` },
+      { tag: "escena", text: direction }, { tag: "reglas", text: RULES_EN },
+    ]);
   }
   const script = cleanFill(p.script, 400);
   if (wordCount(script) < 3) return { error: "Escribe lo que va a decir (mínimo 3 palabras)." };
@@ -323,15 +407,21 @@ export function buildVideoPrompt(p: VideoParts): { prompt: string; talks: boolea
   const say = before
     ? `The person ${before.en}, then looks at the camera and says: "${script}"`
     : `The person looks directly at the camera with natural gestures and a clear, friendly influencer tone, and says: "${script}"`;
-  const lines = [
-    `${cam.prompt}${product}`,
-    ...(direction ? [direction] : []),
-    `${say}${after ? ` ${after.en}.` : ""}`,
-    voice.prompt,
-    `${accent.prompt} Single speaker: only the person from the reference image talks. Clean audio, no background music.`,
-    `${PRESENTER_RULE_EN} ${RULES_EN}`,
+  const parts: { tag: PromptTag; text: string }[] = [
+    { tag: "camara", text: `${cam.prompt}${product}` },
+    ...(direction ? [{ tag: "escena" as const, text: direction }] : []),
+    { tag: "guion", text: `${say}${after ? ` ${after.en}.` : ""}` },
+    { tag: "voz", text: voice.prompt },
+    { tag: "acento", text: `${accent.prompt} Single speaker: only the person from the reference image talks. Clean audio, no background music.` },
+    { tag: "reglas", text: `${PRESENTER_RULE_EN} ${RULES_EN}` },
   ];
-  return { talks: true, prompt: lines.join("\n") };
+  return { talks: true, parts, prompt: parts.map(x => x.text).join("\n") };
+}
+
+/** Escena muda: une las partes con línea en blanco (igual que antes de separarlas). */
+function muted(raw: { tag: PromptTag; text: string }[]) {
+  const parts = raw.filter(x => x.text);
+  return { talks: false, parts, prompt: parts.map(x => x.text).join("\n\n") };
 }
 
 // ───────────────────────── Modelos y precios ─────────────────────────

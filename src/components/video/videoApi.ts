@@ -101,10 +101,13 @@ export async function downloadVideo(url: string, name: string) {
 }
 
 /** "Mejorar el guion con IA": generador ugc-script de ai-chat (lo cobra el servidor). */
-export async function streamUgcScript(system: string, user: string): Promise<{ text: string; billing: ServerBilling }> {
+export const streamUgcScript = (system: string, user: string) => streamGenerator("ugc-script", "Guion de video IA", system, user);
+
+/** Un generador de ai-chat con sistema propio, leído en streaming. El precio lo pone el servidor por su id. */
+export async function streamGenerator(id: string, title: string, system: string, user: string): Promise<{ text: string; billing: ServerBilling }> {
   const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
     method: "POST", headers: await fnHeaders(),
-    body: JSON.stringify({ generator_id: "ugc-script", generator_title: "Guion de video IA", systemPrompt: system, messages: [{ role: "user", content: user }] }),
+    body: JSON.stringify({ generator_id: id, generator_title: title, systemPrompt: system, messages: [{ role: "user", content: user }] }),
   });
   if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "La IA no respondió. No se te cobró: intenta de nuevo."));
   const billing = readBilling(resp);

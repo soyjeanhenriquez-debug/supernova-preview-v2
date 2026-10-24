@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Camera, Check, Download, ImagePlus, Loader2, Plus, RefreshCw, Sparkles, Trash2, UserRound, X } from "lucide-react";
+import { Camera, Check, Copy, Download, ImagePlus, Loader2, Plus, RefreshCw, Sparkles, Trash2, UserRound, Wand2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { invokeErrorMessage } from "@/lib/fnAuth";
@@ -9,16 +9,21 @@ import { track } from "@/lib/analytics";
 import { STOCK_INFLUENCERS, stockById } from "@/lib/influencers";
 import { refForServer, uploadStudioImage, type StudioRef } from "@/lib/studioUpload";
 import {
-  ACCENTS, CAMERAS, LOOK_MAX, VIDEO_FORMATS, VIDEO_MODELS, VOICES,
-  fitLen, imageCredits, isTestimonial, maxWords, videoCredits, videoModel, videoSeconds, wordCount,
-  type VideoFormat, type VideoLen, type VideoModel,
+  ACCENTS, AVATAR_PROMPT_MAX, CAMERAS, GESTURES, LOOK_MAX, PROMPT_TAGS, VIDEO_FORMATS, VIDEO_MODELS, VOICES,
+  fitLen, imageCredits, isTestimonial, maxWords, videoCredits, videoModel, videoPromptParts, videoSeconds, wordCount,
+  type PromptTag, type VideoFormat, type VideoLen, type VideoModel,
 } from "@/lib/avatarStudio";
+import { Avatar6CForm } from "@/components/video/Avatar6C";
 import { publishText, type Shot, type VideoBrief, type VideoSize } from "@/lib/videoTemplates";
 import { AdFinalVideo } from "@/components/video/AdFinalVideo";
 import { ReadyToPublish } from "@/components/video/ReadyToPublish";
 import { downloadVideo, waitForVideo, type VideoJob } from "@/components/video/videoApi";
 
 /**
+ * Dos plantillas: "Con tu producto" y "UGC sin producto" (24-oct-2026, del curso de UGC de Jean: solo la persona
+ * hablando a cámara; avatar creado con el método 6C; cada clip con cámara, micro-acción, guion, voz y acento, y su
+ * prompt a la vista por partes de colores).
+ *
  * Anuncio en video por escenas, estilo Higgsfield (22-oct-2026, tras la prueba de Cindy: frases de 20 palabras en
  * tomas fijas de 5 s y sin poder poner su producto). Una sola pantalla:
  *   1) Tu producto (foto) · 2) Quién lo presenta (avatar de SUPERNOVA, tu foto, una imagen de tu estudio o nadie)
@@ -34,6 +39,13 @@ type SceneCfg = {
   key: string; label: string; line: string; look: string; format: VideoFormat;
   model: string; seconds: VideoLen; camera: string; extra?: boolean; off?: boolean;
   role?: string; touched?: boolean; // touched: la persona eligió el formato; ya no se cambia solo
+  before?: string; after?: string;  // micro-acción: gesto antes de hablar y al terminar
+};
+type Plantilla = "producto" | "ugc";
+/** Color de cada parte del prompt (como en el curso): suave, para leer, no para llamar la atención. */
+const TAG_CLS: Record<PromptTag, string> = {
+  camara: "bg-sky-500/10 border-sky-500/30", escena: "bg-violet-500/10 border-violet-500/30", guion: "bg-lime-500/10 border-lime-500/30",
+  voz: "bg-cyan-500/10 border-cyan-500/30", acento: "bg-pink-500/10 border-pink-500/30", reglas: "bg-secondary/40 border-border",
 };
 type SceneRun = { job?: VideoJob; error?: string; progress?: number | null };
 
@@ -85,8 +97,38 @@ export function AdStudio({ uid, productId, brief, shots, onLine, cfg, size, onSi
   const creditsLeft = useCreditsLeft().label;
   const models = useMemo(() => VIDEO_MODELS.filter(m => (m.provider === "apimart" ? cfg.apimart : cfg.higgsfield)), [cfg]);
 
+  // ---------- Plantilla ----------
+  const [plantilla, setPlantilla] = useState<Plantilla>("producto");
+  const ugc = plantilla === "ugc";
+
   // ---------- Producto y presentador ----------
   const [product, setProduct] = useState<StudioRef | null>(null);
+  useEffect(() => { if (ugc) setProduct(null); }, [ugc]);
+  // Crear avatar (6C) y otra foto del mismo avatar: imágenes del estudio (GPT Image 2), cobra el servidor.
+  const [avatarOpen, setAvatarOpen] = useState(false);
+  const [avatarPrompt, setAvatarPrompt] = useState("");
+  const [variation, setVariation] = useState("");
+  const [imaging, setImaging] = useState<"avatar" | "variacion" | null>(null);
+  const makeImage = async (kind: "avatar" | "variacion") => {
+    if (imaging || busy) return;
+    const cost = imageCredits("gpt");
+    if (balance < cost) { toast.error(`Te faltan créditos: la imagen cuesta ${cost}.`); return; }
+    setImaging(kind);
+    try {
+      const body = kind === "avatar"
+        ? { action: "image", template: "avatar-base", model: "gpt", fill: avatarPrompt, aspect: size }
+        : { action: "image", template: "misma-persona", model: "gpt", fill: variation, aspect: size, refs: { persona: refForServer(presenter!) } };
+      const r = await invokeStudio<{ path: string; url: string; billing?: Billing }>(body);
+      if (r.billing) applyServerCharge("gen_media", r.billing, kind === "avatar" ? "Avatar 6C · foto" : "Avatar · otra foto");
+      const ref: StudioRef = { bucket: "estudio-avatar", path: r.path, url: r.url };
+      setGallery(g => [{ path: r.path, url: r.url }, ...g].slice(0, 8));
+      setPresenter(ref);
+      if (kind === "avatar") setAvatarOpen(false); else setVariation("");
+      track("estudio_avatar_imagen", { plantilla: kind === "avatar" ? "avatar-base" : "misma-persona", modelo: "gpt" });
+      toast.success(kind === "avatar" ? "Tu avatar está listo: ya es quien presenta." : "Lista la otra foto: ya es la del video.");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo crear la imagen."); }
+    finally { setImaging(null); }
+  };
   const [presenter, setPresenter] = useState<StudioRef | null>({ stock: STOCK_INFLUENCERS[0].id, url: STOCK_INFLUENCERS[0].foto });
   const [composite, setComposite] = useState<StudioRef | null>(null); // la persona con tu producto (foto de inicio)
   const [gallery, setGallery] = useState<{ path: string; url: string }[]>([]);
@@ -110,6 +152,7 @@ export function AdStudio({ uid, productId, brief, shots, onLine, cfg, size, onSi
 
   // ---------- Escenas ----------
   const [scenes, setScenes] = useState<SceneCfg[]>([]);
+  const [showPrompt, setShowPrompt] = useState<string | null>(null);
   useEffect(() => {
     // La plantilla (o «Mejorar con IA») cambia el texto; los ajustes de cada escena se quedan.
     setScenes(prev => [
@@ -224,7 +267,7 @@ export function AdStudio({ uid, productId, brief, shots, onLine, cfg, size, onSi
           action: "video", model: m.id, seconds, aspect: size, image: refForServer(image),
           product: m.productRef && needsProduct(s.format) && product ? refForServer(product) : undefined,
           product_id: productId ?? undefined, label: `Escena ${index + 1} de ${n} · ${s.label}`,
-          parts: { format: s.format, camera: s.camera, script: s.line, look: s.look.trim() || undefined, voice, accent, surface: "" },
+          parts: { format: s.format, camera: s.camera, script: s.line, look: s.look.trim() || undefined, voice, accent, surface: "", before: s.before, after: s.after },
         });
         if (r.billing) applyServerCharge("gen_media", r.billing, `Video anuncio · ${s.label} · ${videoSeconds(m, seconds)} s`);
         const done = await waitForVideo(r.job.id, p => setRun(cur => cur.map((x, j) => (j === k ? { ...x, progress: p } : x))), { check: b => invokeStudio(b) });
@@ -270,10 +313,23 @@ export function AdStudio({ uid, productId, brief, shots, onLine, cfg, size, onSi
   return (
     <div className="space-y-5 min-w-0">
       <div className="rounded-2xl border border-border p-4 sm:p-5 space-y-5 min-w-0">
+        <div className="grid gap-2 sm:grid-cols-2">
+          {([
+            ["producto", "Con tu producto", "La persona lo muestra o lo señala mientras habla."],
+            ["ugc", "UGC sin producto", "Solo la persona hablando a cámara: el producto no aparece."],
+          ] as [Plantilla, string, string][]).map(([id, label, desc]) => (
+            <button key={id} type="button" onClick={() => setPlantilla(id)} disabled={busy}
+              className={`text-left rounded-xl border px-3 py-2.5 min-h-[44px] ${plantilla === id ? "border-foreground/40 bg-card" : "border-border hover:border-foreground/30"}`}>
+              <span className="block text-[13px] font-semibold text-foreground">{label}</span>
+              <span className="block text-[11px] text-muted-foreground">{desc}</span>
+            </button>
+          ))}
+        </div>
+
         {toolbar}
 
         {/* 1 · Producto */}
-        <div className="space-y-2">
+        {!ugc && <div className="space-y-2">
           <p className="text-[13px] font-semibold text-foreground">1 · Tu producto</p>
           <div className="flex items-center gap-3">
             {product ? <img src={product.url} alt="Tu producto" className="w-16 h-16 rounded-xl object-cover border border-border" />
@@ -290,11 +346,11 @@ export function AdStudio({ uid, productId, brief, shots, onLine, cfg, size, onSi
             </div>
             <input ref={productInput} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void upload(f, "producto"); }} />
           </div>
-        </div>
+        </div>}
 
         {/* 2 · Quién lo presenta */}
         <div className="space-y-2">
-          <p className="text-[13px] font-semibold text-foreground">2 · Quién lo presenta</p>
+          <p className="text-[13px] font-semibold text-foreground">{ugc ? "1" : "2"} · Quién {ugc ? "habla" : "lo presenta"}</p>
           <div className="flex flex-wrap items-center gap-2">
             {STOCK_INFLUENCERS.map(s => (
               <button key={s.id} type="button" onClick={() => setPresenter({ stock: s.id, url: s.foto })} disabled={busy} aria-label={s.personaje.nombre}
@@ -314,13 +370,37 @@ export function AdStudio({ uid, productId, brief, shots, onLine, cfg, size, onSi
             <button type="button" onClick={() => personInput.current?.click()} disabled={busy || !!uploading} className={chip(false)}>
               {uploading === "persona" ? <Loader2 className="inline w-3.5 h-3.5 animate-spin mr-1" /> : <UserRound className="inline w-3.5 h-3.5 mr-1" />}Tu foto
             </button>
-            <button type="button" onClick={() => setPresenter(null)} disabled={busy || !product} className={chip(!presenter)}
-              title={product ? "" : "Primero sube la foto del producto"}>Sin persona</button>
+            <button type="button" onClick={() => setAvatarOpen(v => !v)} disabled={busy} className={chip(avatarOpen)}>
+              <Wand2 className="inline w-3.5 h-3.5 mr-1" />Crear avatar
+            </button>
+            {!ugc && <button type="button" onClick={() => setPresenter(null)} disabled={busy || !product} className={chip(!presenter)}
+              title={product ? "" : "Primero sube la foto del producto"}>Sin persona</button>}
             <input ref={personInput} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void upload(f, "persona"); }} />
           </div>
           <p className="text-[11px] text-muted-foreground">
             {presenter ? "Los avatares de SUPERNOVA son personajes creados con IA. Si usas tu foto, la persona eres tú." : "Solo tu producto, sin personas: escenas mudas para poner tu voz o música después."}
           </p>
+          {avatarOpen && (
+            <div className="rounded-xl border border-border p-3 space-y-3">
+              <p className="text-[12px] text-muted-foreground">Describe a tu avatar y la IA escribe el prompt con el método 6C (personaje, cámara, ropa, lugar, luz y realismo). Puedes editarlo antes de crear la foto.</p>
+              <Avatar6CForm onPrompt={setAvatarPrompt} disabled={busy || !!imaging} />
+              <textarea value={avatarPrompt} rows={6} onChange={e => setAvatarPrompt(e.target.value.slice(0, AVATAR_PROMPT_MAX))} disabled={busy || !!imaging}
+                placeholder="A candid iPhone photo of… (o escríbelo tú)" className={`${field} font-mono text-[12px] leading-relaxed`} />
+              <button type="button" onClick={() => void makeImage("avatar")} disabled={busy || !!imaging || avatarPrompt.trim().length < 40}
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border text-[12px] text-foreground hover:border-foreground/30 disabled:opacity-50">
+                {imaging === "avatar" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Crear mi avatar · {imageCredits("gpt")} créditos
+              </button>
+            </div>
+          )}
+          {presenter && (
+            <div className="flex flex-wrap items-center gap-2">
+              <input value={variation} onChange={e => setVariation(e.target.value.slice(0, 220))} disabled={busy || !!imaging}
+                placeholder="Otra foto del mismo avatar: ej. en su cocina, con sudadera gris" className={`${field} h-9 py-0 flex-1 min-w-[200px]`} />
+              <button type="button" onClick={() => void makeImage("variacion")} disabled={busy || !!imaging || variation.trim().length < 3} className={chip(false)}>
+                {imaging === "variacion" ? <Loader2 className="inline w-3.5 h-3.5 animate-spin mr-1" /> : null}Crear · {imageCredits("gpt")} cr
+              </button>
+            </div>
+          )}
           {presenter && (
             <div className="flex flex-wrap gap-2">
               <select className={select} value={voice} onChange={e => setVoice(e.target.value)} disabled={busy} aria-label="Voz">
@@ -342,7 +422,7 @@ export function AdStudio({ uid, productId, brief, shots, onLine, cfg, size, onSi
         {/* 3 · Escenas */}
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[13px] font-semibold text-foreground">3 · Escenas</p>
+            <p className="text-[13px] font-semibold text-foreground">{ugc ? "2" : "3"} · {ugc ? "Clips" : "Escenas"}</p>
             <select className={select} value="" onChange={e => e.target.value && allModel(e.target.value)} disabled={busy} aria-label="Motor para todas">
               <option value="">Motor para todas…</option>
               {models.map(m => <option key={m.id} value={m.id}>{m.label}{m.talks ? "" : " (sin voz)"}</option>)}
@@ -355,6 +435,10 @@ export function AdStudio({ uid, productId, brief, shots, onLine, cfg, size, onSi
             const allowed = models.filter(x => !talks || x.talks);
             const formats = (presenter ? (["camara", "sostiene", "senala", "sin-hablar"] as VideoFormat[]) : (["broll-producto"] as VideoFormat[]))
               .filter(f => !needsProduct(f) || product);
+            const pp = showPrompt === s.key ? videoPromptParts({
+              format: s.format, camera: s.camera, script: s.line, look: s.look, voice, accent, before: s.before, after: s.after,
+              seconds: m ? videoSeconds(m, fitLen(m, s.seconds)) : s.seconds, surface: "",
+            }) : null;
             const real = m ? videoSeconds(m, fitLen(m, s.seconds)) : s.seconds;
             return (
               <div key={s.key} className={`rounded-xl border border-border p-3 space-y-2.5 ${s.off ? "opacity-50" : ""}`}>
@@ -396,7 +480,36 @@ export function AdStudio({ uid, productId, brief, shots, onLine, cfg, size, onSi
                         </select>
                       )}
                     </div>
-                    {m && <p className="text-[11px] text-muted-foreground">{m.note}</p>}
+                    {talks && (
+                      <div className="flex flex-wrap gap-2">
+                        <select className={select} value={s.before ?? ""} onChange={e => patch(i, { before: e.target.value || undefined })} disabled={busy} aria-label="Gesto antes de hablar">
+                          <option value="">Antes de hablar: nada</option>{GESTURES.map(g => <option key={g.id} value={g.id}>Antes: {g.label}</option>)}
+                        </select>
+                        <select className={select} value={s.after ?? ""} onChange={e => patch(i, { after: e.target.value || undefined })} disabled={busy} aria-label="Gesto al terminar">
+                          <option value="">Al terminar: nada</option>{GESTURES.map(g => <option key={g.id} value={g.id}>Al terminar: {g.label}</option>)}
+                        </select>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between gap-2">
+                      {m ? <p className="text-[11px] text-muted-foreground">{m.note}</p> : <span />}
+                      <button type="button" onClick={() => setShowPrompt(k => (k === s.key ? null : s.key))} className="shrink-0 text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground">
+                        {showPrompt === s.key ? "Ocultar prompt" : "Ver prompt"}
+                      </button>
+                    </div>
+                    {pp && ("error" in pp
+                      ? <p className="text-[11px] text-muted-foreground">El prompt aparece cuando la escena esté completa: {pp.error}</p>
+                      : (
+                        <div className="space-y-1.5">
+                          {pp.parts.map((x, k) => (
+                            <div key={k} className={`rounded-lg border px-2.5 py-1.5 ${TAG_CLS[x.tag]}`}>
+                              <span className="block text-[10px] uppercase tracking-wider text-muted-foreground">{PROMPT_TAGS[x.tag]}</span>
+                              <span className="block text-[12px] font-mono text-foreground leading-relaxed break-words">{x.text}</span>
+                            </div>
+                          ))}
+                          <button type="button" onClick={() => { void navigator.clipboard.writeText(pp.parts.map(x => x.text).join("\n")).then(() => toast.success("Prompt copiado.")); }}
+                            className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground"><Copy className="w-3.5 h-3.5" />Copiar prompt</button>
+                        </div>
+                      ))}
                     {p && (
                       <p className="text-[11px] text-primary">
                         {p.text}{" "}

@@ -13,7 +13,7 @@ vi.mock("@/integrations/supabase/client", () => {
 });
 vi.mock("@/hooks/useCreditsLeft", () => ({ useCreditsLeft: () => ({ label: "Te quedan 2.000 créditos", isAdmin: false }) }));
 const CREDITS = vi.hoisted(() => ({ applyServerCharge: vi.fn(), balance: 2000 }));
-vi.mock("@/hooks/useCredits", () => ({ useCredits: () => CREDITS }));
+vi.mock("@/hooks/useCredits", () => ({ useCredits: () => CREDITS, generatorCost: () => ({ action: "gen_light", cost: 15 }) }));
 vi.mock("@/lib/analytics", () => ({ track: vi.fn() }));
 vi.mock("@/components/video/AdFinalVideo", () => ({ AdFinalVideo: () => null }));
 vi.mock("@/components/video/ReadyToPublish", () => ({ ReadyToPublish: () => null }));
@@ -78,8 +78,9 @@ describe("Anuncio en video · por escenas", () => {
   });
 
   it("texto largo en 5 s: avisa, no deja crear y ofrece pasar a 10 s; «cómo se ve» va al servidor", async () => {
-    setup();
-    const boxes = await screen.findAllByRole("textbox");
+    const { container } = setup();
+    await screen.findByRole("button", { name: /Crear anuncio/ });
+    const boxes = Array.from(container.querySelectorAll("textarea")); // [0] lo que dice · [1] cómo se ve (escena 1)
     fireEvent.change(boxes[0], { target: { value: "Si trabajas todo el día, lo último que necesitas al llegar a casa es tener que empezar otra jornada cocinando" } });
     expect(await screen.findByText(/En 5 s caben unas 12 palabras y tienes 20/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Usar 10 s/ }));
@@ -88,5 +89,31 @@ describe("Anuncio en video · por escenas", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Crear anuncio · 355 créditos/ }));
     await waitFor(() => expect(bodies("video")).toHaveLength(3));
     expect(bodies("video")[0]).toMatchObject({ seconds: 10, parts: { look: "cocina luminosa de día, cámara en mano" } });
+  });
+
+  it("UGC sin producto: sin bloque de producto y con el prompt del clip por partes", async () => {
+    setup();
+    fireEvent.click(await screen.findByRole("button", { name: /UGC sin producto/ }));
+    expect(screen.queryByRole("button", { name: /Subir foto del producto/ })).toBeNull();
+    fireEvent.click(screen.getAllByRole("button", { name: "Ver prompt" })[0]);
+    expect(await screen.findByText("Cámara")).toBeInTheDocument();
+    expect(screen.getByText("Guion y micro-acción")).toBeInTheDocument();
+    expect(screen.getByText("Acento")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Crear anuncio · 267 créditos/ }));
+    await waitFor(() => expect(bodies("video")).toHaveLength(3));
+    expect(bodies("video").every(b => (b.parts as { format: string }).format === "camara")).toBe(true);
+  });
+
+  it("Crear avatar: el prompt 6C crea la foto (sin referencia) y pasa a ser quien presenta", async () => {
+    setup();
+    fireEvent.click(await screen.findByRole("button", { name: /Crear avatar/ }));
+    fireEvent.change(screen.getByPlaceholderText(/A candid iPhone photo of/), { target: { value: "A candid iPhone photo of a relatable female creator in her mid 20s talking to the camera. No text, no watermark, no distortion." } });
+    fireEvent.click(screen.getByRole("button", { name: /Crear mi avatar · 9 créditos/ }));
+    await waitFor(() => expect(bodies("image")).toHaveLength(1));
+    expect(bodies("image")[0]).toMatchObject({ template: "avatar-base", model: "gpt" });
+    expect(bodies("image")[0].refs).toBeUndefined();
+    fireEvent.click(await screen.findByRole("button", { name: /Crear anuncio · 267 créditos/ }));
+    await waitFor(() => expect(bodies("video")).toHaveLength(3));
+    expect(bodies("video")[0].image).toEqual({ bucket: "estudio-avatar", path: "u1/foto-inicio.png" });
   });
 });

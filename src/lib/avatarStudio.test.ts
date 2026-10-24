@@ -2,7 +2,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   IMAGE_TEMPLATES, IMAGE_TIERS, IMAGE_TIER_IDS, VIDEO_MODELS, buildImagePrompt, buildVideoPrompt, creditsFor, imageCredits,
-  fitLen, isImageTier, isTestimonial, isVideoLen, maxWords, videoCredits, videoModel, videoSeconds, videoUsd,
+  avatar6cRequest, fitLen, isImageTier, parse6c, videoPromptParts, isTestimonial, isVideoLen, maxWords, videoCredits, videoModel, videoSeconds, videoUsd,
 } from "@/lib/avatarStudio";
 import { bestFor } from "@/lib/modelAdvice";
 
@@ -129,5 +129,31 @@ describe("estudio de video por escenas (22-oct-2026)", () => {
     const r10 = buildVideoPrompt({ format: "camara", script: line, seconds: 10 });
     expect("error" in r5).toBe(true);
     expect("prompt" in r10).toBe(true);
+  });
+});
+
+describe("UGC sin producto · avatar 6C (24-oct-2026)", () => {
+  it("parse6c quita bloques de código y siempre cierra con «No text, no watermark, no distortion.»", () => {
+    const body = "A candid iPhone photo of a relatable creator in her mid 20s, visible pores, talking to the camera in a kitchen.";
+    expect(parse6c("```txt\n" + body + "\n```")).toBe(`${body}\n\nNo text, no watermark, no distortion.`);
+    expect(parse6c(`${body} No text, no watermark, no distortion. Extra.`)).toBe(`${body} No text, no watermark, no distortion.`);
+    expect(parse6c("corto")).toBeNull();
+  });
+  it("el pedido lleva los datos de la persona y el estilo", () => {
+    const r = avatar6cRequest({ estilo: "influencer", persona: "mujer de 25 años", ropa: "", lugar: "pared gris", luz: "", accion: "habla" });
+    expect(r).toMatch(/influencer \(opción A\)/);
+    expect(r).toMatch(/Persona: mujer de 25 años/);
+    expect(r).toMatch(/Ropa: \(elige tú/);
+  });
+  it("avatar desde cero: sin referencias y nunca parecido a alguien real", () => {
+    const r = buildImagePrompt("avatar-base", "A candid iPhone photo of a creator. No text, no watermark, no distortion.");
+    expect("prompt" in r && r.template.refs).toEqual([]);
+    expect("prompt" in r && r.prompt).toMatch(/do not resemble any real or famous person/);
+  });
+  it("el prompt por partes es exactamente el que se manda", () => {
+    const p = { format: "camara" as const, script: "Te explico cómo organizar tu semana", seconds: 10, look: "pared gris", before: "saluda", voice: "m28", accent: "co" };
+    const parts = videoPromptParts(p), full = buildVideoPrompt(p);
+    expect("parts" in parts && "prompt" in full && parts.parts.map(x => x.text).join("\n")).toBe("prompt" in full && full.prompt);
+    expect("parts" in parts && parts.parts.map(x => x.tag)).toEqual(["camara", "escena", "guion", "voz", "acento", "reglas"]);
   });
 });

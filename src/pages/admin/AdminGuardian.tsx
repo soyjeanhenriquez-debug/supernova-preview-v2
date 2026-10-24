@@ -13,7 +13,7 @@ import { GUARDIAN_PASOS, groupChecks, ordenHallazgos, type Check, type Finding, 
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = () => supabase as any;
-type Tab = "hallazgos" | "pruebas" | "recorridos" | "historial";
+type Tab = "hallazgos" | "pruebas" | "indicadores" | "recorridos" | "historial";
 type Filtro = "abiertos" | "ok" | "corregidos" | "todos";
 
 const SEV: Record<Finding["severity"], { label: string; cls: string }> = {
@@ -156,7 +156,7 @@ export default function AdminGuardian() {
       )}
 
       <div className="flex flex-wrap gap-2" role="tablist">
-        {([["hallazgos", "Hallazgos"], ["pruebas", "Pruebas"], ["recorridos", "Recorridos"], ["historial", "Historial"]] as const).map(([id, l]) => (
+        {([["hallazgos", "Hallazgos"], ["pruebas", "Pruebas"], ["indicadores", "Indicadores"], ["recorridos", "Recorridos"], ["historial", "Historial"]] as const).map(([id, l]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
             className={`h-9 px-3 rounded-full border text-[13px] ${tab === id ? "border-foreground/40 text-foreground bg-card" : "border-border text-muted-foreground hover:text-foreground"}`}>{l}</button>
         ))}
@@ -223,6 +223,44 @@ export default function AdminGuardian() {
               ))}
             </div>
           ))}
+        </section>
+      )}
+
+      {tab === "indicadores" && (
+        <section className="space-y-4 text-[13px]">
+          {!ultima?.summary?.indicadores ? <p className="text-sm text-muted-foreground">Corre «Auditar toda Supernova» para calcularlos.</p> : (() => {
+            const ind = ultima.summary.indicadores;
+            const tareas = ind.tareas?.por_herramienta ?? [];
+            return (<>
+              <div className="space-y-1.5">
+                <h2 className="font-display text-base">Tareas (30 días)</h2>
+                {tareas.length === 0 ? <p className="text-muted-foreground">Todavía no hay tareas medidas. La medición empezó el 24-oct-2026.</p> : (
+                  <div className="overflow-x-auto rounded-lg border border-border">
+                    <table className="w-full min-w-[640px] text-[12px]">
+                      <thead className="text-muted-foreground"><tr className="text-left">
+                        {["Herramienta", "Empezadas", "Completadas", "% completadas", "1er resultado (s)", "Intentos por resultado", "Abandonos", "Regeneraron", "Descargaron"].map(h => <th key={h} className="p-2 font-medium">{h}</th>)}
+                      </tr></thead>
+                      <tbody>{tareas.map(t => (
+                        <tr key={t.herramienta} className="border-t border-border">
+                          <td className="p-2 text-foreground">{t.herramienta}</td><td className="p-2 tabular-nums">{t.empezadas}</td><td className="p-2 tabular-nums">{t.completadas}</td>
+                          <td className="p-2 tabular-nums">{t.pct_completadas ?? "—"}{t.pct_completadas != null ? " %" : ""}</td><td className="p-2 tabular-nums">{t.seg_primer_resultado ?? "—"}</td>
+                          <td className="p-2 tabular-nums">{t.intentos_por_resultado ?? "—"}</td><td className="p-2 tabular-nums">{t.abandonos}</td>
+                          <td className="p-2 tabular-nums">{t.regeneraron}</td><td className="p-2 tabular-nums">{t.descargaron}</td>
+                        </tr>))}</tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+              {!!ind.por_herramienta?.length && (
+                <div className="space-y-1.5">
+                  <h2 className="font-display text-base">Cobros y reembolsos (30 días)</h2>
+                  {ind.por_herramienta.map(h => <p key={h.herramienta} className="text-muted-foreground"><span className="text-foreground">{h.herramienta}</span> · {h.cobros} cobros · {h.personas} persona(s) · {h.reembolsos} reembolso(s)</p>)}
+                </div>
+              )}
+              {!!ind.sin_medir?.length && <p className="text-[12px] text-muted-foreground">Sin medir todavía: {ind.sin_medir.join(" · ")}</p>}
+              {ind.nota && <p className="text-[12px] text-muted-foreground">{ind.nota}</p>}
+            </>);
+          })()}
         </section>
       )}
 

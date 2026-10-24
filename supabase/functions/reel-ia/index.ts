@@ -91,11 +91,33 @@ Deno.serve(async (req) => {
 
     if (body.action === "config") return json({ eleven: !!elevenKey() && !!voiceId(), fal: !!FAL_KEY });
 
+    // ---------- voces de la cuenta (Guardián del Creador, 24-oct-2026) ----------
+    // Antes había que pegar el id de una voz. Ahora la app trae la lista con su nombre y una muestra para escuchar.
+    if (body.action === "voices") {
+      const key = elevenKey();
+      if (!key) return json({ voices: [] });
+      const r = await fetch("https://api.elevenlabs.io/v1/voices", { headers: { "xi-api-key": key }, signal: AbortSignal.timeout(15_000) }).catch(() => null);
+      if (!r?.ok) { console.error("elevenlabs voices:", r?.status); return json({ voices: [] }); }
+      const d = await r.json().catch(() => null);
+      const propia = voiceId();
+      // deno-lint-ignore no-explicit-any
+      const lista = (Array.isArray(d?.voices) ? d.voices : []).filter((v: any) => typeof v?.voice_id === "string" && VOICE_RE.test(v.voice_id))
+        // deno-lint-ignore no-explicit-any
+        .slice(0, 60).map((v: any) => ({
+          id: v.voice_id as string,
+          nombre: String(v.name ?? "Voz").slice(0, 60),
+          muestra: typeof v.preview_url === "string" && v.preview_url.startsWith("https://") ? v.preview_url : null,
+          propia: v.voice_id === propia,
+          clonada: v.category === "cloned" || v.category === "professional",
+        }));
+      return json({ voices: lista });
+    }
+
     // ---------- voz (ElevenLabs, con tiempos) ----------
     if (body.action === "voice") {
       // Otra voz de tu cuenta de ElevenLabs (Mi identidad); si no, tu voz clonada de los secretos.
       const key = elevenKey(), vid = typeof body.voice_id === "string" && VOICE_RE.test(body.voice_id) ? body.voice_id : voiceId();
-      if (!key || !vid) return json({ error: "Faltan ELEVENLABS_API_KEY o ELEVENLABS_VOICE_ID en los secretos de Supabase." }, 503);
+      if (!key || !vid) { console.error("voz: faltan ELEVENLABS_API_KEY o ELEVENLABS_VOICE_ID"); return json({ error: "La voz no está disponible en este momento. No se te cobró nada." }, 503); }
       const text = String(body.text ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_TEXT);
       if (text.split(" ").length < 5) return json({ error: "Escribe el guion completo (al menos una frase)." }, 400);
       const speed = Math.max(0.9, Math.min(1.2, Number(body.speed) || 1));
@@ -109,10 +131,10 @@ Deno.serve(async (req) => {
       if (!r.ok) {
         const t = (await r.text()).slice(0, 300);
         console.error("elevenlabs:", r.status, t);
-        return json({ error: r.status === 401 ? "ElevenLabs rechazó la llave. Revisa ELEVENLABS_API_KEY." : r.status === 404 ? "ElevenLabs no encuentra esa voz. Revisa ELEVENLABS_VOICE_ID." : "ElevenLabs no respondió. Intenta de nuevo." }, 502);
+        return json({ error: r.status === 404 ? "Esa voz ya no existe en tu cuenta. Elige otra en Opciones avanzadas." : r.status === 401 ? "La voz no está disponible en este momento. No se te cobró nada." : "La voz no respondió. Toca de nuevo en un momento." }, 502);
       }
       const d = await r.json();
-      if (typeof d?.audio_base64 !== "string" || !d?.alignment) return json({ error: "ElevenLabs no devolvió el audio." }, 502);
+      if (typeof d?.audio_base64 !== "string" || !d?.alignment) return json({ error: "La voz no llegó completa. Toca de nuevo." }, 502);
       await logCost(uid, "elevenlabs:eleven_multilingual_v2", 0);
       return json({ audio: d.audio_base64, alignment: d.alignment, chars: text.length });
     }
@@ -146,7 +168,7 @@ Deno.serve(async (req) => {
 
     // ---------- presentador que habla con la voz de Jean (Kling AI Avatar) ----------
     if (body.action === "presenter") {
-      if (!FAL_KEY) return json({ error: "Falta FAL_KEY en los secretos de Supabase." }, 503);
+      if (!FAL_KEY) { console.error("presentador: falta FAL_KEY"); return json({ error: "Las tomas de ti hablando no están disponibles ahora. No se te cobró nada." }, 503); }
       const ref = (body.image ?? {}) as { bucket?: unknown; path?: unknown };
       const bucket = ref.bucket === "estudio-avatar" ? "estudio-avatar" : ref.bucket === "personajes" ? "personajes" : ref.bucket === "creativos" ? "creativos" : null;
       const path = bucket ? ownStoragePath(uid, ref.path) : null;
@@ -171,7 +193,7 @@ Deno.serve(async (req) => {
         const t = (await q.text()).slice(0, 300);
         console.error("fal avatar:", q.status, t);
         // 24-oct-2026: fal respondió 403 "Exhausted balance" y la app solo decía "falló" en cada tramo.
-        if (/balance|billing/i.test(t)) return json({ error: "Se acabó el saldo de tu cuenta de fal (tus tomas hablando). Recárgalo en fal.ai/dashboard/billing y toca Regenerar.", saldo: true }, 402);
+        if (/balance|billing/i.test(t)) return json({ error: "Se acabó el saldo para tus tomas hablando (cuenta de videos). Recárgalo y toca Regenerar.", saldo: true }, 402);
         return json({ error: q.status === 422 ? "El generador rechazó la imagen o el audio." : "El generador del presentador no está disponible ahora." }, 503);
       }
       const queued = await q.json();
@@ -237,7 +259,7 @@ Deno.serve(async (req) => {
 
     if (body.action === "status" || body.action === "file") {
       const id = typeof body.request_id === "string" && REQ_ID.test(body.request_id) ? body.request_id : null;
-      if (!id) return json({ error: "request_id inválido" }, 400);
+      if (!id) return json({ error: "No encontramos ese video. Toca Regenerar." }, 400);
       const r = await falResult(id);
       if (body.action === "status") return json({ status: r.status === "COMPLETED" ? "done" : r.status === "FAILED" ? "failed" : "running" });
       if (!r.url) return json({ error: "El video todavía no está listo." }, 409);

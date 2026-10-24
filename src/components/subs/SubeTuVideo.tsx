@@ -319,7 +319,7 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
   );
 
   return (
-    <ToolShell onNavigate={onNavigate} previewFirst
+    <ToolShell toolId="sube-tu-video" onNavigate={onNavigate} previewFirst
       crumbs={[{ label: "Crear" }, { label: "Con tu cara", onClick: onHome }, { label: "Sube tu video" }]}
       title="Sube tu video y ponle estilo"
       line="Subtítulos con estilo, portada, cierre y voz grave. Lo ves en tu video antes de descargarlo."

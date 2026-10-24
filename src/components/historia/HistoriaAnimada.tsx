@@ -517,7 +517,7 @@ export function HistoriaAnimada({ onHome, onNavigate }: { onHome: () => void; on
   );
 
   return (
-    <ToolShell onNavigate={onNavigate} previewFirst
+    <ToolShell toolId="historia-animada" onNavigate={onNavigate} previewFirst
       crumbs={[{ label: "Crear" }, { label: "Con tu cara", onClick: onHome }, { label: "Mi historia animada" }]}
       title="Mi historia animada"
       line="Tu historia real contada con tu personaje en 3D, escena por escena, con tu voz o voz IA."

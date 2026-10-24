@@ -1,4 +1,5 @@
 import { useCreditsLeft } from "@/hooks/useCreditsLeft";
+import { toolEvent } from "@/lib/toolEvents";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PieceStrategy } from "@/components/PieceStrategy";
 import { ANGLE_AUTO } from "@/lib/angles";
@@ -103,6 +104,7 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
   const choice = aiAspect(mode, seed?.aspect);
   const running = slots.some(s => s.status === "busy");
 
+  useEffect(() => { toolEvent("imagen-ia", "abrir"); }, []);
   useEffect(() => { setSlots([]); setHeadline(""); setVarySource(null); setAspect(aiAspect(mode, seed?.aspect).aspect); }, [mode, seed?.aspect]);
 
   // Kit de marca del producto activo.
@@ -129,6 +131,7 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
 
   const runSlot = async (slot: Slot) => {
     setSlots(list => list.map(s => (s.id === slot.id ? { ...s, status: "busy", error: undefined } : s)));
+    toolEvent("imagen-ia", "empezar");
     try {
       const body: Record<string, unknown> = { prompt: slot.prompt, aspectRatio: slot.aspect };
       if (slot.refs?.length) body.reference_paths = slot.refs;
@@ -145,7 +148,9 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
         else { path = p; setRefreshKey(k => k + 1); }
       }
       setSlots(list => list.map(s => (s.id === slot.id ? { ...s, status: "done", url: localUrl, path } : s)));
+      toolEvent("imagen-ia", "resultado");
     } catch (e) {
+      toolEvent("imagen-ia", "error");
       const msg = e instanceof Error ? e.message : "No se pudo crear la imagen.";
       // Rehacer una imagen que ya existía y falla: se conserva la de antes y se avisa (prueba de Hany,
       // 10-oct-2026: la imagen "desaparecía" sin ningún mensaje).
@@ -209,6 +214,7 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
 
   // Descarga real también para las guardadas (URL firmada de otro dominio: el atributo download no basta).
   const download = async (url: string, name: string) => {
+    toolEvent("imagen-ia", "descargar");
     try {
       const href = url.startsWith("blob:") ? url : URL.createObjectURL(await (await fetch(url)).blob());
       const a = document.createElement("a");

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toolEvent } from "@/lib/toolEvents";
 import { ArrowRight, CalendarDays, CalendarRange, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Layers, Link2, List, Loader2, Minus, PenLine, Plus, Search, Sparkles, Target, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -292,6 +293,7 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
       return;
     }
     setMonthBusy(true);
+    toolEvent("mes-contenido", "empezar");
     try {
       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/content-month`, {
         method: "POST", headers: await fnHeaders(),
@@ -301,10 +303,12 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
       const data = await resp.json() as { plan_id: string; count: number; end: string; from_searches: number };
       applyServerCharge("content_month", readBilling(resp), `${data.count} piezas`);
       setLastPlan({ id: data.plan_id, count: data.count, end: data.end });
+      toolEvent("mes-contenido", "resultado");
       setWeekOffset(0); setView("semana");
       await load();
       toast.success(`Listo: ${data.count} piezas hasta el ${prettyDate(data.end)}`, { description: data.from_searches ? `${data.from_searches} salen de lo que la gente busca en Google y YouTube.` : undefined });
     } catch (e) {
+      toolEvent("mes-contenido", "error");
       toast.error(e instanceof Error ? e.message : "No se pudo armar tu mes");
     } finally {
       setMonthBusy(false);

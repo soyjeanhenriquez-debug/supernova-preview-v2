@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toolEvent } from "@/lib/toolEvents";
 import { toast } from "sonner";
 import { AlertTriangle, BookmarkPlus, Captions, Check, ChevronDown, Clapperboard, Copy, History, LayoutTemplate, Loader2, Play, RotateCcw, Search, Sparkles, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -161,15 +162,18 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
     if (!REEL_URL_RE.test(url.trim())) { toast.error("Pega el enlace de un Reel de Instagram (instagram.com/reel/…)."); return; }
     setBusy("base");
     setView(null);
+    toolEvent("analiza-reel", "empezar");
     try {
       const { data, error } = await supabase.functions.invoke("reel-analyze", { body: { step: "base", url: url.trim(), nivel } });
       if (error || !data?.analysis_id) throw new Error(error ? await invokeErrorMessage(error, "No se pudo analizar el Reel. No se te cobró.") : (data?.error || "No se pudo analizar el Reel. No se te cobró."));
       if (data.billing) applyServerCharge("reel_analyze", data.billing, "Analizar un Reel");
       setView(withoutBilling(data));
       setTab("porque");
+      toolEvent("analiza-reel", "resultado");
       go([data.analysis_id]);
       await writeVersion(data.analysis_id);
     } catch (e) {
+      toolEvent("analiza-reel", "error");
       toast.error(e instanceof Error && e.message ? e.message : "No se pudo analizar el Reel.");
       setBusy(null);
     }
@@ -355,7 +359,7 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
   );
 
   return (
-    <ToolShell onNavigate={onNavigate}
+    <ToolShell toolId="analiza-reel" onNavigate={onNavigate}
       crumbs={[{ label: "Crear" }, { label: "Con tu cara", onClick: onHome }, { label: "Analiza un Reel", onClick: startOver }]}
       title="Analiza un Reel y graba tu versión"
       line="Pega un Reel que ya funciona, elige cuánto se parece tu versión y grábala con el teleprompter."

@@ -24,7 +24,7 @@ export type Identidad = {
   sfx: boolean;
   clips_desc: Record<string, string>;
 };
-export const IDENTIDAD_VACIA: Identidad = { fotos: [], logo: null, voice_id: "", paleta: "cian", ropa: "elegant, well-fitted dark clothing", palabra: "", velocidad: 1.1, sfx: true, clips_desc: {} };
+export const IDENTIDAD_VACIA: Identidad = { fotos: [], logo: null, voice_id: "", paleta: "cian", ropa: "ropa oscura elegante y bien ajustada", palabra: "", velocidad: 1.1, sfx: true, clips_desc: {} };
 export type BiblioItem = { path: string; name: string; url: string; video: boolean };
 export type Plantilla = { id: string; nombre: string; fuente: string; duracion: number | null; analisis: Analisis; thumbs: string[]; thumbUrls: string[]; created_at: string };
 export type Borrador = { id: string; tema: string; modo: ModoReel; reel: Reel; plantilla_id: string | null; created_at: string; origen: string };

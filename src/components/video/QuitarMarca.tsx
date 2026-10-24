@@ -423,7 +423,7 @@ export function QuitarMarca({ onNavigate }: { onNavigate: (page: string) => void
   );
 
   return (
-    <ToolShell onNavigate={onNavigate} previewFirst
+    <ToolShell toolId="quitar-marca" onNavigate={onNavigate} previewFirst
       crumbs={[{ label: "Crear" }, { label: "Video con IA", onClick: () => onNavigate("Video anuncio") }, { label: "Quitar marca de agua" }]}
       title="Quitar marca de agua"
       line="Sube un video que hiciste con IA, quita la marca y descárgalo limpio. Se procesa en tu navegador: no gasta créditos."

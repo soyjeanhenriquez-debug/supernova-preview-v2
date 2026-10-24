@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { ArrowLeft, Check, ChevronRight } from "lucide-react";
 import { ProductSwitcher } from "@/components/ProductSwitcher";
 import { useVia } from "@/lib/tools";
+import { toolEvent } from "@/lib/toolEvents";
 
 /**
  * Esqueleto común de una herramienta (Fase 1 de la organización, 16-oct-2026, estilo Higgsfield):
@@ -12,7 +13,7 @@ import { useVia } from "@/lib/tools";
  */
 export type Crumb = { label: string; onClick?: () => void };
 
-export function ToolShell({ crumbs, title, line, onBack, backLabel = "Volver", steps, step = 0, onStep, aside, children, onNavigate, previewFirst }: {
+export function ToolShell({ crumbs, title, line, onBack, backLabel = "Volver", steps, step = 0, onStep, aside, children, onNavigate, previewFirst, toolId }: {
   crumbs: Crumb[];
   title: string;
   line?: string;
@@ -28,7 +29,10 @@ export function ToolShell({ crumbs, title, line, onBack, backLabel = "Volver", s
   onNavigate: (page: string) => void;
   /** En el teléfono, el resultado (`children`, p. ej. la vista previa del video) va arriba de las opciones. */
   previewFirst?: boolean;
+  /** Id corto de la herramienta (p. ej. "reel-studio") para medir "abrir" (src/lib/toolEvents.ts). */
+  toolId?: string;
 }) {
+  useEffect(() => { if (toolId) toolEvent(toolId, "abrir"); }, [toolId]);
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">

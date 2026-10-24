@@ -15,7 +15,18 @@ export interface Finding {
 export interface Run {
   id: string; kind: string; status: string; requested_at: string; started_at: string | null; finished_at: string | null;
   steps: string[]; steps_done: number; current_step: string | null;
-  summary: { pruebas?: { pasaron: number; fallaron: number; sin_probar: number } } | null;
+  summary: { pruebas?: { pasaron: number; fallaron: number; sin_probar: number }; indicadores?: Indicadores } | null;
+}
+/** Lo que mide el paso «indicadores» (cobros por herramienta y tareas con src/lib/toolEvents.ts). */
+export interface Tarea {
+  herramienta: string; abiertas: number; empezadas: number; completadas: number; pct_completadas: number | null;
+  seg_primer_resultado: number | null; intentos_por_resultado: number | null; abandonos: number; fallaron: number; regeneraron: number; descargaron: number;
+}
+export interface Indicadores {
+  por_herramienta?: { herramienta: string; cobros: number; personas: number; reembolsos: number }[];
+  tareas?: { por_herramienta: Tarea[]; empezadas: number };
+  sin_medir?: string[];
+  nota?: string;
 }
 export interface Check { id: number; area: string; name: string; ok: boolean | null; method: "servidor" | "datos" | "codigo" | "inspeccion" | "punta_a_punta"; detail: string | null }
 export interface JourneyStep { journey: string; step_order: number; step: string; status: "funciona" | "con_friccion" | "falla" | "no_probado"; method: Check["method"]; evidence: string | null }

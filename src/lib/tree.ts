@@ -21,6 +21,12 @@ export type TreeTab = {
   /** Dirección completa cuando la pestaña es un paso dentro de una pantalla (#/con-tu-cara/reel). */
   hash?: string;
   desc?: string;
+  /** Formato del curso que todavía no está: se ve con "Pronto" y no abre nada. */
+  soon?: boolean;
+  /** Solo la cuenta de Jean mientras lo prueba (isGenjutsuOwner). */
+  owner?: boolean;
+  /** Plantilla con la que abre Video UGC paso a paso ("ugc" = sin producto, "producto"). */
+  preset?: "ugc" | "producto";
 };
 export type TreeDoor = { id: string; name: string; tabs: TreeTab[] };
 export type TreeLeaf = {
@@ -35,7 +41,19 @@ export type TreeLeaf = {
 };
 export type TreeBranch = { id: string; n: 1 | 2 | 3 | 4; name: string; short: string; q: string; icon: LucideIcon; leaves: TreeLeaf[] };
 
+// 24-oct-2026: primera puerta "Por formato", con los formatos del curso de UGC de Jean (4.1 UGC … 4.7 Ugly Ads).
+// Los que aún no tienen herramienta se ven con "Pronto". Las demás puertas quedan como herramientas sueltas.
 const VIDEO_DOORS: TreeDoor[] = [
+  { id: "formatos", name: "Por formato", tabs: [
+    { label: "UGC sin producto", page: "Video anuncio", preset: "ugc", desc: "Solo la persona hablando a cámara: el producto no aparece. 4 pasos guiados." },
+    { label: "UGC con producto", page: "Video anuncio", preset: "producto", desc: "La persona lo sostiene o lo señala mientras habla. 4 pasos guiados." },
+    { label: "Voz en off", page: "Con tu cara", hash: "#/con-tu-cara/reel-ia", owner: true, desc: "Tu voz sobre imágenes al ritmo de cada frase, capturas reales y tú al inicio y al final." },
+    { label: "Imágenes estáticas", page: "Creativos", desc: "Anuncios en imagen listos para publicar." },
+    { label: "Podcast", page: "Video anuncio", soon: true, desc: "Dos personas conversando frente al micrófono." },
+    { label: "Dualcast", page: "Video anuncio", soon: true, desc: "Producción y edición en un mismo video." },
+    { label: "Trends virales", page: "Video anuncio", soon: true, desc: "Tu versión de lo que se está haciendo viral." },
+    { label: "Ugly Ads", page: "Video anuncio", soon: true, desc: "Anuncios simples y crudos que no parecen anuncio." },
+  ] },
   { id: "sin-cara", name: "Sin tu cara", tabs: [
     { label: "Video con IA", page: "Video anuncio", desc: "Anuncio de 3 tomas, escena libre, serie o motion graphics." },
     { label: "Influencer IA", page: "Sin mostrar tu cara", desc: "Tu personaje habla por ti en video." },
@@ -45,6 +63,8 @@ const VIDEO_DOORS: TreeDoor[] = [
     { label: "Analiza un Reel", page: "Con tu cara", hash: "#/con-tu-cara/reel", desc: "Por qué funciona cualquier Reel y tu versión para grabar." },
     { label: "Sube tu video", page: "Con tu cara", hash: "#/con-tu-cara/video", desc: "Subtítulos, gancho y edición de lo que ya grabaste." },
     { label: "Teleprompter", page: "Con tu cara", hash: "#/con-tu-cara/teleprompter", desc: "Lee tu guion mirando a la cámara." },
+    { label: "Reel de herramienta IA", page: "Con tu cara", hash: "#/con-tu-cara/reel-ia", owner: true, desc: "Del guion al reel con tu voz, capturas reales y tú hablando." },
+    { label: "Mi historia animada", page: "Con tu cara", hash: "#/con-tu-cara/historia", owner: true, desc: "Tu historia real con tu personaje en 3D." },
   ] },
   { id: "youtube", name: "YouTube", tabs: [
     { label: "Videos para YouTube", page: "Creador YouTube", desc: "Del guion al video terminado, para canales sin cara." },
@@ -190,7 +210,11 @@ export function useTreeMenu() {
 }
 
 /** Abre una pestaña del árbol: pantalla, paso dentro de ella o generador concreto. */
+export const VIDEO_PRESET_KEY = "supernova:video-preset";
+
 export function openTreeTab(tab: TreeTab, onNavigate: (page: string) => void) {
+  if (tab.soon) return;
+  if (tab.preset) { try { sessionStorage.setItem(VIDEO_PRESET_KEY, tab.preset); } catch { /* sin almacenamiento */ } }
   if (tab.generator) {
     try { localStorage.setItem("supernova_generator_prefill", JSON.stringify({ generator: tab.generator })); } catch { /* sin almacenamiento */ }
     try { sessionStorage.setItem("supernova:tree-generator", tab.generator); } catch { /* sin almacenamiento */ }

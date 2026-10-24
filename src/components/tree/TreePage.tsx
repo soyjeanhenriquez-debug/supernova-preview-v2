@@ -2,6 +2,8 @@ import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { useSubRoute } from "@/lib/useSubRoute";
 import { useFeatureAccess } from "@/lib/features";
+import { useAuth } from "@/contexts/AuthContext";
+import { isGenjutsuOwner } from "@/lib/genjutsuOwner";
 import { TREE, TREE_SLUG, branchById, leafById, openTreeTab, treeHash, type TreeBranch, type TreeLeaf } from "@/lib/tree";
 import { BranchBadge, openLeaf, useBranchStates } from "@/components/tree/TreeNav";
 
@@ -24,6 +26,8 @@ export function TreeCrumbs({ branch, leaf, onNavigate }: { branch: TreeBranch; l
 export function TreePage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const { segs } = useSubRoute(TREE_SLUG);
   const { canSee } = useFeatureAccess();
+  const { user } = useAuth();
+  const jean = isGenjutsuOwner(user?.id);
   const { state } = useBranchStates();
   const branch = branchById(segs[0] ?? "") ?? TREE[0];
   const found = segs[1] ? leafById(segs[1]) : null;
@@ -49,11 +53,15 @@ export function TreePage({ onNavigate }: { onNavigate: (page: string) => void })
           ))}
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {current.tabs.filter(t => canSee(t.page)).map(t => (
-            <button key={t.label} onClick={() => openTreeTab(t, onNavigate)}
-              className="group text-left rounded-2xl border border-border bg-card/40 p-5 hover:border-primary/50 transition-colors">
+          {current.tabs.filter(t => canSee(t.page) && (!t.owner || jean)).map(t => (
+            <button key={t.label} onClick={() => openTreeTab(t, onNavigate)} disabled={t.soon} aria-disabled={t.soon}
+              className={`group text-left rounded-2xl border border-border bg-card/40 p-5 transition-colors ${t.soon ? "opacity-55 cursor-default" : "hover:border-primary/50"}`}>
               <span className="flex items-center gap-2 font-display font-semibold text-[16px] text-foreground">
-                {t.label}<ChevronRight className="ml-auto w-4 h-4 text-muted-foreground group-hover:text-foreground" />
+                {t.label}
+                {t.owner && <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-sans font-medium">solo tú</span>}
+                {t.soon
+                  ? <span className="ml-auto rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-sans font-medium">Pronto</span>
+                  : <ChevronRight className="ml-auto w-4 h-4 text-muted-foreground group-hover:text-foreground" />}
               </span>
               {t.desc && <span className="mt-1.5 block text-[13px] text-muted-foreground">{t.desc}</span>}
             </button>

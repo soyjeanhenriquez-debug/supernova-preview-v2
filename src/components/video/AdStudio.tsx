@@ -18,6 +18,7 @@ import { publishText, type Shot, type VideoBrief, type VideoSize } from "@/lib/v
 import { AdFinalVideo } from "@/components/video/AdFinalVideo";
 import { ReadyToPublish } from "@/components/video/ReadyToPublish";
 import { downloadVideo, waitForVideo, type VideoJob } from "@/components/video/videoApi";
+import { VIDEO_PRESET_KEY } from "@/lib/tree";
 
 /**
  * Video UGC paso a paso (24-oct-2026, Jean: "no sé dónde empiezo"): los 4 pasos del curso de UGC, uno a la vez.
@@ -110,7 +111,15 @@ export function AdStudio({ uid, productId, brief, shots, onLine, cfg, size, onSi
   const models = useMemo(() => VIDEO_MODELS.filter(m => (m.provider === "apimart" ? cfg.apimart : cfg.higgsfield)), [cfg]);
 
   // ---------- Plantilla ----------
-  const [plantilla, setPlantilla] = useState<Plantilla>("ugc"); // por defecto: solo la persona hablando (lo más simple)
+  // Por defecto: solo la persona hablando (lo más simple). Si se entró por "UGC con producto" (árbol → Por formato),
+  // abre con producto. La marca se lee una vez y se borra.
+  const [plantilla, setPlantilla] = useState<Plantilla>(() => {
+    try {
+      const v = sessionStorage.getItem(VIDEO_PRESET_KEY);
+      sessionStorage.removeItem(VIDEO_PRESET_KEY);
+      return v === "producto" ? "producto" : "ugc";
+    } catch { return "ugc"; }
+  });
   const ugc = plantilla === "ugc";
 
   // ---------- Producto y presentador ----------

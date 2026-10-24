@@ -52,10 +52,27 @@ describe("Pantalla de rama y de puertas", () => {
     expect(screen.getByText(/Siguiente: Paso 3/)).toBeTruthy();
   });
 
-  it("Video: 3 puertas y recuerda la última", () => {
+  it("Video: por formato (temario del curso), con «Pronto», preset de UGC con producto y lo de Jean oculto", () => {
+    try { localStorage.removeItem("supernova:tree-video-door"); sessionStorage.clear(); } catch { /* nada */ }
+    window.location.hash = "#/paso/crear/video";
+    const nav = vi.fn();
+    const { unmount } = render(<TreePage onNavigate={nav} />);
+    expect(screen.getByRole("tab", { name: "Por formato" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByText("UGC sin producto")).toBeTruthy();
+    expect(screen.getAllByText("Pronto")).toHaveLength(4); // Podcast, Dualcast, Trends virales, Ugly Ads
+    expect(screen.queryByText("Voz en off")).toBeNull(); // solo la cuenta de Jean
+    fireEvent.click(screen.getByText("Podcast"));
+    expect(nav).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("UGC con producto"));
+    expect(nav).toHaveBeenCalledWith("Video anuncio");
+    expect(sessionStorage.getItem("supernova:video-preset")).toBe("producto");
+    unmount();
+  });
+
+  it("Video: 4 puertas y recuerda la última", () => {
     window.location.hash = "#/paso/crear/video";
     const { unmount } = render(<TreePage onNavigate={vi.fn()} />);
-    expect(screen.getAllByRole("tab").map(t => t.textContent)).toEqual(["Sin tu cara", "Con tu cara", "YouTube"]);
+    expect(screen.getAllByRole("tab").map(t => t.textContent)).toEqual(["Por formato", "Sin tu cara", "Con tu cara", "YouTube"]);
     fireEvent.click(screen.getByRole("tab", { name: "Con tu cara" }));
     expect(screen.getByText("Analiza un Reel")).toBeTruthy();
     unmount();

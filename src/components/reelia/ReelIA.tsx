@@ -34,6 +34,9 @@ const FPS = 30;
 const SIZE = { width: 720, height: 1280 };
 const VOZ = 900, CAP_PC = 800, CAP_CEL = 801, PROPIA = (k: number) => 810 + k, CARA = (k: 0 | 1) => 700 + k, HABLA = (k: number) => 600 + k;
 const MAX_PROPIAS = 6;
+/** Biblioteca de clips (25-oct-2026): bucket privado "biblioteca", carpeta {uid}/app. Lo que se sube se guarda ahí. */
+const BIBLIO = "biblioteca";
+type BiblioItem = { path: string; name: string; url: string; video: boolean };
 
 /**
  * Reel de SUPERNOVA (pedido de Jean, 24-oct-2026: "el mismo reel, pero para nuestra app"). Borrador modelado sobre la
@@ -172,9 +175,18 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
 
   // ---------- Tus capturas (pantallas reales de la app) ----------
   const capRef = useRef<HTMLInputElement>(null);
-  const subirCapturas = async (files: FileList) => {
+  const subirCapturas = async (files: FileList | File[], opts: { guardar?: boolean } = {}) => {
     const m = metaRef.current;
     const list = Array.from(files).filter(f => f.type.startsWith("image/") || f.type.startsWith("video/")).slice(0, MAX_PROPIAS - m.propias);
+    // Lo nuevo se guarda también en tu biblioteca para próximos reels (lo que viene de la biblioteca, no).
+    if (opts.guardar !== false && uid) {
+      for (const f of list) {
+        const name = f.name.replace(/[^\w.-]+/g, "-").slice(-60) || "clip";
+        const up = await supabase.storage.from(BIBLIO).upload(`${uid}/app/${Date.now()}-${name}`, f, { contentType: f.type, upsert: false });
+        if (up.error) console.warn("biblioteca:", up.error.message);
+      }
+      setBiblio(null);
+    }
     if (!list.length) { toast.error(`Máximo ${MAX_PROPIAS} capturas o videos.`); return; }
     let n = m.propias;
     const vert = [...(m.propiasV ?? [])];
@@ -195,6 +207,36 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
     commit({ propias: n, propiasV: vert, propiasVideo: vid });
     toast.success(`${list.length} captura${list.length > 1 ? "s" : ""} lista${list.length > 1 ? "s" : ""}.`);
   };
+  // ---------- Mi biblioteca ----------
+  const [biblio, setBiblio] = useState<BiblioItem[] | null>(null);
+  const [biblioOpen, setBiblioOpen] = useState(false);
+  const cargarBiblio = useCallback(async () => {
+    if (!uid) return;
+    const { data, error } = await supabase.storage.from(BIBLIO).list(`${uid}/app`, { limit: 60, sortBy: { column: "created_at", order: "desc" } });
+    if (error) { setBiblio([]); return; }
+    const files = (data ?? []).filter(f => f.name && !f.name.startsWith("."));
+    if (!files.length) { setBiblio([]); return; }
+    const paths = files.map(f => `${uid}/app/${f.name}`);
+    const { data: signed } = await supabase.storage.from(BIBLIO).createSignedUrls(paths, 60 * 60);
+    setBiblio((signed ?? []).filter(x => x.signedUrl && x.path).map(x => ({
+      path: x.path!, url: x.signedUrl, name: x.path!.split("/").pop()!.replace(/^\d+-/, ""), video: /\.(mp4|mov|webm)$/i.test(x.path!),
+    })));
+  }, [uid]);
+  useEffect(() => { if (biblioOpen && biblio === null) void cargarBiblio(); }, [biblioOpen, biblio, cargarBiblio]);
+  const usarDeBiblio = async (it: BiblioItem) => {
+    try {
+      const blob = await (await fetch(it.url)).blob();
+      const file = new File([blob], it.name, { type: blob.type || (it.video ? "video/mp4" : "image/png") });
+      await subirCapturas([file], { guardar: false });
+    } catch { toast.error("No se pudo traer ese clip."); }
+  };
+  const borrarDeBiblio = async (it: BiblioItem) => {
+    if (!confirm(`¿Borrar «${it.name}» de tu biblioteca?`)) return;
+    const { error } = await supabase.storage.from(BIBLIO).remove([it.path]);
+    if (error) { toast.error("No se pudo borrar."); return; }
+    setBiblio(b => (b ?? []).filter(x => x.path !== it.path));
+  };
+
   const quitarCapturas = () => { for (let k = 0; k < metaRef.current.propias; k++) setUrl(`p${k}`, null); commit({ propias: 0, propiasV: [], propiasVideo: [] }); };
   const usarSupernova = () => {
     if (d.guion.trim() && !confirm("¿Cambiar tu guion por el borrador de SUPERNOVA?")) return;
@@ -512,7 +554,31 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
                 className="h-9 px-3 rounded-full border border-border text-[12px] text-foreground hover:bg-secondary/40 disabled:opacity-50">+ Subir capturas o videos</button>
             )}
             {meta.propias > 0 && <button type="button" onClick={quitarCapturas} disabled={!!busy} className="text-[12px] text-muted-foreground hover:text-foreground">Quitar</button>}
+            <button type="button" onClick={() => setBiblioOpen(v => !v)} disabled={!!busy}
+              className={`h-9 px-3 rounded-full border text-[12px] ${biblioOpen ? "border-foreground/40 text-foreground bg-card" : "border-border text-muted-foreground hover:text-foreground"}`}>Mi biblioteca</button>
           </div>
+          {biblioOpen && (
+            <div className="rounded-xl border border-border p-2.5 space-y-2">
+              <p className="text-[11px] text-muted-foreground">Tus clips guardados. Toca uno para usarlo en este reel. Lo que subas aquí arriba se guarda solo.</p>
+              {biblio === null ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                : !biblio.length ? <p className="text-[12px] text-muted-foreground">Todavía no tienes clips guardados.</p>
+                : (
+                  <div className="grid grid-cols-4 gap-2">
+                    {biblio.map(it => (
+                      <div key={it.path} className="relative">
+                        <button type="button" onClick={() => void usarDeBiblio(it)} disabled={!!busy || meta.propias >= MAX_PROPIAS} title={it.name}
+                          className="block w-full aspect-[9/16] rounded-lg overflow-hidden border border-border hover:border-primary/60 disabled:opacity-50">
+                          {it.video ? <video src={it.url} muted playsInline preload="metadata" className="w-full h-full object-cover object-top" />
+                            : <img src={it.url} alt="" className="w-full h-full object-cover object-top" />}
+                        </button>
+                        <button type="button" onClick={() => void borrarDeBiblio(it)} aria-label="Borrar de la biblioteca"
+                          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-[11px] text-white leading-none">×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+            </div>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {PALETAS.map(x => (

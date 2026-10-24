@@ -43,7 +43,8 @@ export const SYSTEM = [
   "REGLAS DE FORMATO (ingeniería inversa de un reel que funciona):",
   "- 'texto' de cada escena = un trozo SEGUIDO y LITERAL del guion (no cambies, quites ni añadas palabras). Unidas en orden, las escenas forman el guion completo.",
   "- RITMO: una escena nueva cada ~3 segundos. Cada escena = de 7 a 10 palabras seguidas del guion (nunca menos de 6 ni más de 11). Un plano distinto por cada escena: nunca repitas la misma idea visual.",
-  "- La primera escena (gancho, máximo 4 s) y la última (cierre con la llamada) son tipo 'presentador': la persona habla a cámara. Ninguna otra escena es 'presentador'.",
+  "- CORTES: corta cada escena donde la frase hace una pausa natural (punto, coma, dos puntos o fin de idea). Nunca cortes entre palabras que van juntas ('de / la Biblioteca', 'los que / llevan', 'te mando el / enlace').",
+  "- La primera escena (gancho, máximo 4 s) y la última (cierre con la llamada) son tipo 'presentador': la persona habla a cámara. Ninguna otra escena es 'presentador'. El cierre lleva la llamada COMPLETA (desde 'Comenta…' hasta el final), aunque tenga menos de 7 palabras.",
   "- En medio alterna: 'marca' (la herramienta en un celular, 1 o 2 veces cuando se nombra), 'captura' (la web real de la herramienta, 3 a 5 veces cuando se explica cómo funciona), 'concepto' (imagen 3D de la idea), 'funcion' (un portátil o celular mostrando lo que hace esa frase), 'resultado' (lo que se logra).",
   "- 'visual' (solo en concepto, funcion y resultado): la imagen en INGLÉS como un plano de PELÍCULA: un objeto o escena concreta que represente la frase, con movimiento posible (algo que gira, se enciende, vuela, se arma), lente y luz de cine (anamorphic, volumetric light, shallow depth of field), con la paleta indicada. Sin texto escrito en la imagen, sin logos ni marcas, sin personas famosas.",
   "- 'animar': true en TODAS las escenas concepto, funcion y resultado.",
@@ -88,6 +89,7 @@ export function parsePlan(text: string): Plan | null {
     escenas.push({ texto, tipo, visual, animar: CON_IMAGEN.includes(tipo) && o?.animar === true });
   }
   if (escenas.length < 3) return null;
+  arreglarCierre(escenas);
   let n = 0;
   for (const e of escenas) if (e.animar && ++n > MAX_ANIMADAS) e.animar = false;
   return {
@@ -96,6 +98,26 @@ export function parsePlan(text: string): Plan | null {
     cierre: clean(raw.cierre, 300) || "in a bright modern office, holding a laptop, talking to the camera, medium shot",
     escenas,
   };
+}
+
+/**
+ * Si la IA dejó el cierre del presentador en 1-5 palabras ("enlace por privado"), la toma dura ~1 s y la llamada
+ * queda partida. Se le pasa la última frase de la escena anterior (desde el último punto) o, si no hay punto, la
+ * escena entera.
+ */
+function arreglarCierre(escenas: Escena[]) {
+  const n = escenas.length, last = escenas[n - 1], prev = escenas[n - 2];
+  if (last.tipo !== "presentador" || contar(last.texto) >= 6 || !prev || prev.tipo === "presentador") return;
+  const cortes = [...prev.texto.matchAll(/[.!?:]\s+(?=\S)/g)];
+  const c = cortes[cortes.length - 1];
+  if (c?.index !== undefined) {
+    const at = c.index + c[0].length;
+    last.texto = `${prev.texto.slice(at)} ${last.texto}`;
+    prev.texto = prev.texto.slice(0, at).trim();
+  } else {
+    last.texto = `${prev.texto} ${last.texto}`;
+    escenas.splice(n - 2, 1);
+  }
 }
 
 /** ElevenLabs (with-timestamps): letras con sus tiempos → palabras con t0/t1. */

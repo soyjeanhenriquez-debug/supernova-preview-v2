@@ -16,6 +16,16 @@ describe("reel de herramienta IA", () => {
     expect(parsePlan(JSON.stringify({ escenas: [{ texto: "una" }] }))).toBeNull(); // menos de 3 escenas
   });
 
+  it("parsePlan: un cierre de 1-5 palabras se lleva la llamada entera de la escena anterior", () => {
+    const e = (texto: string, tipo: string) => ({ texto, tipo, visual: "", animar: false });
+    const base = [e("Hay una IA que encuentra negocios", "presentador"), e("y te ayuda a crear tu versión", "captura")];
+    const p = parsePlan(JSON.stringify({ escenas: [...base, e("todas las herramientas gratis. Comenta SUPERNOVA y te mando el", "captura"), e("enlace por privado.", "presentador")] }));
+    expect(p!.escenas.slice(-2).map(x => x.texto)).toEqual(["todas las herramientas gratis.", "Comenta SUPERNOVA y te mando el enlace por privado."]);
+    const q = parsePlan(JSON.stringify({ escenas: [...base, e("Comenta SUPERNOVA y te mando el", "captura"), e("enlace por privado.", "presentador")] }));
+    expect(q!.escenas).toHaveLength(3); // sin punto: la escena entera pasa al cierre
+    expect(q!.escenas[2]).toMatchObject({ tipo: "presentador", texto: "Comenta SUPERNOVA y te mando el enlace por privado." });
+  });
+
   it("palabras con tiempos desde ElevenLabs", () => {
     const text = "Hola mundo IA";
     const chars = text.split("");

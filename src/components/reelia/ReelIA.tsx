@@ -18,7 +18,7 @@ import { streamGenerator } from "@/components/video/videoApi";
 import { ToolShell } from "@/components/tool/ToolShell";
 import { ReelDinamico, type RDPlano, type RDProps, type RDTramo } from "@/remotion/ReelDinamico";
 import {
-  FORMAS, GENERATOR_ID, HABLA_USD_SEG, MODO_NOMBRE, PALETAS, PRICE_PLAN, SYSTEM, VELOCIDADES, audioTramo, costo, huella, paleta, pantallas,
+  FORMAS, GENERATOR_ID, HABLA_USD_SEG, MODO_NOMBRE, PALETAS, palabraDelGuion, PRICE_PLAN, SYSTEM, VELOCIDADES, audioTramo, costo, huella, paleta, pantallas,
   parseReel, pedidoIA, resumen, seVe, textoPublicacion, tiempos, tramos, type Analisis, type ModoReel, type Oferta, type Plano, type Reel,
 } from "@/lib/reelDinamico";
 import { Inicio, type Origen } from "./Inicio";
@@ -333,7 +333,8 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
       const cambioGuion = opts.cambio && m.reel && m.reel.guion !== reel.guion;
       commit(x => ({
         reel, paso: opts.cambio ? x.paso : 1, validado: null,
-        ajustes: { ...x.ajustes, palabra: x.ajustes.palabra || reel.palabra },
+        // La palabra en pantalla = la que se dice en la voz (24-oct-2026: el ajuste decía SUPERNOVA y la voz VENDER).
+        ajustes: { ...x.ajustes, palabra: palabraDelGuion(reel.guion) || reel.palabra || x.ajustes.palabra },
         chat: [...x.chat, { de: "ia", texto: `${opts.cambio ? "Listo, lo cambié." : "Aquí está tu reel."} ${resumen(reel)}${cambioGuion ? " El guion cambió: tu voz se vuelve a hacer." : ""}` }],
       }));
       setTexto("");
@@ -503,7 +504,11 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
             const data = await (await post("reel-ia", { action: "presenter", image: { bucket: "estudio-avatar", path: look.path }, audio: b64, seconds })).json();
             setAsset(key, { estado: "trabajando", job: data.request_id });
             void pollJob(key);
-          } catch { setAsset(key, { estado: "falló" }); }
+          } catch (err) {
+            setAsset(key, { estado: "falló" });
+            // Sin saldo en fal no tiene sentido mandar los demás tramos: se avisa una vez y se para.
+            if (err instanceof ApiError && err.status === 402) { toast.error(err.message, { duration: 12000 }); break; }
+          }
         }
       }
     } catch (e) {
@@ -542,8 +547,13 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
       return { ...t[i], forma: p.forma, tramo: deTramo.get(i) ?? -1, top, enfasis: p.enfasis };
     });
     const tramosP: RDTramo[] = trs.map((tr, k) => ({ desde: tr.desde, hasta: tr.hasta, clip: urls[hablaKey(k)] ?? null, img: urls[lookKey(tr.look)] ?? foto?.url ?? null }));
+    // El último plano (y su tramo) llega hasta el final del video: sin esto, los 0,8 s después de la voz quedaban en negro.
+    const fin = meta.voz.seconds + 0.8;
+    if (planos.length) planos[planos.length - 1] = { ...planos[planos.length - 1], t1: fin };
+    const ultimo = planos[planos.length - 1]?.tramo ?? -1;
+    if (ultimo >= 0) tramosP[ultimo] = { ...tramosP[ultimo], hasta: fin };
     const pal = paleta(aj.paleta);
-    const props: RDProps = { planos, tramos: tramosP, audio: urls[vozKey], words: meta.voz.words, palabra: aj.palabra || r.palabra, acento: pal.acento, fondo: pal.fondo, sfx: aj.sfx, subs: subs ?? undefined, logo: idn.logo?.url ?? null };
+    const props: RDProps = { planos, tramos: tramosP, audio: urls[vozKey], words: meta.voz.words, palabra: palabraDelGuion(r.guion) || aj.palabra || r.palabra, acento: pal.acento, fondo: pal.fondo, sfx: aj.sfx, subs: subs ?? undefined, logo: idn.logo?.url ?? null };
     return { props, frames: Math.max(FPS, Math.round((meta.voz.seconds + 0.8) * FPS)) };
   }, [r, t, trs, meta.voz, meta.assets, urls, vozKey, hablaKey, lookKey, clipDe, aj.paleta, aj.palabra, aj.sfx, subs, idn.logo, foto]);
 

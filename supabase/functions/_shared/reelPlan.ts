@@ -75,8 +75,8 @@ export const DATOS_SUPERNOVA = [
 /** Los 4 modos (manual, 19-oct-2026) aplicados a un reel: el porcentaje es fidelidad creativa, nunca texto copiado. */
 export const MODO_REGLAS: Record<ModoReel, string> = {
   espejo: "ESPEJO (95 % de fidelidad creativa): la misma enseñanza, tema, tesis, mecanismo del gancho, estructura e intención emocional, dicho con la voz de la persona. Redacción original: no copies frases distintivas. Nada ajeno: ni el nombre, la marca, las cifras, los resultados ni las experiencias de quien hizo el original. Si el original está en otro idioma, transcreación al español latino (misma idea y mismo remate, que suene propio). Sin oferta.",
-  recrear: "RECREAR (75 %): la misma idea contada a la manera de la persona, con su perspectiva y ejemplos propios; misma estructura y ritmo. Nada ajeno. Sin oferta.",
-  inspiracion: "REINVENTAR (50 %): la fórmula del original (estructura, tipo de gancho, cadencia de planos, presencia de la persona, tipo de cierre) aplicada al tema del PEDIDO. Contenido 100 % nuevo. Sin oferta.",
+  recrear: "RECREAR (75 %): la misma idea contada a la manera de la persona, con su perspectiva y ejemplos propios; misma estructura y ritmo. Sin sus frases distintivas. Nada ajeno. Sin oferta.",
+  inspiracion: "REINVENTAR (50 %): la fórmula del original (estructura, tipo de gancho, cadencia de planos, presencia de la persona, tipo de cierre) aplicada al tema del PEDIDO. Contenido 100 % nuevo: la fórmula sí, sus frases no (ni su frase de gancho ni sus remates, como 'el más brutal'). Sin oferta.",
   adaptacion: "VENDER: usa la fórmula del original para llevar a la OFERTA. Solo si la oferta está 'Disponible' la llamada puede pedir la compra; si no hay oferta disponible, la llamada es de interés (comentar una palabra). Nunca inventes precios, resultados ni testimonios.",
 };
 export const MODO_NOMBRE: Record<ModoReel, string> = { espejo: "Espejo", recrear: "Recrear", inspiracion: "Reinventar", adaptacion: "Vender" };
@@ -88,7 +88,7 @@ export const SYSTEM = [
   "GUION",
   "- Si el pedido trae 'GUION LITERAL', 'guion' es ese texto palabra por palabra. Si no, lo escribes tú: 90 a 140 palabras, frases cortas, de tú.",
   "- Estructura: gancho en los primeros 3 s que dé curiosidad (sin mentir) → lo que es → cómo funciona o la lista prometida → cierre con la llamada: 'Comenta PALABRA y te mando …'.",
-  "- Solo datos que vengan en el pedido, en DATOS o en la OFERTA. Nunca inventes cifras, clientes ni testimonios. Nunca prometas ingresos, ventas, resultados de salud ni plazos. Nunca digas 'clonar' ni 'clona': di 'modelar' o 'crear tu versión'.",
+  "- Solo datos que vengan en el pedido, en DATOS o en la OFERTA. Nunca inventes cifras, clientes ni testimonios. Nunca prometas ingresos, ventas, resultados de salud, plazos ni ahorros de tiempo ('te ahorra semanas'). Nunca digas 'clonar' ni 'clona': di 'modelar' o 'crear tu versión'.",
   "- Nunca ofrezcas guías, regalos, cursos, plantillas ni recursos que no estén en el pedido. Si la referencia regala algo, usa la llamada del pedido (por defecto: 'Comenta PALABRA y te mando el enlace').",
   "- Si hay un reel actual y el pedido no cambia el guion, deja 'guion' igual.",
   "",
@@ -180,7 +180,9 @@ export function pedidoIA(p: Pedido): string {
   const pal = paleta(p.paleta);
   const out = [
     `Paleta: ${pal.en}. Ropa de la persona en todos los looks: ${clean(p.ropa, 120) || "elegant, well-fitted clothing"}.`,
-    `Palabra para comentar: ${clean(p.palabra, 30) || "(elígela tú)"}.`,
+    p.palabra.trim()
+      ? (p.actual ? `Palabra para comentar: «${clean(p.palabra, 30)}» (si el PEDIDO pide otra, usa la del PEDIDO).` : `Palabra para comentar (OBLIGATORIA, tal cual en el cierre): «${clean(p.palabra, 30)}».`)
+      : "Palabra para comentar: elígela tú.",
     "",
     "CLIPS DE LA BIBLIOTECA (id: lo que muestra):",
     ...(p.clips.length ? p.clips.slice(0, 30).map(c => `- ${clean(c.id, 80)}: ${clean(c.desc, 200)}`) : ["(ninguno: usa imágenes)"]),
@@ -261,6 +263,12 @@ export function parseReel(text: string, clips: ClipInfo[], literal?: string, ref
     palabra: clean(raw.palabra, 30).replace(/[«»"']/g, "").toLocaleUpperCase("es"),
     looks, planos: alinear(guion, planos),
   };
+}
+
+/** La palabra que de verdad se dice en el cierre ("Comenta SUPERNOVA y…" → "SUPERNOVA"): la del CTA en pantalla. */
+export function palabraDelGuion(guion: string): string {
+  const m = guion.match(/coment[aá]\s+(?:la palabra\s+)?[«"'“]?([\p{L}\p{N}]{2,30})/iu);
+  return m ? m[1].toLocaleUpperCase("es") : "";
 }
 
 /** Descripción de un clip a partir de su nombre ("calculadora-te-queda-por-venta.mp4" → "calculadora te queda por venta"). */

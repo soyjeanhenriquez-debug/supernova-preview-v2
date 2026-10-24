@@ -168,7 +168,10 @@ Deno.serve(async (req) => {
         body: JSON.stringify({ image_url: img.signedUrl, audio_url: au.signedUrl, prompt: "Person talking directly to the camera with natural expressions and subtle hand gestures, social media video." }),
       });
       if (!q.ok) {
-        console.error("fal avatar:", q.status, (await q.text()).slice(0, 300));
+        const t = (await q.text()).slice(0, 300);
+        console.error("fal avatar:", q.status, t);
+        // 24-oct-2026: fal respondió 403 "Exhausted balance" y la app solo decía "falló" en cada tramo.
+        if (/balance|billing/i.test(t)) return json({ error: "Se acabó el saldo de tu cuenta de fal (tus tomas hablando). Recárgalo en fal.ai/dashboard/billing y toca Regenerar.", saldo: true }, 402);
         return json({ error: q.status === 422 ? "El generador rechazó la imagen o el audio." : "El generador del presentador no está disponible ahora." }, 503);
       }
       const queued = await q.json();

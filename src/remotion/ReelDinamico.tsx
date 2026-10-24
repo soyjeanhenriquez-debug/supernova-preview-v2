@@ -170,8 +170,9 @@ function Presentador({ tramo, k, planos, desde, W, H }: { tramo: RDTramo; k: num
   const zoom = j % 2 ? 1.16 : 1.0;
   // El primer plano del reel entra con un empujón de cámara.
   const hook = desde === 0 && j === 0 ? interpolate(frame, [0, 10], [1.12, 1], clamp) : 1;
-  const media: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover", objectPosition: forma === "dividida" ? "50% 22%" : "50% 30%",
-    transform: `scale(${zoom * hook})`, transformOrigin: "50% 28%" };
+  // En la dividida se ve la parte de arriba de tu toma (cabeza y hombros): con 22 % la cabeza quedaba cortada (24-oct-2026).
+  const media: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover", objectPosition: forma === "dividida" ? "50% 4%" : "50% 30%",
+    transform: `scale(${(forma === "dividida" ? (j % 2 ? 1.08 : 1) : zoom) * hook})`, transformOrigin: forma === "dividida" ? "50% 15%" : "50% 28%" };
   const box: React.CSSProperties = forma === "dividida"
     ? { position: "absolute", left: 0, top: H * 0.5, width: W, height: H * 0.5, overflow: "hidden" }
     : { position: "absolute", inset: 0, overflow: "hidden" };

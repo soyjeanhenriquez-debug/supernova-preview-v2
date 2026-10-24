@@ -102,3 +102,12 @@ describe("planos alineados con el guion", () => {
     expect(r.planos[4].look).toBe(0); // el look 3 salía en un solo plano → toma el del plano tuyo anterior
   });
 });
+
+describe("palabra del cierre", () => {
+  it("la palabra en pantalla es la que se dice en la voz", async () => {
+    const { palabraDelGuion } = await import("@/lib/reelDinamico");
+    expect(palabraDelGuion("…sin grabarte. Comenta VENDER y te mando el enlace.")).toBe("VENDER");
+    expect(palabraDelGuion("Comenta «supernova» y te lo mando")).toBe("SUPERNOVA");
+    expect(palabraDelGuion("Sin llamada.")).toBe("");
+  });
+});

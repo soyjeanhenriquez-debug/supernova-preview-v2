@@ -61,24 +61,28 @@ async function producir(cfg: Config): Promise<{ creados: number; errores: string
   }
   const { count: total } = await db.from("reel_borradores").select("id", { count: "exact", head: true }).eq("user_id", cfg.user_id);
 
-  let creados = 0;
-  for (let k = 0; k < faltan; k++) {
+  // Los borradores del día se escriben a la vez (cada uno tarda ~50 s y la función tiene 150 s). 20.000 tokens: este
+  // modelo cuenta su razonamiento dentro del tope y con 8.000 el JSON llegaba cortado (24-oct-2026).
+  const uno = async (k: number): Promise<boolean> => {
     const tema = temas[((total ?? 0) + k) % temas.length];
     try {
       const { out, cost, usage } = await geminiMedia([{ text: `${SYSTEM}\n\n${pedidoIA({
         texto: tema, literal: false, palabra: cfg.palabra || idn?.palabra || "", paleta: idn?.paleta ?? "cian", ropa: idn?.ropa ?? "",
         clips, actual: null, plantilla: analisis, modo, oferta,
-      })}` }], 8_000, 100_000, 0.7);
+      })}` }], 20_000, 130_000, 0.7);
       await logMediaCost(cfg.user_id, FN, cost, usage);
       const reel = out ? parseReel(JSON.stringify(out), clips, undefined, analisis.planos.length) : null;
-      if (!reel) { errores.push(`«${tema}»: la IA no devolvió un reel que sirva.`); continue; }
+      if (!reel) { console.error(`${FN}: sin reel`, JSON.stringify(usage)); errores.push(`«${tema}»: la IA no devolvió un reel que sirva.`); return false; }
       const { error } = await db.from("reel_borradores").insert({ user_id: cfg.user_id, plantilla_id: pl.id, tema: tema.slice(0, 300), modo, reel, origen: "diario" });
-      if (error) errores.push(`«${tema}»: ${error.message}`); else creados++;
+      if (error) { errores.push(`«${tema}»: ${error.message}`); return false; }
+      return true;
     } catch (e) {
       console.error(`${FN}:`, e);
       errores.push(`«${tema}»: la IA no respondió.`);
+      return false;
     }
-  }
+  };
+  const creados = (await Promise.all(Array.from({ length: faltan }, (_, k) => uno(k)))).filter(Boolean).length;
   return { creados, errores };
 }
 

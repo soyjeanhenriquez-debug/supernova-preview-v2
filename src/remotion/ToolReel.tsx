@@ -12,7 +12,11 @@ import type { Tipo } from "@/lib/reelIa";
  * destellos cálidos al cambiar de bloque y "COMENTA «PALABRA»" arriba al final. Se ve en el Player y se descarga
  * armada en el navegador (renderMediaOnWeb). Todo el texto en SVG (ver SubsVideo).
  */
-export type ReelScene = { t0: number; t1: number; tipo: Tipo; img: string | null; clip: string | null; shot: string | null };
+export type ReelScene = {
+  t0: number; t1: number; tipo: Tipo; img: string | null; clip: string | null; shot: string | null;
+  /** La captura es vertical (versión celular de la app): va en un celular grande que entra, baja y se acerca. */
+  shotV?: boolean;
+};
 export type ReelProps = {
   scenes: ReelScene[];
   audio: string | null;
@@ -77,7 +81,19 @@ function Plano({ s, i, dur, fondo, W, H }: { s: ReelScene; i: number; dur: numbe
     return (
       <AbsoluteFill style={{ overflow: "hidden", backgroundColor: "#111114" }}>
         {bg && <Img src={bg} style={{ ...cover, filter: "blur(28px) brightness(0.55)", transform: "scale(1.15)" }} />}
-        {shot && (s.tipo === "captura" ? (
+        {shot && s.tipo === "captura" && s.shotV ? (
+          // Captura de celular (25-oct-2026, pedido de Jean: "versión celular para que se vea más fluido"): entra
+          // deslizándose y la pantalla se acerca suave.
+          // Proporción de la pantalla = la de la captura (≈ 390×690): no se recorta por los lados.
+          <div style={{ position: "absolute", left: W * 0.2, width: W * 0.6, top: H * 0.075, height: W * 0.6 * 0.947 * 1.77 + W * 0.032,
+            transform: `translateX(${interpolate(frame, [0, 7], [W * 0.12, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })}px) scale(${0.97 + 0.05 * k})`,
+            opacity: interpolate(frame, [0, 4], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+            borderRadius: W * 0.075, padding: W * 0.016, background: "#0E0E10", boxShadow: "0 40px 100px rgba(0,0,0,0.65), inset 0 0 0 2px #2A2A2E" }}>
+            <div style={{ width: "100%", height: "100%", borderRadius: W * 0.06, overflow: "hidden", background: "#000" }}>
+              <Img src={shot} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", transform: `scale(${1 + 0.05 * k})`, transformOrigin: "50% 0%" }} />
+            </div>
+          </div>
+        ) : shot && (s.tipo === "captura" ? (
           // Ventana blanca flotando con la web real (como el reel de referencia).
           <div style={{ position: "absolute", left: W * 0.05, width: W * 0.9, top: H * 0.27, transform: `scale(${pop * drift})`, transformOrigin: "50% 40%",
             borderRadius: W * 0.025, overflow: "hidden", background: "#FFFFFF", boxShadow: "0 30px 80px rgba(0,0,0,0.55)" }}>

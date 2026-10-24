@@ -64,12 +64,14 @@ type Meta = {
   hablaJobs: (string | null)[];
   /** Capturas que sube Jean (pantallas reales de la app, que están tras el login). */
   propias: number;
+  /** Cuáles de esas capturas son verticales (versión celular): salen en un celular grande. */
+  propiasV: boolean[];
 };
 const nuevo = (): Meta => ({
   id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`,
   datos: { guion: "", herramienta: "", url: "", palabra: "", paleta: "azul-naranja" },
   foto: null, plan: null, voz: null, capturas: ["pendiente", "pendiente"], caras: [null, null],
-  imagenes: [], clips: [], jobs: [], habla: [], hablaJobs: [], propias: 0,
+  imagenes: [], clips: [], jobs: [], habla: [], hablaJobs: [], propias: 0, propiasV: [],
 });
 const KEY = (uid: string) => `supernova.reelia.${uid}`;
 function cargar(uid: string): Meta {
@@ -160,14 +162,17 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
     const list = Array.from(files).filter(f => f.type.startsWith("image/")).slice(0, MAX_PROPIAS - m.propias);
     if (!list.length) { toast.error(`Máximo ${MAX_PROPIAS} capturas.`); return; }
     let n = m.propias;
+    const vert = [...(m.propiasV ?? [])];
     for (const f of list) {
       const blob = await compressImage(f, 1600).catch(() => f);
+      const bmp = await createImageBitmap(blob).catch(() => null);
+      vert[n] = !!bmp && bmp.height > bmp.width * 1.2;
       await putMedia(m.id, PROPIA(n), "image", blob); setUrl(`p${n}`, blob); n++;
     }
-    commit({ propias: n });
+    commit({ propias: n, propiasV: vert });
     toast.success(`${list.length} captura${list.length > 1 ? "s" : ""} lista${list.length > 1 ? "s" : ""}.`);
   };
-  const quitarCapturas = () => { for (let k = 0; k < metaRef.current.propias; k++) setUrl(`p${k}`, null); commit({ propias: 0 }); };
+  const quitarCapturas = () => { for (let k = 0; k < metaRef.current.propias; k++) setUrl(`p${k}`, null); commit({ propias: 0, propiasV: [] }); };
   const usarSupernova = () => {
     if (d.guion.trim() && !confirm("¿Cambiar tu guion por el borrador de SUPERNOVA?")) return;
     commit({ datos: { ...SUPERNOVA }, capturas: ["pendiente", "pendiente"] });
@@ -362,7 +367,11 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
     const scenes: ReelScene[] = [];
     let capturas = 0;
     // Primero tus capturas (pantallas reales de la app); después las automáticas de la web.
-    const pool = [...Array.from({ length: meta.propias }, (_, k) => urls[`p${k}`]), urls.pc, urls.cel].filter(Boolean) as string[];
+    // Si hay capturas verticales (versión celular), solo esas: el reel se ve más fluido sin mezclar formatos.
+    const propias = Array.from({ length: meta.propias }, (_, k) => ({ url: urls[`p${k}`], v: !!meta.propiasV?.[k] })).filter(x => x.url);
+    const pool: { url: string; v: boolean }[] = propias.some(x => x.v)
+      ? propias.filter(x => x.v)
+      : [...propias, ...(urls.pc ? [{ url: urls.pc, v: false }] : []), ...(urls.cel ? [{ url: urls.cel, v: true }] : [])];
     p.escenas.forEach((e, i) => {
       const bloque = bloques.findIndex(b => b.escenas.includes(i));
       if (e.tipo === "presentador" && bloque >= 0) {
@@ -371,12 +380,12 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
         scenes.push({ t0: b.desde, t1: b.hasta, tipo: "presentador", img: urls[`cara${b.cierre ? 1 : 0}`] ?? urls.cara0 ?? null, clip: urls[`h${bloque}`] ?? null, shot: null });
         return;
       }
-      const shot = e.tipo === "marca" ? (urls.cel ?? pool[0] ?? null) : e.tipo === "captura" ? (pool.length ? pool[capturas++ % pool.length] : null) : null;
-      scenes.push({ ...t[i], tipo: e.tipo, img: urls[`i${i}`] ?? null, clip: urls[`c${i}`] ?? null, shot });
+      const pick = e.tipo === "marca" ? (pool.find(x => x.v) ?? pool[0]) : e.tipo === "captura" && pool.length ? pool[capturas++ % pool.length] : undefined;
+      scenes.push({ ...t[i], tipo: e.tipo, img: urls[`i${i}`] ?? null, clip: urls[`c${i}`] ?? null, shot: pick?.url ?? null, shotV: pick?.v ?? false });
     });
     const props: ReelProps = { scenes, audio: urls.voz ?? null, words: meta.voz.words, titulo: p.titulo, palabra: d.palabra, fondo: urls.cara0 ?? urls.i0 ?? null };
     return { props, frames: Math.max(FPS, Math.round(meta.voz.seconds * FPS) + 6) };
-  }, [p, t, bloques, urls, meta.voz, meta.propias, d.palabra]);
+  }, [p, t, bloques, urls, meta.voz, meta.propias, meta.propiasV, d.palabra]);
 
   const faltan = p ? p.escenas.filter((e, i) => CON_IMAGEN.includes(e.tipo) && meta.imagenes[i] !== "listo").length : 0;
   const listo = !!plan && !!urls.voz && faltan === 0;

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Captions, ChevronRight, Clapperboard, Loader2, ScrollText, Search, Video, Wand2 } from "lucide-react";
+import { Captions, ChevronRight, Clapperboard, Loader2, ScrollText, Search, Sparkles, Video, Wand2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { AnalizaReel } from "@/components/reel/AnalizaReel";
 import { TeleprompterLibre } from "@/components/reel/TeleprompterLibre";
@@ -16,6 +16,8 @@ const SubeTuVideo = lazy(() => import("@/components/subs/SubeTuVideo").then(m =>
 // Estudio de avatar (20-oct-2026) en modo "con tu cara": #/con-tu-cara/estudio.
 const EstudioAvatarPage = lazy(() => import("@/pages/EstudioAvatarPage").then(m => ({ default: m.EstudioAvatarPage })));
 const HistoriaAnimada = lazy(() => import("@/components/historia/HistoriaAnimada").then(m => ({ default: m.HistoriaAnimada })));
+// Reel de herramienta IA (24-oct-2026, formato "Voz en off"): solo la cuenta de Jean mientras lo prueba.
+const ReelIA = lazy(() => import("@/components/reelia/ReelIA").then(m => ({ default: m.ReelIA })));
 
 /**
  * "Con tu cara" (13-oct-2026, pedido de Jean): para creadores que salen en sus videos.
@@ -53,6 +55,13 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
       </Suspense>
     );
   }
+  if (segs[0] === "reel-ia" && jean) {
+    return (
+      <Suspense fallback={<div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
+        <ReelIA onHome={() => go([])} onNavigate={nav} />
+      </Suspense>
+    );
+  }
   if (segs[0] === "estudio" && estudio) {
     return (
       <Suspense fallback={<Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />}>
@@ -87,6 +96,7 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
           ...(estudio ? [["estudio", Wand2, "Estudio de avatar", "Tu foto en otra ropa, otro ángulo, con tu producto o tu app, y en video hablando.", "Desde 11 créditos"] as const] : []),
           ["teleprompter", ScrollText, "Teleprompter", "Pega cualquier texto y léelo mirando a la cámara, a pantalla completa.", ""],
           ...(jean ? [["historia", Clapperboard, "Mi historia animada · solo tú", "Tu historia real con tu personaje en 3D, escena por escena, con tu voz o voz IA.", "Unos 200 créditos sin animaciones"]] as const : []),
+          ...(jean ? [["reel-ia", Sparkles, "Reel de herramienta IA · solo tú", "Del guion al reel: tu voz, capturas reales de la herramienta, imágenes al ritmo de cada frase y tú hablando al inicio y al final.", "Unos 60 créditos + tu voz"]] as const : []),
         ] as const).map(([id, Icon, title, desc, cost]) => (
           <button key={id} type="button" onClick={() => go([id])}
             className="card-surface group rounded-2xl p-5 text-left hover:border-primary/50 transition-colors">

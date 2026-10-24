@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { blockingIssue } from "@/lib/webRender";
 import { Player } from "@remotion/player";
 import { Captions, Check, ChevronDown, Copy, Download, Image as ImageIcon, Loader2, Mic, Sparkles, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -140,7 +141,7 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
     try {
       const { canRenderMediaOnWeb, renderMediaOnWeb } = await renderer();
       const check = await canRenderMediaOnWeb({ ...size, container: "mp4", videoCodec: "h264" });
-      if (!check.canRender) throw new Error(check.issues.find(i => i.severity === "error")?.message || "Tu navegador no puede armar el video.");
+      { const why = blockingIssue(check); if (why) throw new Error(why); }
       const out = await renderMediaOnWeb({
         composition, inputProps: props, container: "mp4", videoCodec: "h264",
         onProgress: p => setProgress(Math.round(p.progress * 100)),

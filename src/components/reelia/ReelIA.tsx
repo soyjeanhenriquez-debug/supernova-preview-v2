@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
+import { blockingIssue } from "@/lib/webRender";
 import { Player } from "@remotion/player";
 import { Camera, Check, Clapperboard, Copy, Download, Loader2, RefreshCw, Sparkles, Wand2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -396,7 +397,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
     try {
       const { canRenderMediaOnWeb, renderMediaOnWeb } = await import("@remotion/web-renderer");
       const check = await canRenderMediaOnWeb({ ...SIZE, container: "mp4", videoCodec: "h264" });
-      if (!check.canRender) throw new Error(check.issues.find(i => i.severity === "error")?.message || "Tu navegador no puede armar el video.");
+      { const why = blockingIssue(check); if (why) throw new Error(why); }
       const out = await renderMediaOnWeb({
         composition: { id: "reel-ia", component: ToolReel, durationInFrames: plan.frames, fps: FPS, ...SIZE, defaultProps: plan.props },
         inputProps: plan.props, container: "mp4", videoCodec: "h264",

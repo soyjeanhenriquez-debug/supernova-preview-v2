@@ -18,7 +18,8 @@ let inflight: Promise<TrialState> | null = null;
 const listeners = new Set<(s: TrialState) => void>();
 
 async function load(): Promise<TrialState> {
-  const { data, error } = await supabase.rpc("my_trial_state" as never);
+  // Si la red o el cliente fallan, se queda como "desconocido" (sin promesa rechazada sin atender).
+  const { data, error } = await Promise.resolve().then(() => supabase.rpc("my_trial_state" as never)).catch(() => ({ data: null, error: true }));
   const d = (error ? null : data) as { kind?: string; left_pct?: number; uses?: number; per_tool?: number } | null;
   const kind = d?.kind === "free" || d?.kind === "tester" || d?.kind === "paid" ? d.kind : null;
   const s: TrialState = {

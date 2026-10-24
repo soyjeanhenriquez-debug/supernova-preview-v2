@@ -529,7 +529,7 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
           {canSeeEstudio && <button type="button" onClick={() => onNavigate("Estudio de avatar")}
             className="w-full text-left rounded-xl border border-border p-3 hover:bg-secondary/40 text-[13px]">
             <span className="font-semibold text-foreground">Estudio de avatar →</span>{" "}
-            <span className="text-muted-foreground">otra ropa, otros ángulos, tu producto en su mano, tu app en pantalla y más modelos de video (Kling, Wan, Seedance).</span>
+            <span className="text-muted-foreground">otra ropa, otros ángulos, tu producto en su mano, tu app en pantalla y más estilos de video con movimiento.</span>
           </button>}
           {!state.foto ? (
             <div className="rounded-2xl border border-border bg-card p-6 text-center space-y-3">

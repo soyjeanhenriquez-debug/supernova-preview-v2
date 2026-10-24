@@ -9,7 +9,9 @@ export function isChunkLoadError(err: unknown): boolean {
   const msg = err instanceof Error ? `${err.name} ${err.message}` : String(err ?? "");
   // "reading 'default'": main.tsx atrapa vite:preloadError con preventDefault y Vite devuelve undefined;
   // React.lazy falla así (11-oct-2026: tras un deploy la app quedó en "Esta pantalla tuvo un problema").
-  return /dynamically imported module|Importing a module script failed|ChunkLoadError|Failed to fetch dynamically|Unable to preload CSS|reading 'default'|reading "default"/i.test(msg);
+  return /dynamically imported module|Importing a module script failed|ChunkLoadError|Failed to fetch dynamically|Unable to preload CSS|reading 'default'|reading "default"/i.test(msg)
+    // Mismo caso con export con nombre (20-oct-2026: "reading 'VideoStudioPage'"). Solo nombres de componente.
+    || /Cannot read properties of undefined \(reading '[A-Z][A-Za-z]+Page'\)/.test(msg);
 }
 
 /** Recarga UNA vez por minuto como mucho: si el chunk de verdad no existe, no entra en bucle. */

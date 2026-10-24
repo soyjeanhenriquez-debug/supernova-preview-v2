@@ -2,7 +2,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, KeyRound, Bot, MessageSquare,
   Coins, BarChart3, Settings, ArrowLeft, Shield, Lock,
-  ScrollText, Wifi, HeartPulse, Store, TrendingUp, GraduationCap, Gift, Lightbulb, Target } from "lucide-react";
+  ScrollText, Wifi, HeartPulse, Store, TrendingUp, GraduationCap, Gift, Lightbulb, Target, ShieldCheck } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useAuth } from "@/contexts/AuthContext";
 import { AdminPrivacyProvider, useAdminPrivacy } from "@/lib/adminPrivacy";
@@ -35,6 +35,7 @@ const items: { to: string; label: string; icon: typeof Users; end?: boolean }[] 
   { to: "/admin/sesiones", label: "Sesiones", icon: Wifi },
   { to: "/admin/audit", label: "Registro de cambios", icon: ScrollText },
   { to: "/admin/salud", label: "Salud del sistema", icon: HeartPulse },
+  { to: "/admin/guardian", label: "Guardián del Creador", icon: ShieldCheck },
   { to: "/admin/mercado", label: "Mercado", icon: Store },
   { to: "/admin/keywords", label: "Palabras clave y fuentes", icon: KeyRound },
   { to: "/admin/agente", label: "Agente IA", icon: Bot },

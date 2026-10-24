@@ -464,7 +464,7 @@ export function AdStudio({ uid, productId, brief, shots, onLine, cfg, size, onSi
             </p>
             {avatarOpen && (
               <div className="rounded-xl border border-border p-3 space-y-3">
-                <p className="text-[12px] text-muted-foreground">Describe a tu avatar y la IA escribe el prompt con el método 6C (personaje, cámara, ropa, lugar, luz y realismo). Puedes editarlo antes de crear la foto.</p>
+                <p className="text-[12px] text-muted-foreground">Describe a tu avatar y la IA escribe la descripción de la foto con el método 6C (personaje, cámara, ropa, lugar, luz y realismo). Puedes editarla antes de crearla.</p>
                 <Avatar6CForm onPrompt={setAvatarPrompt} disabled={busy || !!imaging} />
                 <textarea value={avatarPrompt} rows={6} onChange={e => setAvatarPrompt(e.target.value.slice(0, AVATAR_PROMPT_MAX))} disabled={busy || !!imaging}
                   placeholder="A candid iPhone photo of… (o escríbelo tú)" className={`${field} font-mono text-[12px] leading-relaxed`} />
@@ -641,8 +641,8 @@ export function AdStudio({ uid, productId, brief, shots, onLine, cfg, size, onSi
                                   <span className="block text-[12px] font-mono text-foreground leading-relaxed break-words">{x.text}</span>
                                 </div>
                               ))}
-                              <button type="button" onClick={() => { void navigator.clipboard.writeText(pp.parts.map(x => x.text).join("\n")).then(() => toast.success("Prompt copiado.")); }}
-                                className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground"><Copy className="w-3.5 h-3.5" />Copiar prompt</button>
+                              <button type="button" onClick={() => { void navigator.clipboard.writeText(pp.parts.map(x => x.text).join("\n")).then(() => toast.success("Descripción copiada.")); }}
+                                className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground"><Copy className="w-3.5 h-3.5" />Copiar descripción</button>
                             </div>
                           ))}
                       </div>

@@ -385,7 +385,7 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
                 <div className="px-3 pb-3 space-y-2">
                   {!!style.breakdown?.length && <ul className="text-[11px] text-muted-foreground list-disc pl-4 space-y-0.5">{style.breakdown.map((l, i) => <li key={i}>{l}</li>)}</ul>}
                   <pre className="text-[11px] text-foreground whitespace-pre-wrap break-words max-h-56 overflow-auto rounded-lg bg-card p-2">{style.master_prompt}</pre>
-                  <button onClick={() => void copyText(style.master_prompt!)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border text-[12px] text-foreground"><Copy className="w-3.5 h-3.5" /> Copiar prompt</button>
+                  <button onClick={() => void copyText(style.master_prompt!)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border text-[12px] text-foreground"><Copy className="w-3.5 h-3.5" /> Copiar descripción</button>
                 </div>
               )}
             </div>
@@ -519,7 +519,7 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
           <section className="rounded-2xl border border-border p-4 sm:p-5 space-y-3 min-w-0">
             <div>
               <h2 className="font-display text-[17px] font-semibold text-foreground">Prompts de 10 segundos (opcional)</h2>
-              <p className="text-[12px] text-muted-foreground mt-0.5">Tu video ya sale sin esto. Si quieres una toma hecha con IA (iconos, objetos, movimiento de cámara), "Crear este clip con IA" hace primero la imagen base con el estilo y después la anima 5 segundos; o copia el prompt para Google Flow (Omni Flash), Veo o Seedance. A veces sale a la segunda: la IA no siempre acierta a la primera.</p>
+              <p className="text-[12px] text-muted-foreground mt-0.5">Tu video ya sale sin esto. Si quieres una toma hecha con IA (iconos, objetos, movimiento de cámara), "Crear este clip con IA" hace primero la imagen base con el estilo y después la anima 5 segundos; o copia la descripción para usarla en otra herramienta de video con IA. A veces sale a la segunda: la IA no siempre acierta a la primera.</p>
             </div>
             {plan.clips.map((c, k) => (
               <details key={k} className="rounded-xl border border-border">

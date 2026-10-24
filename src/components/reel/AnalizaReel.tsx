@@ -41,6 +41,12 @@ type Hist = { id: string; shortcode: string; nivel: Nivel; stage: string; create
 const db = () => supabase as any;
 const copy = (t: string, what = "Copiado") => { void navigator.clipboard?.writeText(t).then(() => toast.success(what)); };
 const withoutBilling = (d: Record<string, unknown>) => { const r = { ...d }; delete r.billing; return r as unknown as ReelView; };
+/** La IA a veces devuelve un objeto donde esperamos texto ({ "0": "…" }, { titulo, detalle }): React se cae con
+ *  "Objects are not valid as a React child" (16-oct-2026, 6 pantallazos en Crear). Siempre se pinta texto. */
+const txt = (x: unknown): string =>
+  typeof x === "string" ? x : typeof x === "number" ? String(x) : x == null ? ""
+    : Array.isArray(x) ? x.map(txt).filter(Boolean).join(" · ")
+    : typeof x === "object" ? Object.values(x as Record<string, unknown>).map(txt).filter(Boolean).join(" — ") : String(x);
 const fmt = (n: number | null | undefined) => (typeof n === "number" ? n.toLocaleString("es-ES") : "—");
 
 export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
@@ -388,9 +394,9 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
                 <div className="space-y-1.5">
                   <p className="text-[12px] text-muted-foreground">Elige el gancho con el que empiezas:</p>
                   {v.ganchos.map((g, i) => (
-                    <button key={g} type="button" onClick={() => setHook(i)} aria-pressed={hook === i}
+                    <button key={i} type="button" onClick={() => setHook(i)} aria-pressed={hook === i}
                       className={`w-full rounded-xl border p-3 text-left text-sm ${hook === i ? "border-primary/60 bg-primary/10 text-foreground" : "border-border text-foreground hover:bg-secondary/40"}`}>
-                      «{g}»
+                      «{txt(g)}»
                     </button>
                   ))}
                 </div>
@@ -412,9 +418,9 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
                     return (
                       <li key={i} className="rounded-xl border border-border p-3 text-[13px] space-y-1">
                         <p className="tabular-nums text-muted-foreground">{t.inicio}–{t.fin} s</p>
-                        {v.nivel === "espejo" && orig && <p className="text-[12px] text-muted-foreground">Original ({orig.inicio}–{orig.fin} s): {orig.descripcion}</p>}
-                        <p className="text-foreground"><b className="font-medium">Se ve:</b> {t.se_ve || "—"}</p>
-                        <p className="text-foreground"><b className="font-medium">Texto en pantalla:</b> {t.texto_pantalla ? `«${t.texto_pantalla}»` : "—"}</p>
+                        {v.nivel === "espejo" && orig && <p className="text-[12px] text-muted-foreground">Original ({orig.inicio}–{orig.fin} s): {txt(orig.descripcion)}</p>}
+                        <p className="text-foreground"><b className="font-medium">Se ve:</b> {txt(t.se_ve) || "—"}</p>
+                        <p className="text-foreground"><b className="font-medium">Texto en pantalla:</b> {t.texto_pantalla ? `«${txt(t.texto_pantalla)}»` : "—"}</p>
                       </li>
                     );
                   })}
@@ -548,13 +554,13 @@ function VersionSummary({ view }: { view: ReelView; hook: number }) {
         <p className="text-[12px] text-muted-foreground">Versión hecha con el criterio anterior, sin la revisión de calidad nueva. Genera otra para revisarla.</p>
       )}
       <div className="grid gap-3 sm:grid-cols-2 text-[13px]">
-        <div><p className="font-semibold text-foreground">Lo que tomamos del original</p><ul className="mt-1 list-disc pl-4 text-muted-foreground space-y-0.5">{v.que_se_mantuvo.map(x => <li key={x}>{x}</li>)}</ul></div>
-        <div><p className="font-semibold text-foreground">Lo que es tuyo</p><ul className="mt-1 list-disc pl-4 text-muted-foreground space-y-0.5">{v.que_cambio.filter(x => !/^aviso:/i.test(x)).map(x => <li key={x}>{x}</li>)}</ul></div>
+        <div><p className="font-semibold text-foreground">Lo que tomamos del original</p><ul className="mt-1 list-disc pl-4 text-muted-foreground space-y-0.5">{v.que_se_mantuvo.map((x, i) => <li key={i}>{txt(x)}</li>)}</ul></div>
+        <div><p className="font-semibold text-foreground">Lo que es tuyo</p><ul className="mt-1 list-disc pl-4 text-muted-foreground space-y-0.5">{v.que_cambio.map(txt).filter(x => !/^aviso:/i.test(x)).map((x, i) => <li key={i}>{x}</li>)}</ul></div>
       </div>
       {v.formula_explicada && <p className="text-[13px] text-muted-foreground"><b className="text-foreground font-medium">La fórmula del gancho:</b> {v.formula_explicada}</p>}
       {v.ideas.length > 0 && (
         <div className="text-[13px]"><p className="font-semibold text-foreground">3 ideas con la misma fórmula (el guion es de la mejor)</p>
-          <ol className="mt-1 list-decimal pl-4 text-muted-foreground space-y-0.5">{v.ideas.map(i => <li key={i.titulo}><span className="text-foreground">{i.titulo}</span> — {i.por_que}</li>)}</ol></div>
+          <ol className="mt-1 list-decimal pl-4 text-muted-foreground space-y-0.5">{v.ideas.map((i, k) => <li key={k}><span className="text-foreground">{txt(i.titulo)}</span> — {txt(i.por_que)}</li>)}</ol></div>
       )}
     </div>
   );
@@ -583,28 +589,28 @@ function PorQueTab({ view }: { view: ReelView }) {
       </div>
       {(p.formula_gancho || p.mecanismo) && (
         <div className="grid gap-3 sm:grid-cols-2 text-[13px]">
-          {p.formula_gancho && <p className="text-muted-foreground"><b className="text-foreground font-medium">Fórmula del gancho:</b> {p.formula_gancho}</p>}
-          {p.mecanismo && <p className="text-muted-foreground"><b className="text-foreground font-medium">Por qué engancha:</b> {p.mecanismo}</p>}
+          {p.formula_gancho && <p className="text-muted-foreground"><b className="text-foreground font-medium">Fórmula del gancho:</b> {txt(p.formula_gancho)}</p>}
+          {p.mecanismo && <p className="text-muted-foreground"><b className="text-foreground font-medium">Por qué engancha:</b> {txt(p.mecanismo)}</p>}
         </div>
       )}
-      <ul className="list-disc pl-5 space-y-1 text-sm text-foreground">{p.claves.map(c => <li key={c}>{c}</li>)}</ul>
+      <ul className="list-disc pl-5 space-y-1 text-sm text-foreground">{p.claves.map((c, i) => <li key={i}>{txt(c)}</li>)}</ul>
       {p.timeline.length > 0 && (
         <ol className="space-y-1.5">
           {p.timeline.map((t, i) => (
             <li key={i} className="grid grid-cols-[72px_1fr] gap-2 text-[13px]">
               <span className="tabular-nums text-muted-foreground">{t.inicio}–{t.fin} s</span>
-              <span><b className="text-foreground">{t.etiqueta}</b> <span className="text-muted-foreground">· {t.descripcion}</span></span>
+              <span><b className="text-foreground">{txt(t.etiqueta)}</b> <span className="text-muted-foreground">· {txt(t.descripcion)}</span></span>
             </li>
           ))}
         </ol>
       )}
       {p.mejorar.length > 0 && (
-        <div className="text-[13px]"><p className="font-semibold text-foreground">Qué mejorar en tu versión</p><ul className="mt-1 list-disc pl-5 text-muted-foreground">{p.mejorar.map(m => <li key={m}>{m}</li>)}</ul></div>
+        <div className="text-[13px]"><p className="font-semibold text-foreground">Qué mejorar en tu versión</p><ul className="mt-1 list-disc pl-5 text-muted-foreground">{p.mejorar.map((m, i) => <li key={i}>{txt(m)}</li>)}</ul></div>
       )}
       {!!p.no_comprobable?.length && (
         <div role="note" className="rounded-xl border border-primary/40 bg-primary/10 p-3 text-[13px]">
           <p className="font-semibold text-foreground">Ojo: esto no se puede comprobar</p>
-          <ul className="mt-1 list-disc pl-5 text-foreground">{p.no_comprobable.map(x => <li key={x}>{x}</li>)}</ul>
+          <ul className="mt-1 list-disc pl-5 text-foreground">{p.no_comprobable.map((x, i) => <li key={i}>{txt(x)}</li>)}</ul>
           <p className="mt-1 text-[12px] text-muted-foreground">Tu versión no lo repite ni pone cifras parecidas: muestra solo resultados tuyos y reales.</p>
         </div>
       )}

@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run guardian:criticos && vite build",
+    "guardian:criticos": "vitest run src/guardian/criticos.test.ts --reporter=dot",
+    "guardian": "vitest run src/guardian",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",

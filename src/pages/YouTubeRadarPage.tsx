@@ -172,7 +172,7 @@ export function YouTubeRadarPage({ onNavigate }: { onNavigate: (p: string) => vo
 
       {shortOf && <CreateFromIdeaSheet idea={ideaFromYt(shortOf, q, true)} input={SHORT_INPUT} onClose={() => setShortOf(null)} />}
 
-      <p className="text-[11px] text-muted-foreground flex items-center gap-1.5"><Users className="w-3 h-3" /><Clock className="w-3 h-3" /> Datos de la API oficial de YouTube; cada búsqueda se actualiza cada 6 horas. El pago es un estimado con rangos aproximados por idioma: cada canal cobra distinto y no es una promesa de ingresos.</p>
+      <p className="text-[11px] text-muted-foreground flex items-center gap-1.5"><Users className="w-3 h-3" /><Clock className="w-3 h-3" /> Datos oficiales de YouTube; cada búsqueda se actualiza cada 6 horas. El pago es un estimado con rangos aproximados por idioma: cada canal cobra distinto y no es una promesa de ingresos.</p>
     </div>
   );
 }

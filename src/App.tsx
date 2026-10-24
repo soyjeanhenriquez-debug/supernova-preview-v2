@@ -37,6 +37,7 @@ const AdminMensajes = lazy(() => import("@/pages/admin/AdminMensajes"));
 const AdminEnsenanzas = lazy(() => import("@/pages/admin/AdminEnsenanzas"));
 const AdminAprendizaje = lazy(() => import("@/pages/admin/AdminAprendizaje"));
 const AdminMisiones = lazy(() => import("@/pages/admin/AdminMisiones"));
+const AdminGuardian = lazy(() => import("@/pages/admin/AdminGuardian"));
 const GenjutsuPage = lazy(() => import("@/pages/GenjutsuPage"));
 const SetPasswordDialog = lazy(() => import("@/components/SetPasswordDialog"));
 
@@ -209,6 +210,7 @@ function AppRoutes() {
             <Route path="audit" element={<AdminAudit />} />
             <Route path="sesiones" element={<AdminSessions />} />
             <Route path="salud" element={<AdminHealth />} />
+            <Route path="guardian" element={<AdminGuardian />} />
             <Route path="mercado" element={<AdminMercado />} />
             <Route path="config" element={<AdminConfig />} />
             <Route path="mensajes" element={<AdminMensajes />} />

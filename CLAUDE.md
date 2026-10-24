@@ -158,6 +158,9 @@ su moneda.
 - **La app no pregunta lo que puede deducir.** Ninguna herramienta se bloquea por una ficha
   incompleta: se usa lo que ya sabemos (la oferta elegida, el producto activo) y las preguntas
   extra van en "Personalizar", que es opcional.
+- **Guardián del Creador (política permanente, 24-oct-2026):** SUPERNOVA resuelve el trabajo del
+  creador; no le obliga a aprender cómo funciona la IA. La persona dice QUÉ quiere y la app decide
+  CÓMO (modelo, prompt, duración, proveedor). Panel: Admin → Guardián del Creador.
 
 ---
 
@@ -227,6 +230,8 @@ Misma arquitectura (Next.js + Vercel + Supabase + Whop + Skool). Lo que se sabe 
 7. ¿Cómo lo voy a verificar en producción sin cargar la base?
 8. ¿Nos acerca a ganarle a la competencia en lo que importa (números, acompañamiento, datos
    que venden) sin copiar su contenido?
+9. ¿La persona llega al resultado sin decisiones técnicas? Revisar con el agente
+   `guardian-del-creador`. `npm run build` corre antes `src/guardian/criticos.test.ts`: si falla, no hay deploy.
 
 ---
 

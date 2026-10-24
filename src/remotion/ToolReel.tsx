@@ -16,6 +16,8 @@ export type ReelScene = {
   t0: number; t1: number; tipo: Tipo; img: string | null; clip: string | null; shot: string | null;
   /** La captura es vertical (versión celular de la app): va en un celular grande que entra, baja y se acerca. */
   shotV?: boolean;
+  /** La captura es una grabación de pantalla (video): se ve funcionando dentro del celular. */
+  shotVideo?: boolean;
 };
 export type ReelProps = {
   scenes: ReelScene[];
@@ -40,8 +42,10 @@ export function ToolReel(p: ReelProps) {
   const screens = useMemo(() => screensOf(p.words, 3), [p.words]);
   const sc = screenAt(screens, t);
   // Destello al pasar entre bloques: del presentador a lo demás, o al primer "resultado".
+  // Destello al cambiar de bloque: presentador ↔ lo demás, app ↔ B-roll, y al primer "resultado".
+  const grupo = (t: Tipo) => (t === "presentador" ? 0 : t === "captura" || t === "marca" ? 1 : 2);
   const flashes = useMemo(() => p.scenes.filter((s, i) => i > 0 && (
-    (s.tipo === "presentador") !== (p.scenes[i - 1].tipo === "presentador") || (s.tipo === "resultado" && p.scenes[i - 1].tipo !== "resultado")
+    grupo(s.tipo) !== grupo(p.scenes[i - 1].tipo) || (s.tipo === "resultado" && p.scenes[i - 1].tipo !== "resultado")
   )).map(s => Math.round(s.t0 * fps)), [p.scenes, fps]);
   const flash = flashes.find(f => frame >= f - 3 && frame < f + FLASH);
 
@@ -81,7 +85,7 @@ function Plano({ s, i, dur, fondo, W, H }: { s: ReelScene; i: number; dur: numbe
     return (
       <AbsoluteFill style={{ overflow: "hidden", backgroundColor: "#111114" }}>
         {bg && <Img src={bg} style={{ ...cover, filter: "blur(28px) brightness(0.55)", transform: "scale(1.15)" }} />}
-        {shot && s.tipo === "captura" && s.shotV ? (
+        {shot && s.shotV ? (
           // Captura de celular (25-oct-2026, pedido de Jean: "versión celular para que se vea más fluido"): entra
           // deslizándose y la pantalla se acerca suave.
           // Proporción de la pantalla = la de la captura (≈ 390×690): no se recorta por los lados.
@@ -90,7 +94,10 @@ function Plano({ s, i, dur, fondo, W, H }: { s: ReelScene; i: number; dur: numbe
             opacity: interpolate(frame, [0, 4], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
             borderRadius: W * 0.075, padding: W * 0.016, background: "#0E0E10", boxShadow: "0 40px 100px rgba(0,0,0,0.65), inset 0 0 0 2px #2A2A2E" }}>
             <div style={{ width: "100%", height: "100%", borderRadius: W * 0.06, overflow: "hidden", background: "#000" }}>
-              <Img src={shot} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", transform: `scale(${1 + 0.05 * k})`, transformOrigin: "50% 0%" }} />
+              {s.shotVideo
+                ? <Video src={shot} muted style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
+                // Captura fija: baja sola (como un scroll) si es más larga que la pantalla; si no, se acerca suave.
+                : <Img src={shot} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: `50% ${Math.round(easeInOut(k) * 100)}%`, transform: `scale(${1 + 0.04 * k})`, transformOrigin: "50% 0%" }} />}
             </div>
           </div>
         ) : shot && (s.tipo === "captura" ? (
@@ -113,16 +120,36 @@ function Plano({ s, i, dur, fondo, W, H }: { s: ReelScene; i: number; dur: numbe
       </AbsoluteFill>
     );
   }
-  if (s.clip) return <AbsoluteFill><Video src={s.clip} muted loop style={cover} /></AbsoluteFill>;
-  if (!s.img) return <AbsoluteFill style={{ backgroundColor: "#111114" }} />;
-  // Imagen con zoom suave (alterna dentro/fuera) y un paneo leve.
-  const zoomIn = i % 2 === 0;
-  const scale = zoomIn ? 1.04 + 0.09 * k : 1.13 - 0.09 * k;
-  const pan = (i % 3 - 1) * 1.4 * k;
+  if (!s.clip && !s.img) return <AbsoluteFill style={{ backgroundColor: "#111114" }} />;
+  // B-roll estilo película (25-oct-2026, Jean: "fluidos, que impacten, estilo película"): entra con un barrido rápido
+  // con desenfoque (whip), la cámara se mueve con fuerza y suavidad (empuje, paneo y un giro leve, con aceleración
+  // de cine), y lleva color de película y viñeta. Si hay animación, la animación manda y la cámara solo acompaña.
+  const dir = i % 2 === 0 ? 1 : -1;
+  const whip = interpolate(frame, [0, 6], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const e = easeInOut(k);
+  const move = s.clip
+    ? `scale(${1.02 + 0.06 * e})`
+    : `scale(${1.08 + 0.2 * e}) translateX(${dir * (2.5 - 5 * e)}%) translateY(${-1.5 * e}%) rotate(${dir * (0.8 - 1.6 * e)}deg)`;
+  const media = { ...cover, transform: move, transformOrigin: "50% 45%" };
   return (
-    <AbsoluteFill style={{ overflow: "hidden" }}>
-      <Img src={s.img} style={{ ...cover, transform: `scale(${scale}) translateX(${pan}%)`, transformOrigin: "50% 45%" }} />
+    <AbsoluteFill style={{ overflow: "hidden", backgroundColor: "#000",
+      transform: `translateX(${dir * whip * 18}%) scale(${1 + whip * 0.12})`, filter: whip > 0.02 ? `blur(${whip * 14}px)` : undefined }}>
+      {s.clip ? <Video src={s.clip} muted loop style={media} /> : <Img src={s.img!} style={media} />}
+      <CineGrade />
     </AbsoluteFill>
+  );
+}
+
+/** Aceleración suave de cine (entra y sale despacio). */
+const easeInOut = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+
+/** Color de película: sombras frías, luces cálidas y viñeta. Sin filtros (también va en Safari). */
+function CineGrade() {
+  return (
+    <>
+      <AbsoluteFill style={{ background: "linear-gradient(180deg, rgba(10,30,60,0.28) 0%, rgba(0,0,0,0) 40%, rgba(255,140,40,0.10) 100%)", mixBlendMode: "soft-light" }} />
+      <AbsoluteFill style={{ background: "radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.55) 100%)" }} />
+    </>
   );
 }
 

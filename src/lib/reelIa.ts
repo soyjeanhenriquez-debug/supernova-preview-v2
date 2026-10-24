@@ -15,7 +15,8 @@ export const TIPOS: Record<Tipo, string> = {
 /** Tipos que necesitan imagen con IA (los demás salen de tus capturas o de tu presentador). */
 export const CON_IMAGEN: Tipo[] = ["concepto", "funcion", "resultado"];
 export const MAX_ESCENAS = 30;
-export const MAX_ANIMADAS = 4;
+/** 25-oct-2026 (Jean: "fluidos, que impacten, estilo película"): todos los B-rolls animados, hasta 8 por reel. */
+export const MAX_ANIMADAS = 8;
 /** Precios en créditos de las piezas que cobra el servidor (iguales a credit_prices). */
 export const PRICES = { plan: 15, imagen: 6, presentador: 9, animar: 89 } as const;
 
@@ -41,11 +42,11 @@ export const SYSTEM = [
   "Eres el editor de un canal de Reels que presenta herramientas de IA en español latino. Conviertes un guion ya escrito en el plan de escenas de un Reel vertical de 30-60 s.",
   "REGLAS DE FORMATO (ingeniería inversa de un reel que funciona):",
   "- 'texto' de cada escena = un trozo SEGUIDO y LITERAL del guion (no cambies, quites ni añadas palabras). Unidas en orden, las escenas forman el guion completo.",
-  "- Cada escena dura 1 a 2,5 s: de 3 a 7 palabras. Un plano nuevo por cada idea.",
-  "- La primera escena (o las 2 primeras, máximo 4 s) y la última (o las 2 últimas, máximo 4 s) son tipo 'presentador': la persona habla a cámara.",
+  "- RITMO: una escena nueva cada ~3 segundos. Cada escena = de 7 a 10 palabras seguidas del guion (nunca menos de 6 ni más de 11). Un plano distinto por cada escena: nunca repitas la misma idea visual.",
+  "- La primera escena (gancho, máximo 4 s) y la última (cierre con la llamada) son tipo 'presentador': la persona habla a cámara. Ninguna otra escena es 'presentador'.",
   "- En medio alterna: 'marca' (la herramienta en un celular, 1 o 2 veces cuando se nombra), 'captura' (la web real de la herramienta, 3 a 5 veces cuando se explica cómo funciona), 'concepto' (imagen 3D de la idea), 'funcion' (un portátil o celular mostrando lo que hace esa frase), 'resultado' (lo que se logra).",
-  "- 'visual' (solo en concepto, funcion y resultado): la imagen en INGLÉS, una frase concreta: objeto, composición, cámara y luz, estilo foto de producto 3D realista, con la paleta indicada. Sin texto escrito en la imagen, sin logos ni marcas, sin personas famosas.",
-  "- 'animar': true en máximo 4 escenas concepto/funcion con movimiento claro; el resto false.",
+  "- 'visual' (solo en concepto, funcion y resultado): la imagen en INGLÉS como un plano de PELÍCULA: un objeto o escena concreta que represente la frase, con movimiento posible (algo que gira, se enciende, vuela, se arma), lente y luz de cine (anamorphic, volumetric light, shallow depth of field), con la paleta indicada. Sin texto escrito en la imagen, sin logos ni marcas, sin personas famosas.",
+  "- 'animar': true en TODAS las escenas concepto, funcion y resultado.",
   "- 'gancho' y 'cierre': en INGLÉS, dónde está y cómo se ve la persona en esas escenas (ej. 'sitting in a gaming chair in a dark server room with blue monitors, black hoodie, talking to the camera, medium shot'; 'in a bright modern office with glass walls, casual blazer, holding a laptop, talking to the camera'). Distintos entre sí.",
   "- 'titulo': 3 a 7 palabras en MAYÚSCULAS con el beneficio, y las 1-3 palabras clave entre *asteriscos* (ej. 'ESTA IA ENCUENTRA *NEGOCIOS QUE YA VENDEN*'). Sin cifras inventadas. Nunca uses 'clonar' ni 'clona': di 'modelar' o 'crear tu versión'.",
   "Responde SOLO con JSON válido, sin texto antes ni después:",

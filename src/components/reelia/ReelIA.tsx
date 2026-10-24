@@ -67,12 +67,14 @@ type Meta = {
   propias: number;
   /** Cuáles de esas capturas son verticales (versión celular): salen en un celular grande. */
   propiasV: boolean[];
+  /** Cuáles son grabaciones de pantalla (video) en vez de fotos (25-oct-2026, Jean: "mejor videos de cómo funciona"). */
+  propiasVideo: boolean[];
 };
 const nuevo = (): Meta => ({
   id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`,
   datos: { guion: "", herramienta: "", url: "", palabra: "", paleta: "azul-naranja" },
   foto: null, plan: null, voz: null, capturas: ["pendiente", "pendiente"], caras: [null, null],
-  imagenes: [], clips: [], jobs: [], habla: [], hablaJobs: [], propias: 0, propiasV: [],
+  imagenes: [], clips: [], jobs: [], habla: [], hablaJobs: [], propias: 0, propiasV: [], propiasVideo: [],
 });
 const KEY = (uid: string) => `supernova.reelia.${uid}`;
 function cargar(uid: string): Meta {
@@ -93,6 +95,18 @@ const download = (blob: Blob, name: string) => {
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 };
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+/** Ancho y alto de un video (para saber si es vertical). */
+function videoSize(file: Blob): Promise<{ w: number; h: number }> {
+  return new Promise(resolve => {
+    const v = document.createElement("video");
+    const url = URL.createObjectURL(file);
+    const done = (w: number, h: number) => { URL.revokeObjectURL(url); resolve({ w, h }); };
+    v.preload = "metadata"; v.muted = true;
+    v.onloadedmetadata = () => done(v.videoWidth, v.videoHeight);
+    v.onerror = () => done(9, 16); // sin metadatos: se asume vertical (grabación del celular)
+    v.src = url;
+  });
+}
 
 export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate: (page: string) => void }) {
   const { user } = useAuth();
@@ -134,7 +148,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
       await load("cara0", CARA(0), "image"); await load("cara1", CARA(1), "image");
       for (let i = 0; i < (m.plan?.escenas.length ?? 0); i++) { await load(`i${i}`, i, "image"); await load(`c${i}`, i, "clip"); }
       for (let k = 0; k < m.habla.length; k++) await load(`h${k}`, HABLA(k), "clip");
-      for (let k = 0; k < m.propias; k++) await load(`p${k}`, PROPIA(k), "image");
+      for (let k = 0; k < m.propias; k++) await load(`p${k}`, PROPIA(k), m.propiasVideo?.[k] ? "clip" : "image");
     })();
   }, [uid, setUrl]);
 
@@ -160,20 +174,28 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
   const capRef = useRef<HTMLInputElement>(null);
   const subirCapturas = async (files: FileList) => {
     const m = metaRef.current;
-    const list = Array.from(files).filter(f => f.type.startsWith("image/")).slice(0, MAX_PROPIAS - m.propias);
-    if (!list.length) { toast.error(`Máximo ${MAX_PROPIAS} capturas.`); return; }
+    const list = Array.from(files).filter(f => f.type.startsWith("image/") || f.type.startsWith("video/")).slice(0, MAX_PROPIAS - m.propias);
+    if (!list.length) { toast.error(`Máximo ${MAX_PROPIAS} capturas o videos.`); return; }
     let n = m.propias;
     const vert = [...(m.propiasV ?? [])];
+    const vid = [...(m.propiasVideo ?? [])];
     for (const f of list) {
+      if (f.type.startsWith("video/")) {
+        if (f.size > 80 * 1024 * 1024) { toast.error(`${f.name}: máximo 80 MB por video. Recórtalo a unos segundos.`); continue; }
+        const dims = await videoSize(f);
+        vert[n] = dims.h > dims.w * 1.2; vid[n] = true;
+        await putMedia(m.id, PROPIA(n), "clip", f); setUrl(`p${n}`, f); n++;
+        continue;
+      }
       const blob = await compressImage(f, 1600).catch(() => f);
       const bmp = await createImageBitmap(blob).catch(() => null);
-      vert[n] = !!bmp && bmp.height > bmp.width * 1.2;
+      vert[n] = !!bmp && bmp.height > bmp.width * 1.2; vid[n] = false;
       await putMedia(m.id, PROPIA(n), "image", blob); setUrl(`p${n}`, blob); n++;
     }
-    commit({ propias: n, propiasV: vert });
+    commit({ propias: n, propiasV: vert, propiasVideo: vid });
     toast.success(`${list.length} captura${list.length > 1 ? "s" : ""} lista${list.length > 1 ? "s" : ""}.`);
   };
-  const quitarCapturas = () => { for (let k = 0; k < metaRef.current.propias; k++) setUrl(`p${k}`, null); commit({ propias: 0, propiasV: [] }); };
+  const quitarCapturas = () => { for (let k = 0; k < metaRef.current.propias; k++) setUrl(`p${k}`, null); commit({ propias: 0, propiasV: [], propiasVideo: [] }); };
   const usarSupernova = () => {
     if (d.guion.trim() && !confirm("¿Cambiar tu guion por el borrador de SUPERNOVA?")) return;
     commit({ datos: { ...SUPERNOVA }, capturas: ["pendiente", "pendiente"] });
@@ -369,8 +391,10 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
     let capturas = 0;
     // Primero tus capturas (pantallas reales de la app); después las automáticas de la web.
     // Si hay capturas verticales (versión celular), solo esas: el reel se ve más fluido sin mezclar formatos.
-    const propias = Array.from({ length: meta.propias }, (_, k) => ({ url: urls[`p${k}`], v: !!meta.propiasV?.[k] })).filter(x => x.url);
-    const pool: { url: string; v: boolean }[] = propias.some(x => x.v)
+    const propias = Array.from({ length: meta.propias }, (_, k) => ({ url: urls[`p${k}`], v: !!meta.propiasV?.[k], video: !!meta.propiasVideo?.[k] })).filter(x => x.url);
+    // Los videos de la app (grabaciones de pantalla) van primero: se ven funcionando.
+    propias.sort((a, b) => Number(b.video) - Number(a.video));
+    const pool: { url: string; v: boolean; video?: boolean }[] = propias.some(x => x.v)
       ? propias.filter(x => x.v)
       : [...propias, ...(urls.pc ? [{ url: urls.pc, v: false }] : []), ...(urls.cel ? [{ url: urls.cel, v: true }] : [])];
     p.escenas.forEach((e, i) => {
@@ -382,11 +406,11 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
         return;
       }
       const pick = e.tipo === "marca" ? (pool.find(x => x.v) ?? pool[0]) : e.tipo === "captura" && pool.length ? pool[capturas++ % pool.length] : undefined;
-      scenes.push({ ...t[i], tipo: e.tipo, img: urls[`i${i}`] ?? null, clip: urls[`c${i}`] ?? null, shot: pick?.url ?? null, shotV: pick?.v ?? false });
+      scenes.push({ ...t[i], tipo: e.tipo, img: urls[`i${i}`] ?? null, clip: urls[`c${i}`] ?? null, shot: pick?.url ?? null, shotV: pick?.v ?? false, shotVideo: pick?.video ?? false });
     });
     const props: ReelProps = { scenes, audio: urls.voz ?? null, words: meta.voz.words, titulo: p.titulo, palabra: d.palabra, fondo: urls.cara0 ?? urls.i0 ?? null };
     return { props, frames: Math.max(FPS, Math.round(meta.voz.seconds * FPS) + 6) };
-  }, [p, t, bloques, urls, meta.voz, meta.propias, meta.propiasV, d.palabra]);
+  }, [p, t, bloques, urls, meta.voz, meta.propias, meta.propiasV, meta.propiasVideo, d.palabra]);
 
   const faltan = p ? p.escenas.filter((e, i) => CON_IMAGEN.includes(e.tipo) && meta.imagenes[i] !== "listo").length : 0;
   const listo = !!plan && !!urls.voz && faltan === 0;
@@ -477,13 +501,15 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
             placeholder="https://…" className={`${field} mt-1 min-h-[44px]`} />
         </label>
         <div className="space-y-1.5">
-          <p className="text-[12px] text-muted-foreground">Tus capturas (pantallas reales de la herramienta; si es tu app, las de adentro). Salen en las escenas de captura y en el celular.</p>
+          <p className="text-[12px] text-muted-foreground">Tus capturas o videos de la app (lo mejor: grabaciones de pantalla del celular de 3 a 8 s usándola). Salen dentro de un celular en las escenas de la app.</p>
           <div className="flex flex-wrap items-center gap-2">
-            {Array.from({ length: meta.propias }, (_, k) => urls[`p${k}`] && <img key={k} src={urls[`p${k}`]} alt="" className="w-12 h-12 rounded-lg object-cover object-top border border-border" />)}
-            <input ref={capRef} type="file" accept="image/*" multiple className="hidden" onChange={e => { const f = e.target.files; if (f?.length) void subirCapturas(f); e.target.value = ""; }} />
+            {Array.from({ length: meta.propias }, (_, k) => urls[`p${k}`] && (meta.propiasVideo?.[k]
+              ? <video key={k} src={urls[`p${k}`]} muted playsInline className="w-12 h-12 rounded-lg object-cover object-top border border-border" />
+              : <img key={k} src={urls[`p${k}`]} alt="" className="w-12 h-12 rounded-lg object-cover object-top border border-border" />))}
+            <input ref={capRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={e => { const f = e.target.files; if (f?.length) void subirCapturas(f); e.target.value = ""; }} />
             {meta.propias < MAX_PROPIAS && (
               <button type="button" onClick={() => capRef.current?.click()} disabled={!!busy}
-                className="h-9 px-3 rounded-full border border-border text-[12px] text-foreground hover:bg-secondary/40 disabled:opacity-50">+ Subir capturas</button>
+                className="h-9 px-3 rounded-full border border-border text-[12px] text-foreground hover:bg-secondary/40 disabled:opacity-50">+ Subir capturas o videos</button>
             )}
             {meta.propias > 0 && <button type="button" onClick={quitarCapturas} disabled={!!busy} className="text-[12px] text-muted-foreground hover:text-foreground">Quitar</button>}
           </div>

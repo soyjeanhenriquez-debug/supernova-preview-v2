@@ -6,7 +6,7 @@ const plan = (escenas: Plan["escenas"]): Plan => ({ titulo: "ESTA IA CLONA *CUAL
 
 describe("reel de herramienta IA", () => {
   it("parsePlan: lee el JSON (con ``` alrededor), limpia tipos y topa las animaciones", () => {
-    const escenas = Array.from({ length: 8 }, (_, i) => ({ texto: `frase número ${i}`, tipo: i === 0 ? "presentador" : i === 7 ? "raro" : "concepto", visual: "a 3D robot", animar: true }));
+    const escenas = Array.from({ length: 12 }, (_, i) => ({ texto: `frase número ${i}`, tipo: i === 0 ? "presentador" : i === 7 ? "raro" : "concepto", visual: "a 3D robot", animar: true }));
     const p = parsePlan("```json\n" + JSON.stringify({ titulo: "ESTA IA *CLONA*", gancho: "server room", cierre: "office", escenas }) + "\n```");
     expect(p).not.toBeNull();
     expect(p!.escenas[0]).toMatchObject({ tipo: "presentador", visual: "", animar: false });

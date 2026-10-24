@@ -390,7 +390,7 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
   // Tomas en paralelo: se rehacen solo las que fallaron (las que salieron no se vuelven a cobrar).
   const missing = run.length === shots.length ? shots.filter((_, i) => !run[i]?.job) : shots;
   const t = sceneStudio
-    ? { h: "Anuncio en video", p: "Tu producto, quién lo presenta y las escenas: cada una con lo que dice, cómo se ve, el motor y los segundos. Al final las unes en un solo video." }
+    ? { h: "Video UGC paso a paso", p: "4 pasos: tu avatar, sus fotos, los clips y el video final. Empieza por el paso 1." }
     : TITLES[mode];
 
   const templatePicker = (
@@ -440,7 +440,7 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
         {MODES.map(m => (
           <button key={m.id} onClick={() => { setMode(m.id); setRun([]); }} disabled={busy}
             className={`inline-flex items-center gap-2 h-10 px-3.5 rounded-full border text-[13px] ${mode === m.id ? "border-foreground/40 text-foreground bg-card" : "border-border text-muted-foreground"}`}>
-            <m.icon className="w-4 h-4" /> {m.label}
+            <m.icon className="w-4 h-4" /> {m.id === "anuncio" && studio?.open ? "Video UGC" : m.label}
           </button>
         ))}
         {isGenjutsuOwner(user?.id) && (

@@ -78,7 +78,7 @@ function ModelCards({ items, value, onChange, recommended, label }: {
   );
 }
 
-export function EstudioAvatarPage({ initialModo }: { onNavigate?: (page: string) => void; initialModo?: Modo }) {
+export function EstudioAvatarPage({ initialModo, onNavigate }: { onNavigate?: (page: string) => void; initialModo?: Modo }) {
   const { user } = useAuth();
   const { profile, productId } = useBusinessProfile();
   const { applyServerCharge, balance } = useCredits();
@@ -143,6 +143,14 @@ export function EstudioAvatarPage({ initialModo }: { onNavigate?: (page: string)
           "3. Dale vida: que hable a cámara con tu guion, o una escena muda para poner tu voz encima.",
           "Tu avatar presenta y explica; nunca dice que compró o que le funcionó (eso sería un testimonio falso).",
         ]} />
+
+      {/* Camino guiado (24-oct-2026): quien quiere un video completo no empieza aquí, sino en Video UGC paso a paso. */}
+      {onNavigate && (
+        <div className="card-surface rounded-2xl p-4 flex flex-wrap items-center gap-3">
+          <p className="text-[13px] text-foreground flex-1 min-w-[220px]"><span className="font-semibold">¿Quieres un video completo?</span> <span className="text-muted-foreground">Hazlo en 4 pasos guiados: avatar, fotos, clips y video final. Aquí quedan las herramientas sueltas.</span></p>
+          <button type="button" onClick={() => onNavigate("Video anuncio")} className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-[13px] font-semibold">Video UGC paso a paso</button>
+        </div>
+      )}
 
       {closed && (
         <p className="card-surface rounded-2xl p-4 text-sm text-muted-foreground">El estudio de avatar se está abriendo poco a poco. Pronto lo tendrás aquí.</p>

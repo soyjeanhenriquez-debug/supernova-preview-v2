@@ -447,7 +447,9 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
         scenes.push({ t0: b.desde, t1: b.hasta, tipo: "presentador", img: urls[`cara${b.cierre ? 1 : 0}`] ?? urls.cara0 ?? null, clip: urls[`h${bloque}`] ?? null, shot: null });
         return;
       }
-      const pick = e.tipo === "marca" ? (pool.find(x => x.v) ?? pool[0]) : e.tipo === "captura" && pool.length ? pool[capturas++ % pool.length] : undefined;
+      // La marca toma el ÚLTIMO clip: las capturas empiezan por el primero y casi siempre vienen justo después
+      // (con el mismo clip, "Se llama X" y la primera captura se veían como un solo plano largo).
+      const pick = e.tipo === "marca" ? ([...pool].reverse().find(x => x.v) ?? pool[pool.length - 1]) : e.tipo === "captura" && pool.length ? pool[capturas++ % pool.length] : undefined;
       scenes.push({ ...t[i], tipo: e.tipo, img: urls[`i${i}`] ?? null, clip: urls[`c${i}`] ?? null, shot: pick?.url ?? null, shotV: pick?.v ?? false, shotVideo: pick?.video ?? false });
     });
     const props: ReelProps = { scenes, audio: urls.voz ?? null, words: meta.voz.words, titulo: p.titulo, palabra: d.palabra, fondo: urls.cara0 ?? urls.i0 ?? null };

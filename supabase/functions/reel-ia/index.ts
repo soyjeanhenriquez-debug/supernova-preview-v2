@@ -11,12 +11,20 @@
 //                       los labios siguen la voz de Jean). Devuelve request_id.
 //   status   { request_id } → estado en la cola de fal.
 //   file     { request_id } → el MP4 terminado, en streaming con CORS (solo hosts de fal).
+//   fetch_link { url } (Reel Studio, 25-oct-2026) → un Reel de Instagram: lo lee con Apify (caché global de
+//                       reelSource), baja el video y lo guarda en biblioteca/{uid}/ref/ para analizarlo y sacar
+//                       miniaturas. TikTok y YouTube: no se pueden leer por enlace → se pide subir el video.
+//   analyze  { path, cortes, duracion } → Gemini MIRA y ESCUCHA el video de referencia (biblioteca/{uid}/ref/…,
+//                       hasta 18 MB) y devuelve su ingeniería inversa audiovisual (reelPlan.ts: cleanAnalisis).
 // Costos al proveedor en ai_usage: ElevenLabs va por la suscripción de Jean (0 aquí), Kling Avatar US$0,0562/s.
 // Ninguna llave sale al cliente. Docs leídas el 24-oct-2026: elevenlabs.io/docs (with-timestamps), microlink.io/docs.
 import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 import { owner } from "../_shared/genjutsu.ts";
 import { admin, fal, FAL_KEY, json } from "../_shared/media.ts";
 import { ownStoragePath } from "../_shared/paths.ts";
+import { cleanAnalisis, PROMPT_ANALISIS } from "../_shared/reelPlan.ts";
+import { b64 as b64m, geminiMedia, logMediaCost } from "../_shared/geminiMedia.ts";
+import { getReel, REEL_RE } from "../_shared/reelSource.ts";
 
 const FN = "reel-ia";
 const AVATAR = "fal-ai/kling-video/ai-avatar/v2/standard";
@@ -29,6 +37,9 @@ const REQ_ID = /^[0-9a-f-]{36}$/i;
 
 const elevenKey = () => Deno.env.get("ELEVENLABS_API_KEY") ?? null;
 const voiceId = () => Deno.env.get("ELEVENLABS_VOICE_ID") ?? null;
+const VOICE_RE = /^[A-Za-z0-9]{10,40}$/;
+const REF_MAX = 18 * 1024 * 1024; // cabe en una sola solicitud a Gemini
+const IG_HOST_RE = /(^|\.)(cdninstagram\.com|fbcdn\.net)$/i;
 
 function b64(bytes: Uint8Array): string {
   let bin = "";
@@ -82,14 +93,17 @@ Deno.serve(async (req) => {
 
     // ---------- voz (ElevenLabs, con tiempos) ----------
     if (body.action === "voice") {
-      const key = elevenKey(), vid = voiceId();
+      // Otra voz de tu cuenta de ElevenLabs (Mi identidad); si no, tu voz clonada de los secretos.
+      const key = elevenKey(), vid = typeof body.voice_id === "string" && VOICE_RE.test(body.voice_id) ? body.voice_id : voiceId();
       if (!key || !vid) return json({ error: "Faltan ELEVENLABS_API_KEY o ELEVENLABS_VOICE_ID en los secretos de Supabase." }, 503);
       const text = String(body.text ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_TEXT);
       if (text.split(" ").length < 5) return json({ error: "Escribe el guion completo (al menos una frase)." }, 400);
+      const speed = Math.max(0.9, Math.min(1.2, Number(body.speed) || 1));
       const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(vid)}/with-timestamps?output_format=mp3_44100_128`, {
         method: "POST",
         headers: { "xi-api-key": key, "Content-Type": "application/json" },
-        body: JSON.stringify({ text, model_id: "eleven_multilingual_v2", voice_settings: { stability: 0.45, similarity_boost: 0.8, style: 0.25, use_speaker_boost: true } }),
+        // speed (24-oct-2026, Jean: "la voz es muy lenta"): ElevenLabs acepta de 0,7 a 1,2.
+        body: JSON.stringify({ text, model_id: "eleven_multilingual_v2", voice_settings: { stability: 0.45, similarity_boost: 0.8, style: 0.3, use_speaker_boost: true, speed } }),
         signal: AbortSignal.timeout(120_000),
       });
       if (!r.ok) {
@@ -161,6 +175,61 @@ Deno.serve(async (req) => {
       if (typeof queued?.request_id !== "string") return json({ error: "El generador no devolvió el trabajo." }, 502);
       await logCost(uid, `fal:${AVATAR}`, Math.round(seconds * AVATAR_USD_PER_SEC * 1000) / 1000);
       return json({ request_id: queued.request_id });
+    }
+
+    // ---------- Reel de referencia por enlace (solo Instagram) ----------
+    if (body.action === "fetch_link") {
+      const url = typeof body.url === "string" ? body.url.trim() : "";
+      const m = url.match(REEL_RE);
+      if (!m) {
+        const plataforma = /tiktok\.com/i.test(url) ? "TikTok" : /youtu\.?be/i.test(url) ? "YouTube" : null;
+        return json({ error: plataforma ? `Los videos de ${plataforma} no se pueden leer por enlace. Descárgalo y súbelo aquí.` : "Pega el enlace de un Reel de Instagram, o sube el video.", subir: true }, 422);
+      }
+      const apify = Deno.env.get("APIFY_TOKEN");
+      if (!apify) return json({ error: "No se puede leer Instagram ahora. Sube el video.", subir: true }, 503);
+      const got = await getReel(FN, m[1], apify);
+      if (!got.ok) {
+        const why = got.reason === "budget" ? "Se acabó el saldo del lector de Instagram este mes." : got.reason === "not_found" ? "Ese Reel no existe o es privado." : "Instagram no respondió a tiempo.";
+        return json({ error: `${why} Sube el video y lo analizo igual.`, subir: true }, 502);
+      }
+      const v = got.row.video_url;
+      let vu: URL | null = null;
+      try { vu = v ? new URL(v) : null; } catch { vu = null; }
+      if (!vu || vu.protocol !== "https:" || !IG_HOST_RE.test(vu.hostname)) return json({ error: "Ese enlace no trae video. Sube el video.", subir: true }, 422);
+      const r = await fetch(vu, { signal: AbortSignal.timeout(40_000) });
+      const bytes = r.ok ? new Uint8Array(await r.arrayBuffer()) : null;
+      if (!bytes || bytes.length > 40 * 1024 * 1024) return json({ error: "No se pudo bajar ese video. Súbelo tú.", subir: true }, 502);
+      const path = `${uid}/ref/ig-${m[1]}.mp4`;
+      const up = await admin().storage.from("biblioteca").upload(path, bytes, { contentType: "video/mp4", upsert: true });
+      if (up.error) return json({ error: "No se pudo guardar el video." }, 500);
+      if (got.apifyUsd) await logCost(uid, "apify:instagram-scraper", got.apifyUsd);
+      return json({ path, duracion: got.row.duration_s, autor: got.row.owner ?? "", fuente: got.row.url });
+    }
+
+    // ---------- Ingeniería inversa audiovisual (Gemini mira y escucha el video) ----------
+    if (body.action === "analyze") {
+      const path = typeof body.path === "string" && body.path.startsWith(`${uid}/ref/`) && !body.path.includes("..") && body.path.length < 300 ? body.path : null;
+      if (!path) return json({ error: "Falta el video de referencia." }, 400);
+      if (!Deno.env.get("GEMINI_API_KEY")) return json({ error: "El análisis no está disponible ahora." }, 503);
+      const duracion = Math.max(1, Math.min(600, Number(body.duracion) || 0));
+      const cortes = (Array.isArray(body.cortes) ? body.cortes : []).map(Number).filter(x => Number.isFinite(x) && x > 0 && x < duracion).slice(0, 80);
+      const { data: file, error } = await admin().storage.from("biblioteca").download(path);
+      if (error || !file) return json({ error: "No se encontró el video." }, 404);
+      if (file.size > REF_MAX) return json({ error: "El video pesa más de 18 MB. Recórtalo o bájale la calidad y súbelo de nuevo." }, 413);
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      try {
+        const { out, cost, usage } = await geminiMedia([
+          { inline_data: { mime_type: file.type || "video/mp4", data: b64m(bytes) } },
+          { text: PROMPT_ANALISIS(cortes, duracion) },
+        ], 12_000, 130_000, 0.2);
+        await logMediaCost(uid, FN, cost, usage);
+        const analisis = cleanAnalisis(out, duracion);
+        if (!analisis) return json({ error: "La IA no pudo leer ese video. Prueba con otro." }, 502);
+        return json({ analisis });
+      } catch (e) {
+        console.error(`${FN} analyze:`, e);
+        return json({ error: e instanceof Error && e.name === "TimeoutError" ? "El análisis tardó demasiado. Prueba con un reel más corto." : "No se pudo analizar el video." }, 502);
+      }
     }
 
     if (body.action === "status" || body.action === "file") {

@@ -89,10 +89,11 @@ export const SYSTEM = [
   "- Si el pedido trae 'GUION LITERAL', 'guion' es ese texto palabra por palabra. Si no, lo escribes tú: 90 a 140 palabras, frases cortas, de tú.",
   "- Estructura: gancho en los primeros 3 s que dé curiosidad (sin mentir) → lo que es → cómo funciona o la lista prometida → cierre con la llamada: 'Comenta PALABRA y te mando …'.",
   "- Solo datos que vengan en el pedido, en DATOS o en la OFERTA. Nunca inventes cifras, clientes ni testimonios. Nunca prometas ingresos, ventas, resultados de salud ni plazos. Nunca digas 'clonar' ni 'clona': di 'modelar' o 'crear tu versión'.",
+  "- Nunca ofrezcas guías, regalos, cursos, plantillas ni recursos que no estén en el pedido. Si la referencia regala algo, usa la llamada del pedido (por defecto: 'Comenta PALABRA y te mando el enlace').",
   "- Si hay un reel actual y el pedido no cambia el guion, deja 'guion' igual.",
   "",
   "PLANOS",
-  "- 'texto' de cada plano = 3 a 6 palabras SEGUIDAS y LITERALES del guion. Unidos en orden forman el guion completo. Corta en pausas naturales; nunca entre 'de / la', 'los que / llevan', 'te mando el / enlace'.",
+  "- 'texto' de cada plano = 3 a 6 palabras SEGUIDAS y LITERALES del guion, sin barras ni cortes de subtítulo. Unidos en orden forman el guion completo, sin saltarse ninguna palabra. Corta en pausas naturales; nunca entre 'de / la', 'los que / llevan', 'te mando el / enlace'.",
   "- 'forma': 'tu' (la persona a pantalla completa), 'dividida' (arriba un clip o una imagen, abajo la persona), 'app' (un clip de la biblioteca a pantalla completa en un celular), 'broll' (imagen de cine a pantalla completa).",
   "- La persona se ve (tu o dividida) en al menos 6 de cada 10 planos. El primer plano es 'tu' con el look 0. El último plano lleva la llamada completa y es 'tu'.",
   "- 'clip': SOLO el id de un clip de la lista que muestre EXACTAMENTE lo que dice la frase (si se habla de anuncios, el clip de ofertas; si se habla del precio, el de la calculadora). Si ningún clip corresponde, '' y usa una imagen. Cada clip, máximo 2 veces.",
@@ -115,6 +116,32 @@ export const SYSTEM = [
 ].join("\n");
 
 const clean = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "");
+const normW = (w: string) => w.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\p{L}\p{N}]/gu, "");
+
+/**
+ * Los textos de los planos tienen que ser el guion, palabra por palabra y en orden (de eso dependen los tiempos de
+ * cada plano con la voz). Si la IA se saltó o cambió palabras, se reparte el guion entre los planos en proporción a
+ * lo que tenía cada uno, cortando en la puntuación más cercana. 24-oct-2026: la IA se saltaba "la cantidad".
+ */
+export function alinear(guion: string, planos: Plano[]): Plano[] {
+  const g = guion.split(/\s+/).filter(Boolean);
+  const unido = planos.flatMap(p => p.texto.split(/\s+/)).filter(Boolean);
+  if (unido.length === g.length && unido.every((w, i) => normW(w) === normW(g[i]))) return planos;
+  const lista = planos.slice(0, Math.max(1, g.length));
+  const pesos = lista.map(p => Math.max(1, p.texto.split(/\s+/).filter(Boolean).length));
+  const suma = pesos.reduce((a, x) => a + x, 0);
+  let acc = 0, pos = 0;
+  return lista.map((p, i) => {
+    acc += pesos[i];
+    const resto = lista.length - 1 - i;
+    let end = i === lista.length - 1 ? g.length : Math.round((g.length * acc) / suma);
+    if (i < lista.length - 1) for (const d of [0, 1, -1, 2, -2]) { const e = end + d; if (e > pos && e < g.length && /[.,;:?!…]$/.test(g[e - 1])) { end = e; break; } }
+    end = Math.max(pos + 1, Math.min(end, g.length - resto));
+    const texto = g.slice(pos, end).join(" ");
+    pos = end;
+    return { ...p, texto };
+  });
+}
 
 export type Oferta = { nombre: string; que: string; para: string; promesa: string; precio: string; disponible: boolean };
 export type Pedido = {
@@ -195,7 +222,7 @@ export function parseReel(text: string, clips: ClipInfo[], literal?: string, ref
   const planos: Plano[] = [];
   for (const x of (raw.planos as unknown[]).slice(0, MAX_PLANOS)) {
     const o = (x ?? {}) as Record<string, unknown>;
-    const texto = clean(o.texto, 160);
+    const texto = clean(typeof o.texto === "string" ? o.texto.replace(/\s*\/\s*/g, " ") : "", 160);
     if (!texto) continue;
     let forma: Forma = FORMA_SET.has(o.forma as Forma) ? (o.forma as Forma) : "tu";
     let clip = clean(o.clip, 80);
@@ -213,17 +240,26 @@ export function parseReel(text: string, clips: ClipInfo[], literal?: string, ref
     planos.push({ texto, forma, look, clip, visual, animar: !!visual && o.animar === true, enfasis: clean(o.enfasis, 40), ref: refs && r >= 0 && r < refs ? r : -1 });
   }
   if (planos.length < 3) return null;
+  // Un look que sale en un solo plano obliga a otra toma con labios: toma el look del plano tuyo más cercano.
+  const usos2 = new Map<number, number>();
+  planos.forEach(p => { if (p.forma === "tu" || p.forma === "dividida") usos2.set(p.look, (usos2.get(p.look) ?? 0) + 1); });
+  planos.forEach((p, i) => {
+    if (!(p.forma === "tu" || p.forma === "dividida") || (usos2.get(p.look) ?? 0) > 1 || i === 0) return;
+    const vecino = [...planos.slice(0, i)].reverse().find(x => x.forma === "tu" || x.forma === "dividida");
+    if (vecino) { usos2.set(p.look, 0); p.look = vecino.look; }
+  });
   planos[0] = { ...planos[0], forma: "tu", clip: "", visual: "", animar: false };
   const last = planos.length - 1;
   planos[last] = { ...planos[last], forma: "tu", clip: "", visual: "", animar: false };
   let n = 0;
   for (const p of planos) if (p.animar && ++n > MAX_ANIMADAS) p.animar = false;
   const unido = planos.map(p => p.texto).join(" ");
+  const guion = clean(literal, 3000) || clean(raw.guion, 3000) || unido;
   return {
     titulo: clean(raw.titulo, 70),
-    guion: clean(literal, 3000) || clean(raw.guion, 3000) || unido,
+    guion,
     palabra: clean(raw.palabra, 30).replace(/[«»"']/g, "").toLocaleUpperCase("es"),
-    looks, planos,
+    looks, planos: alinear(guion, planos),
   };
 }
 

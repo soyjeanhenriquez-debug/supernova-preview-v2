@@ -14,8 +14,8 @@ describe("reel dinámico", () => {
       ...Array.from({ length: 8 }, (_, i) => P(`frase ${i}`, "broll", { visual: `shot ${i}`, animar: true })),
       P("Comenta SUPERNOVA", "dividida", { clip: "calculadora.mp4" }),
     ];
-    const r = parseReel("```json\n" + JSON.stringify({ titulo: "X", guion: "otro", palabra: "«supernova»", looks: [{ escena: "office" }], planos }) + "\n```", clips, "mi guion literal")!;
-    expect(r.guion).toBe("mi guion literal");
+    const r = parseReel("```json\n" + JSON.stringify({ titulo: "X", guion: "otro", palabra: "«supernova»", looks: [{ escena: "office" }], planos }) + "\n```", clips, planos.map(p => p.texto).join(" "))!;
+    expect(r.guion).toBe(planos.map(p => p.texto).join(" "));
     expect(r.palabra).toBe("SUPERNOVA");
     expect(r.planos[0]).toMatchObject({ forma: "tu", visual: "", animar: false });
     expect(r.planos[1]).toMatchObject({ forma: "app", clip: "ofertas-ganadoras-numeros.mp4" });
@@ -89,5 +89,16 @@ describe("reel dinámico", () => {
     const r = parseReel(JSON.stringify({ planos: [P("a b", "tu", { ref: 0 }), P("c d", "tu", { ref: 9 }), P("e f", "tu", { ref: 1 })] }), [], undefined, 2)!;
     expect(r.planos.map(p => p.ref)).toEqual([0, -1, 1]);
     expect(idsDeBiblioteca(["a.mp4", "b.mp4", "a.mp4"])).toEqual(["a.mp4", "b.mp4", "2-a.mp4"]);
+  });
+});
+
+describe("planos alineados con el guion", () => {
+  it("si la IA se salta palabras o pone barras, el guion se reparte entre los planos sin perder nada", () => {
+    const pl = (texto: string, forma: Plano["forma"] = "tu", look = 0) => ({ texto, forma, look, clip: "", visual: forma === "broll" ? "v" : "", animar: false, enfasis: "", ref: -1 });
+    const guion = "Es increíble la cantidad de personas que usan redes, y no conocen estas cinco funciones. La quinta es la mejor.";
+    const r = parseReel(JSON.stringify({ guion, planos: [pl("Es increíble"), pl("de personas", "broll"), pl("que usan / redes"), pl("estas 5 funciones"), pl("La quinta es", "tu", 3), pl("la mejor")] }), [])!;
+    expect(r.planos.map(p => p.texto).join(" ")).toBe(guion);
+    expect(r.planos.every(p => !p.texto.includes("/"))).toBe(true);
+    expect(r.planos[4].look).toBe(0); // el look 3 salía en un solo plano → toma el del plano tuyo anterior
   });
 });

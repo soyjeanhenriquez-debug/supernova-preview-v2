@@ -17,14 +17,13 @@ export default defineConfig({
   outputDir: `${process.env.HOME}/.supernova-e2e/resultados`,
   use: {
     baseURL: process.env.E2E_URL ?? "https://supernova-six-eta.vercel.app",
-    storageState: SESION,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     locale: "es-DO",
   },
   projects: [
-    { name: "sesion", testMatch: /sesion\.guardar\.ts$/, use: { ...devices["Desktop Chrome"], storageState: undefined } },
-    { name: "escritorio", testMatch: /.*\.spec\.ts$/, use: { ...devices["Desktop Chrome"] } },
-    { name: "celular", testMatch: /.*\.spec\.ts$/, use: { ...devices["iPhone 13"], defaultBrowserType: "chromium" }, grep: /@celular/ },
+    { name: "sesion", testMatch: /sesion\.guardar\.ts$/, use: { ...devices["Desktop Chrome"], storageState: { cookies: [], origins: [] } } },
+    { name: "escritorio", testMatch: /.*\.spec\.ts$/, use: { ...devices["Desktop Chrome"], storageState: SESION } },
+    { name: "celular", testMatch: /.*\.spec\.ts$/, use: { ...devices["iPhone 13"], defaultBrowserType: "chromium", storageState: SESION }, grep: /@celular/ },
   ],
 });

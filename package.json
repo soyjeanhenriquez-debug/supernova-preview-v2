@@ -8,6 +8,8 @@
     "build": "npm run guardian:criticos && vite build",
     "guardian:criticos": "vitest run src/guardian/criticos.test.ts --reporter=dot",
     "guardian": "vitest run src/guardian",
+    "e2e": "playwright test --project=escritorio --project=celular",
+    "e2e:sesion": "playwright test --project=sesion --headed",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -83,6 +85,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@playwright/test": "^1.56.1",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.0.0",

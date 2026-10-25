@@ -170,15 +170,26 @@ function Presentador({ tramo, k, planos, desde, W, H }: { tramo: RDTramo; k: num
   const zoom = j % 2 ? 1.16 : 1.0;
   // El primer plano del reel entra con un empujón de cámara.
   const hook = desde === 0 && j === 0 ? interpolate(frame, [0, 10], [1.12, 1], clamp) : 1;
-  // En la dividida se ve la parte de arriba de tu toma (cabeza y hombros): con 22 % la cabeza quedaba cortada (24-oct-2026).
-  const media: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover", objectPosition: forma === "dividida" ? "50% 4%" : "50% 30%",
-    transform: `scale(${(forma === "dividida" ? (j % 2 ? 1.08 : 1) : zoom) * hook})`, transformOrigin: forma === "dividida" ? "50% 15%" : "50% 28%" };
-  const box: React.CSSProperties = forma === "dividida"
-    ? { position: "absolute", left: 0, top: H * 0.5, width: W, height: H * 0.5, overflow: "hidden" }
-    : { position: "absolute", inset: 0, overflow: "hidden" };
+  const media: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 30%",
+    transform: `scale(${zoom * hook})`, transformOrigin: "50% 28%" };
+  const toma = (style: React.CSSProperties) => (tramo.clip ? <Video src={tramo.clip} muted style={style} /> : tramo.img ? <Img src={tramo.img} style={style} /> : null);
+  if (forma === "dividida") {
+    // Mitad de abajo (25-oct-2026): recortar tu toma vertical cortaba la cabeza porque en esos looks estás al centro.
+    // Ahora sales de la cabeza a la cintura (la toma a 1,6 veces la altura de la mitad, pegada arriba) y los lados se
+    // rellenan con la misma toma desenfocada (el fondo es la imagen fija: no se decodifica el video dos veces).
+    const h = H * 0.5 * 1.6, w = (h * 9) / 16;
+    return (
+      <div style={{ position: "absolute", left: 0, top: H * 0.5, width: W, height: H * 0.5, overflow: "hidden", backgroundColor: "#16161A" }}>
+        {tramo.img && <Img src={tramo.img} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "blur(26px) brightness(0.7)", transform: "scale(1.2)" }} />}
+        <div style={{ position: "absolute", left: (W - w) / 2, top: 0, width: w, height: h, overflow: "hidden" }}>
+          {toma({ width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 0%", transform: `scale(${j % 2 ? 1.08 : 1})`, transformOrigin: "50% 20%" })}
+        </div>
+      </div>
+    );
+  }
   return (
-    <div style={{ ...box, opacity: visible ? 1 : 0 }}>
-      {tramo.clip ? <Video src={tramo.clip} muted style={media} /> : tramo.img ? <Img src={tramo.img} style={media} /> : <AbsoluteFill style={{ backgroundColor: "#16161A" }} />}
+    <div style={{ position: "absolute", inset: 0, overflow: "hidden", opacity: visible ? 1 : 0 }}>
+      {toma(media) ?? <AbsoluteFill style={{ backgroundColor: "#16161A" }} />}
     </div>
   );
 }

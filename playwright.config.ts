@@ -9,6 +9,7 @@ import { SESION } from "./e2e/comun";
  */
 export default defineConfig({
   testDir: "e2e",
+  globalSetup: "./e2e/antes.ts",
   timeout: 15 * 60_000,
   workers: 1,
   retries: 0,

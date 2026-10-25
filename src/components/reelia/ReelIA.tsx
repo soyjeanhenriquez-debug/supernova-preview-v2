@@ -48,7 +48,9 @@ const MODO_LINEA: Record<ModoReel, string> = {
 
 type Estado = "pendiente" | "trabajando" | "listo" | "falló";
 type Voz = { id: string; nombre: string; muestra: string | null; propia: boolean; clonada: boolean };
-type Asset = { estado: Estado; idx: number; job?: string | null; path?: string; vertical?: boolean };
+type Asset = { estado: Estado; idx: number; job?: string | null; path?: string; vertical?: boolean; motivo?: string };
+/** Por qué falló, en palabras de la persona (Guardián del Creador: antes solo decía «Esto falló»). */
+const motivoDe = (e: unknown) => (e instanceof Error && e.message ? e.message.slice(0, 160) : undefined);
 type Msg = { de: "tu" | "ia"; texto: string };
 type Ajustes = { paleta: string; ropa: string; palabra: string; velocidad: number; sfx: boolean; voice_id: string; foto: number };
 type Proyecto = {
@@ -131,6 +133,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
   // Voces de tu cuenta con nombre y muestra (Guardián del Creador: antes había que pegar un id). null = cargando.
   const [voces, setVoces] = useState<Voz[] | null>(null);
   const [sonando, setSonando] = useState<string | null>(null);
+  const [masVoces, setMasVoces] = useState(false);
   const muestraRef = useRef<HTMLAudioElement | null>(null);
   const fotoRef = useRef<HTMLInputElement>(null);
   const logoRef = useRef<HTMLInputElement>(null);
@@ -443,7 +446,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
           setPaso(`Tu look ${k + 1} (otro motor)…`);
           ({ data, error } = await pedirLook("pro"));
         }
-        if (error || !data?.path) { setAsset(key, { estado: "falló" }); throw new ApiError(data?.error || "No se pudo crear tu look. Toca Regenerar en un momento.", 502); }
+        if (error || !data?.path) { const msg = data?.error || "No se pudo crear tu look. Toca Regenerar en un momento."; setAsset(key, { estado: "falló", motivo: msg }); throw new ApiError(msg, 502); }
         if (data.billing) applyServerCharge("gen_media", data.billing, `Reel Studio · tu look ${k + 1}`);
         await guardarMedia(key, await (await fetch(data.url)).blob(), { path: data.path });
       }
@@ -460,7 +463,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
           const raw = await (await fetch(data.image)).blob();
           await guardarMedia(key, await compressImage(raw).catch(() => raw));
         } catch (err) {
-          setAsset(key, { estado: "falló" });
+          setAsset(key, { estado: "falló", motivo: motivoDe(err) });
           if (err instanceof ApiError && [401, 402, 403, 429].includes(err.status)) throw err;
         }
       }
@@ -484,7 +487,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
           setAsset(key, { estado: "trabajando", job: data?.job?.id ?? null });
           void pollJob(key);
         } catch (err) {
-          setAsset(key, { estado: "falló" });
+          setAsset(key, { estado: "falló", motivo: motivoDe(err) });
           if (err instanceof ApiError && [401, 402, 403, 429].includes(err.status)) throw err;
         }
       }
@@ -520,7 +523,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
             setAsset(key, { estado: "trabajando", job: data.request_id });
             void pollJob(key);
           } catch (err) {
-            setAsset(key, { estado: "falló" });
+            setAsset(key, { estado: "falló", motivo: motivoDe(err) });
             // Sin saldo en fal no tiene sentido mandar los demás tramos: se avisa una vez y se para.
             if (err instanceof ApiError && err.status === 402) { toast.error(err.message, { duration: 12000 }); break; }
           }
@@ -585,7 +588,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
     clips: clipIds.filter(id => { const it = clipDe(id); return !!it && listoA(`bib:${it.path}`); }).length,
     habla: trs.filter((_, k) => listoA(hablaKey(k))).length,
   };
-  const fallas: { label: string; keys: string[] }[] = [];
+  const fallas: { label: string; keys: string[]; motivo?: string }[] = [];
   if (r) {
     lookIds.forEach(k => { if (meta.assets[lookKey(k)]?.estado === "falló") fallas.push({ label: `Tu look ${k + 1}`, keys: [lookKey(k)] }); });
     r.planos.forEach((p, i) => {
@@ -594,6 +597,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
     });
     trs.forEach((tr, k) => { if (meta.assets[hablaKey(k)]?.estado === "falló") fallas.push({ label: `Tú hablando en los planos ${tr.planos[0] + 1} a ${tr.planos[tr.planos.length - 1] + 1}`, keys: [hablaKey(k)] }); });
   }
+  for (const f of fallas) f.motivo = f.keys.map(k => meta.assets[k]?.motivo).find(Boolean);
   const enCamino = Object.values(meta.assets).some(a => a.estado === "trabajando");
   const recursosListos = n.voz && n.looks === lookIds.length && n.imgs === visuales.length && n.clips === clipIds.length;
   const listo = !!plan && recursosListos;
@@ -747,7 +751,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
             <p className="text-[12px] text-muted-foreground">Tu voz</p>
             {voces === null ? <p className="text-[12px] text-muted-foreground">Buscando tus voces…</p> : (
               <div className="flex flex-col gap-1.5">
-                {[{ id: "", nombre: "Tu propia voz", muestra: null, propia: true, clonada: true } as Voz, ...voces.filter(v => !v.propia)].map(v => (
+                {[{ id: "", nombre: "Tu propia voz", muestra: null, propia: true, clonada: true } as Voz, ...voces.filter(v => !v.propia && (v.clonada || masVoces || v.id === aj.voice_id))].map(v => (
                   <div key={v.id || "propia"} className="flex items-center gap-2">
                     <button type="button" onClick={() => setAjustes({ voice_id: v.id })} aria-pressed={aj.voice_id === v.id} className={`${chip(aj.voice_id === v.id)} flex-1 text-left`}>
                       {v.nombre}{v.clonada && v.id ? " · personalizada" : ""}
@@ -762,6 +766,11 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
                     )}
                   </div>
                 ))}
+                {voces.some(v => !v.propia && !v.clonada) && (
+                  <button type="button" onClick={() => setMasVoces(x => !x)} className="self-start text-[12px] text-muted-foreground underline underline-offset-2">
+                    {masVoces ? "Ver solo tus voces" : `Más voces (${voces.filter(v => !v.propia && !v.clonada).length})`}
+                  </button>
+                )}
                 {aj.voice_id && !voces.some(v => v.id === aj.voice_id) && (
                   <p className="text-[11px] text-muted-foreground">La voz guardada ya no está en tu cuenta: elige otra o se usará al crear y te avisaremos si falla.</p>
                 )}
@@ -1006,7 +1015,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
               <p className="text-[12px] font-semibold text-foreground">Esto falló (lo demás está a salvo):</p>
               {fallas.map(f => (
                 <div key={f.label} className="flex items-center gap-2 text-[12px] text-muted-foreground">
-                  <span className="flex-1">{f.label}</span>
+                  <span className="flex-1">{f.label}{f.motivo && <span className="block text-[11px] text-muted-foreground/80">{f.motivo}</span>}</span>
                   <button type="button" onClick={() => reintentar(f.keys)} disabled={!!busy} className={chip(false)}>Regenerar</button>
                 </div>
               ))}

@@ -49,4 +49,14 @@ test("Reel Studio: abre y muestra tus voces por nombre", async ({ page }) => {
     await sinPantallazo(page);
     return "Reel Studio abrió.";
   });
+  // Solo si hay un reel en curso se ve «Opciones avanzadas»; si no, la prueba de voces se salta y lo dice.
+  const avanzadas = page.getByRole("button", { name: "Opciones avanzadas" });
+  if (await avanzadas.count()) {
+    await paso(page, "Reel Studio: elegir voz por nombre", async () => {
+      await avanzadas.first().click();
+      await expect(page.getByRole("button", { name: "Tu propia voz" })).toBeVisible({ timeout: 20_000 });
+      const escuchar = await page.getByRole("button", { name: /^Escuchar / }).count();
+      return `Se ve «Tu propia voz» y ${escuchar} voz(ces) con muestra para escuchar.`;
+    }, { journey: "Reel Studio", step: 3 });
+  }
 });

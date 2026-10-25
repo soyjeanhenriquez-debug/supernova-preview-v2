@@ -25,7 +25,12 @@ export function Inicio(p: {
   onBorrarPlantilla: (pl: Plantilla) => void;
   onGuardarDiario: (d: Diario) => Promise<boolean>;
   onCrearAhora: () => Promise<void>;
+  /** Analiza un reel por enlace y lo guarda como plantilla SIN cerrar el reel abierto. */
+  onAgregarPlantilla: (url: string) => Promise<void>;
+  /** Lo que está haciendo mientras agrega una plantilla ("Leyendo el enlace…"), o "". */
+  agregando: string;
 }) {
+  const [enlace, setEnlace] = useState("");
   const [d, setD] = useState<Diario | null>(null);
   const diario = d ?? p.diario;
   const [temas, setTemas] = useState<string | null>(null);
@@ -89,9 +94,18 @@ export function Inicio(p: {
         </section>
       )}
 
-      {plantillas.length > 0 && (
-        <section className="space-y-2">
+      <section className="space-y-2">
           <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Tus plantillas de referencia</p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input value={enlace} onChange={e => setEnlace(e.target.value)} placeholder="Pega el enlace de un Reel que quieras usar de plantilla"
+              className="flex-1 min-h-[44px] rounded-xl border border-border bg-background px-3 text-[13px] text-foreground" />
+            <button type="button" disabled={p.busy || !enlace.trim()} onClick={async () => { await p.onAgregarPlantilla(enlace.trim()); setEnlace(""); }}
+              className="min-h-[44px] px-4 rounded-xl border border-border text-[13px] text-foreground disabled:opacity-50">
+              {p.agregando ? <><Loader2 className="inline w-3.5 h-3.5 animate-spin mr-1" />{p.agregando}</> : "Agregar plantilla"}
+            </button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">SUPERNOVA mira y escucha el reel, lo guarda con su estructura y lo suma a tu producción diaria. Tu reel abierto no se toca.</p>
+      {plantillas.length > 0 && (
           <div className="space-y-2">
             {plantillas.map(pl => (
               <div key={pl.id} className="rounded-xl border border-border p-2.5 space-y-2">
@@ -105,8 +119,8 @@ export function Inicio(p: {
               </div>
             ))}
           </div>
-        </section>
       )}
+      </section>
 
       <section className="rounded-2xl border border-border p-4 space-y-3">
         <div className="flex items-center gap-2">
@@ -122,13 +136,22 @@ export function Inicio(p: {
           <>
             <p className="text-[12px] text-muted-foreground">Cada mañana (7:00, hora de RD) deja borradores nuevos con el estilo de tu plantilla sobre tus temas. Tú los apruebas y produces.</p>
             <div className="grid gap-2 sm:grid-cols-2">
-              <label className="block text-[12px] text-muted-foreground">Plantilla
-                <select value={diario.plantilla_id ?? ""} onChange={e => void guardar({ ...diario, plantilla_id: e.target.value || null, temas: temasTxt.split("\n") })}
-                  className="mt-1 w-full min-h-[40px] rounded-lg border border-border bg-background px-2 text-[13px] text-foreground">
-                  <option value="">Elige una</option>
-                  {plantillas.map(pl => <option key={pl.id} value={pl.id}>{pl.nombre}</option>)}
-                </select>
-              </label>
+              <div className="text-[12px] text-muted-foreground">Plantillas (se van alternando)
+                <div className="mt-1 space-y-1">
+                  {plantillas.map(pl => {
+                    const on = diario.plantilla_ids.includes(pl.id);
+                    return (
+                      <label key={pl.id} className="flex items-center gap-2 text-[12px] text-foreground">
+                        <input type="checkbox" checked={on} onChange={() => {
+                          const ids = on ? diario.plantilla_ids.filter(x => x !== pl.id) : [...diario.plantilla_ids, pl.id];
+                          void guardar({ ...diario, plantilla_ids: ids, plantilla_id: ids[0] ?? null, temas: temasTxt.split("\n") });
+                        }} />
+                        <span className="line-clamp-1">{pl.nombre}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
               <div className="text-[12px] text-muted-foreground">Reels por día
                 <div className="mt-1 flex gap-2">{[1, 2].map(n => <button key={n} type="button" onClick={() => void guardar({ ...diario, por_dia: n, temas: temasTxt.split("\n") })} className={`h-10 px-4 rounded-full border text-[12px] ${diario.por_dia === n ? "border-foreground/40 text-foreground bg-card" : "border-border"}`}>{n}</button>)}</div>
               </div>
@@ -138,7 +161,7 @@ export function Inicio(p: {
               <textarea value={temasTxt} rows={4} onChange={e => setTemas(e.target.value.slice(0, 3000))} onBlur={() => void guardar({ ...diario, temas: temasTxt.split("\n") })}
                 placeholder={"Cómo saber si un producto digital ya vende\nCuánto cobrar por tu primer producto"} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground" />
             </label>
-            <button type="button" disabled={creando || !diario.plantilla_id || !temasTxt.trim()}
+            <button type="button" disabled={creando || !diario.plantilla_ids.length || !temasTxt.trim()}
               onClick={async () => { setCreando(true); try { await guardar({ ...diario, activo: true, temas: temasTxt.split("\n") }); await p.onCrearAhora(); } finally { setCreando(false); } }}
               className="h-10 px-4 rounded-full border border-border text-[12px] text-foreground disabled:opacity-50">
               {creando ? <><Loader2 className="inline w-3.5 h-3.5 animate-spin mr-1" />Escribiendo borradores…</> : "Crear los borradores de hoy ahora"}

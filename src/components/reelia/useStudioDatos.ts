@@ -28,8 +28,9 @@ export const IDENTIDAD_VACIA: Identidad = { fotos: [], logo: null, voice_id: "",
 export type BiblioItem = { path: string; name: string; url: string; video: boolean };
 export type Plantilla = { id: string; nombre: string; fuente: string; duracion: number | null; analisis: Analisis; thumbs: string[]; thumbUrls: string[]; created_at: string };
 export type Borrador = { id: string; tema: string; modo: ModoReel; reel: Reel; plantilla_id: string | null; created_at: string; origen: string };
-export type Diario = { activo: boolean; plantilla_id: string | null; temas: string[]; por_dia: number; modo: ModoReel; palabra: string };
-export const DIARIO_VACIO: Diario = { activo: false, plantilla_id: null, temas: [], por_dia: 2, modo: "inspiracion", palabra: "" };
+/** plantilla_ids: las plantillas que se van alternando cada día (plantilla_id queda como la primera, por compatibilidad). */
+export type Diario = { activo: boolean; plantilla_id: string | null; plantilla_ids: string[]; temas: string[]; por_dia: number; modo: ModoReel; palabra: string };
+export const DIARIO_VACIO: Diario = { activo: false, plantilla_id: null, plantilla_ids: [], temas: [], por_dia: 2, modo: "inspiracion", palabra: "" };
 
 type Ref = { bucket: "estudio-avatar" | "personajes"; path: string };
 async function firmar(r: Ref): Promise<StudioRef | null> {
@@ -100,13 +101,13 @@ export function useStudioDatos(uid: string) {
 
   const cargarDiario = useCallback(async () => {
     if (!uid) return;
-    const { data } = await db().from("reel_diario").select("activo, plantilla_id, temas, por_dia, modo, palabra").eq("user_id", uid).maybeSingle();
-    if (data) setDiario({ ...DIARIO_VACIO, ...data });
+    const { data } = await db().from("reel_diario").select("activo, plantilla_id, plantilla_ids, temas, por_dia, modo, palabra").eq("user_id", uid).maybeSingle();
+    if (data) setDiario({ ...DIARIO_VACIO, ...data, plantilla_ids: data.plantilla_ids?.length ? data.plantilla_ids : data.plantilla_id ? [data.plantilla_id] : [] });
   }, [uid]);
 
   const guardarDiario = useCallback(async (d: Diario) => {
     setDiario(d);
-    const { error } = await db().from("reel_diario").upsert({ user_id: uid, ...d, temas: d.temas.map(t => t.trim()).filter(Boolean).slice(0, 30), updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+    const { error } = await db().from("reel_diario").upsert({ user_id: uid, ...d, plantilla_id: d.plantilla_ids[0] ?? d.plantilla_id ?? null, temas: d.temas.map(t => t.trim()).filter(Boolean).slice(0, 30), updated_at: new Date().toISOString() }, { onConflict: "user_id" });
     if (error) { toast.error("No se pudo guardar la producción diaria."); return false; }
     return true;
   }, [uid]);

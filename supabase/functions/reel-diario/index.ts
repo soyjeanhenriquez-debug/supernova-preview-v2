@@ -27,23 +27,25 @@ async function porCron(req: Request): Promise<boolean> {
   return data === true;
 }
 
-type Config = { user_id: string; plantilla_id: string | null; temas: string[]; por_dia: number; modo: string; palabra: string };
+type Config = { user_id: string; plantilla_id: string | null; plantilla_ids: string[] | null; temas: string[]; por_dia: number; modo: string; palabra: string };
 
 /** Los borradores que le faltan hoy a una cuenta. Devuelve cuántos creó y los errores. */
 async function producir(cfg: Config): Promise<{ creados: number; errores: string[] }> {
   const db = admin();
   const errores: string[] = [];
   const temas = (cfg.temas ?? []).map(t => t.trim()).filter(Boolean);
-  if (!cfg.plantilla_id || !temas.length) return { creados: 0, errores: ["Falta la plantilla o los temas."] };
+  // Varias plantillas (25-oct-2026, Jean: Márquez y Diego Vetencourt): se alternan entre los borradores.
+  const idsPl = (cfg.plantilla_ids?.length ? cfg.plantilla_ids : cfg.plantilla_id ? [cfg.plantilla_id] : []).slice(0, 10);
+  if (!idsPl.length || !temas.length) return { creados: 0, errores: ["Falta la plantilla o los temas."] };
   const hoy = new Date(); hoy.setUTCHours(0, 0, 0, 0);
   const { count: deHoy } = await db.from("reel_borradores").select("id", { count: "exact", head: true })
     .eq("user_id", cfg.user_id).eq("origen", "diario").gte("created_at", hoy.toISOString());
   const faltan = Math.max(0, Math.min(2, cfg.por_dia) - (deHoy ?? 0));
   if (!faltan) return { creados: 0, errores: [] };
 
-  const { data: pl } = await db.from("reel_plantillas").select("id, analisis").eq("id", cfg.plantilla_id).eq("user_id", cfg.user_id).maybeSingle();
-  if (!pl?.analisis) return { creados: 0, errores: ["La plantilla ya no existe."] };
-  const analisis = pl.analisis as Analisis;
+  const { data: pls } = await db.from("reel_plantillas").select("id, analisis").in("id", idsPl).eq("user_id", cfg.user_id);
+  const plantillas = idsPl.map(id => (pls ?? []).find(p => p.id === id)).filter((p): p is { id: string; analisis: Analisis } => !!p?.analisis);
+  if (!plantillas.length) return { creados: 0, errores: ["La plantilla ya no existe."] };
   const { data: idn } = await db.from("reel_identidad").select("paleta, ropa, palabra, clips_desc").eq("user_id", cfg.user_id).maybeSingle();
   // Biblioteca de la persona (para que use sus clips donde corresponden).
   const { data: files } = await db.storage.from("biblioteca").list(`${cfg.user_id}/app`, { limit: 60, sortBy: { column: "created_at", order: "desc" } });
@@ -65,6 +67,8 @@ async function producir(cfg: Config): Promise<{ creados: number; errores: string
   // modelo cuenta su razonamiento dentro del tope y con 8.000 el JSON llegaba cortado (24-oct-2026).
   const uno = async (k: number): Promise<boolean> => {
     const tema = temas[((total ?? 0) + k) % temas.length];
+    const pl = plantillas[((total ?? 0) + k) % plantillas.length];
+    const analisis = pl.analisis;
     try {
       const { out, cost, usage } = await geminiMedia([{ text: `${SYSTEM}\n\n${pedidoIA({
         texto: tema, literal: false, palabra: cfg.palabra || idn?.palabra || "", paleta: idn?.paleta ?? "cian", ropa: idn?.ropa ?? "",
@@ -93,7 +97,7 @@ Deno.serve(async (req) => {
     const uid = cron ? null : await owner(req);
     if (!cron && !uid) return json({ error: "No autorizado." }, 401);
     const db = admin();
-    let q = db.from("reel_diario").select("user_id, plantilla_id, temas, por_dia, modo, palabra").eq("activo", true);
+    let q = db.from("reel_diario").select("user_id, plantilla_id, plantilla_ids, temas, por_dia, modo, palabra").eq("activo", true);
     // Hoy solo la cuenta de Jean (la herramienta todavía es solo suya).
     q = q.eq("user_id", uid ?? OWNER_ID);
     const { data: cfgs, error } = await q;

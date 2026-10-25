@@ -269,7 +269,9 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
   };
 
   // ---------- 1 · Tu idea: reel de referencia ----------
-  const cargarReferencia = async (src: { file?: File; url?: string }) => {
+  // solo = guardar la plantilla desde el inicio sin tocar el reel abierto (Guardián del Creador, 25-oct-2026: antes había
+  // que empezar un reel nuevo y se borraba lo ya producido de este navegador).
+  const cargarReferencia = async (src: { file?: File; url?: string }, solo = false) => {
     if (!uid || busy) return;
     setBusy("ref"); setRefProg(0);
     try {
@@ -291,7 +293,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
         local = URL.createObjectURL(await (await fetch(s.signedUrl)).blob());
         fuente = data.fuente ?? src.url ?? ""; nombre = data.autor ? `Reel de @${data.autor}` : "Reel de Instagram";
       }
-      setRefVideo(local);
+      if (!solo) setRefVideo(local);
       setRefPaso("Buscando los cortes…");
       const { duracion, cortes } = await analizarCortes(local, setRefProg);
       setRefPaso("Mirando y escuchando el video…");
@@ -311,8 +313,11 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
       });
       if (error) throw new Error("No se pudo guardar la plantilla.");
       await datos.cargarPlantillas();
-      commit({ plantillaId: id });
-      toast.success("Reel analizado", { description: `${analisis.planos.length} planos. Quedó guardado como plantilla: no hay que analizarlo otra vez.` });
+      if (solo) {
+        const ids = [...new Set([...datos.diario.plantilla_ids, id])];
+        await datos.guardarDiario({ ...datos.diario, plantilla_ids: ids, plantilla_id: ids[0] });
+      } else commit({ plantillaId: id });
+      toast.success("Reel analizado", { description: `${analisis.planos.length} planos. Quedó guardado como plantilla: no hay que analizarlo otra vez.${solo ? " Ya entra en tu producción diaria." : ""}` });
     } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo analizar el reel."); }
     finally { setBusy(""); setRefPaso(""); }
   };
@@ -809,7 +814,8 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
               onElegir={o => void empezar(o)} onIdentidad={() => setVista("identidad")}
               onBorrador={abrirBorrador} onDescartar={b => void datos.marcarBorrador(b.id, "descartado")}
               onPlantilla={pl => void empezar("referencia", { plantillaId: pl.id })} onBorrarPlantilla={pl => void borrarPlantilla(pl)}
-              onGuardarDiario={datos.guardarDiario} onCrearAhora={crearAhora} />
+              onGuardarDiario={datos.guardarDiario} onCrearAhora={crearAhora}
+              onAgregarPlantilla={url => cargarReferencia({ url }, true)} agregando={busy === "ref" ? refPaso || "Analizando…" : ""} />
           </>
         )}
       </ToolShell>

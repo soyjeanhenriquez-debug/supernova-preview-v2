@@ -43,7 +43,7 @@ const REF_MAX = 18 * 1024 * 1024;
 const PEDIDO_SUPERNOVA = "Un reel de 35 a 45 s que presente SUPERNOVA: cómo encuentra negocios digitales que ya venden (anuncios con muchos días pagando publicidad) y te ayuda a crear tu versión con el precio en tu moneda. Gancho fuerte de curiosidad, ritmo rápido y juguetón, y al final: Comenta SUPERNOVA y te mando el enlace.";
 const MODOS: ModoReel[] = ["espejo", "recrear", "inspiracion", "adaptacion"];
 const MODO_LINEA: Record<ModoReel, string> = {
-  espejo: "95 % · la misma enseñanza, con tu voz.", recrear: "75 % · la misma idea, a tu manera.",
+  espejo: "95 % · el mismo reel: mismo gancho, mismos planos; cambias presentador, B-roll y voz.", recrear: "75 % · la misma idea, a tu manera.",
   inspiracion: "50 % · su fórmula, tu tema.", adaptacion: "Su fórmula para vender tu oferta.",
 };
 
@@ -60,6 +60,8 @@ type Proyecto = {
   paso: number;
   idea: string;
   modo: ModoReel;
+  /** Espejo: cambiar el gancho del original (opcional; por defecto se queda igual). */
+  cambiarGancho?: boolean;
   plantillaId: string | null;
   borradorId: string | null;
   chat: Msg[];
@@ -343,7 +345,8 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
         texto: msg, literal: opts.literal, palabra: m.ajustes.palabra, paleta: m.ajustes.paleta, ropa: m.ajustes.ropa,
         clips: clips.map(({ id, desc }) => ({ id, desc })), actual: opts.cambio ? m.reel : null,
         plantilla: plantilla?.analisis ?? null, modo: m.modo, oferta,
-        temaDeLaReferencia: m.origen === "referencia",
+        // Los borradores del productor diario usan tus temas: ahí el tema no es el de la referencia.
+        temaDeLaReferencia: m.origen === "referencia" && !m.borradorId, cambiarGancho: !!m.cambiarGancho,
       }));
       applyServerCharge("gen_light", billing, "Reel Studio");
       const reel = parseReel(text, clips, opts.literal ? msg : undefined, plantilla?.analisis.planos.length ?? 0);
@@ -906,6 +909,13 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
                   </button>
                 ))}
               </div>
+            )}
+            {meta.origen === "referencia" && meta.modo === "espejo" && plantilla?.analisis.gancho.texto && (
+              <label className="flex items-start gap-2 rounded-xl border border-border p-2.5 text-[12px] cursor-pointer">
+                <input type="checkbox" checked={!!meta.cambiarGancho} onChange={e => commit({ cambiarGancho: e.target.checked })} disabled={!!busy} className="mt-0.5" />
+                <span><span className="text-foreground">Cambiar el gancho (opcional)</span><br />
+                  <span className="text-muted-foreground">Si no lo marcas, empieza igual que el original: «{plantilla.analisis.gancho.texto.slice(0, 90)}»</span></span>
+              </label>
             )}
             <textarea value={meta.idea} rows={meta.origen === "guion" ? 8 : 4} onChange={e => commit({ idea: e.target.value.slice(0, 3000) })} disabled={!!busy}
               placeholder={meta.origen === "guion" ? "Pega tu guion tal cual. SUPERNOVA no le cambia ni una palabra." : meta.origen === "referencia" ? (meta.modo === "espejo" || meta.modo === "recrear" ? "Opcional: algo tuyo que quieras sumar." : "¿De qué trata tu versión? Ej.: cómo saber si un producto digital ya vende.") : "Ej.: un reel de 40 s de cómo SUPERNOVA encuentra ofertas que ya venden, gancho fuerte y al final «Comenta SUPERNOVA»."}

@@ -90,11 +90,18 @@ describe("reel dinámico", () => {
     // Recrear un reel en ESPEJO: el tema es el de la referencia y no entran los datos de SUPERNOVA.
     const e = pedidoIA({ texto: "Haz mi versión", literal: false, palabra: "NEGOCIO", paleta: "cian", ropa: "", clips: [], actual: null, plantilla: { ...a, resumen: "5 proyectos de Claude para generar ingresos" }, modo: "espejo", temaDeLaReferencia: true });
     expect(e).toMatch(/TEMA OBLIGATORIO: el mismo de la referencia \(5 proyectos de Claude/);
-    expect(e).toMatch(/la misma lista con los mismos nombres/);
+    expect(e).toMatch(/GUION: el GUION ORIGINAL casi igual, con cambios mínimos/);
+    expect(e).toMatch(/GANCHO: el mismo del original, igual: «Es estúpida…»/);
+    expect(e).toMatch(/exactamente 2 planos, uno por cada plano de la referencia/);
+    // De otro idioma: traducción fiel. Y el gancho se cambia solo si la persona lo pide.
+    const en = pedidoIA({ texto: "Haz mi versión", literal: false, palabra: "NEGOCIO", paleta: "cian", ropa: "", clips: [], actual: null, plantilla: { ...a, idioma: "en" }, modo: "espejo", temaDeLaReferencia: true, cambiarGancho: true });
+    expect(en).toMatch(/traducción fiel del GUION ORIGINAL al español latino, palabra por palabra/);
+    expect(en).toMatch(/la persona pidió cambiarlo/);
     expect(e).not.toMatch(/DATOS \(solo si el reel es de SUPERNOVA\)/);
     // El productor diario (temas propios) no cambia.
     const d = pedidoIA({ texto: "3 errores al poner precio", literal: false, palabra: "", paleta: "cian", ropa: "", clips: [], actual: null, plantilla: a, modo: "espejo" });
     expect(d).not.toMatch(/TEMA OBLIGATORIO/);
+    expect(d).toMatch(/REINVENTAR/);
     const r = parseReel(JSON.stringify({ planos: [P("a b", "tu", { ref: 0 }), P("c d", "tu", { ref: 9 }), P("e f", "tu", { ref: 1 })] }), [], undefined, 2)!;
     expect(r.planos.map(p => p.ref)).toEqual([0, -1, 1]);
     expect(idsDeBiblioteca(["a.mp4", "b.mp4", "a.mp4"])).toEqual(["a.mp4", "b.mp4", "2-a.mp4"]);

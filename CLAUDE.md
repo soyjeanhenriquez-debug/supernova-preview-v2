@@ -122,6 +122,11 @@ su moneda.
   sigue, no se entrega y se devuelve el cobro. El ADN de la persona nunca cambia el tema de una
   referencia; la oferta solo entra en VENDER y solo una oferta "Disponible" puede pedir la compra.
   Todo en `supabase/functions/_shared/brandDna.ts` y `contentQa.ts`. Las reglas de honestidad mandan.
+  **ESPEJO en reels (decisión de Jean, 26-oct-2026):** es el mismo reel. Plano por plano igual al original
+  (mismo número, orden, forma y duración) y la persona elige si cambia presentador, B-roll y voz. El gancho se
+  queda igual salvo que pida cambiarlo. Original en español: casi el mismo texto, con cambios mínimos de palabras
+  para que sea original. Original en otro idioma: traducción fiel palabra por palabra. Siempre fuera lo ajeno
+  (nombre, marca, cifras y resultados personales de quien lo hizo). En `_shared/reelPlan.ts` (`espejoReglas`).
 - Los embudos de los usuarios se publican en un dominio aparte, nunca en el de la app.
 - NUNCA inflar cifras para parecer más grandes que la competencia. Cada número que ve el
   cliente es real y dice qué cuenta ("más de 7.500 ofertas analizadas", no "+7.500" suelto).

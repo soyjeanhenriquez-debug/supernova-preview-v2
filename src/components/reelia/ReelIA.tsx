@@ -23,7 +23,7 @@ import {
   parseReel, pedidoIA, resumen, seVe, textoPublicacion, tiempos, tramos, type Analisis, type ModoReel, type Oferta, type Plano, type Reel,
 } from "@/lib/reelDinamico";
 import { Inicio, type Origen } from "./Inicio";
-import { etiquetaCasilla, siguienteLibre } from "@/lib/publicar";
+import { ajustesDe as ajustesPublicar, casillasDelDia, etiquetaCasilla, siguienteLibre } from "@/lib/publicar";
 import { Storyboard, type Medio } from "./Storyboard";
 import { BIBLIO, useStudioDatos, type Borrador, type Identidad, type Plantilla } from "./useStudioDatos";
 
@@ -614,14 +614,17 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
     return { ok, detalle: w ? `${d.toFixed(1).replace(".", ",")} s · ${w}×${h} · ${(blob.size / 1e6).toFixed(1).replace(".", ",")} MB` : "el archivo no se pudo abrir" };
   });
   // Para publicar (26-oct-2026): el reel terminado se guarda en la app y ocupa la siguiente casilla libre de reel
-  // (12:30 o 21:00, hora de RD) con su copy listo. Si falla, el MP4 igual quedó descargado.
+  // de tu plan (hora de RD) con su copy listo y tus redes. Si falla, el MP4 igual quedó descargado.
   const aParaPublicar = async (blob: Blob) => {
     if (!uid || !r) return;
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sdb = supabase as any;
       const { data: futuras } = await sdb.from("content_items").select("slot_at").eq("user_id", uid).gte("slot_at", new Date().toISOString());
-      const slot = siguienteLibre("reel", ((futuras ?? []) as { slot_at: string }[]).map(x => x.slot_at));
+      // Las casillas del plan de cada quien (3, 5 o 10 al día + las extra que agregó).
+      const { data: ajRow } = await sdb.from("publicar_ajustes").select("plan, extras, vista, redes").eq("user_id", uid).maybeSingle();
+      const aj0 = ajustesPublicar(ajRow);
+      const slot = siguienteLibre("reel", ((futuras ?? []) as { slot_at: string }[]).map(x => x.slot_at), new Date(), d => casillasDelDia(aj0, d));
       if (!slot) return;
       const path = `${uid}/${crypto.randomUUID()}/reel.mp4`;
       const up = await supabase.storage.from("publicaciones").upload(path, blob, { contentType: "video/mp4", upsert: false });
@@ -629,7 +632,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
       const titulo = (r.titulo || "Reel").replace(/\*/g, "").slice(0, 190);
       const { error } = await sdb.from("content_items").insert({
         user_id: uid, topic: titulo, title: titulo, kind: "corto", platform: "reels", status: "grabado", source: "reel-studio", due: slot.slice(0, 10),
-        slot_at: slot, media_tipo: "reel", media_paths: [path], pub_estado: "listo", pub_redes: ["instagram", "youtube"],
+        slot_at: slot, media_tipo: "reel", media_paths: [path], pub_estado: "listo", pub_redes: aj0.redes,
         caption: textoPublicacion({ ...r, palabra: aj.palabra || r.palabra }), keyword: (aj.palabra || r.palabra || "").slice(0, 30) || null,
         ref_borrador: metaRef.current.borradorId,
       });

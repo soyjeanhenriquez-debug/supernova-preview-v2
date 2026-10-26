@@ -20,7 +20,7 @@ import { ToolShell } from "@/components/tool/ToolShell";
 import { ReelDinamico, type RDPlano, type RDProps, type RDTramo } from "@/remotion/ReelDinamico";
 import {
   FORMAS, GENERATOR_ID, HABLA_USD_SEG, MODO_NOMBRE, PALETAS, palabraDelGuion, PRICE_PLAN, SYSTEM, VELOCIDADES, audioTramo, costo, huella, paleta, pantallas,
-  parseReel, pedidoIA, resumen, seVe, textoPublicacion, tiempos, tramos, type Analisis, type ModoReel, type Oferta, type Plano, type Reel,
+  parseReel, pedidoIA, SYSTEM_ESPEJO, pedidoEspejo, parseEspejo, espejoReel, resumen, seVe, textoPublicacion, tiempos, tramos, type Analisis, type ModoReel, type Oferta, type Plano, type Reel,
 } from "@/lib/reelDinamico";
 import { Inicio, type Origen } from "./Inicio";
 import { ajustesDe as ajustesPublicar, casillasDelDia, etiquetaCasilla, siguienteLibre } from "@/lib/publicar";
@@ -341,6 +341,22 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
       const m = metaRef.current;
       const oferta = plantilla && m.modo === "adaptacion" ? await ofertaDisponible() : null;
       if (plantilla && m.modo === "adaptacion" && !oferta && !opts.cambio) toast.message("No tienes una oferta Disponible: la llamada final será de interés, no de compra.");
+      // ESPEJO (26-oct-2026): el reel se arma plano por plano desde la ficha del original; la IA solo retoca las frases.
+      if (plantilla && m.modo === "espejo" && m.origen === "referencia" && !opts.cambio) {
+        const opc = { palabra: m.ajustes.palabra, cambiarGancho: !!m.cambiarGancho, ropa: m.ajustes.ropa };
+        const { text: t2, billing: b2 } = await streamGenerator(GENERATOR_ID, "Reel Studio", SYSTEM_ESPEJO, pedidoEspejo(plantilla.analisis, opc));
+        applyServerCharge("gen_light", b2, "Reel Studio");
+        if (!/"frases"\s*:/.test(t2)) throw new Error("La IA no devolvió tu espejo. Toca Preparar otra vez.");
+        const espejo = espejoReel(plantilla.analisis, parseEspejo(t2, plantilla.analisis), opc);
+        if (!espejo) throw new Error("No se pudo armar el espejo de este reel. Prueba con Recrear.");
+        commit(x => ({
+          reel: espejo, paso: 1, validado: null,
+          ajustes: { ...x.ajustes, palabra: espejo.palabra || x.ajustes.palabra },
+          chat: [...x.chat, { de: "ia", texto: `Aquí está tu espejo: ${espejo.planos.length} planos, uno por cada plano del original. Cambia el presentador, los B-roll o la voz si quieres.` }],
+        }));
+        setTexto("");
+        return;
+      }
       const { text, billing } = await streamGenerator(GENERATOR_ID, "Reel Studio", SYSTEM, pedidoIA({
         texto: msg, literal: opts.literal, palabra: m.ajustes.palabra, paleta: m.ajustes.paleta, ropa: m.ajustes.ropa,
         clips: clips.map(({ id, desc }) => ({ id, desc })), actual: opts.cambio ? m.reel : null,

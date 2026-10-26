@@ -11,7 +11,7 @@ import type { Word } from "@/lib/subtitleStyles";
 
 export {
   DATOS_SUPERNOVA, MAX_ANIMADAS, MAX_LOOKS, MAX_PLANOS, MODO_NOMBRE, MODO_REGLAS, PALETAS, SYSTEM, cleanAnalisis, descDeNombre,
-  idsDeBiblioteca, palabraDelGuion, paleta, parseReel, pedidoIA, refCompacta,
+  idsDeBiblioteca, palabraDelGuion, paleta, parseReel, pedidoIA, refCompacta, SYSTEM_ESPEJO, pedidoEspejo, parseEspejo, espejoReel,
 } from "../../supabase/functions/_shared/reelPlan";
 export type { Analisis, ClipInfo, Forma, Look, ModoReel, Oferta, Pedido, Plano, Reel, RefPlano } from "../../supabase/functions/_shared/reelPlan";
 import type { Forma, Plano, Reel } from "../../supabase/functions/_shared/reelPlan";

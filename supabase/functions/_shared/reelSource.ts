@@ -54,6 +54,7 @@ export async function runApify(fn: string, urls: string[], token: string): Promi
   let items: unknown[] = [];
   let ok = false;
   let slow = false;
+  let cuenta = false;
   try {
     const r = await fetch(ACTOR, {
       method: "POST",
@@ -65,6 +66,9 @@ export async function runApify(fn: string, urls: string[], token: string): Promi
     if (!r.ok) {
       const t = await r.text();
       slow = t.includes("TIMED-OUT");
+      // 26-oct-2026: la cuenta de Apify llegó a su tope del mes («Monthly usage hard limit exceeded», 403) y la
+      // app decía «no disponible». Es un tope, no una caída: se avisa como tal (y el Guardián lo marca CRÍTICO).
+      if ((r.status === 402 || r.status === 403) && /limit|usage|credit|balance/i.test(t)) cuenta = true;
       console.error(`${fn}: apify`, r.status, t.slice(0, 200));
     } else { const j = await r.json(); items = Array.isArray(j) ? j : []; ok = true; }
   } catch (e) {
@@ -77,7 +81,7 @@ export async function runApify(fn: string, urls: string[], token: string): Promi
   });
   if (logErr) console.error(`${fn}: apify_runs`, logErr.message);
   // deno-lint-ignore no-explicit-any
-  return ok ? items.filter((x: any) => x && typeof x === "object" && !x.error) : slow ? "slow" : "down";
+  return ok ? items.filter((x: any) => x && typeof x === "object" && !x.error) : cuenta ? "budget" : slow ? "slow" : "down";
 }
 
 // deno-lint-ignore no-explicit-any

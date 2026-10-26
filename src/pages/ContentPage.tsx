@@ -7,6 +7,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProducts } from "@/contexts/ProductContext";
 import { useBusinessProfile } from "@/lib/businessProfile";
 import { PageHeader } from "@/components/PageHeader";
+import { ParaPublicar } from "@/components/publicar/ParaPublicar";
+import { isGenjutsuOwner } from "@/lib/genjutsuOwner";
 import { ClaimBonusButton, PublishBonusCard } from "@/components/PublishBonus";
 import { ToolFeedback } from "@/components/ToolFeedback";
 import { CREDIT_COSTS, useCredits } from "@/hooks/useCredits";
@@ -843,6 +845,9 @@ export function ContentPage({ onNavigate }: { onNavigate?: (page: string) => voi
           </div>
         )}
       </div>
+
+      {/* Para publicar (26-oct-2026): hoy solo la cuenta de Jean, porque programa con su Upload-Post. */}
+      {isGenjutsuOwner(user?.id) && <ParaPublicar />}
 
       {/* Calendario */}
       <div className="card-surface rounded-2xl p-5 space-y-4">

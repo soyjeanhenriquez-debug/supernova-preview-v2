@@ -345,8 +345,9 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
         texto: msg, literal: opts.literal, palabra: m.ajustes.palabra, paleta: m.ajustes.paleta, ropa: m.ajustes.ropa,
         clips: clips.map(({ id, desc }) => ({ id, desc })), actual: opts.cambio ? m.reel : null,
         plantilla: plantilla?.analisis ?? null, modo: m.modo, oferta,
-        // Los borradores del productor diario usan tus temas: ahí el tema no es el de la referencia.
-        temaDeLaReferencia: m.origen === "referencia" && !m.borradorId, cambiarGancho: !!m.cambiarGancho,
+        // Preparar desde «Tu idea» = lo que elegiste ahí (Espejo/Recrear → el tema de la referencia, aunque venga de
+        // un borrador). Al pedir cambios sobre un borrador del productor diario, se respeta su tema propio.
+        temaDeLaReferencia: m.origen === "referencia" && (!opts.cambio || !m.borradorId), cambiarGancho: !!m.cambiarGancho,
       }));
       applyServerCharge("gen_light", billing, "Reel Studio");
       const reel = parseReel(text, clips, opts.literal ? msg : undefined, plantilla?.analisis.planos.length ?? 0);

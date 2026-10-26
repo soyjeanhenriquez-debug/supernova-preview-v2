@@ -343,6 +343,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
         texto: msg, literal: opts.literal, palabra: m.ajustes.palabra, paleta: m.ajustes.paleta, ropa: m.ajustes.ropa,
         clips: clips.map(({ id, desc }) => ({ id, desc })), actual: opts.cambio ? m.reel : null,
         plantilla: plantilla?.analisis ?? null, modo: m.modo, oferta,
+        temaDeLaReferencia: m.origen === "referencia",
       }));
       applyServerCharge("gen_light", billing, "Reel Studio");
       const reel = parseReel(text, clips, opts.literal ? msg : undefined, plantilla?.analisis.planos.length ?? 0);

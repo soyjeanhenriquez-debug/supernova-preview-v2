@@ -11,7 +11,6 @@ vi.mock("@/lib/businessProfile", () => ({
 }));
 let admin = false;
 vi.mock("@/lib/features", () => ({ useFeatureAccess: () => ({ canSee: (p: string) => admin || p !== "Estudio de avatar", isAdmin: admin, loading: false }) }));
-vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: { id: "cliente-1" } }) }));
 vi.mock("@/lib/tools", async (orig) => ({ ...(await orig<typeof import("@/lib/tools")>()), useVia: () => ({ via: "creador" }) }));
 
 import { IntentBox } from "./IntentBox";
@@ -51,7 +50,7 @@ describe("¿Qué quieres crear hoy? · 4 entradas por lo que tienes (Guardián d
     render(<IntentBox onNavigate={vi.fn()} />);
     fireEvent.click(screen.getByText("Tengo mi material"));
     expect(screen.queryByText("Mi foto hablando")).toBeNull();
-    expect(screen.queryByText(/Reel Studio/)).toBeNull();
+    expect(screen.getByText("Mis fotos + una frase → reel")).toBeTruthy(); // Reel Studio abierto a clientes (26-oct)
     fireEvent.click(screen.getByText("Grabé mi video"));
     expect(window.location.hash).toBe("#/con-tu-cara/video");
   });

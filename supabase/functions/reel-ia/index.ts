@@ -1,27 +1,34 @@
 // SUPERNOVA — Reel "Esta IA hace X" (24-oct-2026, ingeniería inversa de un reel que pasó Jean).
-// SOLO la cuenta de Jean (compuerta owner() de Genjutsu: id y correo), sin créditos, como Genjutsu. Las imágenes y las
-// animaciones van por yt-produce, avatar-studio y video-studio (que cobran como siempre); aquí solo lo nuevo:
+// Abierto a clientes el 26-oct-2026 (antes solo Jean, sin créditos). Usuario real + cobro en el servidor ANTES de gastar
+// (edge_guard_charge, precios en credit_prices) y devolución si falla. Las imágenes y las animaciones van por yt-produce,
+// avatar-studio y video-studio (que cobran como siempre); aquí solo lo nuevo:
 //
 //   config            → qué llaves hay (ElevenLabs, fal).
-//   voice    { text } → ElevenLabs text-to-speech/with-timestamps con la voz de Jean (ELEVENLABS_VOICE_ID):
-//                       { audio (base64 mp3), alignment (tiempo de cada letra) } para cortar escenas y subtítulos.
+//   voice    { text, voice_id? } → ElevenLabs text-to-speech/with-timestamps: { audio (base64 mp3), alignment (tiempo
+//                       de cada letra) } para cortar escenas y subtítulos. Cobra reel_voz_600 / reel_voz_1200 por largo.
+//                       Clientes: solo voces de la biblioteca (premade). Jean: además su voz (ELEVENLABS_VOICE_ID).
 //   capture  { url, mobile? } → captura real de la web de la herramienta con Microlink (gratis, 50 al día; la URL
 //                       solo puede ser http(s) pública). Devuelve la imagen en base64.
 //   presenter { image: { bucket, path }, audio (base64 wav ≤ 12 s) } → Kling AI Avatar v2 en fal (imagen + audio:
-//                       los labios siguen la voz de Jean). Devuelve request_id.
-//   status   { request_id } → estado en la cola de fal.
-//   file     { request_id } → el MP4 terminado, en streaming con CORS (solo hosts de fal).
+//                       los labios siguen la voz). Cobra reel_lip_6 / reel_lip_12 según los segundos MEDIDOS en el WAV
+//                       (nunca los que manda el navegador). Anota la toma en reel_ia_tomas. Devuelve request_id.
+//   status   { request_id } → estado en la cola de fal (solo tomas propias). Si fal la marca fallida, devuelve el cobro
+//                       una sola vez.
+//   file     { request_id } → el MP4 terminado, en streaming con CORS (solo hosts de fal, solo tomas propias).
 //   fetch_link { url } (Reel Studio, 25-oct-2026) → un Reel de Instagram: lo lee con Apify (caché global de
 //                       reelSource), baja el video y lo guarda en biblioteca/{uid}/ref/ para analizarlo y sacar
 //                       miniaturas. TikTok y YouTube: no se pueden leer por enlace → se pide subir el video.
 //   analyze  { path, cortes, duracion } → Gemini MIRA y ESCUCHA el video de referencia (biblioteca/{uid}/ref/…,
-//                       hasta 18 MB) y devuelve su ingeniería inversa audiovisual (reelPlan.ts: cleanAnalisis).
-// Costos al proveedor en ai_usage: ElevenLabs va por la suscripción de Jean (0 aquí), Kling Avatar US$0,0562/s.
+//                       hasta 18 MB) y devuelve su ingeniería inversa audiovisual (reelPlan.ts: cleanAnalisis). Cobra
+//                       reel_analyze (25, como Analiza un Reel).
+//   config, voices, capture, fetch_link: sin cobro, con tope por hora y por día (edge_guard).
+// Costos al proveedor en ai_usage: ElevenLabs ≤ US$0,00022/carácter, Kling Avatar US$0,0562/s.
 // Ninguna llave sale al cliente. Docs leídas el 24-oct-2026: elevenlabs.io/docs (with-timestamps), microlink.io/docs.
 import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
-import { owner } from "../_shared/genjutsu.ts";
-import { admin, fal, FAL_KEY, json } from "../_shared/media.ts";
+import { OWNER_ID } from "../_shared/genjutsu.ts";
+import { admin, billingHeaders, caller, charge, fal, FAL_KEY, json, refund, type Gate } from "../_shared/media.ts";
 import { ownStoragePath } from "../_shared/paths.ts";
+import { wavSeconds } from "../_shared/wav.ts";
 import { cleanAnalisis, PROMPT_ANALISIS } from "../_shared/reelPlan.ts";
 import { b64 as b64m, geminiMedia, logMediaCost } from "../_shared/geminiMedia.ts";
 import { getReel, REEL_RE } from "../_shared/reelSource.ts";
@@ -29,7 +36,9 @@ import { getReel, REEL_RE } from "../_shared/reelSource.ts";
 const FN = "reel-ia";
 const AVATAR = "fal-ai/kling-video/ai-avatar/v2/standard";
 const AVATAR_USD_PER_SEC = 0.0562;
-const MAX_TEXT = 3000;
+const ELEVEN_USD_PER_CHAR = 0.00022; // tope de los planes de pago de ElevenLabs (Jean tiene 300.000 caracteres/mes, 26-oct-2026)
+const MAX_TEXT = 3000; // Jean
+const MAX_TEXT_CLIENTE = 1200; // ≈ 80 s de voz: el tope del precio reel_voz_1200
 const MAX_AUDIO_B64 = 1_400_000; // ~12 s de WAV mono 24 kHz
 const FILE_MAX = 60 * 1024 * 1024;
 const FAL_HOSTS = ["fal.media", "fal.run", "fal.ai"];
@@ -67,6 +76,27 @@ async function logCost(uid: string, model: string, usd: number) {
   if (error) console.error("ai_usage:", error.message);
 }
 
+/** Tope por hora y por día para lo que no cobra (lector de Instagram, capturas, lista de voces). */
+async function tope(uid: string, accion: string, hora: number, dia: number): Promise<Response | null> {
+  const { data: g, error } = await admin().rpc("edge_guard", { p_user_id: uid, p_fn: `${FN}:${accion}`, p_max_hour: hora, p_max_day: dia });
+  if (error) return json({ error: "No se pudo verificar el acceso. Intenta de nuevo." }, 503);
+  if (g?.ok === true) return null;
+  return g?.reason === "rate_limited" ? json({ error: "Alcanzaste el límite por ahora. Intenta en un rato." }, 429) : json({ error: "Tu cuenta no tiene acceso activo." }, 403);
+}
+
+/** ¿Es una voz de la biblioteca de ElevenLabs (premade)? Las clonadas de la cuenta son de Jean. */
+async function vozDeBiblioteca(key: string, id: string): Promise<boolean> {
+  const r = await fetch(`https://api.elevenlabs.io/v1/voices/${encodeURIComponent(id)}`, { headers: { "xi-api-key": key }, signal: AbortSignal.timeout(15_000) }).catch(() => null);
+  if (!r?.ok) return false;
+  const v = await r.json().catch(() => null);
+  return v?.category === "premade";
+}
+
+const conCobro = (g: Gate, body: Record<string, unknown>, status = 200) =>
+  new Response(JSON.stringify({ ...body, billing: { charged: g.charged, balance: g.balance } }), {
+    status, headers: { ...corsHeaders, "Content-Type": "application/json", ...billingHeaders(g) },
+  });
+
 async function falResult(id: string): Promise<{ status: string; url?: string }> {
   const base = `https://queue.fal.run/fal-ai/kling-video/requests/${id}`;
   const st = await fal(`${base}/status`);
@@ -82,32 +112,37 @@ async function falResult(id: string): Promise<{ status: string; url?: string }> 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    const uid = await owner(req);
-    if (!uid) return json({ error: "Esta herramienta todavía es solo de Jean." }, 403);
+    const who = await caller(req);
+    if (!who) return json({ error: "Inicia sesión para usar Reel Studio." }, 401);
+    const uid = who.id;
+    const jean = uid === OWNER_ID;
     const raw = await req.text();
     if (raw.length > MAX_AUDIO_B64 + 4000) return json({ error: "La solicitud es demasiado grande." }, 413);
     let body: Record<string, unknown> = {};
     try { body = raw ? JSON.parse(raw) : {}; } catch { return json({ error: "Solicitud inválida." }, 400); }
 
-    if (body.action === "config") return json({ eleven: !!elevenKey() && !!voiceId(), fal: !!FAL_KEY });
+    if (body.action === "config") return json({ eleven: !!elevenKey() && (!jean || !!voiceId()), fal: !!FAL_KEY, propia: jean && !!voiceId() });
 
     // ---------- voces de la cuenta (Guardián del Creador, 24-oct-2026) ----------
     // Antes había que pegar el id de una voz. Ahora la app trae la lista con su nombre y una muestra para escuchar.
     if (body.action === "voices") {
       const key = elevenKey();
       if (!key) return json({ voices: [] });
+      const limit = await tope(uid, "voices", 30, 200);
+      if (limit) return limit;
       const r = await fetch("https://api.elevenlabs.io/v1/voices", { headers: { "xi-api-key": key }, signal: AbortSignal.timeout(15_000) }).catch(() => null);
       if (!r?.ok) { console.error("elevenlabs voices:", r?.status); return json({ voices: [] }); }
       const d = await r.json().catch(() => null);
       const propia = voiceId();
       // deno-lint-ignore no-explicit-any
-      const lista = (Array.isArray(d?.voices) ? d.voices : []).filter((v: any) => typeof v?.voice_id === "string" && VOICE_RE.test(v.voice_id))
+      // Clientes: solo las voces de la biblioteca (premade). Las clonadas de la cuenta son de Jean.
+      const lista = (Array.isArray(d?.voices) ? d.voices : []).filter((v: any) => typeof v?.voice_id === "string" && VOICE_RE.test(v.voice_id) && (jean || v.category === "premade"))
         // deno-lint-ignore no-explicit-any
         .slice(0, 60).map((v: any) => ({
           id: v.voice_id as string,
           nombre: String(v.name ?? "Voz").slice(0, 60),
           muestra: typeof v.preview_url === "string" && v.preview_url.startsWith("https://") ? v.preview_url : null,
-          propia: v.voice_id === propia,
+          propia: jean && v.voice_id === propia,
           clonada: v.category === "cloned" || v.category === "professional",
         }));
       return json({ voices: lista });
@@ -116,10 +151,16 @@ Deno.serve(async (req) => {
     // ---------- voz (ElevenLabs, con tiempos) ----------
     if (body.action === "voice") {
       // Otra voz de tu cuenta de ElevenLabs (Mi identidad); si no, tu voz clonada de los secretos.
-      const key = elevenKey(), vid = typeof body.voice_id === "string" && VOICE_RE.test(body.voice_id) ? body.voice_id : voiceId();
-      if (!key || !vid) { console.error("voz: faltan ELEVENLABS_API_KEY o ELEVENLABS_VOICE_ID"); return json({ error: "La voz no está disponible en este momento. No se te cobró nada." }, 503); }
+      const pedida = typeof body.voice_id === "string" && VOICE_RE.test(body.voice_id) ? body.voice_id : null;
+      const key = elevenKey(), vid = pedida ?? (jean ? voiceId() : null);
+      if (!key) { console.error("voz: falta ELEVENLABS_API_KEY"); return json({ error: "La voz no está disponible en este momento. No se te cobró nada." }, 503); }
+      if (!vid) return json({ error: "Elige una voz en Opciones avanzadas." }, 400);
+      if (!jean && !(await vozDeBiblioteca(key, vid))) return json({ error: "Esa voz no está disponible. Elige otra en Opciones avanzadas." }, 400);
       const text = String(body.text ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_TEXT);
       if (text.split(" ").length < 5) return json({ error: "Escribe el guion completo (al menos una frase)." }, 400);
+      if (!jean && text.length > MAX_TEXT_CLIENTE) return json({ error: `El guion es muy largo para un reel: ${text.length} caracteres. El máximo es ${MAX_TEXT_CLIENTE} (unos 80 segundos).` }, 400);
+      const g = await charge(FN, uid, text.length <= 600 ? "reel_voz_600" : "reel_voz_1200", `Reel Studio · voz (${text.length} caracteres)`, 20, 60);
+      if (g instanceof Response) return g;
       const speed = Math.max(0.9, Math.min(1.2, Number(body.speed) || 1));
       const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(vid)}/with-timestamps?output_format=mp3_44100_128`, {
         method: "POST",
@@ -131,18 +172,21 @@ Deno.serve(async (req) => {
       if (!r.ok) {
         const t = (await r.text()).slice(0, 300);
         console.error("elevenlabs:", r.status, t);
+        await refund(g.txId, `elevenlabs ${r.status}`);
         return json({ error: r.status === 404 ? "Esa voz ya no existe en tu cuenta. Elige otra en Opciones avanzadas." : r.status === 401 ? "La voz no está disponible en este momento. No se te cobró nada." : "La voz no respondió. Toca de nuevo en un momento." }, 502);
       }
       const d = await r.json();
-      if (typeof d?.audio_base64 !== "string" || !d?.alignment) return json({ error: "La voz no llegó completa. Toca de nuevo." }, 502);
-      await logCost(uid, "elevenlabs:eleven_multilingual_v2", 0);
-      return json({ audio: d.audio_base64, alignment: d.alignment, chars: text.length });
+      if (typeof d?.audio_base64 !== "string" || !d?.alignment) { await refund(g.txId, "voz incompleta"); return json({ error: "La voz no llegó completa. No se te cobró. Toca de nuevo." }, 502); }
+      await logCost(uid, "elevenlabs:eleven_multilingual_v2", Math.round(text.length * ELEVEN_USD_PER_CHAR * 10000) / 10000);
+      return conCobro(g, { audio: d.audio_base64, alignment: d.alignment, chars: text.length });
     }
 
     // ---------- captura real de la web (Microlink) ----------
     if (body.action === "capture") {
       const url = publicUrl(body.url);
       if (!url) return json({ error: "Pon la dirección completa de la web (https://…)." }, 400);
+      const limit = await tope(uid, "capture", 30, 100);
+      if (limit) return limit;
       const mobile = body.mobile === true;
       const q = new URLSearchParams({
         url, screenshot: "true", meta: "false", waitForTimeout: "1500",
@@ -175,16 +219,23 @@ Deno.serve(async (req) => {
       if (!bucket || !path) return json({ error: "Elige la imagen del presentador." }, 400);
       const audio = typeof body.audio === "string" && body.audio.length <= MAX_AUDIO_B64 ? body.audio : null;
       if (!audio) return json({ error: "Falta el audio del presentador (máximo 12 s)." }, 400);
-      const seconds = Math.max(1, Math.min(12, Number(body.seconds) || 5));
+      const bytes = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
+      // El precio sale de los segundos MEDIDOS en el audio, nunca de lo que manda el navegador.
+      const medidos = wavSeconds(bytes);
+      if (medidos === null || medidos < 0.3) return json({ error: "El audio del presentador no es válido." }, 400);
+      if (medidos > 12.2) return json({ error: "Cada toma hablando dura máximo 12 segundos." }, 400);
+      const seconds = Math.max(1, Math.ceil(medidos * 10) / 10);
       const db = admin();
       const { data: img } = await db.storage.from(bucket).createSignedUrl(path, 60 * 60);
       if (!img?.signedUrl) return json({ error: "No se encontró la imagen del presentador." }, 400);
-      const bytes = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
+      const accion = seconds <= 6 ? "reel_lip_6" : "reel_lip_12";
+      const g = await charge(FN, uid, accion, `Reel Studio · toma hablando ${Math.round(seconds)} s`, 20, 80);
+      if (g instanceof Response) return g;
       const audioPath = `${uid}/reel-ia-${crypto.randomUUID()}.wav`;
       const up = await db.storage.from("avatar-audio").upload(audioPath, bytes, { contentType: "audio/wav" });
-      if (up.error) return json({ error: "No se pudo guardar el audio." }, 500);
+      if (up.error) { await refund(g.txId, "audio sin guardar"); return json({ error: "No se pudo guardar el audio. No se te cobró." }, 500); }
       const { data: au } = await db.storage.from("avatar-audio").createSignedUrl(audioPath, 60 * 60);
-      if (!au?.signedUrl) return json({ error: "No se pudo preparar el audio." }, 500);
+      if (!au?.signedUrl) { await refund(g.txId, "audio sin firmar"); return json({ error: "No se pudo preparar el audio. No se te cobró." }, 500); }
       const q = await fal(`https://queue.fal.run/${AVATAR}`, {
         method: "POST",
         body: JSON.stringify({ image_url: img.signedUrl, audio_url: au.signedUrl, prompt: "Person talking directly to the camera with natural expressions and subtle hand gestures, social media video." }),
@@ -192,14 +243,17 @@ Deno.serve(async (req) => {
       if (!q.ok) {
         const t = (await q.text()).slice(0, 300);
         console.error("fal avatar:", q.status, t);
+        await refund(g.txId, `fal avatar ${q.status}`);
         // 24-oct-2026: fal respondió 403 "Exhausted balance" y la app solo decía "falló" en cada tramo.
-        if (/balance|billing/i.test(t)) return json({ error: "Se acabó el saldo para tus tomas hablando (cuenta de videos). Recárgalo y toca Regenerar.", saldo: true }, 402);
-        return json({ error: q.status === 422 ? "El generador rechazó la imagen o el audio." : "El generador del presentador no está disponible ahora." }, 503);
+        if (/balance|billing/i.test(t)) return json({ error: jean ? "Se acabó el saldo para tus tomas hablando (cuenta de videos). Recárgalo y toca Regenerar." : "Las tomas hablando no están disponibles en este momento. No se te cobró.", saldo: true }, jean ? 402 : 503);
+        return json({ error: q.status === 422 ? "El generador rechazó la imagen o el audio. No se te cobró." : "El generador del presentador no está disponible ahora. No se te cobró." }, 503);
       }
       const queued = await q.json();
-      if (typeof queued?.request_id !== "string") return json({ error: "El generador no devolvió el trabajo." }, 502);
+      if (typeof queued?.request_id !== "string" || !REQ_ID.test(queued.request_id)) { await refund(g.txId, "fal sin request_id"); return json({ error: "El generador no devolvió el trabajo. No se te cobró." }, 502); }
+      const { error: insErr } = await db.from("reel_ia_tomas").insert({ request_id: queued.request_id, user_id: uid, tx_id: g.txId, seconds, action: accion });
+      if (insErr) console.error("reel_ia_tomas:", insErr.message);
       await logCost(uid, `fal:${AVATAR}`, Math.round(seconds * AVATAR_USD_PER_SEC * 1000) / 1000);
-      return json({ request_id: queued.request_id });
+      return conCobro(g, { request_id: queued.request_id });
     }
 
     // ---------- Reel de referencia por enlace (solo Instagram) ----------
@@ -212,6 +266,8 @@ Deno.serve(async (req) => {
       }
       const apify = Deno.env.get("APIFY_TOKEN");
       if (!apify) return json({ error: "No se puede leer Instagram ahora. Sube el video.", subir: true }, 503);
+      const limit = await tope(uid, "fetch_link", 15, 40);
+      if (limit) return limit;
       const got = await getReel(FN, m[1], apify);
       if (!got.ok) {
         const why = got.reason === "budget" ? "Se acabó el saldo del lector de Instagram este mes." : got.reason === "not_found" ? "Ese Reel no existe o es privado." : "Instagram no respondió a tiempo.";
@@ -242,6 +298,8 @@ Deno.serve(async (req) => {
       if (error || !file) return json({ error: "No se encontró el video." }, 404);
       if (file.size > REF_MAX) return json({ error: "El video pesa más de 18 MB. Recórtalo o bájale la calidad y súbelo de nuevo." }, 413);
       const bytes = new Uint8Array(await file.arrayBuffer());
+      const g = await charge(FN, uid, "reel_analyze", "Reel Studio · analizar tu referencia", 10, 30);
+      if (g instanceof Response) return g;
       try {
         const { out, cost, usage } = await geminiMedia([
           { inline_data: { mime_type: file.type || "video/mp4", data: b64m(bytes) } },
@@ -249,18 +307,31 @@ Deno.serve(async (req) => {
         ], 12_000, 130_000, 0.2);
         await logMediaCost(uid, FN, cost, usage);
         const analisis = cleanAnalisis(out, duracion);
-        if (!analisis) return json({ error: "La IA no pudo leer ese video. Prueba con otro." }, 502);
-        return json({ analisis });
+        if (!analisis) { await refund(g.txId, "análisis ilegible"); return json({ error: "La IA no pudo leer ese video. No se te cobró. Prueba con otro." }, 502); }
+        return conCobro(g, { analisis });
       } catch (e) {
         console.error(`${FN} analyze:`, e);
-        return json({ error: e instanceof Error && e.name === "TimeoutError" ? "El análisis tardó demasiado. Prueba con un reel más corto." : "No se pudo analizar el video." }, 502);
+        await refund(g.txId, "análisis falló");
+        return json({ error: e instanceof Error && e.name === "TimeoutError" ? "El análisis tardó demasiado. No se te cobró. Prueba con un reel más corto." : "No se pudo analizar el video. No se te cobró." }, 502);
       }
     }
 
     if (body.action === "status" || body.action === "file") {
       const id = typeof body.request_id === "string" && REQ_ID.test(body.request_id) ? body.request_id : null;
       if (!id) return json({ error: "No encontramos ese video. Toca Regenerar." }, 400);
+      // Solo tus tomas. Las de Jean de antes del 26-oct no tienen fila: él puede seguir viéndolas.
+      const db = admin();
+      const { data: toma } = await db.from("reel_ia_tomas").select("user_id, tx_id, status, refunded_at").eq("request_id", id).maybeSingle();
+      if (toma ? toma.user_id !== uid : !jean) return json({ error: "No encontramos ese video. Toca Regenerar." }, 404);
       const r = await falResult(id);
+      if (toma && toma.status === "running" && (r.status === "COMPLETED" || r.status === "FAILED")) {
+        const status = r.status === "COMPLETED" ? "done" : "failed";
+        // Fallida: se devuelve UNA vez (la fila se marca antes de devolver, así dos consultas a la vez no devuelven dos veces).
+        const { data: marcada } = await db.from("reel_ia_tomas")
+          .update({ status, updated_at: new Date().toISOString(), ...(status === "failed" ? { refunded_at: new Date().toISOString() } : {}) })
+          .eq("request_id", id).eq("status", "running").select("tx_id").maybeSingle();
+        if (marcada && status === "failed") await refund(marcada.tx_id, "fal marcó la toma como fallida");
+      }
       if (body.action === "status") return json({ status: r.status === "COMPLETED" ? "done" : r.status === "FAILED" ? "failed" : "running" });
       if (!r.url) return json({ error: "El video todavía no está listo." }, 409);
       let u: URL;

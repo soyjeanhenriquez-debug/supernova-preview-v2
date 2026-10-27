@@ -29,6 +29,8 @@ export function Inicio(p: {
   onAgregarPlantilla: (url: string) => Promise<void>;
   /** Lo que está haciendo mientras agrega una plantilla ("Leyendo el enlace…"), o "". */
   agregando: string;
+  /** Producción diaria (cron reel-diario): solo la cuenta de Jean. A un cliente nunca se le crea nada solo. */
+  diarioOn?: boolean;
 }) {
   const [enlace, setEnlace] = useState("");
   const [d, setD] = useState<Diario | null>(null);
@@ -122,7 +124,7 @@ export function Inicio(p: {
       )}
       </section>
 
-      <section className="rounded-2xl border border-border p-4 space-y-3">
+      {p.diarioOn !== false && <section className="rounded-2xl border border-border p-4 space-y-3">
         <div className="flex items-center gap-2">
           <CalendarClock className="w-4 h-4 text-primary" />
           <p className="text-[14px] font-semibold text-foreground flex-1">Producción diaria</p>
@@ -168,7 +170,7 @@ export function Inicio(p: {
             </button>
           </>
         )}
-      </section>
+      </section>}
     </div>
   );
 }

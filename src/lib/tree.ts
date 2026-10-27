@@ -47,7 +47,7 @@ const VIDEO_DOORS: TreeDoor[] = [
   { id: "formatos", name: "Por formato", tabs: [
     { label: "UGC sin producto", page: "Video anuncio", preset: "ugc", desc: "Solo la persona hablando a cámara: el producto no aparece. 4 pasos guiados." },
     { label: "UGC con producto", page: "Video anuncio", preset: "producto", desc: "La persona lo sostiene o lo señala mientras habla. 4 pasos guiados." },
-    { label: "Voz en off", page: "Con tu cara", hash: "#/con-tu-cara/reel-ia", owner: true, desc: "Tu voz sobre imágenes al ritmo de cada frase, capturas reales y tú al inicio y al final." },
+    { label: "Voz en off", page: "Con tu cara", hash: "#/con-tu-cara/reel-ia", desc: "Tu voz sobre imágenes al ritmo de cada frase, capturas reales y tú al inicio y al final." },
     { label: "Imágenes estáticas", page: "Creativos", desc: "Anuncios en imagen listos para publicar." },
     { label: "Podcast", page: "Video anuncio", soon: true, desc: "Dos personas conversando frente al micrófono." },
     { label: "Dualcast", page: "Video anuncio", soon: true, desc: "Producción y edición en un mismo video." },
@@ -63,7 +63,7 @@ const VIDEO_DOORS: TreeDoor[] = [
     { label: "Analiza un Reel", page: "Con tu cara", hash: "#/con-tu-cara/reel", desc: "Por qué funciona cualquier Reel y tu versión para grabar." },
     { label: "Sube tu video", page: "Con tu cara", hash: "#/con-tu-cara/video", desc: "Subtítulos, gancho y edición de lo que ya grabaste." },
     { label: "Teleprompter", page: "Con tu cara", hash: "#/con-tu-cara/teleprompter", desc: "Lee tu guion mirando a la cámara." },
-    { label: "Reel de herramienta IA", page: "Con tu cara", hash: "#/con-tu-cara/reel-ia", owner: true, desc: "Del guion al reel con tu voz, capturas reales y tú hablando." },
+    { label: "Reel Studio", page: "Con tu cara", hash: "#/con-tu-cara/reel-ia", desc: "Recrea un reel que funciona o créalo desde tu idea: voz, tus looks y tú hablando." },
     { label: "Mi historia animada", page: "Con tu cara", hash: "#/con-tu-cara/historia", owner: true, desc: "Tu historia real con tu personaje en 3D." },
   ] },
   { id: "youtube", name: "YouTube", tabs: [

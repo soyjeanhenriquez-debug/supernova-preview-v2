@@ -20,8 +20,14 @@ export const GENERATOR_ID = "reel-ia-escenas";
 export const PRICE_PLAN = 15;
 /** Precios en créditos (iguales a credit_prices): imagen de escena, animación de 5 s, cada look tuyo. */
 export const PRICES = { imagen: 6, animar: 89, look: 9 } as const;
-/** Kling AI Avatar (fal): lo que cuesta cada segundo de ti hablando. Lo paga tu cuenta de fal, no créditos. */
+/** Kling AI Avatar (fal): lo que cuesta cada segundo de ti hablando (costo real; solo para el panel de Jean). */
 export const HABLA_USD_SEG = 0.0562;
+/** Créditos de la voz y de cada toma hablando (credit_prices reel_voz_* y reel_lip_*; decisión de Jean, 26-oct-2026). Solo
+ *  para MOSTRAR el estimado: quien cobra es el servidor (reel-ia). */
+export const PRECIO_VOZ = { hasta600: 99, hasta1200: 198 } as const;
+export const PRECIO_HABLA = { hasta6: 255, hasta12: 510 } as const;
+export const creditosVoz = (guion: string) => (guion.trim() ? (guion.trim().length <= 600 ? PRECIO_VOZ.hasta600 : PRECIO_VOZ.hasta1200) : 0);
+export const creditosToma = (seg: number) => (seg <= 0 ? 0 : seg <= 6 ? PRECIO_HABLA.hasta6 : PRECIO_HABLA.hasta12);
 /** Un tramo tuyo hablando no pasa de esto (el servidor acepta hasta 12 s de audio por video). */
 export const TRAMO_MAX = 11;
 const TRAMO_MIN = 2;
@@ -90,8 +96,17 @@ export function costo(r: Reel, t: Tiempo[] | null) {
   const animadas = new Set(r.planos.filter(p => p.animar).map(p => p.visual));
   const looks = new Set(r.planos.filter(p => seVe(p.forma)).map(p => p.look));
   const creditos = visuales.size * PRICES.imagen + animadas.size * PRICES.animar + looks.size * PRICES.look;
-  const seg = t ? tramos(r.planos, t).reduce((a, tr) => a + (tr.hasta - tr.desde), 0) : 0;
-  return { creditos, imagenes: visuales.size, animadas: animadas.size, looks: looks.size, segHabla: seg, usdHabla: Math.round(seg * HABLA_USD_SEG * 100) / 100 };
+  const trs = t ? tramos(r.planos, t) : [];
+  const seg = trs.reduce((a, tr) => a + (tr.hasta - tr.desde), 0);
+  // Sin la voz todavía no hay tiempos: ~1,5 s por plano en el que sales, en tomas de hasta TRAMO_MAX segundos.
+  const estimado = r.planos.filter(p => seVe(p.forma)).length * 1.5;
+  const tomas = t ? trs.map(tr => Math.min(12, tr.hasta - tr.desde)) : Array.from({ length: Math.ceil(estimado / TRAMO_MAX) }, (_, i) => Math.min(TRAMO_MAX, estimado - i * TRAMO_MAX));
+  const creditosHabla = tomas.reduce((a, x) => a + creditosToma(x), 0);
+  const voz = creditosVoz(r.guion ?? "");
+  return {
+    creditos, imagenes: visuales.size, animadas: animadas.size, looks: looks.size, segHabla: seg, usdHabla: Math.round(seg * HABLA_USD_SEG * 100) / 100,
+    tomas: tomas.length, creditosHabla, creditosVoz: voz, total: creditos + creditosHabla + voz,
+  };
 }
 
 /** Resumen corto para la conversación. */

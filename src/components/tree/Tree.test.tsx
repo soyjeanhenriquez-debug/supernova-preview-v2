@@ -62,7 +62,7 @@ describe("Pantalla de rama y de puertas", () => {
     expect(screen.getByRole("tab", { name: "Por formato" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByText("UGC sin producto")).toBeTruthy();
     expect(screen.getAllByText("Pronto")).toHaveLength(4); // Podcast, Dualcast, Trends virales, Ugly Ads
-    expect(screen.queryByText("Voz en off")).toBeNull(); // solo la cuenta de Jean
+    expect(screen.getByText("Voz en off")).toBeTruthy(); // Reel Studio abierto a clientes (26-oct-2026)
     fireEvent.click(screen.getByText("Podcast"));
     expect(nav).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText("UGC con producto"));

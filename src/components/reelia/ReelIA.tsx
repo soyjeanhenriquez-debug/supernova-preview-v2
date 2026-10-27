@@ -6,6 +6,8 @@ import { Player } from "@remotion/player";
 import { AlertTriangle, Camera, Check, ChevronDown, Clapperboard, Download, Link2, Loader2, Send, Sparkles, Star, Trash2, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { isGenjutsuOwner } from "@/lib/genjutsuOwner";
+import { fmtNum as fmtCr } from "@/lib/recommendTarget";
 import { useCredits } from "@/hooks/useCredits";
 import { fnErrorMessage, fnHeaders, readBilling } from "@/lib/fnAuth";
 import { audioSeconds, compressImage } from "@/lib/montage";
@@ -28,7 +30,7 @@ import { Storyboard, type Medio } from "./Storyboard";
 import { BIBLIO, useStudioDatos, type Borrador, type Identidad, type Plantilla } from "./useStudioDatos";
 
 /**
- * Reel Studio (24/25-oct-2026, solo la cuenta de Jean). Inicio: recrear un reel de referencia, crear desde una idea o
+ * Reel Studio (24/25-oct-2026; abierto a clientes el 26-oct-2026: el servidor cobra voz, tomas hablando y análisis). Inicio: recrear un reel de referencia, crear desde una idea o
  * con tu guion; tus borradores diarios, tus plantillas y Mi identidad. Luego 4 pasos: 1 Tu idea · 2 Tus recursos ·
  * 3 Tu video (storyboard editable + cambios conversando) · 4 Crear reel (costo real, producción con su avance real
  * y el MP4 armado en el navegador y validado).
@@ -116,6 +118,8 @@ const usd = (x: number) => `US$${x.toFixed(2).replace(".", ",")}`;
 export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate: (page: string) => void }) {
   const { user } = useAuth();
   const uid = user?.id ?? "";
+  // Jean: su voz clonada, la producción diaria y los costos reales. Un cliente ve solo créditos y voces de la biblioteca.
+  const jean = isGenjutsuOwner(uid);
   const { applyServerCharge, balance } = useCredits();
   const datos = useStudioDatos(uid);
   const { idn, clips } = datos;
@@ -132,7 +136,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
   const [refPaso, setRefPaso] = useState("");
   const [refProg, setRefProg] = useState(0);
   const [avanzadas, setAvanzadas] = useState(false);
-  const [cfg, setCfg] = useState<{ eleven: boolean; fal: boolean } | null>(null);
+  const [cfg, setCfg] = useState<{ eleven: boolean; fal: boolean; propia?: boolean } | null>(null);
   // Voces de tu cuenta con nombre y muestra (Guardián del Creador: antes había que pegar un id). null = cargando.
   const [voces, setVoces] = useState<Voz[] | null>(null);
   const [sonando, setSonando] = useState<string | null>(null);
@@ -194,6 +198,9 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
 
   const r = meta.reel;
   const aj = meta.ajustes;
+  // La voz que se va a usar: la elegida; si no, la de Jean (si es Jean) o la primera de la biblioteca.
+  const vozActual = aj.voice_id || (cfg?.propia ? "" : voces?.[0]?.id ?? "");
+  const nombreVoz = vozActual ? voces?.find(v => v.id === vozActual)?.nombre ?? "otra voz" : "tu propia voz";
   const setAjustes = (patch: Partial<Ajustes>) => commit(m => ({ ajustes: { ...m.ajustes, ...patch } }));
   const plantilla: Plantilla | null = useMemo(() => datos.plantillas?.find(p => p.id === meta.plantillaId) ?? null, [datos.plantillas, meta.plantillaId]);
   const foto: StudioRef | null = idn.fotos[aj.foto] ?? idn.fotos[0] ?? null;
@@ -300,7 +307,10 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
       setRefPaso("Buscando los cortes…");
       const { duracion, cortes } = await analizarCortes(local, setRefProg);
       setRefPaso("Mirando y escuchando el video…");
-      const { analisis } = await (await post("reel-ia", { action: "analyze", path, cortes, duracion })).json() as { analisis: Analisis };
+      const respA = await post("reel-ia", { action: "analyze", path, cortes, duracion });
+      const dataA = await respA.json() as { analisis: Analisis; billing?: { charged: number; balance: number | null } };
+      saldo(respA, dataA);
+      const { analisis } = dataA;
       setRefPaso("Guardando la plantilla…");
       const id = crypto.randomUUID();
       const blobs = await miniaturas(local, analisis.planos);
@@ -448,7 +458,11 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
       // 1) Tu voz (ElevenLabs) con los tiempos de cada palabra.
       if (metaRef.current.voz?.key !== vozKey || !urls[vozKey]) {
         setPaso("Tu voz…");
-        const data = await (await post("reel-ia", { action: "voice", text: reel.guion, speed: m0.ajustes.velocidad, ...(m0.ajustes.voice_id ? { voice_id: m0.ajustes.voice_id } : {}) })).json();
+        // Sin voz elegida: Jean usa la suya; un cliente, la primera de la biblioteca (la app decide, no pregunta).
+        const vid = m0.ajustes.voice_id || (cfg?.propia ? "" : voces?.[0]?.id ?? "");
+        const respV = await post("reel-ia", { action: "voice", text: reel.guion, speed: m0.ajustes.velocidad, ...(vid ? { voice_id: vid } : {}) });
+        const data = await respV.json();
+        saldo(respV, data);
         const blob = await b64Blob(data.audio, "audio/mpeg");
         await guardarMedia(vozKey, blob);
         const words = wordsFromAlignment(data.alignment);
@@ -546,7 +560,9 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
           setPaso(`Tú hablando (${k + 1} de ${lista.length})…`);
           try {
             const { b64, seconds } = await sliceWavBase64(vozBlob, a.desde, Math.min(a.hasta, a.desde + 12));
-            const data = await (await post("reel-ia", { action: "presenter", image: { bucket: "estudio-avatar", path: look.path }, audio: b64, seconds })).json();
+            const respP = await post("reel-ia", { action: "presenter", image: { bucket: "estudio-avatar", path: look.path }, audio: b64, seconds });
+            const data = await respP.json();
+            saldo(respP, data);
             setAsset(key, { estado: "trabajando", job: data.request_id });
             void pollJob(key);
           } catch (err) {
@@ -709,7 +725,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
   const chip = (on: boolean) => `h-9 px-3 rounded-full border text-[12px] ${on ? "border-foreground/40 text-foreground bg-card" : "border-border text-muted-foreground hover:text-foreground"}`;
   const primario = "flex w-full min-h-[48px] items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50";
   const c = r ? costo(r, t) : null;
-  const usdVoz = r ? (r.guion.length / 1000) * 0.3 : 0; // referencia: ElevenLabs ~US$0,30 por 1.000 caracteres en planes de pago
+  const usdVoz = r ? r.guion.length * 0.00022 : 0; // costo real aprox. de ElevenLabs (solo se le muestra a Jean)
 
   const player = plan ? (
     <Player component={ReelDinamico} inputProps={plan.props} durationInFrames={plan.frames} fps={FPS} compositionWidth={SIZE.width} compositionHeight={SIZE.height}
@@ -810,9 +826,11 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
             <p className="text-[12px] text-muted-foreground">Tu voz</p>
             {voces === null ? <p className="text-[12px] text-muted-foreground">Buscando tus voces…</p> : (
               <div className="flex flex-col gap-1.5">
-                {[{ id: "", nombre: "Tu propia voz", muestra: null, propia: true, clonada: true } as Voz, ...voces.filter(v => !v.propia && (v.clonada || masVoces || v.id === aj.voice_id))].map(v => (
+                {(cfg?.propia
+                  ? [{ id: "", nombre: "Tu propia voz", muestra: null, propia: true, clonada: true } as Voz, ...voces.filter(v => !v.propia && (v.clonada || masVoces || v.id === aj.voice_id))]
+                  : voces.filter((v, i) => masVoces || i < 6 || v.id === aj.voice_id)).map(v => (
                   <div key={v.id || "propia"} className="flex items-center gap-2">
-                    <button type="button" onClick={() => setAjustes({ voice_id: v.id })} aria-pressed={aj.voice_id === v.id} className={`${chip(aj.voice_id === v.id)} flex-1 text-left`}>
+                    <button type="button" onClick={() => setAjustes({ voice_id: v.id })} aria-pressed={vozActual === v.id} className={`${chip(vozActual === v.id)} flex-1 text-left`}>
                       {v.nombre}{v.clonada && v.id ? " · personalizada" : ""}
                     </button>
                     {v.muestra && (
@@ -825,9 +843,9 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
                     )}
                   </div>
                 ))}
-                {voces.some(v => !v.propia && !v.clonada) && (
+                {(cfg?.propia ? voces.some(v => !v.propia && !v.clonada) : voces.length > 6) && (
                   <button type="button" onClick={() => setMasVoces(x => !x)} className="self-start text-[12px] text-muted-foreground underline underline-offset-2">
-                    {masVoces ? "Ver solo tus voces" : `Más voces (${voces.filter(v => !v.propia && !v.clonada).length})`}
+                    {masVoces ? (cfg?.propia ? "Ver solo tus voces" : "Ver menos voces") : `Más voces (${cfg?.propia ? voces.filter(v => !v.propia && !v.clonada).length : voces.length - 6})`}
                   </button>
                 )}
                 {aj.voice_id && !voces.some(v => v.id === aj.voice_id) && (
@@ -836,7 +854,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
               </div>
             )}
           </div>
-          <p className="text-[11px] text-muted-foreground">Motores: voz ElevenLabs multilingual v2 · tú hablando Kling AI Avatar v2 (fal, {usd(HABLA_USD_SEG)} por segundo) · tus looks e imágenes del estudio de avatar y del estudio de video · animaciones de 5 s.</p>
+          {jean && <p className="text-[11px] text-muted-foreground">Motores: voz ElevenLabs multilingual v2 · tú hablando Kling AI Avatar v2 (fal, {usd(HABLA_USD_SEG)} por segundo) · tus looks e imágenes del estudio de avatar y del estudio de video · animaciones de 5 s.</p>}
           <button type="button" onClick={() => void datos.guardarIdentidad({ paleta: aj.paleta, ropa: aj.ropa, palabra: aj.palabra, velocidad: aj.velocidad, sfx: aj.sfx, voice_id: aj.voice_id })} className={chip(false)}>Guardar estos ajustes en Mi identidad</button>
         </div>
       )}
@@ -853,7 +871,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
         onBack={vista === "identidad" ? () => setVista("inicio") : onHome}>
         {vista === "identidad" ? (
           <div className="grid gap-4 lg:grid-cols-2">
-            <Card label="Tu presentador">{fotosPanel}<p className="text-[12px] text-muted-foreground">Tu voz: {cfg?.eleven ? `${aj.voice_id ? voces?.find(v => v.id === aj.voice_id)?.nombre ?? "otra voz" : "tu propia voz"} ✓ (se cambia en Opciones avanzadas)` : "la voz no está disponible ahora. Puedes seguir y crearla después."}</p></Card>
+            <Card label="Tu presentador">{fotosPanel}<p className="text-[12px] text-muted-foreground">Tu voz: {cfg?.eleven ? `${nombreVoz} ✓ (se cambia en Opciones avanzadas)` : "la voz no está disponible ahora. Puedes seguir y crearla después."}</p></Card>
             <Card label="Tu estilo">{estiloPanel}{avanzadasPanel}</Card>
             <div className="lg:col-span-2"><Card label="Tu biblioteca">{bibliotecaPanel()}</Card></div>
           </div>
@@ -864,7 +882,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
                 Seguir con tu reel en curso: <span className="text-muted-foreground">{meta.reel.titulo || meta.idea.slice(0, 60)}</span> →
               </button>
             )}
-            <Inicio idn={idn} plantillas={datos.plantillas} borradores={datos.borradores} diario={datos.diario} busy={!!busy}
+            <Inicio diarioOn={jean} idn={idn} plantillas={datos.plantillas} borradores={datos.borradores} diario={datos.diario} busy={!!busy}
               onElegir={o => void empezar(o)} onIdentidad={() => setVista("identidad")}
               onBorrador={abrirBorrador} onDescartar={b => void datos.marcarBorrador(b.id, "descartado")}
               onPlantilla={pl => void empezar("referencia", { plantillaId: pl.id })} onBorrarPlantilla={pl => void borrarPlantilla(pl)}
@@ -882,7 +900,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
   const necesitaFoto = !!r?.planos.some(p => seVe(p.forma));
   const faltan: { que: string; por: string; accion: ReactNode }[] = [];
   if (r && necesitaFoto && !foto) faltan.push({ que: "Tu foto", por: "Con ella creamos tus looks y tus tomas hablando.", accion: <button type="button" onClick={() => fotoRef.current?.click()} className={chip(false)}>Subir foto</button> });
-  if (cfg && !cfg.eleven) faltan.push({ que: "Tu voz", por: "Falta conectar ElevenLabs en Supabase (ELEVENLABS_API_KEY y ELEVENLABS_VOICE_ID).", accion: null });
+  if (cfg && !cfg.eleven) faltan.push({ que: "Tu voz", por: jean ? "Falta conectar ElevenLabs en Supabase (ELEVENLABS_API_KEY y ELEVENLABS_VOICE_ID)." : "La voz no está disponible en este momento. Inténtalo más tarde.", accion: null });
   const clipsFaltan = r ? r.planos.filter(p => p.clip && !clipDe(p.clip)).length : 0;
   if (clipsFaltan) faltan.push({ que: `${clipsFaltan} clips`, por: "El reel usa clips que ya no están en tu biblioteca: elige otros en el storyboard.", accion: <button type="button" onClick={() => irPaso(2)} className={chip(false)}>Ir al storyboard</button> });
 
@@ -970,7 +988,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
             </div>
           )) : <p className="text-[13px] text-foreground"><Check className="inline w-4 h-4 text-primary mr-1" />Tienes todo. Lo demás lo hace SUPERNOVA.</p>}
           <ul className="text-[12px] text-muted-foreground space-y-1">
-            <li><Check className="inline w-3.5 h-3.5 mr-1 text-primary" />Tu voz: {aj.voice_id ? voces?.find(v => v.id === aj.voice_id)?.nombre ?? "otra voz" : "tu propia voz"} · {VELOCIDADES.find(v => v.v === aj.velocidad)?.label ?? "Rápida"}</li>
+            <li><Check className="inline w-3.5 h-3.5 mr-1 text-primary" />Tu voz: {nombreVoz} · {VELOCIDADES.find(v => v.v === aj.velocidad)?.label ?? "Rápida"}</li>
             <li>{foto ? <Check className="inline w-3.5 h-3.5 mr-1 text-primary" /> : "· "}Tu presentador en {lookIds.length} looks</li>
             <li>· {clipIds.length} clips de tu biblioteca · {visuales.length} imágenes con IA ({animVis.length} animadas)</li>
           </ul>
@@ -1048,8 +1066,9 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
     aside = (
       <>
         <Card label="Crear reel">
-          <p className="text-[13px] text-foreground">Costo estimado: <span className="font-semibold">{c.creditos} créditos</span></p>
-          <p className="text-[12px] text-muted-foreground">{c.looks} looks tuyos · {c.imagenes} imágenes · {c.animadas} animaciones. Aparte, por tus cuentas: tú hablando {Math.round(c.segHabla) || "~" + Math.round(r.planos.filter(p => seVe(p.forma)).length * 1.5)} s en fal (≈ {usd((c.segHabla || r.planos.filter(p => seVe(p.forma)).length * 1.5) * HABLA_USD_SEG)}) y tu voz en ElevenLabs (≈ {usd(usdVoz)}). Lo que ya está hecho no se vuelve a cobrar.</p>
+          <p className="text-[13px] text-foreground">Costo estimado: <span className="font-semibold">{fmtCr(c.total)} créditos</span></p>
+          <p className="text-[12px] text-muted-foreground">{c.looks} looks tuyos · {c.imagenes} imágenes · {c.animadas} animaciones · tu voz · {c.tomas} {c.tomas === 1 ? "toma" : "tomas"} de ti hablando. Lo que ya está hecho no se vuelve a cobrar; si algo falla, se te devuelve.</p>
+          {jean && <p className="text-[11px] text-muted-foreground">Costo real aprox.: tú hablando {usd((c.segHabla || r.planos.filter(p => seVe(p.forma)).length * 1.5) * HABLA_USD_SEG)} · voz {usd(usdVoz)}.</p>}
           <button type="button" onClick={() => void generar()} disabled={!!busy || faltan.some(f => f.que === "Tu foto" || f.que === "Tu voz")} className={primario}>
             {busy === "producir" ? <><Loader2 className="w-4 h-4 animate-spin" /> {paso || "Generando…"}</> : busy === "render" ? <><Loader2 className="w-4 h-4 animate-spin" /> Armando tu reel… {progress} %</> : <><Sparkles className="w-4 h-4" /> Generar mi reel</>}
           </button>

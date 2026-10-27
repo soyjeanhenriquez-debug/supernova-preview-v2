@@ -8,8 +8,6 @@ import { useFeatureAccess } from "@/lib/features";
 import { TOOL_BY_ID, useVia } from "@/lib/tools";
 import { IG_POST_RE, IG_REEL_RE, planFor, routeIntent, setClipPrompt, startIntent, type IntentPlan } from "@/lib/intentRouter";
 import { IdeaOfTheDay } from "@/components/create/IdeaOfTheDay";
-import { useAuth } from "@/contexts/AuthContext";
-import { isGenjutsuOwner } from "@/lib/genjutsuOwner";
 import { track } from "@/lib/analytics";
 
 /**
@@ -20,7 +18,7 @@ import { track } from "@/lib/analytics";
  *  3. Solo tengo una idea → una frase; el enrutador (src/lib/intentRouter.ts) elige la pieza.
  *  4. No sé qué crear → la oferta ganadora del día (IdeaOfTheDay) con "Crear con esta idea".
  * Entender y llevar es gratis (reglas fijas, sin IA). Los créditos los cobra cada herramienta como siempre, en el
- * servidor, y se ven antes de crear. Solo se muestra lo que esa cuenta puede abrir (canSee / solo Jean).
+ * servidor, y se ven antes de crear. Solo se muestra lo que esa cuenta puede abrir (canSee).
  */
 type Entry = "ref" | "mat" | "idea" | "nose";
 type Row = { id: string; icon: LucideIcon; label: string; desc: string; page: string; hash: string; show: boolean };
@@ -39,8 +37,6 @@ export function IntentBox({ onNavigate, compact = false, onDone }: {
   const { via } = useVia();
   const { canSee } = useFeatureAccess();
   const { profile } = useBusinessProfile();
-  const { user } = useAuth();
-  const jean = isGenjutsuOwner(user?.id);
   const plan = useMemo(() => routeIntent(idea, { via, canSee }), [idea, via, canSee]);
   const isReel = IG_REEL_RE.test(link);
   const isPost = !isReel && IG_POST_RE.test(link);
@@ -74,7 +70,7 @@ export function IntentBox({ onNavigate, compact = false, onDone }: {
     { id: "guion_animado", icon: Shapes, label: "Tengo mi guion, sin salir yo", desc: "Texto animado con el estilo que elijas.", page: "Motion graphics", hash: "motion", show: true },
     { id: "fotos_producto", icon: Camera, label: "Tengo fotos de mi producto", desc: "Fotos de estudio y en uso para vender.", page: "Foto de producto", hash: "foto-producto", show: true },
     { id: "foto_habla", icon: UserRound, label: "Mi foto hablando", desc: "Tu avatar dice tu texto.", page: "Estudio de avatar", hash: "estudio-avatar", show: canSee("Estudio de avatar") },
-    { id: "fotos_reel", icon: Images, label: "Mis fotos + una frase → reel", desc: "Reel Studio arma el reel completo.", page: "Con tu cara", hash: "con-tu-cara/reel-ia", show: jean },
+    { id: "fotos_reel", icon: Images, label: "Mis fotos + una frase → reel", desc: "Reel Studio arma el reel completo.", page: "Con tu cara", hash: "con-tu-cara/reel-ia", show: true },
   ].filter(r => r.show && canSee(r.page));
   const clipCost = TOOL_BY_ID.videoia?.cost;
 
@@ -126,7 +122,7 @@ export function IntentBox({ onNavigate, compact = false, onDone }: {
           <button onClick={goLink} disabled={!isReel && !isPost} className={primary}>
             {isPost ? "Modelar este carrusel" : "Ver por qué funciona y hacer mi versión"} <ArrowRight className="w-4 h-4" />
           </button>
-          {isReel && jean && (
+          {isReel && (
             <button onClick={() => toHash("con-tu-cara/reel-ia", "reel_studio")}
               className="w-full h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-foreground/30">
               Hacerlo completo con IA en Reel Studio

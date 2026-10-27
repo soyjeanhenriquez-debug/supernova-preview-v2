@@ -7,7 +7,8 @@ export const SESION = join(process.env.HOME ?? ".", ".supernova-e2e", "sesion.js
 
 function llavePublica(): string {
   if (process.env.VITE_SUPABASE_PUBLISHABLE_KEY) return process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  const env = readFileSync(join(__dirname, "..", ".env"), "utf8");
+  // El proyecto es ESM: no hay __dirname (27-oct-2026: por eso fallaban todas las pruebas antes de probar nada).
+  const env = readFileSync(new URL("../.env", import.meta.url), "utf8");
   const m = env.match(/^VITE_SUPABASE_PUBLISHABLE_KEY=["']?([^"'\n]+)/m);
   if (!m) throw new Error("Falta VITE_SUPABASE_PUBLISHABLE_KEY en .env");
   return m[1];

@@ -11,7 +11,8 @@ import { fmtNum as fmtCr } from "@/lib/recommendTarget";
 import { useCredits } from "@/hooks/useCredits";
 import { fnErrorMessage, fnHeaders, readBilling } from "@/lib/fnAuth";
 import { audioSeconds, compressImage } from "@/lib/montage";
-import { getMedia, putMedia } from "@/lib/productionStore";
+import { deleteProduction, getMedia, putMedia } from "@/lib/productionStore";
+import { guardarEnLista, keyActual, keyLista, leerLista, quitarDeLista } from "@/lib/reelProyectos";
 import type { Word } from "@/lib/subtitleStyles";
 import { uploadStudioImage, refForServer, type StudioRef } from "@/lib/studioUpload";
 import { sliceWavBase64 } from "@/lib/audioSlice";
@@ -76,18 +77,24 @@ type Proyecto = {
   subs: Record<string, string>;
   auto: boolean;
   validado: { ok: boolean; detalle: string } | null;
+  /** Última vez que se tocó (ordena "Tus reels en curso"). */
+  actualizado?: number;
 };
 const ajustesDe = (i: Identidad): Ajustes => ({ paleta: i.paleta, ropa: i.ropa, palabra: i.palabra, velocidad: i.velocidad, sfx: i.sfx, voice_id: i.voice_id, foto: 0 });
 const nuevo = (i: Identidad, origen: Origen | null = null): Proyecto => ({
   id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`, origen, paso: 0, idea: "", modo: "inspiracion", plantillaId: null, borradorId: null,
   chat: [], reel: null, ajustes: ajustesDe(i), voz: null, assets: {}, next: 1, subs: {}, auto: false, validado: null,
 });
-const KEY = (uid: string) => `supernova.reelstudio.${uid}`;
+// El reel abierto (para retomarlo al entrar). La lista de todos los reels en curso está en reelProyectos.ts.
+const KEY = keyActual;
 function cargar(uid: string, i: Identidad): Proyecto {
   try { const m = JSON.parse(localStorage.getItem(KEY(uid)) ?? "null"); if (m?.id) { const n = nuevo(i); return { ...n, ...m, ajustes: { ...n.ajustes, ...m.ajustes } }; } } catch { /* sin almacenamiento */ }
   return nuevo(i);
 }
 const guardar = (uid: string, m: Proyecto) => { try { localStorage.setItem(KEY(uid), JSON.stringify(m)); } catch { /* sin almacenamiento */ } };
+const ORIGEN_NOMBRE: Record<Origen, string> = { referencia: "Recrear un reel", idea: "Desde una idea", guion: "Tu guion" };
+const tituloReel = (p: Proyecto) => p.reel?.titulo || p.idea.trim().slice(0, 60) || (p.origen ? ORIGEN_NOMBRE[p.origen] : "Reel");
+const leerReels = (uid: string): Proyecto[] => { try { return uid ? leerLista<Proyecto>(localStorage, uid) : []; } catch { return []; } };
 const kindOf = (key: string): "image" | "clip" | "voice" => (key.startsWith("voz:") ? "voice" : key.startsWith("anim:") || key.startsWith("habla:") || key.startsWith("bib:") ? "clip" : "image");
 
 class ApiError extends Error { constructor(m: string, public status: number) { super(m); } }
@@ -126,6 +133,21 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
   const [vista, setVista] = useState<"inicio" | "estudio" | "identidad">("inicio");
   const [meta, setMeta] = useState<Proyecto>(() => (uid ? cargar(uid, idn) : nuevo(idn)));
   const metaRef = useRef(meta);
+  // Todos tus reels en curso (27-oct-2026): empezar uno nuevo ya no borra el que tenías abierto.
+  const [lista, setLista] = useState<Proyecto[]>(() => leerReels(uid));
+  const listaRef = useRef(lista);
+  const listaTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const persistir = useCallback((m: Proyecto) => {
+    if (!uid) return;
+    const now = Date.now();
+    guardar(uid, { ...m, actualizado: now }); // el abierto, al instante
+    if (!m.origen) return;
+    const { list } = guardarEnLista(listaRef.current, m, now);
+    listaRef.current = list; setLista(list);
+    // La lista completa se escribe medio segundo después (hay muchos cambios seguidos al producir).
+    if (listaTimer.current) clearTimeout(listaTimer.current);
+    listaTimer.current = setTimeout(() => { try { localStorage.setItem(keyLista(uid), JSON.stringify(listaRef.current)); } catch { /* sin almacenamiento */ } }, 500);
+  }, [uid]);
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<"" | "foto" | "plan" | "producir" | "render" | "subir" | "ref">("");
   const [paso, setPaso] = useState("");
@@ -152,8 +174,8 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
 
   const commit = useCallback((patch: Partial<Proyecto> | ((m: Proyecto) => Partial<Proyecto>)) => {
     const m = { ...metaRef.current, ...(typeof patch === "function" ? patch(metaRef.current) : patch) };
-    metaRef.current = m; setMeta(m); if (uid) guardar(uid, m);
-  }, [uid]);
+    metaRef.current = m; setMeta(m); persistir(m);
+  }, [persistir]);
   const setUrl = useCallback((k: string, blob: Blob | null) => setUrls(u => {
     if (u[k]) URL.revokeObjectURL(u[k]);
     const n = { ...u }; if (blob) n[k] = URL.createObjectURL(blob); else delete n[k];
@@ -178,20 +200,24 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
     if (typeof b.balance === "number") applyServerCharge("gen_media", { charged: 0, balance: b.balance });
   }, [applyServerCharge]);
 
+  // Lo ya producido de un reel, desde este navegador (se corta si en el camino se abre otro reel).
+  const cargarMedia = useCallback(async (m: Proyecto) => {
+    for (const [key, a] of Object.entries(m.assets)) {
+      if (a.estado !== "listo") continue;
+      const b = await getMedia(m.id, a.idx, kindOf(key)).catch(() => null);
+      if (metaRef.current.id !== m.id) return;
+      if (b) setUrl(key, b);
+    }
+  }, [setUrl]);
   // Al abrir: config y el proyecto en curso (con lo ya pagado desde el navegador).
   useEffect(() => {
     if (!uid) return;
     void post("reel-ia", { action: "config" }).then(r => r.json()).then(setCfg).catch(() => setCfg({ eleven: false, fal: false }));
     void post("reel-ia", { action: "voices" }).then(r => r.json()).then(d => setVoces(Array.isArray(d?.voices) ? d.voices : [])).catch(() => setVoces([]));
     const m = cargar(uid, idn); metaRef.current = m; setMeta(m);
+    const l = leerReels(uid); listaRef.current = l; setLista(l);
     if (m.origen) setVista("estudio");
-    void (async () => {
-      for (const [key, a] of Object.entries(m.assets)) {
-        if (a.estado !== "listo") continue;
-        const b = await getMedia(m.id, a.idx, kindOf(key)).catch(() => null);
-        if (b) setUrl(key, b);
-      }
-    })();
+    void cargarMedia(m);
   }, [uid, setUrl]); // eslint-disable-line react-hooks/exhaustive-deps
   // Un proyecto nuevo toma Mi identidad cuando termina de cargar.
   useEffect(() => { if (datos.idnListo && !metaRef.current.reel && !metaRef.current.chat.length) commit({ ajustes: ajustesDe(idn) }); }, [datos.idnListo]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -208,13 +234,35 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
   const irPaso = (n: number) => commit({ paso: n });
 
   // ---------- Inicio ----------
+  // Empezar otro reel ya no cierra el abierto: queda en "Tus reels en curso" con todo lo producido.
   const empezar = (origen: Origen, extra: Partial<Proyecto> = {}) => {
-    if (metaRef.current.reel && metaRef.current.origen && !confirm("¿Empezar un reel nuevo? El que tienes abierto se cierra (lo producido se borra de este navegador).")) return false;
     Object.keys(urls).forEach(k => setUrl(k, null));
     setRefVideo(null); setTexto(""); setEnlace("");
-    const m = { ...nuevo(idn, origen), ...extra }; metaRef.current = m; setMeta(m); if (uid) guardar(uid, m);
+    const m = { ...nuevo(idn, origen), ...extra }; metaRef.current = m; setMeta(m); persistir(m);
     setVista("estudio");
     return true;
+  };
+  const abrirReel = (p: Proyecto) => {
+    if (busy) { toast("Espera a que termine lo que se está creando."); return; }
+    Object.keys(urls).forEach(k => setUrl(k, null));
+    setRefVideo(null); setTexto(""); setEnlace("");
+    const n = nuevo(idn);
+    const m: Proyecto = { ...n, ...p, ajustes: { ...n.ajustes, ...p.ajustes } };
+    metaRef.current = m; setMeta(m); persistir(m);
+    setVista("estudio");
+    void cargarMedia(m);
+  };
+  const borrarReel = (p: Proyecto) => {
+    if (!confirm(`¿Borrar «${tituloReel(p)}»? Se borra de este navegador lo que ya produjiste para ese reel.`)) return;
+    const list = quitarDeLista(listaRef.current, p.id);
+    listaRef.current = list; setLista(list);
+    try { localStorage.setItem(keyLista(uid), JSON.stringify(list)); } catch { /* sin almacenamiento */ }
+    void deleteProduction(p.id).catch(() => undefined);
+    if (metaRef.current.id === p.id) {
+      Object.keys(urls).forEach(k => setUrl(k, null));
+      const m = nuevo(idn); metaRef.current = m; setMeta(m); guardar(uid, m);
+    }
+    toast.success("Reel borrado");
   };
   const abrirBorrador = (b: Borrador) => {
     const pl = datos.plantillas?.find(p => p.id === b.plantilla_id) ?? null;
@@ -877,10 +925,21 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
           </div>
         ) : (
           <>
-            {meta.origen && meta.reel && (
-              <button type="button" onClick={() => setVista("estudio")} className="w-full rounded-2xl border border-primary/50 bg-card p-3 text-left text-[13px] text-foreground">
-                Seguir con tu reel en curso: <span className="text-muted-foreground">{meta.reel.titulo || meta.idea.slice(0, 60)}</span> →
-              </button>
+            {lista.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Tus reels en curso · {lista.length}</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {lista.map(p => (
+                    <div key={p.id} className={`flex items-center gap-2 rounded-2xl border bg-card p-3 ${p.id === meta.id ? "border-primary/50" : "border-border"}`}>
+                      <button type="button" onClick={() => p.id === meta.id ? setVista("estudio") : abrirReel(p)} className="min-w-0 flex-1 text-left">
+                        <span className="block truncate text-[13px] text-foreground">{tituloReel(p)}</span>
+                        <span className="block text-[11px] text-muted-foreground">{p.origen ? ORIGEN_NOMBRE[p.origen] : ""} · paso {Math.min(4, (p.paso ?? 0) + 1)} de 4{p.reel ? "" : " · sin preparar"}{p.actualizado ? ` · ${new Date(p.actualizado).toLocaleDateString("es", { day: "numeric", month: "short" })}` : ""}{p.id === meta.id ? " · abierto" : ""}</span>
+                      </button>
+                      <button type="button" onClick={() => borrarReel(p)} aria-label={`Borrar ${tituloReel(p)}`} className="shrink-0 rounded-lg p-2 text-muted-foreground hover:text-foreground"><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
             <Inicio diarioOn={jean} idn={idn} plantillas={datos.plantillas} borradores={datos.borradores} diario={datos.diario} busy={!!busy}
               onElegir={o => void empezar(o)} onIdentidad={() => setVista("identidad")}

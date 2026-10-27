@@ -224,6 +224,14 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     if (s?.refSpec && !s.refOff) return "original";
     return s?.kind === "llamada" ? "cta" : template;
   };
+  /**
+   * La portada SIEMPRE lleva la marca personal = tu cara (27-oct-2026, Jean): tu foto del kit o tu personaje.
+   * Solo sale sin tu cara si la persona lo pide con el botón "Portada sin mi cara" (o eligiendo "Persona
+   * creada con IA" al modelar una lámina). Sin tu foto, no se crea la portada (y no se cobra nada).
+   */
+  const [sinCara, setSinCara] = useState(false);
+  const coverBrandMissing = (refs: string[]): string | null =>
+    !refs.length && !sinCara ? "Tu portada lleva tu cara: es tu marca personal. Sube tu foto en \"Tu foto\" (Tu sistema de diseño) o toca \"Portada sin mi cara\"." : null;
   /** Lámina póster (con su texto escrito por la IA, 1 paso) o solo la foto de fondo (el texto lo pone el diseño). */
   const makeImage = async (index: number, poster = index === 0) => {
     const m = POSTER_MODELS.find(x => x.id === posterModel) ?? POSTER_MODELS[0];
@@ -233,7 +241,9 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     const target = slides[index];
     if (!target) return;
     const isPoster = poster;
-    const refs = useRefs ? kitRefs : [];
+    const refs = index === 0 ? (sinCara ? [] : kitRefs) : useRefs ? kitRefs : [];
+    const brandMissing = index === 0 ? coverBrandMissing(refs) : null;
+    if (brandMissing) { toast(brandMissing); return; }
     const prompt = isPoster
       ? posterPrompt({ cover: target, scene: target.scene || (index === 0 ? preview.scene : undefined), design, brief, aspect, hasRefs: refs.length > 0, rules: RULES, template: tplFor(index) })
       : photoPrompt({ slide: target, design, brief, aspect, card: target.kind === "regla", hasRefs: refs.length > 0, rules: RULES });
@@ -300,9 +310,11 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     if (posterBusy) return;
     if (!folder) { toast("Elige tu producto primero: la foto se guarda en tu carpeta para ponerle las letras."); return; }
     if (!over && balance < total) { toast.error(`Te faltan créditos: esto cuesta ${total}`); return; }
-    const refs = over ? over.refs : useRefs ? kitRefs : [];
+    const refs = over ? over.refs : index === 0 ? (sinCara ? [] : kitRefs) : useRefs ? kitRefs : [];
     const target = over?.target ?? slides[index];
     if (!target) return;
+    const brandMissing = index === 0 && !over ? coverBrandMissing(refs) : null;
+    if (brandMissing) { toast(brandMissing); return; }
     const tpl: SlideTemplate = over ? (target.refSpec && !target.refOff ? "original" : target.kind === "llamada" ? "cta" : template) : tplFor(index);
     const opts = { cover: target, scene: target.scene || (index === 0 ? preview.scene : undefined), design, brief, aspect, hasRefs: refs.length > 0, rules: RULES, template: tpl };
     const what = index === 0 ? "portada" : `lámina ${index + 1}`;
@@ -522,6 +534,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
       return;
     }
     if (!folder) { toast("Elige tu producto primero: la imagen se guarda en tu carpeta."); return; }
+    if (cover && pres === "kit" && !kitRefs.length) { toast("Tu portada lleva tu cara: es tu marca personal. Sube tu foto en \"Tu foto\", elige uno de tus personajes o toca \"Persona creada con IA\" si no quieres salir."); return; }
     if (balance < recreateCost) { toast.error(`Te faltan créditos: esto cuesta ${recreateCost}`); return; }
     const n = refPick + 1;
     setModeling(true);
@@ -1154,6 +1167,15 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                 <span className="text-[12px] text-foreground">Objeto en primer plano <span className="text-muted-foreground">(lo que sale enorme hacia la cámara)</span></span>
                 <input value={current.prop ?? ""} maxLength={80} onChange={e => editSlide(sel, { prop: e.target.value })} placeholder={design.prop || "Ej.: mi mano sosteniendo el teléfono"} aria-label="Objeto en primer plano" className={input} />
               </label>
+              {sel === 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" role="switch" aria-checked={sinCara} disabled={posterBusy} onClick={() => setSinCara(v => !v)}
+                    className={`min-h-[36px] rounded-full border px-3 text-[12px] ${sinCara ? "border-foreground/50 bg-card text-foreground" : "border-border text-muted-foreground hover:border-foreground/30"}`}>
+                    {sinCara ? "Portada sin mi cara ✓" : "Portada sin mi cara"}
+                  </button>
+                  <span className="text-[11px] text-muted-foreground">{sinCara ? "La IA pone a otra persona. Tócalo otra vez para salir tú." : kitRefs.length ? "Sales tú: tu cara es tu marca personal." : "Sube tu foto en \"Tu foto\" para salir en la portada."}</span>
+                </div>
+              )}
               <div className={`grid gap-2 ${sel > 0 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`} role="radiogroup" aria-label="Cómo se hace">
                 <button type="button" role="radio" aria-checked={posterMode === "dos"} disabled={posterBusy}
                   onClick={() => { setPosterMode("dos"); if (posterModel === "gpt-image-2") setPosterModel("nano-banana-pro"); }}

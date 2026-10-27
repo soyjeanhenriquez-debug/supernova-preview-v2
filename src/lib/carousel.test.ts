@@ -150,7 +150,7 @@ describe("carrusel: portada póster", () => {
   it("pide la palabra resaltada enorme, el texto exacto y las reglas", () => {
     const d = parseCarousel(answer(), 8)!;
     const p = posterPrompt({ cover: d.slides[0], scene: d.scene, design: ADMIN_DESIGN, brief, aspect: "4:5", rules: "REGLAS", date: new Date(2026, 9, 5) });
-    expect(p).toContain("«otra vez» va ENORME");
+    expect(p).toContain("«OTRA VEZ» va ENORME");
     expect(p).toContain("«oct 2026»");
     expect(p).toContain("«SUPERNOVA»");
     expect(p).toContain("olla gigante");
@@ -180,6 +180,7 @@ describe("carrusel: la prueba de la historia", () => {
 });
 
 import { parseClone, parseReclone, recloneRequest, photoPrompt, brandFromClone } from "./carousel";
+import { focalSplit, posterPrompt as posterPrompt2, DEFAULT_DESIGN as DD2 } from "./carousel";
 
 const cloneResponse = {
   analisis: {
@@ -524,5 +525,22 @@ describe("carrusel: orden de las láminas", () => {
     expect(fitKind({ ...base, kind: "pasos" }, true, { ...base, kind: "llamada", cta: "LOTE" })).toMatchObject({ kind: "llamada", cta: "LOTE" });
     expect(fitKind({ ...base, kind: "llamada", cta: "X" }, false).kind).toBe("solucion");
     expect(fitKind({ ...base, kind: "pasos" }, true, undefined, false).kind).toBe("pasos");
+  });
+});
+
+describe("focalSplit: la palabra enorme de la portada (27-oct-2026)", () => {
+  it("sin asteriscos elige un sustantivo, no el verbo, y deja el resto en orden", () => {
+    const r = focalSplit("Tienes una idea, pero no sabes cómo convertirla en una oferta digital.");
+    expect(r.focal).toBe("OFERTA");
+    expect(r.before).toBe("Tienes una idea, pero no sabes cómo convertirla en una");
+    expect(r.after).toBe("digital.");
+  });
+  it("respeta la palabra marcada y su lugar en la frase", () => {
+    const r = focalSplit("Los 3 *secretos* para vender más");
+    expect(r).toMatchObject({ focal: "SECRETOS", before: "Los 3", after: "para vender más", plain: "Los 3 secretos para vender más" });
+  });
+  it("los asteriscos nunca llegan a la imagen", () => {
+    const s = posterPrompt2({ cover: { kind: "portada", tone: "oscuro", kicker: "", title: "Tu *oferta* lista", body: "Los 3 *secretos* para definirla", items: [] }, design: DD2, brief: { product: "x", promise: "y" } as never, aspect: "4:5", rules: "", template: "editorial" });
+    expect(s).not.toContain("*");
   });
 });

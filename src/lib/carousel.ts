@@ -303,6 +303,7 @@ export function carouselRequest(opts: { goal: CarouselGoal; brief: Brief; slides
     "REGLAS DE TEXTO:",
     "- Voz simple y directa. Sin rayas largas, sin palabras infladas, sin jerga.",
     "- Titulares de máximo 9 palabras (salvo el giro). En cada titular marca 1 o 2 palabras clave entre asteriscos: *palabra*. Esas van resaltadas.",
+    COVER_WORD_RULE,
     "- Prohibido: promesas de ingresos o de resultados, plazos ('en 7 días'), testimonios, cifras o estudios inventados, urgencia falsa, marcas ajenas, personas famosas, emojis.",
     "- Los únicos números permitidos: los que cuentan lo que hay en el carrusel (ej. '3 pasos') o los que vengan en los datos de abajo.",
     opts.hook ? `- Idea de referencia de un anuncio que ya vende (NO copies sus palabras, escribe otras con la misma idea): «${clean(opts.hook, 160)}».` : null,
@@ -496,6 +497,8 @@ export function coverCheck(title: string): { ok: boolean; notes: string[] } {
 }
 
 /** Divide un texto con *marcas* en tramos normales y de color. */
+/** La palabra marcada de la portada se imprime enorme y sola: tiene que entenderse sin el resto. */
+export const COVER_WORD_RULE = "- PORTADA: su palabra entre *asteriscos* se imprime ENORME y sola en la imagen. Marca 1 o 2 palabras que se entiendan solas y nombren el tema o el deseo (un sustantivo: *OFERTA*, *CLIENTES*, *DINERO*). Nunca un verbo (convertirla, tienes, vender), un artículo ni un adjetivo suelto.";
 export function accentRuns(s: string): { text: string; accent: boolean }[] {
   const out: { text: string; accent: boolean }[] = [];
   s.split(/(\*[^*]+\*)/g).forEach(p => {
@@ -632,7 +635,7 @@ export function coverSpec(o: PosterOpts & { template: SlideTemplate }, part: "fu
   // "Como el original" sin especificación (no debería pasar): la plantilla de siempre.
   const tid: CoverTemplateId = o.template === "original" ? (o.cover.kind === "llamada" ? "cta" : "editorial") : o.template;
   const t = COVER_TEMPLATES[tid];
-  const { plain, focal, rest } = focalSplit(o.cover.title);
+  const { plain, focal, before, after } = focalSplit(o.cover.title);
   const prop = clean(o.cover.prop, 80) || clean(o.design.prop, 80) || "an everyday object from the story (a phone, a notebook, a hand, a mug)";
   const d = o.date ?? new Date();
   const subject = o.hasRefs ? "the person in the attached reference image: same face and identity, as the protagonist" : "a common Latin American person from the target audience, natural and believable";
@@ -643,8 +646,10 @@ export function coverSpec(o: PosterOpts & { template: SlideTemplate }, part: "fu
     }
     : {
       primary_text: focal, font_style: t.type.font_style, color: t.type.color, placement: t.type.placement, texture: t.type.texture, layering: "BEHIND the subject: the person overlaps the letters",
-      secondary_text: rest ? { text: rest, style: "small clean bold sans serif, close to the giant word" } : undefined,
-      subtitle: o.cover.body ? { text: clean(o.cover.body, 90), placement: "bottom", size: "small" } : undefined,
+      text_above_giant_word: before ? { text: before, style: "small clean bold sans serif, right above the giant word" } : undefined,
+      text_below_giant_word: after ? { text: after, style: "small clean bold sans serif, right below the giant word" } : undefined,
+      reading_order: before || after ? `Read top to bottom as ONE sentence: ${[before, focal, after].filter(Boolean).map(x => `«${x}»`).join(" → ")} = «${plain}». Never move a word to another line or leave any word out.` : undefined,
+      subtitle: o.cover.body ? { text: clean(noMarks(o.cover.body), 90), placement: "bottom", size: "small" } : undefined,
       header_bar: { left: `${MONTHS[d.getMonth()]} ${d.getFullYear()}`, center: o.design.name || (o.design.handle ? `@${o.design.handle}` : ""), right: o.design.role || o.cover.tag || "", style: "small bold sans serif, three evenly spaced columns, 5% from top" },
       ...t.type.extra,
       ...slideTextSpec(o.cover),
@@ -683,13 +688,40 @@ export function coverSpec(o: PosterOpts & { template: SlideTemplate }, part: "fu
 }
 const specText = (x: Record<string, unknown>) => JSON.stringify(x);
 
-/** La palabra que domina el titular (la marcada con *asteriscos*, o la más larga) y el resto. */
-function focalSplit(title: string): { plain: string; focal: string; rest: string } {
-  const plain = title.replace(/\*/g, "").trim();
-  const focal = (accentRuns(title).find(r => r.accent)?.text.trim() || plain.split(/\s+/).sort((a, b) => b.length - a.length)[0] || plain).toLocaleUpperCase("es");
-  const rest = plain.replace(new RegExp(focal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), "").replace(/\s+/g, " ").trim();
-  return { plain, focal, rest };
+// La palabra enorme de la portada (27-oct-2026, Jean: "CONVERTIRLA" sola no se entiende y el resto del
+// titular quedaba cortado). Va la marcada con *asteriscos*; si no hay, un sustantivo que se entienda
+// solo: nunca un verbo (convertirla, tienes), un artículo ni un adjetivo suelto si hay algo mejor.
+const STOP = new Set("un una unos unas el la los las lo le les se de del al en y e o u ni pero que qué cómo como cuando cuándo para por con sin no sí si tu tus mi mis su sus te me nos es son era fue hay más muy ya este esta estos estas ese esa eso aquí así todo toda todos todas cada".split(" "));
+const VERBISH = /(ar|er|ir|ár|ér|ír)(la|las|lo|los|le|les|se|me|te|nos)?$|(ando|iendo|yendo)(la|las|lo|los|le|les|se|me|te|nos)?$|^(tienes|sabes|puedes|quieres|haces|vas|eres|estás|necesitas|tengo|sé|puedo|quiero|hago|voy|soy|estoy|necesito|tiene|sabe|puede|quiere|hace|va|está|necesita)$/i;
+const ADJISH = /(al|ble|ivo|iva|oso|osa|ente|ante)$/i;
+export function focalWord(plain: string): string {
+  const words = plain.split(/\s+/).map(w => w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "")).filter(Boolean);
+  const score = (w: string) => (STOP.has(w.toLowerCase()) || VERBISH.test(w) ? -100 : 0) + w.length - (ADJISH.test(w) ? 3 : 0);
+  return [...words].sort((a, b) => score(b) - score(a))[0] ?? plain;
 }
+/** La palabra que domina el titular y lo que va antes y después (en orden de lectura). */
+export function focalSplit(title: string): { plain: string; focal: string; rest: string; before: string; after: string } {
+  const plain = title.replace(/\*/g, "").replace(/\s+/g, " ").trim();
+  const runs = accentRuns(title);
+  const k = runs.findIndex(r => r.accent);
+  let word: string, before: string, after: string;
+  if (k >= 0) {
+    word = runs[k].text.trim();
+    before = runs.slice(0, k).map(r => r.text).join("");
+    after = runs.slice(k + 1).map(r => r.text).join("");
+  } else {
+    word = focalWord(plain);
+    const m = new RegExp(`(^|[^\\p{L}\\p{N}])(${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})(?=$|[^\\p{L}\\p{N}])`, "u").exec(plain);
+    const at = m ? m.index + m[1].length : plain.indexOf(word);
+    before = at >= 0 ? plain.slice(0, at) : "";
+    after = at >= 0 ? plain.slice(at + word.length) : "";
+  }
+  const tidy = (x: string) => x.replace(/\*/g, "").replace(/\s+/g, " ").trim();
+  before = tidy(before); after = tidy(after);
+  return { plain, focal: word.toLocaleUpperCase("es"), rest: [before, after].filter(Boolean).join(" "), before, after };
+}
+/** Texto para la imagen: sin los *asteriscos* de resaltado (la IA de imagen los escribiría tal cual). */
+const noMarks = (s: string | undefined) => (s ?? "").replace(/\*/g, "");
 
 /**
  * "Como el original" (06-oct-2026, Jean: "modelar la portada y las demás desde el JSON del original, así
@@ -700,7 +732,7 @@ function focalSplit(title: string): { plain: string; focal: string; rest: string
  */
 function originalSpec(o: PosterOpts, ref: Record<string, unknown>, part: "full" | "scene" | "text"): Record<string, unknown> {
   const s = o.cover;
-  const { plain, focal, rest } = focalSplit(s.title);
+  const { plain, focal, before, after } = focalSplit(s.title);
   const hasAccent = accentRuns(s.title).some(r => r.accent);
   const brandMark = o.design.name || (o.design.handle ? `@${o.design.handle}` : "");
   const refTypography = ref.tipografia ?? ref.typography;
@@ -709,8 +741,9 @@ function originalSpec(o: PosterOpts, ref: Record<string, unknown>, part: "full" 
   const texts: Record<string, unknown> = {
     headline: plain || undefined,
     highlighted_word: hasAccent ? focal : undefined,
-    headline_rest: hasAccent && rest ? rest : undefined,
-    subtitle_or_body: s.body ? clean(s.body, 200) : undefined,
+    headline_before_highlight: hasAccent && before ? before : undefined,
+    headline_after_highlight: hasAccent && after ? after : undefined,
+    subtitle_or_body: s.body ? clean(noMarks(s.body), 200) : undefined,
     label: s.kind !== "portada" && s.kicker ? s.kicker : undefined,
     pill: s.tag ? clean(s.tag, 24) : undefined,
     ...slideTextSpec(s),
@@ -769,17 +802,16 @@ function slideTextSpec(s: Slide): Record<string, unknown> {
   if (s.kind === "galeria" && items.length) {
     out.grid_labels = { labels: items.map(it => clean(it.title, 32)), style: `a ${galleryCols(items.length)}-column grid of photos, one label per cell in this order (left to right, top to bottom), each label in a small dark navy rounded pill at the bottom center of its cell, white text` };
   } else if (items.length) {
-    out.list = { items: items.map(it => [clean(it.title, 60), clean(it.text, 100)].filter(Boolean).join(": ")), style: "short clean list in small bold sans serif, easy to read, in a calm area of the image" };
+    out.list = { items: items.map(it => [clean(noMarks(it.title), 60), clean(noMarks(it.text), 100)].filter(Boolean).join(": ")), style: "short clean list in small bold sans serif, easy to read, in a calm area of the image" };
   }
-  if (s.verdict) out.verdict = { text: clean(s.verdict, 90), style: "one bold line near the bottom" };
+  if (s.verdict) out.verdict = { text: clean(noMarks(s.verdict), 90), style: "one bold line near the bottom" };
   if (s.cta) out.keyword = { text: s.cta, style: "very large, inside a glass card in the center, with a small line above: 'Comenta o escríbeme'" };
   return out;
 }
 
 /** Las letras de la portada póster: barra superior de 3 columnas, titular con UNA palabra enorme y abajo. */
 function posterTypeLines(o: PosterOpts): string[] {
-  const focal = accentRuns(o.cover.title).find(r => r.accent)?.text.trim() ?? "";
-  const plain = o.cover.title.replace(/\*/g, "").trim();
+  const { plain, focal, before, after } = focalSplit(o.cover.title);
   const d = o.date ?? new Date();
   const left = `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
   const center = o.design.name || (o.design.handle ? `@${o.design.handle}` : clean(o.brief.product, 30));
@@ -787,9 +819,9 @@ function posterTypeLines(o: PosterOpts): string[] {
   return [
     `BARRA SUPERIOR (5 % desde arriba): tres columnas de texto pequeño en sans negrita, minúsculas, bien separadas: izquierda «${left}», centro «${center}», derecha «${right}».`,
     focal
-      ? `TITULAR: «${plain}». La palabra «${focal}» va ENORME y dominante, ocupando casi todo el ancho, en ${STYLE_TYPE[o.design.style]}; el resto de las palabras va mucho más pequeño en sans negrita, pegado arriba y abajo de la palabra grande, formando un solo bloque.`
+      ? `TITULAR: «${plain}». La palabra «${focal}» va ENORME y dominante, ocupando casi todo el ancho, en ${STYLE_TYPE[o.design.style]}. ${before ? `Justo ARRIBA de ella, pequeño en sans negrita: «${before}». ` : ""}${after ? `Justo DEBAJO, pequeño en sans negrita: «${after}». ` : ""}Se lee de arriba abajo como una sola frase, sin mover ni quitar palabras.`
       : `TITULAR: «${plain}», enorme y dominante, en ${STYLE_TYPE[o.design.style]}, formando un solo bloque.`,
-    o.cover.body ? `ABAJO, centrado y pequeño, en sans negrita: «${clean(o.cover.body, 90)}».` : "",
+    o.cover.body ? `ABAJO, centrado y pequeño, en sans negrita: «${clean(noMarks(o.cover.body), 90)}».` : "",
     "Todo el texto en español, escrito EXACTAMENTE como se indica, sin otras palabras, sin logos ni marcas.",
   ].filter(Boolean);
 }
@@ -1023,6 +1055,7 @@ export function recloneRequest(o: { info: CloneInfo; keep: string[]; brief: Brie
     "Tipos de lámina disponibles: respuesta, problema (3 items), comparacion (2 items: NO/SÍ), solucion, tarjetas (4 items), pasos (3 items), regla (pastilla 'Regla N', titulo de 1 o 2 palabras gigantes, texto ≤10 palabras, veredicto, escena; opcional items = 3 líneas muy cortas: qué hace, cuándo usarlo, cuándo no), galeria (cuadrícula de 4 a 9 fotos con etiqueta: items = etiqueta tal cual + qué muestra la foto; escena = lo común a todas), giro (penúltima), llamada (última, con palabra).",
     "'objeto' = un objeto de la historia que invade el primer plano de la portada en 3D; 'plantilla' = hero, editorial o cinematica.",
     "Cada lámina (menos giro y llamada) lleva puente (≤7 palabras), peso (corta o densa) y veredicto si aplica. Marca 1 o 2 palabras de cada titular entre *asteriscos*. 'escena' = foto cinematográfica SIN texto, personas latinas comunes, sin famosos, sin marcas, sin dinero.",
+    COVER_WORD_RULE,
     "Prohibido: promesas de ingresos o resultados, plazos, testimonios o cifras inventadas, urgencia falsa, marcas ajenas, emojis. Español neutro latinoamericano, de tú.",
     "",
     `PRODUCTO: ${clean(o.brief.product, 200)}.`,

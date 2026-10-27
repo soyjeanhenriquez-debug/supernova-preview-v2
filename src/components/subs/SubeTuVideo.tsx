@@ -14,6 +14,8 @@ import { deepVoice } from "@/lib/voiceFx";
 import { ToolShell } from "@/components/tool/ToolShell";
 import { ToolFeedback } from "@/components/ToolFeedback";
 import { FONTS, SubsVideo, type SubsProps } from "@/remotion/SubsVideo";
+import { palabraDelCierre, tomarToma } from "@/lib/grabacion";
+import { duracion, palabrasRecortadas, repetidas, tramos } from "@/lib/recorte";
 
 /**
  * Sube tu video (Fase A, 16-oct-2026): tu video + subtítulos con estilo, portada, título arriba,
@@ -73,6 +75,10 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
   const [webIssue, setWebIssue] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Quitar silencios y frases repetidas (27-oct-2026): corta en el navegador, sin IA ni créditos.
+  const [recortar, setRecortar] = useState(false);
+  const [mantener, setMantener] = useState<Set<number>>(new Set());
+  const [desdeGuion, setDesdeGuion] = useState(false);
 
   useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
   useEffect(() => () => { if (vozUrl) URL.revokeObjectURL(vozUrl); }, [vozUrl]);
@@ -81,10 +87,20 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
     if (!f) return;
     if (!f.type.startsWith("video/")) { toast.error("Elige un video (MP4 o MOV)."); return; }
     const u = URL.createObjectURL(f);
-    setFile(f); setUrl(u); setRes(null); setHasImage(null); setMeta(null); setVoz(false); setVozUrl(null); setDone(false); setWebIssue(null);
+    setFile(f); setUrl(u); setRes(null); setHasImage(null); setMeta(null); setVoz(false); setVozUrl(null); setDone(false); setWebIssue(null); setMantener(new Set());
     void readMeta(u).then(setMeta);
     void videoHasImage(f).then(setHasImage);
   };
+  // La toma que grabaste con tu guion en Reel Studio llega aquí sola, con la palabra del cierre.
+  useEffect(() => {
+    const t = tomarToma();
+    if (!t) return;
+    pick(t.file);
+    const w = palabraDelCierre(t.guion);
+    if (w) setCierre(w);
+    setRecortar(true); setDesdeGuion(true);
+    toast.success("Tu toma está lista", { description: "Ahora toca «Hacer mis subtítulos»." });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const makeSubs = async () => {
     if (!file || busy) return;
@@ -124,10 +140,15 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
 
   const editSub = (i: number, texto: string) => setRes(r => r ? { ...r, subtitulos: r.subtitulos.map((s, k) => k === i ? { ...s, texto } : s) } : r);
   const words = useMemo(() => wordsFromSubs(res?.subtitulos ?? []), [res?.subtitulos]);
+  const rep = useMemo(() => repetidas(res?.subtitulos ?? []), [res?.subtitulos]);
+  const ts = useMemo(() => (recortar && res?.subtitulos.length ? tramos(res.subtitulos, meta?.dur ?? 0, new Set(rep.filter(i => !mantener.has(i)))) : []),
+    [recortar, res?.subtitulos, meta?.dur, rep, mantener]);
+  const quitados = ts.length && meta?.dur ? Math.max(0, meta.dur - duracion(ts)) : 0;
+  const nRep = rep.filter(i => !mantener.has(i)).length;
   const size = meta ? outSize(meta) : { width: 1080, height: 1920 };
-  const durationInFrames = Math.max(FPS, Math.round((meta?.dur ?? 1) * FPS));
+  const durationInFrames = Math.max(FPS, Math.round((ts.length ? duracion(ts) : meta?.dur ?? 1) * FPS));
   const props: SubsProps = {
-    src: url ?? "", audioSrc: voz ? vozUrl : null, words, style,
+    src: url ?? "", audioSrc: voz ? vozUrl : null, words: ts.length ? palabrasRecortadas(words, ts) : words, style, tramos: ts.length ? ts : undefined,
     portada: portadaOn ? portada : null, tituloArriba: conTitulo ? tituloArriba : "", cierre,
     zoom: style === "conversacion" && zoom,
   };
@@ -258,6 +279,20 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
         </div>
 
         <Card label="Edición">
+          <Toggle on={recortar} onClick={() => setRecortar(v => !v)} disabled={!ready} title="Quitar silencios y repeticiones"
+            line={!ready ? "Primero haz los subtítulos." : recortar ? `Se quitan ${quitados.toFixed(1).replace(".", ",")} s: pausas largas${nRep ? ` y ${nRep} frase${nRep > 1 ? "s" : ""} que repetiste` : ""}. Gratis.` : "Corta las pausas largas y, si repetiste una frase, deja solo la última."} />
+          {recortar && rep.length > 0 && (
+            <ul className="space-y-1.5">
+              {rep.map(i => (
+                <li key={i}>
+                  <label className="flex items-start gap-2 rounded-lg border border-border p-2 text-[12px]">
+                    <input type="checkbox" className="mt-0.5" checked={!mantener.has(i)} onChange={() => setMantener(m => { const n = new Set(m); if (n.has(i)) n.delete(i); else n.add(i); return n; })} />
+                    <span><span className="text-muted-foreground">Quitar el intento repetido: </span><span className="text-foreground">«{res?.subtitulos[i]?.texto}»</span></span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
           <Toggle on={portadaOn} onClick={() => setPortadaOn(v => !v)} title="Portada" line="Título grande y una palabra a mano en el primer segundo." />
           {portadaOn && (
             <div className="grid grid-cols-2 gap-2">
@@ -321,7 +356,7 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
   return (
     <ToolShell toolId="sube-tu-video" onNavigate={onNavigate} previewFirst
       crumbs={[{ label: "Crear" }, { label: "Con tu cara", onClick: onHome }, { label: "Sube tu video" }]}
-      title="Sube tu video y ponle estilo"
+      title={desdeGuion ? "Tu toma con subtítulos" : "Sube tu video y ponle estilo"}
       line="Subtítulos con estilo, portada, cierre y voz grave. Lo ves en tu video antes de descargarlo."
       onBack={onHome}
       steps={["Elige tu video", "Subtítulos", "Estilo", "Descarga"]} step={step}

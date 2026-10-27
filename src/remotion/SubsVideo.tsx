@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, Series, useCurrentFrame, useVideoConfig } from "remotion";
 import { Audio, Video } from "@remotion/media";
 import { loadFont as loadAnton } from "@remotion/google-fonts/Anton";
 import { loadFont as loadManrope } from "@remotion/google-fonts/Manrope";
@@ -38,6 +38,11 @@ export type SubsProps = {
   zoom?: boolean;
   /** Palabra clave del cierre ("COMENTA «PALABRA»"), en los últimos 2,5 s. Vacío = sin cierre. */
   cierre: string;
+  /**
+   * Quitar silencios y repeticiones (27-oct-2026): los tramos del video original que se quedan, en segundos y en
+   * orden. Las palabras (`words`) ya vienen con el tiempo del video recortado. Vacío o sin dar = el video entero.
+   */
+  tramos?: { a: number; b: number }[];
 };
 
 /** Tamaño de letra que entra en el ancho: base, pero más chico si la línea es larga. */
@@ -66,8 +71,24 @@ export function SubsVideo(p: SubsProps) {
   return (
     <AbsoluteFill style={{ backgroundColor: "#000000" }}>
       {/* El acercamiento va hacia la cara (arriba del centro); los textos no se mueven. */}
-      <Video src={p.src} muted={!!p.audioSrc} style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${scale})`, transformOrigin: "50% 35%" }} />
-      {p.audioSrc && <Audio src={p.audioSrc} />}
+      {p.tramos?.length ? (
+        <Series>
+          {p.tramos.map((x, i) => {
+            const desde = Math.round(x.a * fps), hasta = Math.max(desde + 1, Math.round(x.b * fps));
+            return (
+              <Series.Sequence key={i} durationInFrames={hasta - desde} premountFor={fps}>
+                <Video src={p.src} muted={!!p.audioSrc} trimBefore={desde} trimAfter={hasta} style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${scale})`, transformOrigin: "50% 35%" }} />
+                {p.audioSrc && <Audio src={p.audioSrc} trimBefore={desde} trimAfter={hasta} />}
+              </Series.Sequence>
+            );
+          })}
+        </Series>
+      ) : (
+        <>
+          <Video src={p.src} muted={!!p.audioSrc} style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${scale})`, transformOrigin: "50% 35%" }} />
+          {p.audioSrc && <Audio src={p.audioSrc} />}
+        </>
+      )}
       <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ position: "absolute", left: 0, top: 0 }}>
         {titulo && (p.style === "impacto" ? <TopTitle text={p.tituloArriba} W={W} H={H} /> : <SoftTitle text={p.tituloArriba} W={W} H={H} />)}
         {sc && <Caption key={sc.t0} words={sc.words} t={t} style={p.style} W={W} H={H} startFrame={Math.round(sc.t0 * fps)} />}

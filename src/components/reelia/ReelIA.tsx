@@ -29,6 +29,8 @@ import { Inicio, type Origen } from "./Inicio";
 import { ajustesDe as ajustesPublicar, casillasDelDia, etiquetaCasilla, siguienteLibre } from "@/lib/publicar";
 import { Storyboard, type Medio } from "./Storyboard";
 import { ReelsEnCurso } from "./ReelsEnCurso";
+import { GrabarConGuion } from "@/components/reel/GrabarConGuion";
+import { dejarToma } from "@/lib/grabacion";
 import { BIBLIO, useStudioDatos, type Borrador, type Identidad, type Plantilla } from "./useStudioDatos";
 
 /**
@@ -178,6 +180,14 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
   const [texto, setTexto] = useState("");
   const [enlace, setEnlace] = useState("");
   const [refVideo, setRefVideo] = useState<string | null>(null);
+  // «Lo grabo yo» (27-oct-2026): grabarte con tu guion encima y llevar la toma a «Sube tu video».
+  const [grabar, setGrabar] = useState(false);
+  const tomaRef = useRef<HTMLInputElement>(null);
+  const llevarASubtitulos = (file: File) => {
+    dejarToma({ file, guion: metaRef.current.idea });
+    setGrabar(false);
+    window.location.hash = "#/con-tu-cara/video";
+  };
   const [refPaso, setRefPaso] = useState("");
   const [refProg, setRefProg] = useState(0);
   const [avanzadas, setAvanzadas] = useState(false);
@@ -1050,9 +1060,30 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
                 {clips.length > 0 && <span className="text-[11px] text-muted-foreground">{clips.length} en tu biblioteca: se usan solos donde corresponden.</span>}
               </div>
             )}
+            {meta.origen === "guion" && (
+              // Dos caminos con tu guion: te grabas tú (gratis; los subtítulos cobran aparte) o lo hace la IA.
+              <div className="space-y-2 rounded-xl border border-border p-3">
+                <p className="text-[12px] text-foreground">¿Quién sale en el video?</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button type="button" onClick={() => meta.idea.trim().split(/\s+/).length >= 5 ? setGrabar(true) : toast.error("Escribe tu guion primero.")} disabled={!!busy}
+                    className="rounded-xl border border-border p-3 text-left hover:border-foreground/40">
+                    <span className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground"><Camera className="w-4 h-4" />Lo grabo yo</span>
+                    <span className="block text-[11px] text-muted-foreground">Tu cámara con el guion pasando encima. Después SUPERNOVA le pone subtítulos y quita silencios.</span>
+                  </button>
+                  <button type="button" onClick={() => tomaRef.current?.click()} disabled={!!busy}
+                    className="rounded-xl border border-border p-3 text-left hover:border-foreground/40">
+                    <span className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground"><Upload className="w-4 h-4" />Ya lo grabé</span>
+                    <span className="block text-[11px] text-muted-foreground">Sube el video de tu celular o tu cámara y sigue a subtítulos.</span>
+                  </button>
+                </div>
+                <input ref={tomaRef} type="file" accept="video/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; e.target.value = ""; if (f) llevarASubtitulos(f); }} />
+                <p className="text-[11px] text-muted-foreground">O que la IA lo haga completo (presentador, escenas y voz):</p>
+              </div>
+            )}
             <button type="button" onClick={preparar} disabled={!!busy} className={primario}>
-              {busy === "plan" ? <><Loader2 className="w-4 h-4 animate-spin" /> Preparando guion y escenas…</> : <><Sparkles className="w-4 h-4" /> {r ? "Preparar de nuevo" : "Preparar mi reel"} · {PRICE_PLAN} créditos</>}
+              {busy === "plan" ? <><Loader2 className="w-4 h-4 animate-spin" /> Preparando guion y escenas…</> : <><Sparkles className="w-4 h-4" /> {r ? "Preparar de nuevo" : meta.origen === "guion" ? "Que lo haga la IA" : "Preparar mi reel"} · {PRICE_PLAN} créditos</>}
             </button>
+            {grabar && <GrabarConGuion guion={meta.idea} onUsar={llevarASubtitulos} onClose={() => setGrabar(false)} />}
             {r && <button type="button" onClick={() => irPaso(1)} className="text-[12px] text-primary">Seguir con el reel que ya preparé →</button>}
           </Card>
         )}

@@ -10,8 +10,12 @@ import { supabase } from "@/integrations/supabase/client";
 type Photo = { path: string; url: string };
 const MAX = 8;
 
-export function PresenterPicker({ uid, value, onChange, disabled }: {
+export function PresenterPicker({ uid, value, onChange, disabled, lead, note }: {
   uid: string; value: string | null; onChange: (path: string | null) => void; disabled?: boolean;
+  /** Una opción extra al inicio (ej. "Tu foto" del kit en el carrusel). */
+  lead?: { label: string; img?: string; on: boolean; onPick: () => void };
+  /** Texto de ayuda debajo (si no, el de los videos). */
+  note?: string;
 }) {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +47,13 @@ export function PresenterPicker({ uid, value, onChange, disabled }: {
     <div className="space-y-2">
       <p className="text-xs text-muted-foreground">Elige tu presentador</p>
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        {lead && (
+          <button type="button" disabled={disabled} onClick={lead.onPick} className={`${tile(lead.on)} flex flex-col items-center justify-center gap-1 bg-card/40 px-1`} aria-label={lead.label}>
+            {lead.img ? <img src={lead.img} alt="" className="absolute inset-0 w-full h-full object-cover" /> : null}
+            <span className={`relative text-[10px] leading-tight text-center ${lead.img ? "mt-auto mb-1 rounded bg-background/85 px-1 text-foreground" : "text-foreground"}`}>{lead.label}</span>
+            {lead.on && <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-background/80 flex items-center justify-center"><Check className="w-3.5 h-3.5 text-foreground" /></span>}
+          </button>
+        )}
         <button type="button" disabled={disabled} onClick={() => onChange(null)} className={`${tile(value === null)} flex flex-col items-center justify-center gap-1 bg-card/40 px-1`}>
           <Sparkles className="w-4 h-4 text-primary" />
           <span className="text-[10px] leading-tight text-center text-foreground">Persona creada con IA</span>
@@ -60,7 +71,7 @@ export function PresenterPicker({ uid, value, onChange, disabled }: {
           <span className="text-[10px] leading-tight text-center text-muted-foreground">Crear uno nuevo</span>
         </button>
       </div>
-      <p className="text-[11px] text-muted-foreground">Sin foto, la IA crea una persona nueva. Con tu personaje, se ve igual en todos tus videos.</p>
+      <p className="text-[11px] text-muted-foreground">{note ?? "Sin foto, la IA crea una persona nueva. Con tu personaje, se ve igual en todos tus videos."}</p>
     </div>
   );
 }

@@ -27,6 +27,7 @@ import { loadDesign, loadDraft, saveDesign, saveDraft } from "@/lib/carouselStor
 import { AddToTracker } from "@/components/AddToTracker";
 import { ToolFeedback } from "@/components/ToolFeedback";
 import { imageTag } from "@/lib/modelAdvice";
+import { PresenterPicker } from "@/components/video/PresenterPicker";
 // Remotion solo se carga si la persona abre "Convertir en video para Reels" o "Dar vida a esta lámina".
 const AnimateCarousel = lazy(() => import("@/components/image/carousel/AnimateCarousel").then(m => ({ default: m.AnimateCarousel })));
 const LiveSlide = lazy(() => import("@/components/image/carousel/LiveSlide").then(m => ({ default: m.LiveSlide })));
@@ -290,17 +291,20 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     const { data } = await supabase.storage.from("creativos").createSignedUrl(p, 3600);
     return data?.signedUrl ? { path: p, url: data.signedUrl } : null;
   };
-  const makePosterMvp = async (index: number, onlyLetters = false) => {
-    const m = POSTER_MODELS.find(x => x.id === posterModel) ?? POSTER_MODELS[0];
+  // `over` (modelar lámina del original en un clic): la lámina recién escrita (aún no está en `slides` de
+  // este render), las fotos del presentador elegido y la IA de la foto. El saldo ya se revisó antes.
+  const makePosterMvp = async (index: number, onlyLetters = false, over?: { target: Slide; refs: string[]; modelId: PosterModel["id"] }) => {
+    const m = POSTER_MODELS.find(x => x.id === (over?.modelId ?? posterModel)) ?? POSTER_MODELS[0];
     const lettersPrice = CREDIT_COSTS.gen_ad_image;
     const total = (onlyLetters ? 0 : CREDIT_COSTS[m.action]) + lettersPrice;
     if (posterBusy) return;
     if (!folder) { toast("Elige tu producto primero: la foto se guarda en tu carpeta para ponerle las letras."); return; }
-    if (balance < total) { toast.error(`Te faltan créditos: esto cuesta ${total}`); return; }
-    const refs = useRefs ? kitRefs : [];
-    const target = slides[index];
+    if (!over && balance < total) { toast.error(`Te faltan créditos: esto cuesta ${total}`); return; }
+    const refs = over ? over.refs : useRefs ? kitRefs : [];
+    const target = over?.target ?? slides[index];
     if (!target) return;
-    const opts = { cover: target, scene: target.scene || (index === 0 ? preview.scene : undefined), design, brief, aspect, hasRefs: refs.length > 0, rules: RULES, template: tplFor(index) };
+    const tpl: SlideTemplate = over ? (target.refSpec && !target.refOff ? "original" : target.kind === "llamada" ? "cta" : template) : tplFor(index);
+    const opts = { cover: target, scene: target.scene || (index === 0 ? preview.scene : undefined), design, brief, aspect, hasRefs: refs.length > 0, rules: RULES, template: tpl };
     const what = index === 0 ? "portada" : `lámina ${index + 1}`;
     setPosterBusy(true);
     try {
@@ -470,24 +474,60 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     toast(`Quitaste la lámina ${sel + 1}`, { action: { label: "Deshacer", onClick: () => { setDraft(before.draft); setScenePaths(before.paths); setSel(before.sel); } } });
   };
 
-  // ── Modelar lámina por lámina: toca una lámina del original y la IA escribe la tuya con su diseño.
+  // ── Modelar lámina por lámina (27-oct-2026, Jean: "sacar el JSON de esa lámina y recrearlo con mi cara"):
+  // en UN clic la IA escribe la tuya con el diseño de esa lámina (su JSON) y la crea con IA de imagen "Como
+  // el original", con el presentador elegido: tu foto del kit, uno de tus personajes o una persona creada
+  // con IA. La 1 del original reemplaza tu portada. Cada paso lo cobra el servidor y se devuelve si falla.
   const [refPick, setRefPick] = useState<number | null>(null);
   const [refWhere, setRefWhere] = useState<"after" | "replace">("after");
   const [modeling, setModeling] = useState(false);
+  // "kit" = tu foto del kit · "ia" = persona creada con IA · otra cosa = ruta de un personaje (bucket "personajes").
+  const [pres, setPres] = useState<string>("kit");
+  const presEff = pres === "kit" && !kitRefs.length ? "ia" : pres;
+  const [kitThumb, setKitThumb] = useState<string | undefined>();
+  const kitThumbKey = (kitPhotos[0] ?? kitRefs[0]) || "";
+  useEffect(() => {
+    if (!kitThumbKey) { setKitThumb(undefined); return; }
+    let alive = true;
+    void supabase.storage.from("creativos").createSignedUrl(kitThumbKey, 3600).then(({ data }) => { if (alive) setKitThumb(data?.signedUrl); });
+    return () => { alive = false; };
+  }, [kitThumbKey]);
+  // La foto del personaje se copia una vez a tu carpeta de "creativos" (la IA de imagen solo lee de ahí).
+  const presCopies = useRef<Record<string, string>>({});
+  const presenterRefs = async (): Promise<string[]> => {
+    if (presEff === "ia") return [];
+    if (presEff === "kit") return kitRefs;
+    const hit = presCopies.current[presEff];
+    if (hit) return [hit];
+    const { data: file, error } = await supabase.storage.from("personajes").download(presEff);
+    if (error || !file) throw new Error("No pudimos abrir la foto de tu personaje. Elige otro presentador. No se te cobró.");
+    const type = /^image\/(png|jpeg|webp)$/.test(file.type) ? file.type : "image/webp";
+    const p = `${folder}/${Date.now()}-presentador.${type === "image/png" ? "png" : type === "image/jpeg" ? "jpg" : "webp"}`;
+    const up = await supabase.storage.from("creativos").upload(p, file, { contentType: type, upsert: false });
+    if (up.error) throw new Error("No pudimos preparar la foto de tu personaje. Inténtalo de nuevo. No se te cobró.");
+    presCopies.current[presEff] = p;
+    return [p];
+  };
   const modelCost = CREDIT_COSTS.model_slide;
+  const recreateCost = modelCost + CREDIT_COSTS.gen_ad_image_nbpro + CREDIT_COSTS.gen_ad_image;
+  const pickIsCover = refPick === 0;
   const modelSlide = async () => {
     if (modeling || posterBusy || refPick === null || !cloneInfo) return;
     const image_url = cloneInfo.source.images[refPick];
     if (!image_url) return;
+    const cover = refPick === 0;
     const op: SlideOp = refWhere === "replace" ? { type: "replace", i: sel } : { type: "insert", after: sel };
-    if (!slideOrder(slides.length, op, lockLast)) {
-      toast(refWhere === "replace" ? "La portada no se reemplaza: elige otra lámina en \"Tu carrusel\" o ponla después." : `Tu carrusel ya tiene ${MAX_SLIDES} láminas, el máximo. Quita una o ponla en lugar de otra.`);
+    if (!cover && !slideOrder(slides.length, op, lockLast)) {
+      toast(refWhere === "replace" ? "La portada se reemplaza solo con la 1 del original: elige otra lámina en \"Tu carrusel\" o ponla después." : `Tu carrusel ya tiene ${MAX_SLIDES} láminas, el máximo. Quita una o ponla en lugar de otra.`);
       return;
     }
-    if (balance < modelCost) { toast.error(`Te faltan créditos: esto cuesta ${modelCost}`); return; }
+    if (!folder) { toast("Elige tu producto primero: la imagen se guarda en tu carpeta."); return; }
+    if (balance < recreateCost) { toast.error(`Te faltan créditos: esto cuesta ${recreateCost}`); return; }
     const n = refPick + 1;
     setModeling(true);
     try {
+      // El presentador primero: si su foto falla, no se cobra nada.
+      const refs = await presenterRefs();
       const { data, error } = await supabase.functions.invoke("carousel-slide-model", {
         body: {
           image_url, n, clone_id: cloneInfo.id,
@@ -499,14 +539,30 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
         throw new Error("Llegaste al límite por hora; prueba en un rato. No se te cobró.");
       if (error || !data?.lamina) throw new Error(error ? await invokeErrorMessage(error, "No se pudo modelar la lámina. No se te cobró.") : (data?.error || "No se pudo modelar la lámina. No se te cobró."));
       if (data.billing) applyServerCharge("model_slide", data.billing, `Modelar la lámina ${n} del original`);
+      const spec = trimSpec(data.diseno) ?? cloneInfo.slides.find(x => x.n === n)?.spec;
+      const extra = { ref: n, refOff: false, ...(spec ? { refSpec: spec } : {}), image: undefined, imagePath: undefined };
       // Con el largo de AHORA (la persona pudo cambiar algo mientras esperaba).
       const now = previewRef.current.slides;
-      const order = slideOrder(now.length, op, now[now.length - 1]?.kind === "llamada");
-      const read = parseSlideObj(data.lamina as Record<string, unknown>, Math.max(1, order?.indexOf(null) ?? 1), "tarjetas");
-      if (!order || !hasContent(read)) throw new Error("La IA respondió en un formato raro. Escríbenos y te devolvemos los créditos.");
-      const spec = trimSpec(data.diseno) ?? cloneInfo.slides.find(x => x.n === n)?.spec;
-      applyOrder(order, { ...read, ref: n, ...(spec ? { refSpec: spec } : {}) }, order.indexOf(null));
-      toast.success(`Lámina ${n} del original modelada`, { description: "Ya está en tu carrusel. Revisa el texto y créala con IA de imagen \"Como el original\"." });
+      let idx: number;
+      let target: Slide;
+      if (cover) {
+        const read = parseSlideObj(data.lamina as Record<string, unknown>, 0, "tarjetas");
+        if (!hasContent(read) || !now[0]) throw new Error("La IA respondió en un formato raro. Escríbenos y te devolvemos los créditos.");
+        const patch: Partial<Slide> = { title: read.title || now[0].title, body: read.body || now[0].body, ...(read.scene ? { scene: read.scene } : {}), ...extra };
+        editSlide(0, patch);
+        setScenePaths(x => { const y = { ...x }; delete y[0]; return y; });
+        setSel(0);
+        idx = 0; target = { ...now[0], ...patch };
+      } else {
+        const order = slideOrder(now.length, op, now[now.length - 1]?.kind === "llamada");
+        const read = parseSlideObj(data.lamina as Record<string, unknown>, Math.max(1, order?.indexOf(null) ?? 1), "tarjetas");
+        if (!order || !hasContent(read)) throw new Error("La IA respondió en un formato raro. Escríbenos y te devolvemos los créditos.");
+        idx = order.indexOf(null);
+        target = { ...read, ...extra };
+        applyOrder(order, target, idx);
+      }
+      toast(`Lámina ${n} lista. Ahora la creo con ${presEff === "ia" ? "una persona creada con IA" : presEff === "kit" ? "tu foto" : "tu personaje"}…`);
+      await makePosterMvp(idx, false, { target, refs, modelId: "nano-banana-pro" });
     } catch (e) {
       toast.error(e instanceof Error && e.message ? e.message : "No se pudo modelar la lámina.");
     } finally { setModeling(false); }
@@ -829,8 +885,16 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                 <div className="rounded-xl border border-border p-3.5 space-y-3">
                   <div>
                     <p className="text-[13px] text-foreground font-medium">Lámina {refPick + 1} del original</p>
-                    <p className="text-[12px] text-muted-foreground">La IA lee su diseño y escribe la tuya con la misma idea y la misma composición, en español y con tus palabras. Después la creas con IA de imagen en "Como el original".</p>
+                    <p className="text-[12px] text-muted-foreground">En un clic: la IA lee su diseño (composición, letra, colores y posiciones), escribe la tuya con la misma idea en español y la crea con IA de imagen con el presentador que elijas.</p>
                   </div>
+                  {uid && (
+                    <PresenterPicker uid={uid} disabled={modeling || posterBusy}
+                      value={presEff === "kit" ? "kit" : presEff === "ia" ? null : presEff}
+                      onChange={v => setPres(v ?? "ia")}
+                      lead={kitRefs.length ? { label: "Tu foto", img: kitThumb, on: presEff === "kit", onPick: () => setPres("kit") } : undefined}
+                      note={presEff === "kit" ? "Sales tú, con tu foto de \"Tu foto\"." : presEff === "ia" ? "La IA crea una persona nueva en la misma pose y encuadre del original (nunca la persona del original)." : "Sale tu personaje, en la misma pose y encuadre del original."} />
+                  )}
+                  {pickIsCover ? <p className="text-[12px] text-muted-foreground">Es la portada del original: reemplaza tu portada.</p> : <>
                   <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Dónde ponerla">
                     <button type="button" role="radio" aria-checked={refWhere === "after"} disabled={modeling} onClick={() => setRefWhere("after")}
                       className={`rounded-lg border px-3 py-2 text-left min-h-[44px] ${refWhere === "after" ? "border-foreground/50 bg-card" : "border-border hover:border-foreground/30"}`}>
@@ -844,13 +908,14 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                     </button>
                   </div>
                   {refWhere === "after" && slides.length >= MAX_SLIDES && <p className="text-[12px] text-muted-foreground">Tu carrusel ya tiene {MAX_SLIDES} láminas, el máximo. Elige "En lugar de…" o quita una.</p>}
+                  </>}
                   <button type="button" onClick={() => void modelSlide()}
-                    disabled={modeling || posterBusy || (refWhere === "replace" ? sel === 0 : slides.length >= MAX_SLIDES)}
+                    disabled={modeling || posterBusy || (!pickIsCover && (refWhere === "replace" ? sel === 0 : slides.length >= MAX_SLIDES))}
                     className="min-h-[44px] inline-flex items-center gap-2 rounded-lg border border-foreground/30 px-4 text-[13px] text-foreground hover:border-foreground/50 disabled:opacity-50">
-                    {modeling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                    {modeling ? "Modelando la lámina…" : `Modelar esta lámina · ${modelCost} créditos`}
+                    {modeling || posterBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    {modeling || posterBusy ? "Creando tu lámina…" : `Recrear esta lámina · ${recreateCost} créditos`}
                   </button>
-                  <p className="text-[11px] text-muted-foreground">No usa sus fotos, su cara, su nombre ni su marca. Si falla, no se te cobra.</p>
+                  <p className="text-[11px] text-muted-foreground">Lámina {modelCost} + foto {CREDIT_COSTS.gen_ad_image_nbpro} + letras {CREDIT_COSTS.gen_ad_image} créditos. No usa sus fotos, su cara, su nombre ni su marca. Si un paso falla, ese paso no se te cobra.</p>
                 </div>
               )}
             </div>

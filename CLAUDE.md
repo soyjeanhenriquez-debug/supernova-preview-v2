@@ -163,6 +163,10 @@ su moneda.
 - **La app no pregunta lo que puede deducir.** Ninguna herramienta se bloquea por una ficha
   incompleta: se usa lo que ya sabemos (la oferta elegida, el producto activo) y las preguntas
   extra van en "Personalizar", que es opcional.
+- **Portadas con marca personal (decisión de Jean, 27-oct-2026):** la portada de un carrusel siempre lleva la
+  cara de la persona (su foto o su personaje), salvo que toque un botón explícito ("Portada sin mi cara" o
+  "Persona creada con IA"). La palabra enorme de la portada se entiende sola (un sustantivo, nunca un verbo) y
+  el resto del titular va arriba y abajo en orden de lectura. En `CarouselStudio` y `focalSplit` (`src/lib/carousel.ts`).
 - **Guardián del Creador (política permanente, 24-oct-2026):** SUPERNOVA resuelve el trabajo del
   creador; no le obliga a aprender cómo funciona la IA. La persona dice QUÉ quiere y la app decide
   CÓMO (modelo, prompt, duración, proveedor). Panel: Admin → Guardián del Creador.

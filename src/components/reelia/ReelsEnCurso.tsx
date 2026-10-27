@@ -42,10 +42,17 @@ function Portada({ r, cargar }: { r: ReelEnCurso; cargar: (id: string) => Promis
     return () => { vivo = false; if (url?.startsWith("blob:")) URL.revokeObjectURL(url); };
   }, [r.id, cargar]);
   const o = ORIGEN[r.origen];
-  if (src) return <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />;
+  // Con imagen: la foto y el título encima. Sin imagen: el comienzo del guion ES la portada (sin repetirlo abajo).
+  if (src) return (
+    <>
+      <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+      <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+      <p className="absolute inset-x-0 bottom-6 px-2.5 font-display text-[13px] font-semibold leading-tight text-white line-clamp-2">{r.titulo}</p>
+    </>
+  );
   return (
-    <div className={`absolute inset-0 bg-gradient-to-b ${o.fondo} p-3 pt-10`}>
-      <p className="font-display text-[15px] leading-snug text-foreground/90 line-clamp-6">«{r.texto || r.titulo}»</p>
+    <div className={`absolute inset-0 bg-gradient-to-b ${o.fondo} px-3 pt-10 pb-8`}>
+      <p className="font-display text-[15px] leading-snug text-foreground line-clamp-[9]">«{r.texto || r.titulo}…»</p>
     </div>
   );
 }
@@ -73,20 +80,20 @@ export function ReelsEnCurso({ reels, cargarPortada, onAbrir, onBorrar }: {
                 className={`block w-full text-left rounded-2xl border bg-card overflow-hidden transition-colors ${r.abierto ? "border-primary/70" : "border-border hover:border-foreground/40"}`}>
                 <div className="relative aspect-[9/16] bg-secondary/30">
                   <Portada r={r} cargar={cargarPortada} />
-                  <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
                   <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] text-white backdrop-blur-sm">
                     <o.Icon className="w-3 h-3" />{o.nombre}
                   </span>
-                  {r.abierto && <span className="absolute left-2 top-8 rounded-full bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground">Abierto</span>}
-                  <div className="absolute inset-x-0 bottom-0 p-2.5 space-y-2">
-                    <p className="font-display text-[13px] font-semibold leading-tight text-white line-clamp-2">{r.titulo}</p>
+                  <div className="absolute inset-x-0 bottom-0 p-2.5">
                     <div className="flex gap-1" aria-label={`Paso ${paso + 1} de 4`}>
                       {PASOS.map((_, i) => <span key={i} className={`h-1 flex-1 rounded-full ${i <= paso && r.preparado ? "bg-white" : i === 0 ? "bg-white/60" : "bg-white/20"}`} />)}
                     </div>
                   </div>
                 </div>
                 <div className="px-2.5 py-2">
-                  <p className="text-[11px] text-foreground truncate">{r.preparado ? `Paso ${paso + 1} · ${PASOS[paso]}` : "Sin preparar"}</p>
+                  <p className="flex items-center justify-between gap-1 text-[11px] text-foreground">
+                    <span className="truncate">{r.preparado ? `Paso ${paso + 1} · ${PASOS[paso]}` : "Sin preparar"}</span>
+                    {r.abierto && <span className="shrink-0 rounded-full bg-primary px-1.5 text-[10px] font-medium leading-4 text-primary-foreground">Abierto</span>}
+                  </p>
                   <p className="text-[10px] text-muted-foreground">{cuando(r.actualizado)}</p>
                 </div>
               </button>

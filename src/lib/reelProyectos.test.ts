@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { guardarEnLista, keyActual, keyLista, leerLista, MAX_PROYECTOS, quitarDeLista } from "./reelProyectos";
+import { guardarEnLista, keyActual, keyLista, leerLista, MAX_PROYECTOS, quitarDeLista, unirListas } from "./reelProyectos";
 
 const store = (data: Record<string, string>) => ({ getItem: (k: string) => data[k] ?? null });
 type P = { id: string; origen: string | null; actualizado?: number; idea?: string };
@@ -46,5 +46,12 @@ describe("Reel Studio guarda varios reels (27-oct-2026)", () => {
   });
   it("una lista dañada no rompe la pantalla", () => {
     expect(leerLista<P>(store({ [keyLista("u")]: "{no es json" }), "u")).toEqual([]);
+  });
+  it("dos pestañas abiertas: al unir, no se pierde ningún reel y queda la versión más nueva", () => {
+    const estaPestana: P[] = [{ id: "diego", origen: "referencia", idea: "vieja", actualizado: 1 }];
+    const otraPestana: P[] = [{ id: "g3", origen: "guion", actualizado: 5 }, { id: "diego", origen: "referencia", idea: "nueva", actualizado: 4 }];
+    const l = unirListas(estaPestana, otraPestana);
+    expect(l.map(p => p.id)).toEqual(["g3", "diego"]);
+    expect(l.find(p => p.id === "diego")?.idea).toBe("nueva");
   });
 });

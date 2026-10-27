@@ -12,7 +12,7 @@ import { useCredits } from "@/hooks/useCredits";
 import { fnErrorMessage, fnHeaders, readBilling } from "@/lib/fnAuth";
 import { audioSeconds, compressImage } from "@/lib/montage";
 import { deleteProduction, getMedia, putMedia } from "@/lib/productionStore";
-import { guardarEnLista, keyActual, keyLista, leerLista, quitarDeLista } from "@/lib/reelProyectos";
+import { guardarEnLista, keyActual, keyLista, leerGuardada, leerLista, quitarDeLista, unirListas } from "@/lib/reelProyectos";
 import type { Word } from "@/lib/subtitleStyles";
 import { uploadStudioImage, refForServer, type StudioRef } from "@/lib/studioUpload";
 import { sliceWavBase64 } from "@/lib/audioSlice";
@@ -146,7 +146,27 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
     listaRef.current = list; setLista(list);
     // La lista completa se escribe medio segundo después (hay muchos cambios seguidos al producir).
     if (listaTimer.current) clearTimeout(listaTimer.current);
-    listaTimer.current = setTimeout(() => { try { localStorage.setItem(keyLista(uid), JSON.stringify(listaRef.current)); } catch { /* sin almacenamiento */ } }, 500);
+    // Antes de escribir se une con lo que guardó otra pestaña, para no borrarle sus reels.
+    listaTimer.current = setTimeout(() => {
+      try {
+        const l = unirListas(listaRef.current, leerGuardada<Proyecto>(localStorage, uid));
+        listaRef.current = l; setLista(l);
+        localStorage.setItem(keyLista(uid), JSON.stringify(l));
+      } catch { /* sin almacenamiento */ }
+    }, 500);
+  }, [uid]);
+  // Si otra pestaña cambia la lista, esta se pone al día (sin perder el reel que tiene abierto).
+  useEffect(() => {
+    if (!uid) return;
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== keyLista(uid)) return;
+      const otra = leerGuardada<Proyecto>(localStorage, uid);
+      const mia = listaRef.current.find(p => p.id === metaRef.current.id);
+      const l = unirListas(otra, mia ? [mia] : []);
+      listaRef.current = l; setLista(l);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, [uid]);
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<"" | "foto" | "plan" | "producir" | "render" | "subir" | "ref">("");

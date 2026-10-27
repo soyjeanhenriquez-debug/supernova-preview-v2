@@ -27,6 +27,25 @@ export function guardarEnLista<T extends ConId>(list: T[], p: T, now = Date.now(
 
 export const quitarDeLista = <T extends ConId>(list: T[], id: string): T[] => list.filter(p => p.id !== id);
 
+/**
+ * Une dos listas (ej. la de esta pestaña y la guardada por otra pestaña): de cada reel queda la versión más nueva.
+ * Así dos pestañas abiertas no se borran reels entre sí.
+ */
+export function unirListas<T extends ConId>(a: T[], b: T[]): T[] {
+  const m = new Map<string, T>();
+  for (const p of [...a, ...b]) {
+    if (!p || typeof p.id !== "string") continue;
+    const q = m.get(p.id);
+    if (!q || (p.actualizado ?? 0) > (q.actualizado ?? 0)) m.set(p.id, p);
+  }
+  return ordenar([...m.values()]).slice(0, MAX_PROYECTOS);
+}
+
+/** La lista tal como está guardada (sin mezclar con el reel abierto). */
+export function leerGuardada<T extends ConId>(store: Pick<Storage, "getItem">, uid: string): T[] {
+  try { const v = JSON.parse(store.getItem(keyLista(uid)) ?? "[]"); return Array.isArray(v) ? v : []; } catch { return []; }
+}
+
 /** Lee la lista; si solo existe el reel suelto de antes (un único proyecto), lo pasa a la lista. */
 export function leerLista<T extends ConId & { origen?: unknown }>(store: Pick<Storage, "getItem">, uid: string): T[] {
   let list: T[] = [];

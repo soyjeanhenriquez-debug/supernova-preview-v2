@@ -28,6 +28,7 @@ import {
 import { Inicio, type Origen } from "./Inicio";
 import { ajustesDe as ajustesPublicar, casillasDelDia, etiquetaCasilla, siguienteLibre } from "@/lib/publicar";
 import { Storyboard, type Medio } from "./Storyboard";
+import { ReelsEnCurso } from "./ReelsEnCurso";
 import { BIBLIO, useStudioDatos, type Borrador, type Identidad, type Plantilla } from "./useStudioDatos";
 
 /**
@@ -93,7 +94,9 @@ function cargar(uid: string, i: Identidad): Proyecto {
 }
 const guardar = (uid: string, m: Proyecto) => { try { localStorage.setItem(KEY(uid), JSON.stringify(m)); } catch { /* sin almacenamiento */ } };
 const ORIGEN_NOMBRE: Record<Origen, string> = { referencia: "Recrear un reel", idea: "Desde una idea", guion: "Tu guion" };
-const tituloReel = (p: Proyecto) => p.reel?.titulo || p.idea.trim().slice(0, 60) || (p.origen ? ORIGEN_NOMBRE[p.origen] : "Reel");
+const tituloReel = (p: Proyecto, plantilla?: string) => p.reel?.titulo || p.idea.trim().slice(0, 60) || plantilla || (p.origen ? ORIGEN_NOMBRE[p.origen] : "Reel");
+/** ¿El reel tiene algo? (tocar una opción y salir sin escribir no deja un reel vacío en la lista). */
+const tieneContenido = (p: Proyecto) => !!(p.reel || p.idea.trim() || p.plantillaId);
 const leerReels = (uid: string): Proyecto[] => { try { return uid ? leerLista<Proyecto>(localStorage, uid) : []; } catch { return []; } };
 const kindOf = (key: string): "image" | "clip" | "voice" => (key.startsWith("voz:") ? "voice" : key.startsWith("anim:") || key.startsWith("habla:") || key.startsWith("bib:") ? "clip" : "image");
 
@@ -141,7 +144,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
     if (!uid) return;
     const now = Date.now();
     guardar(uid, { ...m, actualizado: now }); // el abierto, al instante
-    if (!m.origen) return;
+    if (!m.origen || !tieneContenido(m)) return;
     const { list } = guardarEnLista(listaRef.current, m, now);
     listaRef.current = list; setLista(list);
     // La lista completa se escribe medio segundo después (hay muchos cambios seguidos al producir).
@@ -262,6 +265,14 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
     setVista("estudio");
     return true;
   };
+  // La portada de cada reel en curso: su primera imagen ya producida (de este navegador) o la de su referencia.
+  const cargarPortada = useCallback(async (id: string): Promise<string | null> => {
+    const p = listaRef.current.find(x => x.id === id);
+    if (!p) return null;
+    const img = Object.entries(p.assets ?? {}).filter(([k, a]) => a.estado === "listo" && kindOf(k) === "image").sort((a, b) => a[1].idx - b[1].idx)[0];
+    if (img) { const b = await getMedia(p.id, img[1].idx, "image").catch(() => null); if (b) return URL.createObjectURL(b); }
+    return datos.plantillas?.find(x => x.id === p.plantillaId)?.thumbUrls.find(Boolean) ?? null;
+  }, [datos.plantillas]);
   const abrirReel = (p: Proyecto) => {
     if (busy) { toast("Espera a que termine lo que se está creando."); return; }
     Object.keys(urls).forEach(k => setUrl(k, null));
@@ -945,22 +956,15 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
           </div>
         ) : (
           <>
-            {lista.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Tus reels en curso · {lista.length}</p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {lista.map(p => (
-                    <div key={p.id} className={`flex items-center gap-2 rounded-2xl border bg-card p-3 ${p.id === meta.id ? "border-primary/50" : "border-border"}`}>
-                      <button type="button" onClick={() => p.id === meta.id ? setVista("estudio") : abrirReel(p)} className="min-w-0 flex-1 text-left">
-                        <span className="block truncate text-[13px] text-foreground">{tituloReel(p)}</span>
-                        <span className="block text-[11px] text-muted-foreground">{p.origen ? ORIGEN_NOMBRE[p.origen] : ""} · paso {Math.min(4, (p.paso ?? 0) + 1)} de 4{p.reel ? "" : " · sin preparar"}{p.actualizado ? ` · ${new Date(p.actualizado).toLocaleDateString("es", { day: "numeric", month: "short" })}` : ""}{p.id === meta.id ? " · abierto" : ""}</span>
-                      </button>
-                      <button type="button" onClick={() => borrarReel(p)} aria-label={`Borrar ${tituloReel(p)}`} className="shrink-0 rounded-lg p-2 text-muted-foreground hover:text-foreground"><Trash2 className="w-4 h-4" /></button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <ReelsEnCurso
+              reels={lista.filter(tieneContenido).map(p => ({
+                id: p.id, origen: p.origen ?? "idea", paso: p.paso ?? 0, preparado: !!p.reel, actualizado: p.actualizado, abierto: p.id === meta.id,
+                titulo: tituloReel(p, datos.plantillas?.find(x => x.id === p.plantillaId)?.nombre),
+                texto: (p.reel?.guion || p.idea).trim().split(/\s+/).slice(0, 26).join(" "),
+              }))}
+              cargarPortada={cargarPortada}
+              onAbrir={id => { const p = lista.find(x => x.id === id); if (!p) return; if (id === meta.id) setVista("estudio"); else abrirReel(p); }}
+              onBorrar={id => { const p = lista.find(x => x.id === id); if (p) borrarReel(p); }} />
             <Inicio diarioOn={jean} idn={idn} plantillas={datos.plantillas} borradores={datos.borradores} diario={datos.diario} busy={!!busy}
               onElegir={o => void empezar(o)} onIdentidad={() => setVista("identidad")}
               onBorrador={abrirBorrador} onDescartar={b => void datos.marcarBorrador(b.id, "descartado")}

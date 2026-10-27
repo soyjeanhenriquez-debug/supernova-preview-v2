@@ -59,6 +59,8 @@ export type Slide = {
   motion?: string;
   /** Escena sugerida para esa foto. */
   scene?: string;
+  /** Cambios que la persona pidió para la imagen (ropa, fondo…), ej. "camisa blanca y fondo de playa". */
+  tweak?: string;
   /** Objeto que invade el primer plano en 3D (mano, teléfono, libreta…), ligado a la historia. */
   prop?: string;
   /** Número de la lámina del original que modela (1 = su portada). Solo en carruseles modelados. */
@@ -660,6 +662,7 @@ export function coverSpec(o: PosterOpts & { template: SlideTemplate }, part: "fu
     creative_direction: t.direction,
     scene: { idea: clean(o.scene || o.cover.scene, 300) || `a cinematic visual metaphor of: ${clean(o.brief.promise, 120) || plain}`, location: clean(o.design.world, 160) || undefined },
     subject: { type: subject, expression: "focused and composed" },
+    requested_changes: tweakSpec(o.cover),
     grid: o.cover.kind === "galeria" && o.cover.items.length ? {
       layout: `exact grid of ${galleryCols(o.cover.items.length)} columns and ${Math.ceil(Math.min(9, o.cover.items.length) / galleryCols(o.cover.items.length))} rows, equal cells separated by thin white lines, the same subject in every cell`,
       cells: o.cover.items.slice(0, 9).map((it, i) => `${i + 1}) ${clean(it.text, 140) || clean(it.title, 40)}`),
@@ -720,6 +723,11 @@ export function focalSplit(title: string): { plain: string; focal: string; rest:
   before = tidy(before); after = tidy(after);
   return { plain, focal: word.toLocaleUpperCase("es"), rest: [before, after].filter(Boolean).join(" "), before, after };
 }
+/** Los cambios pedidos por la persona (ropa, fondo…): mandan sobre la referencia solo en lo que piden. */
+function tweakSpec(s: Slide): Record<string, unknown> | undefined {
+  const t = clean(s.tweak, 240);
+  return t ? { text: t, note: "The person asked for these changes (e.g. wardrobe, background, props). Apply them exactly. Everything they do not mention stays as described: same composition, camera, pose, framing, light and text layout." } : undefined;
+}
 /** Texto para la imagen: sin los *asteriscos* de resaltado (la IA de imagen los escribiría tal cual). */
 const noMarks = (s: string | undefined) => (s ?? "").replace(/\*/g, "");
 
@@ -768,6 +776,7 @@ function originalSpec(o: PosterOpts, ref: Record<string, unknown>, part: "full" 
     format,
     reference_design: ref,
     subject: { type: subject },
+    requested_changes: tweakSpec(s),
     our_scene: scene || o.design.world ? { idea: scene || undefined, location: clean(o.design.world, 160) || undefined, note: "only the content of the photo changes; the composition, camera and light stay as in reference_design" } : undefined,
     grid: ourGrid,
     rules: o.rules,

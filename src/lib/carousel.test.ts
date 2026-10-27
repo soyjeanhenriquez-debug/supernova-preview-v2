@@ -544,3 +544,12 @@ describe("focalSplit: la palabra enorme de la portada (27-oct-2026)", () => {
     expect(s).not.toContain("*");
   });
 });
+
+describe("cambios pedidos para la imagen (27-oct-2026)", () => {
+  it("van a la IA de imagen como cambios a aplicar, sin tocar lo demás", () => {
+    const cover = { kind: "portada" as const, tone: "oscuro" as const, kicker: "", title: "Los *loops*", body: "", items: [], refSpec: { composicion: "persona a la izquierda" }, tweak: "camisa blanca de lino y fondo de playa" };
+    const s = posterPrompt2({ cover, design: DD2, brief: { product: "x", promise: "y" } as never, aspect: "4:5", rules: "", template: "original" });
+    expect(s).toContain("camisa blanca de lino y fondo de playa");
+    expect(s).toContain("requested_changes");
+  });
+});

@@ -495,6 +495,8 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
   const [modeling, setModeling] = useState(false);
   // "kit" = tu foto del kit · "ia" = persona creada con IA · otra cosa = ruta de un personaje (bucket "personajes").
   const [pres, setPres] = useState<string>("kit");
+  // Cambios opcionales para la imagen (ropa, fondo…), en palabras de la persona.
+  const [tweak, setTweak] = useState("");
   const presEff = pres === "kit" && !kitRefs.length ? "ia" : pres;
   const [kitThumb, setKitThumb] = useState<string | undefined>();
   const kitThumbKey = (kitPhotos[0] ?? kitRefs[0]) || "";
@@ -534,7 +536,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
       return;
     }
     if (!folder) { toast("Elige tu producto primero: la imagen se guarda en tu carpeta."); return; }
-    if (cover && pres === "kit" && !kitRefs.length) { toast("Tu portada lleva tu cara: es tu marca personal. Sube tu foto en \"Tu foto\", elige uno de tus personajes o toca \"Persona creada con IA\" si no quieres salir."); return; }
+    if (pres === "kit" && !kitRefs.length) { toast("Elige tu cara: es tu marca personal. Toca una de tus fotos de personaje, sube tu foto en \"Tu foto\" o toca \"Persona creada con IA\" si no quieres salir."); return; }
     if (balance < recreateCost) { toast.error(`Te faltan créditos: esto cuesta ${recreateCost}`); return; }
     const n = refPick + 1;
     setModeling(true);
@@ -553,7 +555,8 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
       if (error || !data?.lamina) throw new Error(error ? await invokeErrorMessage(error, "No se pudo modelar la lámina. No se te cobró.") : (data?.error || "No se pudo modelar la lámina. No se te cobró."));
       if (data.billing) applyServerCharge("model_slide", data.billing, `Modelar la lámina ${n} del original`);
       const spec = trimSpec(data.diseno) ?? cloneInfo.slides.find(x => x.n === n)?.spec;
-      const extra = { ref: n, refOff: false, ...(spec ? { refSpec: spec } : {}), image: undefined, imagePath: undefined };
+      const pedido = tweak.replace(/\s+/g, " ").trim().slice(0, 240);
+      const extra = { ref: n, refOff: false, ...(spec ? { refSpec: spec } : {}), tweak: pedido || undefined, image: undefined, imagePath: undefined };
       // Con el largo de AHORA (la persona pudo cambiar algo mientras esperaba).
       const now = previewRef.current.slides;
       let idx: number;
@@ -902,11 +905,18 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
                   </div>
                   {uid && (
                     <PresenterPicker uid={uid} disabled={modeling || posterBusy}
-                      value={presEff === "kit" ? "kit" : presEff === "ia" ? null : presEff}
+                      value={pres === "kit" ? "kit" : pres === "ia" ? null : pres}
                       onChange={v => setPres(v ?? "ia")}
                       lead={kitRefs.length ? { label: "Tu foto", img: kitThumb, on: presEff === "kit", onPick: () => setPres("kit") } : undefined}
-                      note={presEff === "kit" ? "Sales tú, con tu foto de \"Tu foto\"." : presEff === "ia" ? "La IA crea una persona nueva en la misma pose y encuadre del original (nunca la persona del original)." : "Sale tu personaje, en la misma pose y encuadre del original."} />
+                      note={pres === "kit" && !kitRefs.length ? "Elige tu cara: toca una de tus fotos de personaje (o sube tu foto en \"Tu foto\")." : presEff === "kit" ? "Sales tú, con tu foto de \"Tu foto\"." : presEff === "ia" ? "La IA crea una persona nueva en la misma pose y encuadre del original (nunca la persona del original)." : "Sale tu personaje, en la misma pose y encuadre del original."} />
                   )}
+                  <label className="block space-y-1">
+                    <span className="text-[12px] text-foreground">¿Algún cambio? <span className="text-muted-foreground">(opcional)</span></span>
+                    <textarea value={tweak} rows={2} maxLength={240} disabled={modeling || posterBusy} onChange={e => setTweak(e.target.value)}
+                      placeholder="Ej.: con camisa blanca de lino en vez de traje · fondo de oficina con luz cálida · sin laptop, con un café en la mano"
+                      aria-label="Cambios para la imagen" className={`${input} resize-none`} />
+                    <span className="block text-[11px] text-muted-foreground">Cambia la ropa, el fondo o lo que tenga en la mano. Lo demás queda como el original.</span>
+                  </label>
                   {pickIsCover ? <p className="text-[12px] text-muted-foreground">Es la portada del original: reemplaza tu portada.</p> : <>
                   <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Dónde ponerla">
                     <button type="button" role="radio" aria-checked={refWhere === "after"} disabled={modeling} onClick={() => setRefWhere("after")}

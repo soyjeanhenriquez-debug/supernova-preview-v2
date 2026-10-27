@@ -11,6 +11,8 @@ vi.mock("@/contexts/ProductContext", () => ({ useProducts: () => ({ activeId: "p
 vi.mock("@/lib/features", () => ({ useFeatureAccess: () => ({ canSee: () => true, isAdmin: true }) }));
 vi.mock("@/hooks/useCredits", () => ({ useCredits: () => ({ balance: 2000, limit: 2000 }) }));
 vi.mock("@/lib/analytics", () => ({ track: vi.fn() }));
+// Las 4 entradas de "Crea tu contenido" se prueban en src/components/create/IntentBox.test.tsx.
+vi.mock("@/components/create/IntentBox", () => ({ IntentBox: () => <div>4 entradas</div> }));
 
 import { TreeHome } from "./TreeHome";
 import { TreePage } from "./TreePage";

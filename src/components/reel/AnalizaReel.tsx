@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { takeReelUrl } from "@/lib/intentHandoff";
 import { toolEvent } from "@/lib/toolEvents";
 import { toast } from "sonner";
 import { AlertTriangle, BookmarkPlus, Captions, Check, ChevronDown, Clapperboard, Copy, History, LayoutTemplate, Loader2, Play, RotateCcw, Search, Sparkles, X } from "lucide-react";
@@ -65,7 +66,8 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
   const { applyServerCharge } = useCredits();
   const routeId = route[0] && UUID.test(route[0]) ? route[0] : null;
 
-  const [url, setUrl] = useState("");
+  // Enlace pegado en "¿Qué quieres crear hoy?" (se borra al leerlo).
+  const [url, setUrl] = useState(takeReelUrl);
   // ESPEJO es el modo por defecto (Jean, 19-oct-2026).
   const [nivel, setNivel] = useState<Nivel>("espejo");
   const [opts, setOpts] = useState({ palabra_clave: "" });

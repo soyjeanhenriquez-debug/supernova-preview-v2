@@ -349,16 +349,19 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
   const reelCode = REEL_LINK_RE.exec(cloneUrl)?.[1] ?? null;
   const cloneCost = !reelCode ? CREDIT_COSTS.clone_carousel : reelDone ? CREDIT_COSTS.reel_carousel : CREDIT_COSTS.reel_analyze;
 
-  // Llegó desde "Analiza un Reel" → "Convertir en carrusel": se abre "Modelar uno que ya funciona" con el Reel puesto.
+  // Llegó desde "Analiza un Reel" → "Convertir en carrusel" (o un enlace pegado en "¿Qué quieres crear hoy?"): se abre
+  // "Modelar uno que ya funciona" con el enlace puesto.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(REEL_TO_CAROUSEL_KEY);
       if (!raw) return;
       localStorage.removeItem(REEL_TO_CAROUSEL_KEY);
       const r = JSON.parse(raw) as { url?: string; at?: number };
-      if (typeof r.url === "string" && REEL_LINK_RE.test(r.url) && Date.now() - (r.at ?? 0) < 15 * 60_000) {
+      // También llega un carrusel (instagram.com/p/…) desde "¿Qué quieres crear hoy?".
+      const post = /instagram\.com\/(?:[A-Za-z0-9._]+\/)?p\/[A-Za-z0-9_-]{5,}/.test(r.url ?? "");
+      if (typeof r.url === "string" && (REEL_LINK_RE.test(r.url) || post) && Date.now() - (r.at ?? 0) < 15 * 60_000) {
         setFmt("clonar"); setCloneUrl(r.url);
-        toast("Tu Reel ya está puesto", { description: "Elige cómo modelarlo y toca Modelar." });
+        toast(post ? "Tu carrusel ya está puesto" : "Tu Reel ya está puesto", { description: "Elige cómo modelarlo y toca Modelar." });
       }
     } catch { /* sin almacenamiento */ }
   }, []);

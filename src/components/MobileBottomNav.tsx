@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { IntentBox } from "@/components/create/IntentBox";
 import { Sun, Search, Plus, Gem, LayoutGrid, Briefcase, Fingerprint, FolderKanban, Coins, KeyRound, LogOut, BadgeDollarSign, GraduationCap, Menu, ChevronRight, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -71,7 +72,8 @@ export function MobileBottomNav({ activePage, onNavigate, onSearch }: Props) {
           {sheet === "crear" && (
             <>
               <SheetTitle className="font-display text-[17px] mb-1">¿Qué quieres crear?</SheetTitle>
-              <p className="text-[12px] text-muted-foreground mb-4">Para tu versión. Elige y entras directo.</p>
+              <div className="mt-3 mb-5"><IntentBox compact onNavigate={onNavigate} onDone={() => setSheet(null)} /></div>
+              <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground mb-2">O ve directo a una herramienta</p>
               <div className="grid grid-cols-2 gap-2.5">
                 {createTools.map(t => {
                   const Icon = t.icon;

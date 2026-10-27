@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { IntentBox } from "@/components/create/IntentBox";
 import { ChevronRight } from "lucide-react";
 import { useSubRoute } from "@/lib/useSubRoute";
 import { useFeatureAccess } from "@/lib/features";
@@ -83,6 +84,13 @@ export function TreePage({ onNavigate }: { onNavigate: (page: string) => void })
           <p className="mt-1 text-[14px] text-muted-foreground">{branch.q}</p>
         </div>
       </header>
+      {/* Crea tu contenido: primero por lo que tienes en la mano; debajo, por tipo (lo de siempre). */}
+      {branch.id === "crear" && (
+        <>
+          <IntentBox onNavigate={onNavigate} compact />
+          <p className="pt-2 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">O elige por tipo</p>
+        </>
+      )}
       <div className="grid gap-3 sm:grid-cols-2">
         {branch.leaves.map(l => {
           const tabs = l.tabs.filter(t => canSee(t.page));

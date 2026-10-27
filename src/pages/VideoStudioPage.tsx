@@ -1,4 +1,5 @@
 import { useCreditsLeft } from "@/hooks/useCreditsLeft";
+import { takeClipPrompt } from "@/lib/intentHandoff";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PieceStrategy } from "@/components/PieceStrategy";
 import { ANGLE_AUTO } from "@/lib/angles";
@@ -93,7 +94,8 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
   const [size, setSize] = useState<VideoSize>("9:16");
   const [seconds, setSeconds] = useState<5 | 10>(5);
   const [audio, setAudio] = useState(true);
-  const [idea, setIdea] = useState("");
+  // Prompt pegado en "¿Qué quieres crear hoy?" → "Tengo un prompt" (se lee una vez; no genera nada).
+  const [idea, setIdea] = useState(() => (initialMode === "clip" ? takeClipPrompt() : ""));
   const [cast, setCast] = useState("");
   const [scenes, setScenes] = useState<Scene[]>(SERIE_TEMPLATES[0].scenes.map(text => ({ text })));
   const [clip, setClip] = useState<Scene | null>(null);

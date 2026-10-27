@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { IntentBox } from "@/components/create/IntentBox";
 import { ChevronRight, Coins, FileText, BookOpen, Orbit, FolderKanban, Lock, PlayCircle, Image as ImageIcon, Video, Search, X, LayoutGrid, List, Sparkles, Send } from "lucide-react";
 import { useCredits } from "@/hooks/useCredits";
 import { useAuth } from "@/contexts/AuthContext";
@@ -351,6 +352,9 @@ export function DashboardPage({ onNavigate }: Props) {
           ) : (
             <TodayOffers onNavigate={onNavigate} />
           )}
+
+          {/* ¿QUÉ QUIERES CREAR HOY? Una frase y te lleva a la herramienta con tu idea (abrir es gratis). */}
+          <IntentBox onNavigate={onNavigate} />
 
           {/* SIGUIENTE PASO: lo que se hace con tu versión (ahí se usan los créditos). */}
           <section aria-labelledby="siguiente-titulo">

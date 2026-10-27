@@ -1187,6 +1187,18 @@ function Referencia({ pl, video }: { pl: Plantilla; video: string | null }) {
         <div className="rounded-xl border border-border p-3"><p className="text-[11px] uppercase tracking-wider text-muted-foreground">Por qué funciona</p>
           <ul className="mt-1 space-y-0.5 text-[12px] text-foreground">{a.mecanismo.map((m, i) => <li key={i}>· {m}</li>)}</ul></div>
       )}
+      {a.transcripcion.length > 0 && (
+        <div className="rounded-xl border border-border p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Guion completo · lo que dice</p>
+            <button type="button" onClick={() => void navigator.clipboard?.writeText(a.transcripcion.map(x => x.texto).join(" ")).then(() => toast.success("Guion copiado"))}
+              className="text-[12px] text-primary hover:underline">Copiar guion</button>
+          </div>
+          <ol className="mt-1 space-y-1 text-[12px]">
+            {a.transcripcion.map((x, i) => <li key={i} className="flex gap-2"><span className="w-10 shrink-0 tabular-nums text-muted-foreground">{x.t0.toFixed(1).replace(".", ",")} s</span><span className="text-foreground">{x.texto}</span></li>)}
+          </ol>
+        </div>
+      )}
       <div className="rounded-xl border border-border p-3"><p className="text-[11px] uppercase tracking-wider text-muted-foreground">Planos</p>
         <ol className="mt-1 space-y-1 text-[12px] text-muted-foreground">
           {a.planos.map((p, i) => <li key={i} className="flex gap-2">{pl.thumbUrls[i] && <img src={pl.thumbUrls[i]} alt="" className="w-8 h-12 rounded object-cover shrink-0" />}<span><span className="text-foreground">{i + 1}. {(p.t1 - p.t0).toFixed(1).replace(".", ",")} s · {FORMAS[p.forma]} · {p.camara}</span> — {p.descripcion}{p.transicion ? ` · entra con ${p.transicion}` : ""}</span></li>)}

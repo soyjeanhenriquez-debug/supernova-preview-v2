@@ -77,7 +77,10 @@ export const SlideView = forwardRef<HTMLDivElement, Props>(function SlideView({ 
   const isCover = slide.kind === "portada";
   const isLast = index === total - 1;
   const brandLabel = design.name || (design.handle ? `@${design.handle}` : "");
-  const big = isCover ? (slide.tag?.match(/\d+/)?.[0] ?? String(total)) : String(index).padStart(2, "0");
+  // Número gigante de fondo = el mismo de la paginación de abajo ("02 / 06" → 02). Antes contaba desde la
+  // lámina 2 (salía 01) y en la portada el total (salía 6): confundía (Jean, 27-oct-2026). En la portada va
+  // el número de su pastilla si trae uno (ej. "7 PASOS"); si no, 01.
+  const big = isCover ? (slide.tag?.match(/\d+/)?.[0] ?? "01") : String(index + 1).padStart(2, "0");
   // Velo sobre la foto de fondo: oscuro si el texto va en blanco (siempre en la lámina CTA).
   const veil = tone === "claro" ? "#f4efe6" : "#0b0b0b";
   const card: CSSProperties = flat

@@ -36,12 +36,12 @@ vi.mock("@/integrations/supabase/client", () => {
     supabase: {
       from: (t: string) => chain(t),
       storage: { from: () => ({ list: async () => ({ data: [] }) }) },
-      rpc: async () => ({ data: [] }),
+      rpc: async (fn: string) => ({ data: fn === "landing_teasers" ? state.teasers : [] }),
     },
   };
 });
 
-const state = { locked: false };
+const state: { locked: boolean; teasers: unknown } = { locked: false, teasers: null };
 const openPlans = vi.fn();
 vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: { id: "u1", email: "hany@example.com", user_metadata: { display_name: "Hany" } } }) }));
 vi.mock("@/contexts/ProductContext", () => ({ useProducts: () => ({ activeId: "p1", active: { name: "Mi reto" } }) }));
@@ -68,7 +68,7 @@ vi.mock("@/components/dashboard/ToolThumb", () => ({ ToolThumb: () => <span /> }
 import { DashboardPage } from "./DashboardPage";
 
 describe("DashboardPage · Inicio «Hoy»", () => {
-  beforeEach(() => { state.locked = false; calls.length = 0; localStorage.clear(); });
+  beforeEach(() => { state.locked = false; state.teasers = null; calls.length = 0; localStorage.clear(); });
 
   it("arriba la frase de Jean y en Hoy 3 ofertas con creativo, días y un solo botón", async () => {
     render(<DashboardPage onNavigate={vi.fn()} />);
@@ -90,6 +90,26 @@ describe("DashboardPage · Inicio «Hoy»", () => {
     expect(q.ops).toContainEqual(["gte", ["days_active", 90]]);
     expect(q.ops).toContainEqual(["eq", ["is_winner", true]]);
     expect(calls.some(c => c.table === "winning_ads")).toBe(false);
+  });
+
+  it("la primera es «Tu oferta ganadora de hoy»: la misma del correo diario", async () => {
+    state.teasers = { deck: [{ name: "Keto Challenge", advertiser: "Página Keto Challenge" }] };
+    render(<DashboardPage onNavigate={vi.fn()} />);
+    const cards = await screen.findAllByTestId("today-offer");
+    expect(cards).toHaveLength(3);
+    expect(within(cards[0]).getByText("Tu oferta ganadora de hoy")).toBeInTheDocument();
+    expect(within(cards[0]).getByRole("heading").textContent).toBe("Keto Challenge");
+    expect(screen.getAllByText("Tu oferta ganadora de hoy")).toHaveLength(1);
+    expect(screen.getByText(/la misma que te llegó por correo/)).toBeInTheDocument();
+    // La busca por nombre y anunciante en offers (nunca en winning_ads).
+    const q = calls.find(c => c.table === "offers" && c.ops.some(([m, a]) => m === "eq" && a[0] === "product_name"))!;
+    expect(q.ops).toContainEqual(["eq", ["page_name", "Página Keto Challenge"]]);
+  });
+
+  it("si no hay oferta del correo, siguen las 3 de siempre sin la etiqueta", async () => {
+    render(<DashboardPage onNavigate={vi.fn()} />);
+    expect(await screen.findAllByTestId("today-offer")).toHaveLength(3);
+    expect(screen.queryByText("Tu oferta ganadora de hoy")).toBeNull();
   });
 
   it("«Hacer mi versión» abre el flujo que ya existe", async () => {

@@ -16,6 +16,9 @@ import { type Offer, MARKET_NAME, flagFor, offerToDemoAd } from "@/lib/offers";
  * Datos: la lista curada de Ofertas (is_winner, ~300 filas de la tabla offers, nunca winning_ads), sin
  * contar filas. Primero las que están en español; cambian cada día rotando dentro de las mejores.
  * No baja ni oculta ninguna oferta: solo elige 3 para mostrar arriba.
+ *
+ * La primera es "Tu oferta ganadora de hoy" (28-oct-2026): la MISMA del correo diario (send-daily-digest
+ * toma deck[0] de landing_teasers), para que lo que llega por correo y lo que se ve al entrar coincidan.
  */
 const TODAY_MIN_DAYS = 90;
 const POOL = 36;
@@ -35,22 +38,39 @@ function pickToday(rows: Offer[], day: number): Offer[] {
 
 interface Props { onNavigate: (page: string) => void; }
 
+/** La oferta del correo de hoy (deck[0] de landing_teasers), buscada en offers para abrir su ficha. */
+async function emailOffer(): Promise<Offer | null> {
+  const { data } = await supabase.rpc("landing_teasers" as never);
+  const first = (data as { deck?: { name?: string; advertiser?: string }[] } | null)?.deck?.[0];
+  if (!first?.name) return null;
+  let q = supabase.from("offers").select("*").eq("product_name", first.name).eq("is_primary", true).is("excluded_reason", null);
+  if (first.advertiser) q = q.eq("page_name", first.advertiser);
+  const { data: rows } = await q.limit(1);
+  return ((rows ?? [])[0] as unknown as Offer) ?? null;
+}
+
 export function TodayOffers({ onNavigate }: Props) {
   const [rows, setRows] = useState<Offer[] | null>(null);
+  const [starId, setStarId] = useState<string | null>(null);
   const [making, setMaking] = useState<Offer | null>(null);
 
   useEffect(() => {
     let alive = true;
-    supabase.from("offers").select("*")
+    const list = supabase.from("offers").select("*")
       .eq("is_winner", true).eq("enrich_failed", false).is("excluded_reason", null)
       .gte("days_active", TODAY_MIN_DAYS)
       .order("winner_index", { ascending: false, nullsFirst: false })
       .order("winner_score", { ascending: false })
       .limit(POOL)
-      .then(({ data }) => {
+      .then(({ data }) => (data ?? []) as unknown as Offer[]);
+    // Si la del correo falla, el Inicio sigue con sus 3 de siempre.
+    Promise.all([list, emailOffer().catch(() => null)])
+      .then(([data, star]) => {
         if (!alive) return;
         const day = Math.floor(Date.now() / 86_400_000);
-        setRows(pickToday((data ?? []) as unknown as Offer[], day));
+        const picked = pickToday(data, day);
+        setStarId(star?.id ?? null);
+        setRows(star ? [star, ...picked.filter(o => o.id !== star.id)].slice(0, 3) : picked);
       }, () => { if (alive) setRows([]); });
     return () => { alive = false; };
   }, []);
@@ -70,7 +90,9 @@ export function TodayOffers({ onNavigate }: Props) {
       <div className="flex items-baseline justify-between gap-3 mb-3">
         <div className="min-w-0">
           <h2 id="hoy-titulo" className="font-display font-semibold text-[18px] text-foreground">Hoy</h2>
-          <p className="text-[12.5px] text-muted-foreground">3 negocios digitales que llevan más de {TODAY_MIN_DAYS} días pagando anuncios. Cambian cada día.</p>
+          <p className="text-[12.5px] text-muted-foreground">
+            {starId ? "La primera es tu oferta ganadora de hoy, la misma que te llegó por correo. Cambian cada día." : `3 negocios digitales que llevan más de ${TODAY_MIN_DAYS} días pagando anuncios. Cambian cada día.`}
+          </p>
         </div>
         <button onClick={() => onNavigate("Ofertas")} className="shrink-0 text-[12px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5">
           Ver más <ChevronRight className="w-3.5 h-3.5" />
@@ -89,7 +111,7 @@ export function TodayOffers({ onNavigate }: Props) {
         <div className="-mx-4 px-4 md:mx-0 md:px-0 flex md:grid md:grid-cols-3 gap-3 overflow-x-auto md:overflow-visible snap-x snap-mandatory [scrollbar-width:none]">
           {rows === null
             ? [0, 1, 2].map(i => <div key={i} className="shrink-0 w-[78%] sm:w-[46%] md:w-auto snap-start rounded-2xl border border-border bg-card/30 h-[380px] animate-pulse" />)
-            : rows.map(o => <TodayCard key={o.id} o={o} onOpen={() => openOffer(o)} onMake={() => make(o)} />)}
+            : rows.map(o => <TodayCard key={o.id} o={o} star={o.id === starId} onOpen={() => openOffer(o)} onMake={() => make(o)} />)}
         </div>
       )}
 
@@ -98,12 +120,13 @@ export function TodayOffers({ onNavigate }: Props) {
   );
 }
 
-function TodayCard({ o, onOpen, onMake }: { o: Offer; onOpen: () => void; onMake: () => void }) {
+function TodayCard({ o, star, onOpen, onMake }: { o: Offer; star?: boolean; onOpen: () => void; onMake: () => void }) {
   const name = o.product_name || o.sample_title || o.page_name || "Oferta";
   // "de-DE" agrupa también 4 cifras (1.060), como pide el manual; "es" deja "1060".
   const days = o.days_active.toLocaleString("de-DE");
   return (
-    <article data-testid="today-offer" className="shrink-0 w-[78%] sm:w-[46%] md:w-auto snap-start rounded-2xl border border-border bg-card/40 overflow-hidden flex flex-col">
+    <article data-testid="today-offer" className={`shrink-0 w-[78%] sm:w-[46%] md:w-auto snap-start rounded-2xl border ${star ? "border-primary/50" : "border-border"} bg-card/40 overflow-hidden flex flex-col`}>
+      {star && <p className="px-3.5 py-2 text-[11px] font-semibold tracking-[0.06em] uppercase text-primary border-b border-primary/30">Tu oferta ganadora de hoy</p>}
       <button onClick={onOpen} aria-label={`Ver la oferta ${name}`} className="relative block aspect-[4/5] bg-secondary/40 overflow-hidden text-left">
         <AdMediaPreview fill fit="cover" adUrl={o.sample_ad_url ?? undefined} pageId={o.page_id} pageName={o.page_name ?? name} title={name} />
         <span className="absolute top-2.5 left-2.5 pointer-events-none inline-flex items-center gap-1 rounded-full px-2.5 py-1 bg-background/85 backdrop-blur border border-border text-[11px] font-semibold text-foreground tabular-nums">

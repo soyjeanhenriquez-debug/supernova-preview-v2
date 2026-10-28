@@ -51,8 +51,10 @@ const N: Record<string, string> = {
 };
 
 /**
- * "El negocio de hoy": UNA oferta ganadora (digital, curada, la primera del día de landing_teasers) y
- * un solo paso: clonarla en Mi negocio. Voz de Jean, sin rachas (se quitaron el 23-sep) ni promesas.
+ * "Tu oferta ganadora de hoy": UNA oferta ganadora (digital, curada, la primera del día de landing_teasers)
+ * y un solo paso: modelarla con tus agentes. Es la "oferta ganadora cada día" que promete el reto
+ * El Código Black Friday (28-oct). Voz de Jean, sin rachas (se quitaron el 23-sep) ni promesas.
+ * days = días desde su primer anuncio (no días seguidos): por eso se dice así.
  */
 // deno-lint-ignore no-explicit-any
 function digestHtml(name: string, o: any, unsubToken: string): string {
@@ -61,19 +63,19 @@ function digestHtml(name: string, o: any, unsubToken: string): string {
   return `<!doctype html><html><body style="margin:0;background:#ffffff">
   <div style="max-width:560px;margin:0 auto;padding:28px 22px;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#1c1917;font-size:16px;line-height:1.6">
     ${p(`Hola${name ? ` ${esc(name)}` : ""}.`)}
-    ${p(`Hoy te traigo uno de ${esc(nicho)} que lleva <b>${esc(o.days)} días pagando anuncios</b>${o.ads > 1 ? ` y tiene <b>${esc(o.ads)} anuncios corriendo a la vez</b>` : ""}.`)}
+    ${p(`Esta es tu oferta ganadora de hoy, de ${esc(nicho)}. Su primer anuncio salió hace <b>${esc(o.days)} días</b>${o.ads > 1 ? ` y tiene <b>${esc(o.ads)} anuncios activos a la vez</b>` : ""}.`)}
     <div style="border:1px solid #e7e5e4;border-radius:12px;padding:16px 18px;margin:0 0 16px;background:#fafaf9">
       <p style="font-size:16px;font-weight:600;margin:0 0 6px;color:#1c1917">${esc(o.name)}</p>
       <p style="font-size:14px;color:#44403c;margin:0">${esc(o.why)}</p>
     </div>
-    ${o.ads > 1 ? p("Fíjate en ese número. Quien pone varios anuncios del mismo producto no está probando. Está escalando. Y nadie escala algo que le hace perder dinero.") : p("Un anuncio que aguanta tantos días arriba no es suerte. Es un producto que se vende.")}
+    ${o.ads > 1 ? p("Fíjate en ese número. Quien pone varios anuncios del mismo producto no está probando. Está escalando. Y nadie escala algo que le hace perder dinero.") : p("Nadie paga anuncios tanto tiempo por algo que no vende.")}
     ${p("La pregunta no es si funciona. Eso ya lo sabemos.")}
-    ${p("La pregunta es si tú lo harías tuyo.")}
-    ${p("En <b>Mi negocio</b> lo clonas en 3 toques: mismo producto, misma estructura, tu idioma y el precio en tu moneda. Gratis.")}
-    <p style="margin:22px 0"><a href="${APP_URL}/app?utm_source=digest&utm_medium=email" style="display:inline-block;background:#1c1917;color:#ffffff;text-decoration:none;font-weight:600;padding:13px 22px;border-radius:10px">Ver el negocio de hoy</a></p>
+    ${p("La pregunta es si tú la harías tuya.")}
+    ${p("Tus agentes ya están instalados. Abre la oferta en la app y te hacen tu versión: misma estructura, tu idioma y el precio en tu moneda. Y el agente de ventas te escribe los mensajes para venderla.")}
+    <p style="margin:22px 0"><a href="${APP_URL}/app?utm_source=digest&utm_medium=email" style="display:inline-block;background:#1c1917;color:#ffffff;text-decoration:none;font-weight:600;padding:13px 22px;border-radius:10px">Ver la oferta de hoy</a></p>
     ${p("Jean")}
-    <p style="margin:18px 0 0;color:#44403c;font-size:15px"><b>P.D.</b> ¿Te da pena grabarte? En <b>Vende sin mostrar tu cara</b> un personaje creado con IA da la cara por ti. Tú solo publicas.</p>
-    <p style="font-size:12px;color:#a8a29e;margin:28px 0 0">Te llega un negocio así cada mañana. <a href="${APP_URL}/unsub?t=${encodeURIComponent(unsubToken)}" style="color:#a8a29e">Dejar de recibir estos correos</a></p>
+    <p style="margin:18px 0 0;color:#44403c;font-size:15px"><b>P.D.</b> ¿Te da pena grabarte? Un personaje creado con IA puede dar la cara por ti. Tú solo publicas.</p>
+    <p style="font-size:12px;color:#a8a29e;margin:28px 0 0">Te llega una oferta ganadora así cada mañana. <a href="${APP_URL}/unsub?t=${encodeURIComponent(unsubToken)}" style="color:#a8a29e">Dejar de recibir estos correos</a></p>
   </div></body></html>`;
 }
 
@@ -121,7 +123,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           from: FROM,
           to: r.email,
-          subject: `${winner.days} días vendiendo. ¿Lo harías tuyo?`,
+          subject: "Tu oferta ganadora de hoy",
           html: digestHtml(name, winner, r.unsub_token),
           text: htmlToText(digestHtml(name, winner, r.unsub_token)),
         }),

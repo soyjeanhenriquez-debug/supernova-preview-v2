@@ -38,6 +38,7 @@ export function AnuncioAnimado({ onHome }: { onHome: () => void }) {
   const [msgs, setMsgs] = useState<Msg[]>(g0.msgs ?? []);
   const [cambio, setCambio] = useState("");
   const [busy, setBusy] = useState<AnuncioStep | null>(null);
+  const busyRef = useRef(false); // candado real: «Hazlo todo tú» encadena pasos con el estado de React viejo
   const finRef = useRef<HTMLDivElement>(null);
 
   // La app no pregunta lo que ya sabe: si hay producto activo y la caja está vacía, se usa.
@@ -51,12 +52,14 @@ export function AnuncioAnimado({ onHome }: { onHome: () => void }) {
   const hecho = (s: AnuncioStep) => msgs.some(m => m.role === "assistant" && m.step === s && m.content);
   const estiloNombre = ANUNCIO_ESTILOS.find(e => e.id === estilo)?.nombre ?? "Fábula";
 
-  const run = async (step: AnuncioStep, texto: string) => {
-    if (busy) return;
-    if (!producto.trim()) { toast.error("Escribe qué vendes en una frase."); return; }
-    const next: Msg[] = [...msgs, { role: "user", content: texto, step }];
+  // Devuelve true si el paso terminó bien (para encadenar «Hazlo todo tú»). `base` = historial del que parte.
+  const run = async (step: AnuncioStep, texto: string, base: Msg[] = msgs): Promise<Msg[] | null> => {
+    if (busyRef.current) return null;
+    if (!producto.trim()) { toast.error("Escribe qué vendes en una frase."); return null; }
+    const next: Msg[] = [...base, { role: "user", content: texto, step }];
     setMsgs(next);
     setBusy(step);
+    busyRef.current = true;
     setTimeout(() => finRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), 50);
     try {
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
@@ -73,13 +76,13 @@ export function AnuncioAnimado({ onHome }: { onHome: () => void }) {
       if (!res.ok || !res.body) {
         toast.error(await fnErrorMessage(res, "El agente no respondió. No se te cobró: intenta de nuevo."));
         setMsgs(m => m.slice(0, -1));
-        return;
+        return null;
       }
       const billing = readBilling(res);
       setMsgs(m => [...m, { role: "assistant", content: "", step }]);
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let buf = "";
+      let buf = "", out = "";
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -92,6 +95,7 @@ export function AnuncioAnimado({ onHome }: { onHome: () => void }) {
           if (data === "[DONE]") continue;
           try {
             const delta = JSON.parse(data).choices?.[0]?.delta?.content;
+            if (delta) out += delta;
             if (delta) setMsgs(m => {
               const copy = [...m];
               copy[copy.length - 1] = { ...copy[copy.length - 1], content: copy[copy.length - 1].content + delta };
@@ -101,12 +105,25 @@ export function AnuncioAnimado({ onHome }: { onHome: () => void }) {
         }
       }
       applyServerCharge(ANUNCIO_COST[step].action, billing, "Anuncio animado");
+      return out.trim() ? [...next, { role: "assistant", content: out, step }] : null;
     } catch (e) {
       console.error(e);
       toast.error("Se cortó la conexión. Revisa tu internet e inténtalo de nuevo.");
+      return null;
     } finally {
+      busyRef.current = false;
       setBusy(null);
     }
+  };
+
+  // «Hazlo todo tú»: un toque y el agente elige lo mejor (el ángulo que recomienda) y entrega todo.
+  const todo = async () => {
+    if (busyRef.current) return;
+    const h1 = await run("base", `Arma el cliente, los datos y 3 ángulos para mi anuncio en estilo «${estiloNombre}».`, []);
+    if (!h1) return;
+    const h2 = await run("anuncio", "Usa el ángulo que recomendaste. Arma el guion y el storyboard.", h1);
+    if (!h2) return;
+    await run("prompts", "Dame las instrucciones de imagen del storyboard.", h2);
   };
 
   const copiar = async (t: string) => {
@@ -173,6 +190,10 @@ export function AnuncioAnimado({ onHome }: { onHome: () => void }) {
             onClick={() => void run("base", `Arma el cliente, los datos y 3 ángulos para mi anuncio en estilo «${estiloNombre}».`)}>
             {busy === "base" && <Loader2 className="w-4 h-4 animate-spin" />}
             {hecho("base") ? "Rehacer cliente y ángulos" : "Empezar"} · {ANUNCIO_COST.base.cost} créditos
+          </button>
+          <button type="button" disabled={!!busy} className={btn2} onClick={() => void todo()}
+            title="El agente elige el mejor ángulo y te entrega guion, storyboard e instrucciones de imagen">
+            Hazlo todo tú · {ANUNCIO_COST.base.cost + ANUNCIO_COST.anuncio.cost + ANUNCIO_COST.prompts.cost} créditos
           </button>
           {msgs.length > 0 && <button type="button" onClick={empezar} disabled={!!busy} className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground"><RotateCcw className="w-3.5 h-3.5" />Empezar de cero</button>}
         </div>

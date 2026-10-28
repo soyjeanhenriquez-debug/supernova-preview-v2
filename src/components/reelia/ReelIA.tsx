@@ -23,12 +23,13 @@ import { ToolShell } from "@/components/tool/ToolShell";
 import { ReelDinamico, type RDPlano, type RDProps, type RDTramo } from "@/remotion/ReelDinamico";
 import {
   FORMAS, GENERATOR_ID, HABLA_USD_SEG, MODO_NOMBRE, PALETAS, palabraDelGuion, PRICE_PLAN, SYSTEM, VELOCIDADES, audioTramo, costo, huella, paleta, pantallas,
-  parseReel, pedidoIA, SYSTEM_ESPEJO, pedidoEspejo, parseEspejo, espejoReel, resumen, seVe, textoPublicacion, tiempos, tramos, type Analisis, type ModoReel, type Oferta, type Plano, type Reel,
+  parseReel, pedidoIA, SYSTEM_ESPEJO, pedidoEspejo, parseEspejo, espejoReel, resumen, seVe, textoPublicacion, conTusImagenes, refDeLook, huecoDe, tiempos, tramos, type Analisis, type ModoReel, type Oferta, type Plano, type Reel,
 } from "@/lib/reelDinamico";
 import { Inicio, type Origen } from "./Inicio";
 import { ajustesDe as ajustesPublicar, casillasDelDia, etiquetaCasilla, siguienteLibre } from "@/lib/publicar";
 import { Storyboard, type Medio } from "./Storyboard";
 import { ReelsEnCurso } from "./ReelsEnCurso";
+import { TusImagenes, type Propia } from "./TusImagenes";
 import { GrabarConGuion } from "@/components/reel/GrabarConGuion";
 import { dejarToma } from "@/lib/grabacion";
 import { BIBLIO, useStudioDatos, type Borrador, type Identidad, type Plantilla } from "./useStudioDatos";
@@ -58,7 +59,7 @@ const MODO_LINEA: Record<ModoReel, string> = {
 
 type Estado = "pendiente" | "trabajando" | "listo" | "falló";
 type Voz = { id: string; nombre: string; muestra: string | null; propia: boolean; clonada: boolean };
-type Asset = { estado: Estado; idx: number; job?: string | null; path?: string; vertical?: boolean; motivo?: string };
+type Asset = { estado: Estado; idx: number; job?: string | null; path?: string; bucket?: string; vertical?: boolean; motivo?: string };
 /** Por qué falló, en palabras de la persona (Guardián del Creador: antes solo decía «Esto falló»). */
 const motivoDe = (e: unknown) => (e instanceof Error && e.message ? e.message.slice(0, 160) : undefined);
 type Msg = { de: "tu" | "ia"; texto: string };
@@ -85,7 +86,10 @@ type Proyecto = {
   validado: { ok: boolean; detalle: string } | null;
   /** Última vez que se tocó (ordena "Tus reels en curso"). */
   actualizado?: number;
+  /** Tus imágenes por plano de la referencia (índice → lo que subiste): no se crean con IA. */
+  propias?: Record<string, PropiaGuardada>;
 };
+type PropiaGuardada = Omit<Propia, "url">;
 const ajustesDe = (i: Identidad): Ajustes => ({ paleta: i.paleta, ropa: i.ropa, palabra: i.palabra, velocidad: i.velocidad, sfx: i.sfx, voice_id: i.voice_id, foto: 0 });
 const nuevo = (i: Identidad, origen: Origen | null = null): Proyecto => ({
   id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`, origen, paso: 0, idea: "", modo: "inspiracion", plantillaId: null, borradorId: null,
@@ -267,6 +271,16 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
   const plantilla: Plantilla | null = useMemo(() => datos.plantillas?.find(p => p.id === meta.plantillaId) ?? null, [datos.plantillas, meta.plantillaId]);
   const foto: StudioRef | null = idn.fotos[aj.foto] ?? idn.fotos[0] ?? null;
   const clipDe = useCallback((id: string) => clips.find(c => c.id === id)?.item ?? null, [clips]);
+  // Tus imágenes por plano: la de apoyo vive en tu biblioteca (entra como clip); tu foto, en tus personajes (tu look).
+  const clipDeRef = (ps: Record<string, PropiaGuardada> = {}) => (ref: number) => {
+    const pr = ps[String(ref)];
+    return pr?.tipo === "imagen" ? clips.find(c => c.item.path === pr.path)?.id ?? null : null;
+  };
+  const fotoDeLook = useCallback((k: number): PropiaGuardada | null => {
+    const ps = meta.propias ?? {};
+    const ref = meta.reel ? refDeLook(meta.reel, k, x => ps[String(x)]?.tipo === "tu") : -1;
+    return ref >= 0 ? ps[String(ref)] : null;
+  }, [meta.reel, meta.propias]);
   const irPaso = (n: number) => commit({ paso: n });
 
   // ---------- Inicio ----------
@@ -370,6 +384,59 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
     if (error) toast.error("No se pudo borrar."); else await datos.cargarBiblio();
   };
 
+  // ---------- Tus imágenes por plano (subidas, sin IA) ----------
+  const [subiendoPlano, setSubiendoPlano] = useState<number | null>(null);
+  const [urlsPropias, setUrlsPropias] = useState<Record<string, string>>({});
+  const conPropias = (ps: Record<string, PropiaGuardada>) => commit({ propias: ps });
+  // Si el reel ya está preparado, tus imágenes de apoyo entran en sus planos (cuando tu biblioteca ya las tiene).
+  useEffect(() => {
+    const m = metaRef.current;
+    if (!m.reel || !m.propias) return;
+    const reel = conTusImagenes(m.reel, clipDeRef(m.propias));
+    if (reel !== m.reel) commit({ reel, validado: null });
+  }, [clips, meta.propias]); // eslint-disable-line react-hooks/exhaustive-deps
+  const subirPropia = async (i: number, file: File) => {
+    const rp = plantilla?.analisis.planos[i];
+    if (!uid || !rp || busy || subiendoPlano !== null) return;
+    if (!file.type.startsWith("image/")) { toast.error("Sube una imagen (JPG, PNG o WEBP)."); return; }
+    if (file.size > 15 * 1024 * 1024) { toast.error("La imagen pesa más de 15 MB."); return; }
+    setSubiendoPlano(i);
+    try {
+      let pr: PropiaGuardada;
+      if (huecoDe(rp.forma) === "tu") {
+        const ref = await uploadStudioImage(uid, "reel-ia", file, `plano-${i + 1}`);
+        if ("stock" in ref) throw new Error("No se pudo subir tu foto.");
+        pr = { tipo: "tu", bucket: ref.bucket, path: ref.path };
+        setUrlsPropias(u => ({ ...u, [ref.path]: ref.url }));
+      } else {
+        const path = `${uid}/app/${Date.now()}-plano-${i + 1}.${(file.type.split("/")[1] || "jpg").replace("jpeg", "jpg").slice(0, 4)}`;
+        const up = await supabase.storage.from(BIBLIO).upload(path, file, { contentType: file.type, upsert: false });
+        if (up.error) throw new Error("No se pudo guardar la imagen. Intenta de nuevo.");
+        // Va a tu biblioteca con lo que muestra: así la IA también sabe usarla.
+        await datos.guardarIdentidad({ clips_desc: { ...idn.clips_desc, [path]: rp.descripcion.slice(0, 200) } });
+        await datos.cargarBiblio();
+        pr = { tipo: "imagen", bucket: BIBLIO, path };
+      }
+      conPropias({ ...(metaRef.current.propias ?? {}), [String(i)]: pr });
+      toast.success(`Plano ${i + 1}: se usa tu imagen.`);
+    } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo subir la imagen."); }
+    finally { setSubiendoPlano(null); }
+  };
+  const quitarPropia = (i: number) => {
+    const ps = { ...(metaRef.current.propias ?? {}) };
+    delete ps[String(i)];
+    conPropias(ps);
+  };
+  // Las miniaturas de tus fotos (enlaces firmados que vencen: se piden al abrir).
+  useEffect(() => {
+    const faltan = Object.values(meta.propias ?? {}).filter(p => p.tipo === "tu" && !urlsPropias[p.path]);
+    if (!faltan.length) return;
+    void Promise.all(faltan.map(async p => [p.path, (await supabase.storage.from(p.bucket).createSignedUrl(p.path, 3600)).data?.signedUrl ?? ""] as const))
+      .then(xs => setUrlsPropias(u => ({ ...u, ...Object.fromEntries(xs) })));
+  }, [meta.propias]); // eslint-disable-line react-hooks/exhaustive-deps
+  const propiasVista: Record<string, Propia> = Object.fromEntries(Object.entries(meta.propias ?? {}).map(([k, p]) =>
+    [k, { ...p, url: p.tipo === "tu" ? urlsPropias[p.path] ?? "" : clips.find(c => c.item.path === p.path)?.item.url ?? "" }]));
+
   // ---------- 1 · Tu idea: reel de referencia ----------
   // solo = guardar la plantilla desde el inicio sin tocar el reel abierto (Guardián del Creador, 25-oct-2026: antes había
   // que empezar un reel nuevo y se borraba lo ya producido de este navegador).
@@ -449,7 +516,8 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
         const { text: t2, billing: b2 } = await streamGenerator(GENERATOR_ID, "Reel Studio", SYSTEM_ESPEJO, pedidoEspejo(plantilla.analisis, opc));
         applyServerCharge("gen_light", b2, "Reel Studio");
         if (!/"frases"\s*:/.test(t2)) throw new Error("La IA no devolvió tu espejo. Toca Preparar otra vez.");
-        const espejo = espejoReel(plantilla.analisis, parseEspejo(t2, plantilla.analisis), opc);
+        const e0 = espejoReel(plantilla.analisis, parseEspejo(t2, plantilla.analisis), opc);
+        const espejo = e0 && conTusImagenes(e0, clipDeRef(m.propias));
         if (!espejo) throw new Error("No se pudo armar el espejo de este reel. Prueba con Recrear.");
         commit(x => ({
           reel: espejo, paso: 1, validado: null,
@@ -468,7 +536,8 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
         temaDeLaReferencia: m.origen === "referencia" && (!opts.cambio || !m.borradorId), cambiarGancho: !!m.cambiarGancho,
       }));
       applyServerCharge("gen_light", billing, "Reel Studio");
-      const reel = parseReel(text, clips, opts.literal ? msg : undefined, plantilla?.analisis.planos.length ?? 0);
+      const r0 = parseReel(text, clips, opts.literal ? msg : undefined, plantilla?.analisis.planos.length ?? 0);
+      const reel = r0 && conTusImagenes(r0, clipDeRef(m.propias));
       if (!reel) throw new Error("La IA no devolvió un reel que sirva. Pídelo de nuevo con otras palabras.");
       const cambioGuion = opts.cambio && m.reel && m.reel.guion !== reel.guion;
       commit(x => ({
@@ -503,7 +572,11 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
 
   // ---------- Claves de lo que se produce (por huella) ----------
   const vozKey = r ? `voz:${huella(`${r.guion}|${aj.velocidad}|${aj.voice_id}`)}` : "";
-  const lookKey = useCallback((k: number) => (r && foto && !("stock" in foto) ? `look:${huella(`${r.looks[k]?.escena}|${aj.ropa}|${foto.path}`)}` : ""), [r, aj.ropa, foto]);
+  const lookKey = useCallback((k: number) => {
+    const pr = fotoDeLook(k);
+    if (pr) return `look:propia:${huella(pr.path)}`;
+    return r && foto && !("stock" in foto) ? `look:${huella(`${r.looks[k]?.escena}|${aj.ropa}|${foto.path}`)}` : "";
+  }, [r, aj.ropa, foto, fotoDeLook]);
   const t = useMemo(() => (r && meta.voz?.key === vozKey ? tiempos(r.planos, meta.voz.words, meta.voz.seconds) : null), [r, meta.voz, vozKey]);
   const trs = useMemo(() => (r && t ? tramos(r.planos, t) : []), [r, t]);
   const total = meta.voz?.seconds ?? 0;
@@ -544,7 +617,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
     const m0 = metaRef.current;
     const reel = m0.reel;
     if (busy || !reel) return;
-    if (reel.planos.some(p => seVe(p.forma)) && !foto) { toast.error("Falta tu foto: súbela en Tus recursos para crear tus looks."); commit({ auto: false, paso: 1 }); return; }
+    if (reel.planos.some(p => seVe(p.forma) && !fotoDeLook(p.look)) && !foto) { toast.error("Falta tu foto: súbela en Tus recursos para crear tus looks."); commit({ auto: false, paso: 1 }); return; }
     setBusy("producir");
     try {
       // 1) Tu voz (ElevenLabs) con los tiempos de cada palabra.
@@ -566,6 +639,15 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
       for (const k of looks) {
         const key = lookKey(k);
         if (!key || metaRef.current.assets[key]?.estado === "listo") continue;
+        const propia = fotoDeLook(k);
+        if (propia) {
+          // Tu foto subida es el look tal cual: no se crea con IA (solo se le animará la boca).
+          setPaso(`Tu foto ${k + 1}…`);
+          const { data: s } = await supabase.storage.from(propia.bucket).createSignedUrl(propia.path, 600);
+          if (!s?.signedUrl) { setAsset(key, { estado: "falló", motivo: "No se encontró tu foto. Súbela otra vez en Tus imágenes." }); continue; }
+          await guardarMedia(key, await (await fetch(s.signedUrl)).blob(), { path: propia.path, bucket: propia.bucket });
+          continue;
+        }
         setPaso(`Tu look ${k + 1}…`);
         setAsset(key, { estado: "trabajando" });
         const ropa = m0.ajustes.ropa.trim().slice(0, 80);
@@ -652,7 +734,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
           setPaso(`Tú hablando (${k + 1} de ${lista.length})…`);
           try {
             const { b64, seconds } = await sliceWavBase64(vozBlob, a.desde, Math.min(a.hasta, a.desde + 12));
-            const respP = await post("reel-ia", { action: "presenter", image: { bucket: "estudio-avatar", path: look.path }, audio: b64, seconds });
+            const respP = await post("reel-ia", { action: "presenter", image: { bucket: look.bucket ?? "estudio-avatar", path: look.path }, audio: b64, seconds });
             const data = await respP.json();
             saldo(respP, data);
             setAsset(key, { estado: "trabajando", job: data.request_id });
@@ -816,7 +898,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
   const field = "w-full rounded-lg border border-border bg-background px-3 text-base sm:text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary/60 focus:outline-none";
   const chip = (on: boolean) => `h-9 px-3 rounded-full border text-[12px] ${on ? "border-foreground/40 text-foreground bg-card" : "border-border text-muted-foreground hover:text-foreground"}`;
   const primario = "flex w-full min-h-[48px] items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50";
-  const c = r ? costo(r, t) : null;
+  const c = r ? costo(r, t, new Set(lookIds.filter(k => fotoDeLook(k)))) : null;
   const usdVoz = r ? r.guion.length * 0.00022 : 0; // costo real aprox. de ElevenLabs (solo se le muestra a Jean)
 
   const player = plan ? (
@@ -993,7 +1075,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
   // Estudio: 4 pasos.
   const pasoN = meta.paso;
   const titulos: Record<Origen, string> = { referencia: "Recrear un reel", idea: "Crear desde una idea", guion: "Tengo mi guion" };
-  const necesitaFoto = !!r?.planos.some(p => seVe(p.forma));
+  const necesitaFoto = !!r?.planos.some(p => seVe(p.forma) && !fotoDeLook(p.look));
   const faltan: { que: string; por: string; accion: ReactNode }[] = [];
   if (r && necesitaFoto && !foto) faltan.push({ que: "Tu foto", por: "Con ella creamos tus looks y tus tomas hablando.", accion: <button type="button" onClick={() => fotoRef.current?.click()} className={chip(false)}>Subir foto</button> });
   if (cfg && !cfg.eleven) faltan.push({ que: "Tu voz", por: jean ? "Falta conectar ElevenLabs en Supabase (ELEVENLABS_API_KEY y ELEVENLABS_VOICE_ID)." : "La voz no está disponible en este momento. Inténtalo más tarde.", accion: null });
@@ -1103,6 +1185,10 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
             {grabar && <GrabarConGuion guion={meta.idea} onUsar={llevarASubtitulos} onClose={() => setGrabar(false)} />}
             {r && <button type="button" onClick={() => irPaso(1)} className="text-[12px] text-primary">Seguir con el reel que ya preparé →</button>}
           </Card>
+        )}
+        {meta.origen === "referencia" && plantilla && (
+          <TusImagenes planos={plantilla.analisis.planos} thumbs={plantilla.thumbUrls} propias={propiasVista} ocupado={subiendoPlano}
+            disabled={!!busy || subiendoPlano !== null} onSubir={(i, f) => void subirPropia(i, f)} onQuitar={quitarPropia} />
         )}
       </>
     );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_ANIMADAS, audioTramo, cleanAnalisis, costo, descDeNombre, huella, idsDeBiblioteca, intercambiar, moverCorte, pantallas, parseReel, pedidoIA, quitarPlano, tiempos, tramos, type Plano, creditosToma, creditosVoz } from "@/lib/reelDinamico";
+import { MAX_ANIMADAS, audioTramo, cleanAnalisis, costo, descDeNombre, huella, idsDeBiblioteca, intercambiar, moverCorte, pantallas, parseReel, pedidoIA, quitarPlano, tiempos, tramos, type Plano, creditosToma, creditosVoz, conTusImagenes, fichaHueco, huecoDe, refDeLook, type Reel, type RefPlano } from "@/lib/reelDinamico";
 
 const clips = [{ id: "ofertas-ganadoras-numeros.mp4", desc: "ofertas ganadoras" }, { id: "calculadora.mp4", desc: "calculadora de precio" }];
 const P = (texto: string, forma: Plano["forma"], extra: Partial<Plano> = {}) => ({ texto, forma, look: 0, clip: "", visual: "", animar: false, enfasis: "", ref: -1, ...extra });
@@ -133,5 +133,41 @@ describe("palabra del cierre", () => {
     expect(palabraDelGuion("…sin grabarte. Comenta VENDER y te mando el enlace.")).toBe("VENDER");
     expect(palabraDelGuion("Comenta «supernova» y te lo mando")).toBe("SUPERNOVA");
     expect(palabraDelGuion("Sin llamada.")).toBe("");
+  });
+});
+
+describe("tus imágenes por plano", () => {
+  const reel = (planos: Plano[]): Reel => ({ titulo: "X", guion: "a b c", palabra: "INFO", looks: [{ escena: "office" }, { escena: "street" }], planos });
+  const rp = (forma: Plano["forma"]): RefPlano => ({ t0: 1, t1: 3.5, forma, camara: "plano medio", descripcion: "una oficina", protagonista: forma !== "broll", texto_pantalla: "", transicion: "corte" });
+
+  it("huecoDe y fichaHueco: tu foto donde hablas, imagen de apoyo en lo demás, en formato vertical", () => {
+    expect(huecoDe("tu")).toBe("tu");
+    expect(huecoDe("dividida")).toBe("tu");
+    expect(huecoDe("broll")).toBe("imagen");
+    expect(huecoDe("app")).toBe("imagen");
+    const f = fichaHueco(rp("tu"), 3);
+    expect(f).toMatchObject({ plano: 4, momento: "1,0 s a 3,5 s", escena: "una oficina", formato: "vertical 9:16 (1080 × 1920)" });
+    expect(f.requisitos.join(" ")).toMatch(/boca/);
+    expect(fichaHueco(rp("broll"), 0).tipo).toBe("imagen de apoyo");
+  });
+
+  it("refDeLook: el look usa tu foto si uno de sus planos reemplaza un plano con foto subida", () => {
+    const r = reel([P("a", "tu", { ref: 0 }), P("b", "broll", { visual: "x", ref: 1 }), P("c", "tu", { look: 1, ref: 2 })]);
+    expect(refDeLook(r, 0, x => x === 0)).toBe(0);
+    expect(refDeLook(r, 1, x => x === 0)).toBe(-1);
+    expect(refDeLook(r, 0, x => x === 1)).toBe(-1); // el plano 1 es B-roll: no es un look
+  });
+
+  it("conTusImagenes: la imagen subida reemplaza la de IA (sin animar) y no toca los planos donde solo hablas", () => {
+    const r = reel([P("a", "tu", { ref: 0 }), P("b", "broll", { visual: "x", animar: true, ref: 1 }), P("c", "dividida", { visual: "y", ref: 2 }), P("d", "broll", { visual: "z", ref: -1 })]);
+    const out = conTusImagenes(r, ref => (ref === 0 || ref === 1 || ref === 2 ? `mia-${ref}.jpg` : null));
+    expect(out.planos[0]).toMatchObject({ forma: "tu", clip: "" });
+    expect(out.planos[1]).toMatchObject({ clip: "mia-1.jpg", visual: "", animar: false });
+    expect(out.planos[2]).toMatchObject({ clip: "mia-2.jpg", visual: "" });
+    expect(out.planos[3]).toMatchObject({ visual: "z", clip: "" });
+    expect(conTusImagenes(r, () => null)).toBe(r);
+    // Ya no cuesta: ni imagen ni animación para esos planos; un look con tu foto tampoco.
+    expect(costo(out, null).imagenes).toBe(1);
+    expect(costo(r, null, new Set([0])).looks).toBe(0);
   });
 });

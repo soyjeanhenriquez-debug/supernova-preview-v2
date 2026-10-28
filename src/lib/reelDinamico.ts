@@ -14,7 +14,7 @@ export {
   idsDeBiblioteca, palabraDelGuion, paleta, parseReel, pedidoIA, refCompacta, SYSTEM_ESPEJO, pedidoEspejo, parseEspejo, espejoReel,
 } from "../../supabase/functions/_shared/reelPlan";
 export type { Analisis, ClipInfo, Forma, Look, ModoReel, Oferta, Pedido, Plano, Reel, RefPlano } from "../../supabase/functions/_shared/reelPlan";
-import type { Forma, Plano, Reel } from "../../supabase/functions/_shared/reelPlan";
+import type { Forma, Plano, Reel, RefPlano } from "../../supabase/functions/_shared/reelPlan";
 
 export const GENERATOR_ID = "reel-ia-escenas";
 export const PRICE_PLAN = 15;
@@ -91,10 +91,11 @@ export function tramos(planos: Pick<Plano, "forma" | "look">[], t: Tiempo[]): Tr
 export const audioTramo = (tr: Tramo, total: number) => ({ desde: tr.desde, hasta: Math.min(total, Math.max(tr.hasta, tr.desde + TRAMO_MIN)) });
 
 /** Créditos de las piezas que cobra el servidor y segundos tuyos hablando (los paga fal). */
-export function costo(r: Reel, t: Tiempo[] | null) {
+export function costo(r: Reel, t: Tiempo[] | null, looksPropios: Set<number> = new Set()) {
   const visuales = new Set(r.planos.filter(p => p.visual).map(p => p.visual));
   const animadas = new Set(r.planos.filter(p => p.animar).map(p => p.visual));
-  const looks = new Set(r.planos.filter(p => seVe(p.forma)).map(p => p.look));
+  // Un look con tu foto subida no se crea con IA: no cuesta.
+  const looks = new Set(r.planos.filter(p => seVe(p.forma) && !looksPropios.has(p.look)).map(p => p.look));
   const creditos = visuales.size * PRICES.imagen + animadas.size * PRICES.animar + looks.size * PRICES.look;
   const trs = t ? tramos(r.planos, t) : [];
   const seg = trs.reduce((a, tr) => a + (tr.hasta - tr.desde), 0);
@@ -200,6 +201,45 @@ export function intercambiar(planos: Plano[], i: number, j: number): Plano[] {
   const out = [...planos];
   out[i] = { ...planos[i], ...vis(planos[j]) }; out[j] = { ...planos[j], ...vis(planos[i]) };
   return out;
+}
+
+// ---------- Tus imágenes por plano (28-oct-2026, Jean: «que yo también pueda subir imágenes para que no las tengas
+// que crear… y solo le tengamos que dar lipsync») ----------
+/** Lo que pide cada plano de la referencia: una foto tuya (para hablar) o una imagen de apoyo. */
+export const huecoDe = (f: Forma): "tu" | "imagen" => (seVe(f) ? "tu" : "imagen");
+
+/** La ficha de la imagen que necesita un plano, para pedirla a otra IA o buscarla y subirla. */
+export function fichaHueco(p: RefPlano, i: number) {
+  const tu = huecoDe(p.forma) === "tu";
+  return {
+    plano: i + 1,
+    momento: `${p.t0.toFixed(1).replace(".", ",")} s a ${p.t1.toFixed(1).replace(".", ",")} s`,
+    tipo: tu ? "tu foto (aquí hablas a cámara)" : "imagen de apoyo",
+    escena: p.descripcion,
+    camara: p.camara,
+    formato: "vertical 9:16 (1080 × 1920)",
+    requisitos: tu
+      ? ["tu cara completa, de frente o de tres cuartos", "boca cerrada o en reposo", "buena luz en la cara", "sin texto ni logos encima"]
+      : ["sin texto ni logos de otras marcas", "que se entienda en 1 o 2 segundos"],
+  };
+}
+
+/** El look k usa tu foto si alguno de sus planos reemplaza un plano de la referencia al que le subiste una. */
+export function refDeLook(r: Reel, k: number, tieneFoto: (ref: number) => boolean): number {
+  const p = r.planos.find(x => x.look === k && seVe(x.forma) && x.ref >= 0 && tieneFoto(x.ref));
+  return p ? p.ref : -1;
+}
+
+/** Pone tus imágenes subidas en los planos que reemplazan esos planos de la referencia (no se crean con IA). */
+export function conTusImagenes(r: Reel, clipDeRef: (ref: number) => string | null): Reel {
+  let cambio = false;
+  const planos = r.planos.map(p => {
+    const id = p.ref >= 0 && p.forma !== "tu" ? clipDeRef(p.ref) : null;
+    if (!id || (p.clip === id && !p.visual)) return p;
+    cambio = true;
+    return { ...p, clip: id, visual: "", animar: false };
+  });
+  return cambio ? { ...r, planos } : r;
 }
 
 /** Créditos que cuesta producir un plano (si necesita imagen o animación). */

@@ -39,6 +39,9 @@ export function Inicio(p: {
   const [creando, setCreando] = useState(false);
   const temasTxt = temas ?? diario.temas.join("\n");
   const plantillas = p.plantillas ?? [];
+  // Formatos de SUPERNOVA (para todos) y las plantillas propias de la persona, por separado.
+  const formatos = plantillas.filter(x => x.publica);
+  const propias = plantillas.filter(x => !x.publica);
   const tarjetas: { o: Origen; icon: typeof Clapperboard; titulo: string; linea: string; art: string }[] = [
     { o: "referencia", icon: Clapperboard, titulo: "Recrear un reel", linea: "¿Viste un reel que te gustó? Pega el enlace o súbelo y crea tu propia versión.", art: "from-cyan-500/30 via-sky-700/20 to-transparent" },
     { o: "idea", icon: Lightbulb, titulo: "Crear desde una idea", linea: "Cuéntanos tu idea y SUPERNOVA convierte tu mensaje en un reel.", art: "from-amber-500/30 via-orange-700/20 to-transparent" },
@@ -64,6 +67,30 @@ export function Inicio(p: {
           </button>
         ))}
       </div>
+
+      {formatos.length > 0 && (
+        <section className="space-y-2">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Formatos de SUPERNOVA</p>
+            <p className="text-[11px] text-muted-foreground">Elige uno y cuéntalo con tu tema, tu cara y tu voz.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {formatos.map(pl => (
+              <button key={pl.id} type="button" onClick={() => p.onPlantilla(pl)} disabled={p.busy}
+                className="group text-left rounded-2xl border border-border bg-card overflow-hidden hover:border-foreground/30 disabled:opacity-50">
+                <div className="flex gap-1 p-2 overflow-hidden">
+                  {pl.thumbUrls.slice(0, 6).map((u, i) => u && <img key={i} src={u} alt="" loading="lazy" className="h-28 aspect-[9/16] rounded-md object-cover shrink-0" />)}
+                </div>
+                <div className="px-3 pb-3 space-y-1">
+                  <p className="font-display text-[15px] font-semibold text-foreground">{pl.nombre}</p>
+                  {pl.descripcion && <p className="text-[12px] text-muted-foreground leading-snug">{pl.descripcion}</p>}
+                  <p className="text-[11px] text-muted-foreground">{pl.analisis.planos.length} planos · {Math.round(pl.duracion ?? pl.analisis.duracion)} s · <span className="text-primary">Usar este formato →</span></p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       <button type="button" onClick={p.onIdentidad} className="w-full flex items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left hover:border-foreground/30">
         <div className="flex -space-x-2">
@@ -107,9 +134,9 @@ export function Inicio(p: {
             </button>
           </div>
           <p className="text-[11px] text-muted-foreground">SUPERNOVA mira y escucha el reel, lo guarda con su estructura y lo suma a tu producción diaria. Tu reel abierto no se toca.</p>
-      {plantillas.length > 0 && (
+      {propias.length > 0 && (
           <div className="space-y-2">
-            {plantillas.map(pl => (
+            {propias.map(pl => (
               <div key={pl.id} className="rounded-xl border border-border p-2.5 space-y-2">
                 <div className="flex items-center gap-2">
                   <p className="flex-1 text-[13px] text-foreground line-clamp-1">{pl.nombre}</p>

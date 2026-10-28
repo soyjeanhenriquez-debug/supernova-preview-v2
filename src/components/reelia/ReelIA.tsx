@@ -1014,12 +1014,26 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
                 <input ref={refRef} type="file" accept="video/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void cargarReferencia({ file: f }); }} />
                 <button type="button" onClick={() => refRef.current?.click()} disabled={!!busy} className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-border text-sm text-foreground disabled:opacity-50"><Upload className="w-4 h-4" /> O sube el video (hasta 18 MB)</button>
                 <p className="text-[11px] text-muted-foreground">TikTok y YouTube no se pueden leer por enlace: descarga el video y súbelo. Se analiza el video real; si no se puede abrir, te lo decimos.</p>
+                {(datos.plantillas ?? []).some(x => x.publica) && (
+                  // Formatos de SUPERNOVA (28-oct-2026): sin enlace ni video, en un toque.
+                  <div className="space-y-1.5 pt-1">
+                    <p className="text-[12px] text-muted-foreground">O usa un formato de SUPERNOVA:</p>
+                    {(datos.plantillas ?? []).filter(x => x.publica).map(x => (
+                      <button key={x.id} type="button" onClick={() => commit({ plantillaId: x.id })} disabled={!!busy}
+                        className="flex w-full items-center gap-2 rounded-xl border border-border p-2 text-left hover:border-foreground/30 disabled:opacity-50">
+                        <div className="flex gap-0.5 shrink-0">{x.thumbUrls.slice(0, 3).map((u, i) => u && <img key={i} src={u} alt="" className="h-12 aspect-[9/16] rounded object-cover" />)}</div>
+                        <span className="flex-1 min-w-0"><span className="block text-[13px] text-foreground line-clamp-1">{x.nombre}</span><span className="block text-[11px] text-muted-foreground">{x.analisis.planos.length} planos · {Math.round(x.duracion ?? x.analisis.duracion)} s</span></span>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {busy === "ref" && <p className="text-[12px] text-foreground"><Loader2 className="inline w-3.5 h-3.5 animate-spin mr-1" />{refPaso}{refPaso.startsWith("Buscando") ? ` ${Math.round(refProg * 100)} %` : ""}</p>}
               </>
             ) : (
               <>
                 <p className="text-[13px] text-foreground">{plantilla.nombre}</p>
-                <p className="text-[12px] text-muted-foreground">{plantilla.analisis.planos.length} planos · {Math.round(plantilla.analisis.duracion)} s · guardado como plantilla.</p>
+                <p className="text-[12px] text-muted-foreground">{plantilla.analisis.planos.length} planos · {Math.round(plantilla.analisis.duracion)} s · {plantilla.publica ? "formato de SUPERNOVA." : "guardado como plantilla."}</p>
+                {plantilla.publica && plantilla.descripcion && <p className="text-[12px] text-muted-foreground">{plantilla.descripcion}</p>}
                 <button type="button" onClick={() => commit({ plantillaId: null })} disabled={!!busy} className="text-[12px] text-muted-foreground hover:text-foreground">Usar otro reel</button>
               </>
             )}
@@ -1301,7 +1315,9 @@ function Referencia({ pl, video }: { pl: Plantilla; video: string | null }) {
         <div className="rounded-xl border border-border p-3"><p className="text-[11px] uppercase tracking-wider text-muted-foreground">Por qué funciona</p>
           <ul className="mt-1 space-y-0.5 text-[12px] text-foreground">{a.mecanismo.map((m, i) => <li key={i}>· {m}</li>)}</ul></div>
       )}
-      {a.transcripcion.length > 0 && (
+      {/* En un formato de SUPERNOVA no se muestra el guion del original: el formato es la estructura, no su texto
+          (lo que dice otro creador no se reparte a todas las cuentas). */}
+      {a.transcripcion.length > 0 && !pl.publica && (
         <div className="rounded-xl border border-border p-3">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Guion completo · lo que dice</p>

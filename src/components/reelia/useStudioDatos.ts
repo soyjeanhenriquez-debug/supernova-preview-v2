@@ -26,7 +26,11 @@ export type Identidad = {
 };
 export const IDENTIDAD_VACIA: Identidad = { fotos: [], logo: null, voice_id: "", paleta: "cian", ropa: "ropa oscura elegante y bien ajustada", palabra: "", velocidad: 1.1, sfx: true, clips_desc: {} };
 export type BiblioItem = { path: string; name: string; url: string; video: boolean };
-export type Plantilla = { id: string; nombre: string; fuente: string; duracion: number | null; analisis: Analisis; thumbs: string[]; thumbUrls: string[]; created_at: string };
+export type Plantilla = {
+  id: string; nombre: string; fuente: string; duracion: number | null; analisis: Analisis; thumbs: string[]; thumbUrls: string[]; created_at: string;
+  /** Plantilla de SUPERNOVA (28-oct-2026): la ven todas las cuentas; no se borra ni se cambia desde la app. */
+  publica?: boolean; descripcion?: string;
+};
 export type Borrador = { id: string; tema: string; modo: ModoReel; reel: Reel; plantilla_id: string | null; created_at: string; origen: string };
 /** plantilla_ids: las plantillas que se van alternando cada día (plantilla_id queda como la primera, por compatibilidad). */
 export type Diario = { activo: boolean; plantilla_id: string | null; plantilla_ids: string[]; temas: string[]; por_dia: number; modo: ModoReel; palabra: string };
@@ -85,12 +89,15 @@ export function useStudioDatos(uid: string) {
 
   const cargarPlantillas = useCallback(async () => {
     if (!uid) return;
-    const { data } = await db().from("reel_plantillas").select("id, nombre, fuente, duracion, analisis, thumbs, created_at").eq("user_id", uid).order("created_at", { ascending: false }).limit(20);
+    // Las tuyas y las de SUPERNOVA (públicas; primero, en su orden).
+    const { data } = await db().from("reel_plantillas").select("id, nombre, fuente, duracion, analisis, thumbs, created_at, publica, descripcion, orden")
+      .or(`user_id.eq.${uid},publica.eq.true`).order("publica", { ascending: false }).order("orden").order("created_at", { ascending: false }).limit(30);
     const rows = (data ?? []) as Omit<Plantilla, "thumbUrls">[];
-    const all = rows.flatMap(r => r.thumbs);
+    // Miniaturas: las públicas son imágenes de la app ("/plantillas/…"); las tuyas, archivos de tu biblioteca.
+    const all = rows.flatMap(r => r.thumbs).filter(t => !t.startsWith("/"));
     const { data: signed } = all.length ? await supabase.storage.from(BIBLIO).createSignedUrls(all, 60 * 60 * 6) : { data: [] };
     const map = new Map((signed ?? []).map(s => [s.path, s.signedUrl]));
-    setPlantillas(rows.map(r => ({ ...r, thumbUrls: r.thumbs.map(t => map.get(t) ?? "") })));
+    setPlantillas(rows.map(r => ({ ...r, thumbUrls: r.thumbs.map(t => (t.startsWith("/") ? t : map.get(t) ?? "")) })));
   }, [uid]);
 
   const cargarBorradores = useCallback(async () => {

@@ -5,6 +5,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.1";
 import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2.117.1";
 import { redact } from "../_shared/redact.ts";
+import { channelFromCaption } from "../_shared/adChannel.ts";
 // eslint-disable @typescript-eslint/no-explicit-any
 
 /** Días mínimos pagándose para guardar un anuncio nuevo. 04-oct-2026: 3. 05-oct-2026 (Jean): 15, para
@@ -259,6 +260,9 @@ Deno.serve(async (req) => {
           // anuncio ("hotmart.com", "misitio.com"): es gratis y agrupa ofertas
           // por sitio de venta. Antes se pedía y se tiraba.
           const linkDomain = domainFromCaption(it.ad_creative_link_captions?.[0]);
+          // 28-oct-2026 (Cindy/Jean): a dónde lleva el anuncio. Antes los de WhatsApp se tiraban y quedaban
+          // mezclados con los no revisados; ahora se guarda el canal (el dominio de venta sigue igual).
+          const destChannel = channelFromCaption(it.ad_creative_link_captions?.[0]);
           const languages = Array.isArray(it.languages)
             ? it.languages.filter((l: unknown) => typeof l === "string" && /^[a-z]{2,3}$/i.test(l)).slice(0, 5)
             : null;
@@ -278,6 +282,7 @@ Deno.serve(async (req) => {
             delivery_stop_time: it.ad_delivery_stop_time ?? null,
             market: r.country,
             link_domain: linkDomain,
+            dest_channel: destChannel,
             languages: languages?.length ? languages : null,
             days_active: days,
             tier,

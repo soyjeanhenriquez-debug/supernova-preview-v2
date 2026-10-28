@@ -79,6 +79,8 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   // entrada ninguna ganadora (de 300, 215 están en inglés o portugués). El idioma queda a un toque.
   useEffect(() => { if (group === null) setGroupState("all"); }, [group]);
   const [model, setModel] = useState("all");
+  // Cómo vende (28-oct-2026, Cindy: "¿están mezcladas?"): página de ventas, WhatsApp o mensajes.
+  const [canal, setCanal] = useState<"all" | "pagina" | "whatsapp" | "mensajes" | "sin">("all");
   // Plataforma de cobro (Hotmart, Kiwify, Gumroad…): solo se conoce en las ofertas ya revisadas.
   const [platform, setPlatform] = useState("all");
   const [platformCounts, setPlatformCounts] = useState<{ platform: string; total: number; winners: number }[]>([]);
@@ -121,7 +123,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   }, []);
 
   useEffect(() => { const t = setTimeout(() => setDebounced(search.trim()), 300); return () => clearTimeout(t); }, [search]);
-  useEffect(() => { setPage(0); }, [tab, debounced, niche, group, model, platform, onlyCopiable, sort]);
+  useEffect(() => { setPage(0); }, [tab, debounced, niche, group, model, platform, onlyCopiable, sort, canal]);
 
   useEffect(() => {
     supabase.rpc("get_offers_stats").then(({ data }) => { if (data) setStats(data as unknown as Stats); });
@@ -163,6 +165,9 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
         if (g) q = q.in("market", g.markets).or(`language.eq.${g.lang},language.is.null`);
       }
       if (model !== "all") q = q.eq("business_model", model);
+      // "canal" es nueva (migración 20261028120000) y aún no está en los tipos generados: filtro sin tipar.
+      if (canal === "sin") q = q.filter("canal", "is", null);
+      else if (canal !== "all") q = q.filter("canal", "eq", canal);
       // En Ganadoras el botón está oculto (la lista ya exige copiabilidad): un
       // filtro que el usuario no ve no debe recortarla.
       if (onlyCopiable && tab !== "ganadoras") q = q.gte("copy_score", 4);
@@ -189,7 +194,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
       setLoading(false);
     })();
     return () => { alive = false; };
-  }, [tab, debounced, niche, group, model, platform, onlyCopiable, sort, page]);
+  }, [tab, debounced, niche, group, model, platform, onlyCopiable, sort, page, canal]);
 
   // Opciones del filtro: solo plataformas con ofertas en esta pestaña, con su conteo real.
   const platformOptions = useMemo(
@@ -286,6 +291,15 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
             {Object.entries(MARKET_GROUP).map(([k, g]) => <SelectItem key={k} value={k}>{g.flag} {g.label}</SelectItem>)}
           </SelectContent>
         </Select>
+        <div className="space-y-1.5">
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Cómo vende</p>
+          <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Cómo vende">
+            {([["all", "Todas"], ["pagina", "🔗 Página de ventas"], ["whatsapp", "💬 WhatsApp"], ["mensajes", "💬 Messenger o Instagram"], ["sin", "Sin revisar"]] as const).map(([v, l]) => (
+              <button key={v} type="button" role="radio" aria-checked={canal === v} onClick={() => setCanal(v)}
+                className={`min-h-[36px] rounded-full border px-3 text-[12.5px] ${canal === v ? "border-foreground/60 bg-card text-foreground" : "border-border text-muted-foreground hover:border-foreground/30"}`}>{l}</button>
+            ))}
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <Select value={niche} onValueChange={setNiche}>
             <SelectTrigger className="bg-secondary/50"><SelectValue placeholder="Tema" /></SelectTrigger>
@@ -324,6 +338,15 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
             · {group === LANG_ES_FILTER ? "en español" : MARKET_GROUP[group ?? ""]?.label.toLowerCase()}, por tu país.{" "}
             <button onClick={() => setGroup("all")} className="font-semibold text-foreground underline underline-offset-2 hover:text-primary">Ver todas</button>
           </span>
+        )}
+        {sort === "rank" && (
+          <span className="block mt-0.5">«Las mejores primero» junta tiempo pagando anuncios y qué tan fácil es hacer tu versión; no es la que más anuncios tiene. Para eso, ordena por «Más anuncios activos».</span>
+        )}
+        {canal === "whatsapp" && !loading && (
+          <span className="block mt-0.5">WhatsApp no deja ver el número en los datos públicos: abre el anuncio y toca su botón para ver cómo atienden.</span>
+        )}
+        {(canal === "sin" || canal === "all") && !loading && (
+          <span className="block mt-0.5">«Sin revisar» = todavía no sabemos si vende por página o por WhatsApp. Las nuevas ya llegan marcadas.</span>
         )}
         {platform !== "all" && !loading && (
           <span className="block mt-0.5">

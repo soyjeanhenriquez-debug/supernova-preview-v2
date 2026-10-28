@@ -41,6 +41,26 @@ export interface Offer {
   markets?: string[] | null;
   /** Plataforma de cobro detectada (tabla offer_platform; ficha completa o detección liviana). */
   offer_platform?: { platform: string | null } | null;
+  /** Cómo vende (refresh_offer_canal, 28-oct-2026): whatsapp, pagina o mensajes. null = sin revisar. */
+  canal?: Canal | null;
+  /** Si vende por página: su enlace. */
+  canal_url?: string | null;
+}
+
+export type Canal = "whatsapp" | "pagina" | "mensajes";
+/** Cómo vende cada oferta, en palabras de la persona (Cindy, 28-oct-2026: "¿están mezcladas?"). */
+export const CANAL_LABEL: Record<Canal, string> = { pagina: "Página de ventas", whatsapp: "WhatsApp", mensajes: "Mensajes (Messenger o Instagram)" };
+export const CANAL_CORTO: Record<Canal, string> = { pagina: "🔗 Página de ventas", whatsapp: "💬 WhatsApp", mensajes: "💬 Mensajes" };
+
+/** El enlace para ver cómo vende: su página de ventas o, si vende por mensajes, el anuncio (con su botón). */
+export function enlaceCanal(o: Pick<Offer, "canal" | "canal_url" | "sample_ad_url">): { href: string; texto: string } | null {
+  const safe = (u?: string | null) => (u && /^https:\/\//i.test(u) ? u : null);
+  if (o.canal === "pagina" && safe(o.canal_url)) return { href: safe(o.canal_url)!, texto: "Ver su página de ventas" };
+  const ad = safe(o.sample_ad_url);
+  if (!ad) return null;
+  if (o.canal === "whatsapp") return { href: ad, texto: "Ver el anuncio y su botón de WhatsApp" };
+  if (o.canal === "mensajes") return { href: ad, texto: "Ver el anuncio y su botón de mensaje" };
+  return { href: ad, texto: "Ver el anuncio original" };
 }
 
 /** El número que se enseña como "índice ganador": el curado si existe, si no el score de anuncios. */

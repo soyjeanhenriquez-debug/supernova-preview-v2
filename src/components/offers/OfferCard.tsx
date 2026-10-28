@@ -1,8 +1,8 @@
-import { Flame, CalendarDays, Heart, Zap, Eye, Sparkles } from "lucide-react";
+import { Flame, CalendarDays, Heart, Zap, Eye, Sparkles, ExternalLink } from "lucide-react";
 import { AdMediaPreview } from "@/components/AdMediaPreview";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { Delta, type FollowedRow } from "@/components/dashboard/RoiHunterWidget";
-import { type Offer, NICHE_LABEL, MARKET_NAME, flagFor, copyLabel, scaleLabel, winnerPct } from "@/lib/offers";
+import { type Offer, NICHE_LABEL, MARKET_NAME, CANAL_CORTO, CANAL_LABEL, enlaceCanal, flagFor, copyLabel, scaleLabel, winnerPct } from "@/lib/offers";
 import { type OfferWatch, type WatchPoint, describeEvent, daysAgo } from "@/lib/offerWatch";
 
 /**
@@ -36,6 +36,7 @@ export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, onCr
         <div className="absolute top-2.5 left-2.5 flex flex-col items-start gap-1.5 pointer-events-none">
           <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 bg-primary text-primary-foreground shadow">🔥 {scaleLabel(o)}</span>
           {o.price_hint && <span className="text-[10.5px] font-bold rounded-full px-2.5 py-1 bg-background/85 backdrop-blur text-foreground border border-border">{o.price_hint}</span>}
+          {o.canal && <span className="text-[10.5px] font-bold rounded-full px-2.5 py-1 bg-background/85 backdrop-blur text-foreground border border-border">{CANAL_CORTO[o.canal]}</span>}
         </div>
         {/* 44px: el mínimo cómodo para un dedo */}
         <button onClick={onToggleFollow}
@@ -82,6 +83,17 @@ export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, onCr
           <Row label="Se anuncia en" value={`${flagFor(o.market)} ${MARKET_NAME[o.market] ?? o.market}`} />
           {o.niche && <Row label="Nicho" value={NICHE_LABEL[o.niche] ?? o.niche} />}
           {o.offer_platform?.platform && <Row label="Cobra con" value={o.offer_platform.platform} />}
+          <div className="flex items-start justify-between gap-2">
+            <dt className="text-muted-foreground shrink-0">Vende por</dt>
+            <dd className="text-right min-w-0">
+              <span className="font-medium text-foreground">{o.canal ? CANAL_LABEL[o.canal] : "Sin revisar todavía"}</span>
+              {(() => { const l = enlaceCanal(o); return l && (
+                <a href={l.href} target="_blank" rel="noopener noreferrer" className="mt-0.5 flex items-center justify-end gap-1 text-[11.5px] text-primary hover:underline">
+                  <ExternalLink className="w-3 h-3 shrink-0" /><span className="truncate">{l.texto}</span>
+                </a>
+              ); })()}
+            </dd>
+          </div>
           <div className="flex items-center justify-between gap-2">
             <dt className="text-muted-foreground">Hacer tu versión</dt>
             <dd><span className={`text-[10.5px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5 ${copy.cls}`}>{copy.short}</span></dd>

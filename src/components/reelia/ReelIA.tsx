@@ -48,6 +48,9 @@ const SIZE = { width: 720, height: 1280 };
 const REF_MAX = 18 * 1024 * 1024;
 const PEDIDO_SUPERNOVA = "Un reel de 35 a 45 s que presente SUPERNOVA: cómo encuentra negocios digitales que ya venden (anuncios con muchos días pagando publicidad) y te ayuda a crear tu versión con el precio en tu moneda. Gancho fuerte de curiosidad, ritmo rápido y juguetón, y al final: Comenta SUPERNOVA y te mando el enlace.";
 const MODOS: ModoReel[] = ["espejo", "recrear", "inspiracion", "adaptacion"];
+// Un formato de SUPERNOVA es solo la estructura: la persona pone su tema. Espejo y Recrear copiarían el guion de otro.
+const MODOS_FORMATO: ModoReel[] = ["inspiracion", "adaptacion"];
+const modoDe = (m: ModoReel, publica?: boolean): ModoReel => (publica && !MODOS_FORMATO.includes(m) ? "inspiracion" : m);
 const MODO_LINEA: Record<ModoReel, string> = {
   espejo: "95 % · el mismo reel: mismo gancho, mismos planos; cambias presentador, B-roll y voz.", recrear: "75 % · la misma idea, a tu manera.",
   inspiracion: "50 % · su fórmula, tu tema.", adaptacion: "Su fórmula para vender tu oferta.",
@@ -441,7 +444,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
       const oferta = plantilla && m.modo === "adaptacion" ? await ofertaDisponible() : null;
       if (plantilla && m.modo === "adaptacion" && !oferta && !opts.cambio) toast.message("No tienes una oferta Disponible: la llamada final será de interés, no de compra.");
       // ESPEJO (26-oct-2026): el reel se arma plano por plano desde la ficha del original; la IA solo retoca las frases.
-      if (plantilla && m.modo === "espejo" && m.origen === "referencia" && !opts.cambio) {
+      if (plantilla && !plantilla.publica && m.modo === "espejo" && m.origen === "referencia" && !opts.cambio) {
         const opc = { palabra: m.ajustes.palabra, cambiarGancho: !!m.cambiarGancho, ropa: m.ajustes.ropa };
         const { text: t2, billing: b2 } = await streamGenerator(GENERATOR_ID, "Reel Studio", SYSTEM_ESPEJO, pedidoEspejo(plantilla.analisis, opc));
         applyServerCharge("gen_light", b2, "Reel Studio");
@@ -459,7 +462,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
       const { text, billing } = await streamGenerator(GENERATOR_ID, "Reel Studio", SYSTEM, pedidoIA({
         texto: msg, literal: opts.literal, palabra: m.ajustes.palabra, paleta: m.ajustes.paleta, ropa: m.ajustes.ropa,
         clips: clips.map(({ id, desc }) => ({ id, desc })), actual: opts.cambio ? m.reel : null,
-        plantilla: plantilla?.analisis ?? null, modo: m.modo, oferta,
+        plantilla: plantilla?.analisis ?? null, modo: modoDe(m.modo, plantilla?.publica), oferta,
         // Preparar desde «Tu idea» = lo que elegiste ahí (Espejo/Recrear → el tema de la referencia, aunque venga de
         // un borrador). Al pedir cambios sobre un borrador del productor diario, se respeta su tema propio.
         temaDeLaReferencia: m.origen === "referencia" && (!opts.cambio || !m.borradorId), cambiarGancho: !!m.cambiarGancho,
@@ -490,7 +493,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
     }
     if (m.origen === "referencia") {
       if (!plantilla) { toast.error("Primero pega el enlace o sube el reel de referencia."); return; }
-      if ((m.modo === "inspiracion" || m.modo === "adaptacion") && idea.split(/\s+/).length < 2) { toast.error("Escribe de qué trata tu versión (tu tema)."); return; }
+      if (["inspiracion", "adaptacion"].includes(modoDe(m.modo, plantilla?.publica)) && idea.split(/\s+/).length < 2) { toast.error("Escribe de qué trata tu versión (tu tema)."); return; }
       return void pedir(idea || "Haz mi versión de este reel, con mi voz y mis recursos.", { literal: false, cambio: false });
     }
     if (idea.split(/\s+/).length < 3) { toast.error("Cuéntanos tu idea en una frase."); return; }
@@ -1043,16 +1046,16 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
           <Card label={meta.origen === "referencia" ? "Tu versión" : meta.origen === "guion" ? "Tu guion" : "Tu idea"}>
             {meta.origen === "referencia" && (
               <div className="grid grid-cols-2 gap-2">
-                {MODOS.map(m => (
+                {(plantilla?.publica ? MODOS_FORMATO : MODOS).map(m => (
                   <button key={m} type="button" onClick={() => commit({ modo: m })} disabled={!!busy}
-                    className={`rounded-xl border p-2.5 text-left ${meta.modo === m ? "border-primary bg-card" : "border-border"}`}>
+                    className={`rounded-xl border p-2.5 text-left ${modoDe(meta.modo, plantilla?.publica) === m ? "border-primary bg-card" : "border-border"}`}>
                     <p className="text-[13px] font-semibold text-foreground">{MODO_NOMBRE[m]}</p>
                     <p className="text-[11px] text-muted-foreground leading-snug">{MODO_LINEA[m]}</p>
                   </button>
                 ))}
               </div>
             )}
-            {meta.origen === "referencia" && meta.modo === "espejo" && plantilla?.analisis.gancho.texto && (
+            {meta.origen === "referencia" && meta.modo === "espejo" && !plantilla?.publica && plantilla?.analisis.gancho.texto && (
               <label className="flex items-start gap-2 rounded-xl border border-border p-2.5 text-[12px] cursor-pointer">
                 <input type="checkbox" checked={!!meta.cambiarGancho} onChange={e => commit({ cambiarGancho: e.target.checked })} disabled={!!busy} className="mt-0.5" />
                 <span><span className="text-foreground">Cambiar el gancho (opcional)</span><br />
@@ -1060,7 +1063,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
               </label>
             )}
             <textarea value={meta.idea} rows={meta.origen === "guion" ? 8 : 4} onChange={e => commit({ idea: e.target.value.slice(0, 3000) })} disabled={!!busy}
-              placeholder={meta.origen === "guion" ? "Pega tu guion tal cual. SUPERNOVA no le cambia ni una palabra." : meta.origen === "referencia" ? (meta.modo === "espejo" || meta.modo === "recrear" ? "Opcional: algo tuyo que quieras sumar." : "¿De qué trata tu versión? Ej.: cómo saber si un producto digital ya vende.") : "Ej.: un reel de 40 s de cómo SUPERNOVA encuentra ofertas que ya venden, gancho fuerte y al final «Comenta SUPERNOVA»."}
+              placeholder={meta.origen === "guion" ? "Pega tu guion tal cual. SUPERNOVA no le cambia ni una palabra." : meta.origen === "referencia" ? (!plantilla?.publica && (meta.modo === "espejo" || meta.modo === "recrear") ? "Opcional: algo tuyo que quieras sumar." : "¿De qué trata tu versión? Ej.: cómo saber si un producto digital ya vende.") : "Ej.: un reel de 40 s de cómo SUPERNOVA encuentra ofertas que ya venden, gancho fuerte y al final «Comenta SUPERNOVA»."}
               className={`${field} py-2`} />
             {meta.origen === "guion" && <p className="text-[11px] text-muted-foreground">{meta.idea.trim() ? meta.idea.trim().split(/\s+/).length : 0} palabras · unos {Math.round((meta.idea.trim() ? meta.idea.trim().split(/\s+/).length : 0) / (2.9 * aj.velocidad))} s de voz</p>}
             {meta.origen === "idea" && !meta.idea && <button type="button" onClick={() => commit({ idea: PEDIDO_SUPERNOVA })} className={chip(false)}><Sparkles className="inline w-3.5 h-3.5 mr-1 text-primary" />Reel de SUPERNOVA</button>}

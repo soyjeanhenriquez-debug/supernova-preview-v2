@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2.117.1";
 import { safeRefund } from "../_shared/refund.ts";
 import { ESTRATEGA_ACTION, ESTRATEGA_LABEL, ESTRATEGA_STEP_PROMPT, ESTRATEGA_SYSTEM, estrategaContext, isEstrategaStep } from "../_shared/estratega.ts";
+import { ANUNCIO_ACTION, ANUNCIO_LABEL, ANUNCIO_MAX_TOKENS, ANUNCIO_STEP_PROMPT, ANUNCIO_SYSTEM, anuncioContext, isAnuncioStep } from "../_shared/anuncioAnimado.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -102,6 +103,8 @@ interface Billing { action: string; label?: string; kind?: string; receipt?: unk
 
 // El Estratega está en prueba solo para admins (20-oct-2026). Para abrirlo a todos: false + desplegar.
 const ESTRATEGA_ADMIN_ONLY = true;
+// El agente «Anuncio animado» (28-oct-2026) también empieza solo para admins.
+const ANUNCIO_ADMIN_ONLY = true;
 
 function guardClient() {
   return createGuardClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
@@ -220,7 +223,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   let gate: Gate | null = null;
   try {
-    const { messages: rawMessages, systemPrompt: rawSystem, model, generator_id, generator_title, agent, step, product, formats } = await readJson(req, 150000);
+    const { messages: rawMessages, systemPrompt: rawSystem, model, generator_id, generator_title, agent, step, product, formats, opts } = await readJson(req, 150000);
     const messages = cleanMessages(rawMessages);
     if (messages.length === 0) {
       return new Response(JSON.stringify({ error: "messages requerido" }), {
@@ -235,15 +238,25 @@ serve(async (req) => {
       });
     }
     const estStep = estratega && isEstrategaStep(step) ? step : null;
-    const generatorId = estratega ? null : typeof generator_id === "string" && /^[a-z0-9-]{2,40}$/.test(generator_id) ? generator_id : null;
+    // «Anuncio animado»: igual que el Estratega, el método y el precio los pone el servidor según el paso.
+    const anuncio = agent === "anuncio-animado";
+    if (anuncio && !isAnuncioStep(step)) {
+      return new Response(JSON.stringify({ error: "Paso desconocido. Recarga la página e inténtalo de nuevo." }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const anStep = anuncio && isAnuncioStep(step) ? step : null;
+    const generatorId = estratega || anuncio ? null : typeof generator_id === "string" && /^[a-z0-9-]{2,40}$/.test(generator_id) ? generator_id : null;
     const genAction = generatorId ? generatorAction(generatorId) : null;
     if (generatorId && !genAction) {
       return new Response(JSON.stringify({ error: "Generador desconocido. Recarga la página e inténtalo de nuevo." }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const estAction = estStep ? ESTRATEGA_ACTION[estStep] : null;
-    const g = estStep
+    const estAction = estStep ? ESTRATEGA_ACTION[estStep] : anStep ? ANUNCIO_ACTION[anStep] : null;
+    const g = anStep
+      ? await requireUser(req, "ai-chat", 60, 300, { action: ANUNCIO_ACTION[anStep], label: ANUNCIO_LABEL[anStep] }, ANUNCIO_ADMIN_ONLY)
+      : estStep
       ? estAction
         ? await requireUser(req, "ai-chat", 60, 300, { action: estAction, label: ESTRATEGA_LABEL[estStep] }, ESTRATEGA_ADMIN_ONLY)
         : await requireUser(req, "ai-chat-estratega", 30, 120, undefined, ESTRATEGA_ADMIN_ONLY)
@@ -270,7 +283,9 @@ serve(async (req) => {
     // Generadores sin sistema propio (Textos que venden, Mándala, Order bump): sistema de copywriter
     // (GENERATOR_SYSTEM), nunca el del chat de ayuda con emojis. Las pantallas que mandan el suyo
     // (Carrusel, YouTube, Personaje, Video) lo conservan: algunas piden JSON u otro idioma.
-    const systemPrompt = estStep
+    const systemPrompt = anStep
+      ? ANUNCIO_SYSTEM + "\n" + HONESTY_RULES + ANUNCIO_STEP_PROMPT[anStep] + anuncioContext(product, opts)
+      : estStep
       ? ESTRATEGA_SYSTEM + "\n" + HONESTY_RULES + ESTRATEGA_STEP_PROMPT[estStep] + estrategaContext(product, formats)
       : generatorId
       ? (clientSystem || GENERATOR_SYSTEM) + GENERATOR_GUARD
@@ -289,8 +304,9 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: usedModel,
-        max_tokens: tierAction ? GEN_MAX_TOKENS[tierAction] ?? 4_000 : HELP_MAX_TOKENS,
-        ...(!tierAction || tierAction === "gen_light" ? { reasoning_effort: "low" } : {}),
+        max_tokens: anStep ? ANUNCIO_MAX_TOKENS[anStep] : tierAction ? GEN_MAX_TOKENS[tierAction] ?? 4_000 : HELP_MAX_TOKENS,
+        // El anuncio es largo: poco razonamiento para que el tope alcance para escribirlo entero.
+        ...(anStep || !tierAction || tierAction === "gen_light" ? { reasoning_effort: "low" } : {}),
         messages: [
           {
             role: "system",
@@ -320,7 +336,7 @@ serve(async (req) => {
     }
 
     const body = response.body
-      ? meteredStream(response.body, gate.userId, estStep ? `ai-chat:estratega-${estStep}` : generatorId ? `ai-chat:${generatorId}` : "ai-chat:ayuda", usedModel,
+      ? meteredStream(response.body, gate.userId, anStep ? `ai-chat:anuncio-${anStep}` : estStep ? `ai-chat:estratega-${estStep}` : generatorId ? `ai-chat:${generatorId}` : "ai-chat:ayuda", usedModel,
         generatorId || estAction ? () => refundCut(gate) : undefined)
       : response.body;
     return new Response(body, {

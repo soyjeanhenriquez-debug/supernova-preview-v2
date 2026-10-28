@@ -18,6 +18,8 @@ const EstudioAvatarPage = lazy(() => import("@/pages/EstudioAvatarPage").then(m 
 const HistoriaAnimada = lazy(() => import("@/components/historia/HistoriaAnimada").then(m => ({ default: m.HistoriaAnimada })));
 // Reel de herramienta IA (24-oct-2026, formato "Voz en off"): solo la cuenta de Jean mientras lo prueba.
 const ReelIA = lazy(() => import("@/components/reelia/ReelIA").then(m => ({ default: m.ReelIA })));
+// Anuncio animado (28-oct-2026): agente que arma guion, storyboard e instrucciones de imagen. Solo admin en prueba.
+const AnuncioAnimado = lazy(() => import("@/components/anuncio/AnuncioAnimado").then(m => ({ default: m.AnuncioAnimado })));
 
 /**
  * "Con tu cara" (13-oct-2026, pedido de Jean): para creadores que salen en sus videos.
@@ -36,7 +38,8 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const { user } = useAuth();
   const jean = isGenjutsuOwner(user?.id);
   // Estudio de avatar: solo admin mientras se abre (src/lib/features.ts).
-  const estudio = useFeatureAccess().canSee("Estudio de avatar");
+  const { canSee, isAdmin } = useFeatureAccess();
+  const estudio = canSee("Estudio de avatar");
 
   // Direcciones viejas (#/analiza-reel, #/subtitulos) y enlaces guardados: se llevan a la nueva.
   useEffect(() => {
@@ -59,6 +62,13 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
     return (
       <Suspense fallback={<div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
         <ReelIA onHome={() => go([])} onNavigate={nav} />
+      </Suspense>
+    );
+  }
+  if (segs[0] === "anuncio-animado" && isAdmin) {
+    return (
+      <Suspense fallback={<div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
+        <AnuncioAnimado onHome={() => go([])} />
       </Suspense>
     );
   }
@@ -97,6 +107,7 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
           ["teleprompter", ScrollText, "Teleprompter", "Pega cualquier texto y léelo mirando a la cámara, a pantalla completa.", ""],
           ...(jean ? [["historia", Clapperboard, "Mi historia animada · solo tú", "Tu historia real con tu personaje en 3D, escena por escena, con tu voz o voz IA.", "Unos 200 créditos sin animaciones"]] as const : []),
           // Reel Studio abierto a todos el 26-oct-2026: el servidor cobra voz, tomas hablando y análisis (reel-ia).
+          ...(isAdmin ? [["anuncio-animado", Clapperboard, "Anuncio animado · solo admin", "Dices qué vendes y eliges un estilo: cliente, datos, guion, escenas e instrucciones de imagen, como un cortometraje.", "15 + 30 + 15 créditos"]] as const : []),
           ["reel-ia", Sparkles, "Reel Studio", "Recrea un reel que funciona, o crea uno desde tu idea o tu guion: voz, tus looks, imágenes al ritmo de cada frase y tú hablando.", "Unos 400 a 1.300 créditos por reel · ves el total antes de crear"],
         ] as const).map(([id, Icon, title, desc, cost]) => (
           <button key={id} type="button" onClick={() => go([id])}

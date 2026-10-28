@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_ANIMADAS, audioTramo, cleanAnalisis, costo, descDeNombre, huella, idsDeBiblioteca, intercambiar, moverCorte, pantallas, parseReel, pedidoIA, quitarPlano, tiempos, tramos, type Plano, creditosToma, creditosVoz, conTusImagenes, fichaHueco, huecoDe, refDeLook, type Reel, type RefPlano } from "@/lib/reelDinamico";
+import { MAX_ANIMADAS, audioTramo, cleanAnalisis, costo, descDeNombre, huella, idsDeBiblioteca, intercambiar, moverCorte, pantallas, parseReel, pedidoIA, quitarPlano, tiempos, tramos, type Plano, creditosToma, creditosVoz, conTusImagenes, costoPlano, ORIGINAL, planoOriginal, fichaHueco, huecoDe, refDeLook, type Reel, type RefPlano } from "@/lib/reelDinamico";
 
 const clips = [{ id: "ofertas-ganadoras-numeros.mp4", desc: "ofertas ganadoras" }, { id: "calculadora.mp4", desc: "calculadora de precio" }];
 const P = (texto: string, forma: Plano["forma"], extra: Partial<Plano> = {}) => ({ texto, forma, look: 0, clip: "", visual: "", animar: false, enfasis: "", ref: -1, ...extra });
@@ -169,5 +169,16 @@ describe("tus imágenes por plano", () => {
     // Ya no cuesta: ni imagen ni animación para esos planos; un look con tu foto tampoco.
     expect(costo(out, null).imagenes).toBe(1);
     expect(costo(r, null, new Set([0])).looks).toBe(0);
+  });
+});
+
+describe("espejo con las imágenes del original", () => {
+  it("una imagen del original no se cobra ni se anima", () => {
+    const r: Reel = { titulo: "X", guion: "a b c", palabra: "INFO", looks: [{ escena: "office" }],
+      planos: [P("a", "tu"), P("b", "dividida", { visual: `${ORIGINAL}2`, ref: 1 }), P("c", "broll", { visual: "a robot", ref: 2 }), P("d", "tu")] };
+    expect(planoOriginal(`${ORIGINAL}2`)).toBe(1);
+    expect(planoOriginal("a robot")).toBe(-1);
+    expect(costo(r, null).imagenes).toBe(1);
+    expect(costoPlano(r.planos[1])).toBe(0);
   });
 });

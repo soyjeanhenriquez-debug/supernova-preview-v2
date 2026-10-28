@@ -17,13 +17,13 @@ import type { Word } from "@/lib/subtitleStyles";
 import { uploadStudioImage, refForServer, type StudioRef } from "@/lib/studioUpload";
 import { sliceWavBase64 } from "@/lib/audioSlice";
 import { wordsFromAlignment } from "@/lib/reelIa";
-import { analizarCortes, miniaturas } from "@/lib/videoCortes";
+import { analizarCortes, cuadro, miniaturas } from "@/lib/videoCortes";
 import { streamGenerator } from "@/components/video/videoApi";
 import { ToolShell } from "@/components/tool/ToolShell";
 import { ReelDinamico, type RDPlano, type RDProps, type RDTramo } from "@/remotion/ReelDinamico";
 import {
   FORMAS, GENERATOR_ID, HABLA_USD_SEG, MODO_NOMBRE, PALETAS, palabraDelGuion, PRICE_PLAN, SYSTEM, VELOCIDADES, audioTramo, costo, huella, paleta, pantallas,
-  parseReel, pedidoIA, SYSTEM_ESPEJO, pedidoEspejo, parseEspejo, espejoReel, resumen, seVe, textoPublicacion, conTusImagenes, refDeLook, huecoDe, tiempos, tramos, type Analisis, type ModoReel, type Oferta, type Plano, type Reel,
+  parseReel, pedidoIA, SYSTEM_ESPEJO, pedidoEspejo, parseEspejo, espejoReel, resumen, seVe, textoPublicacion, planoOriginal, conTusImagenes, refDeLook, huecoDe, tiempos, tramos, type Analisis, type ModoReel, type Oferta, type Plano, type Reel,
 } from "@/lib/reelDinamico";
 import { Inicio, type Origen } from "./Inicio";
 import { ajustesDe as ajustesPublicar, casillasDelDia, etiquetaCasilla, siguienteLibre } from "@/lib/publicar";
@@ -72,6 +72,8 @@ type Proyecto = {
   modo: ModoReel;
   /** Espejo: cambiar el gancho del original (opcional; por defecto se queda igual). */
   cambiarGancho?: boolean;
+  /** Espejo: las capturas y B-roll salen del video original (por defecto sí; Jean, 28-oct-2026: «es un 95 % tal cual»). */
+  imagenesOriginal?: boolean;
   plantillaId: string | null;
   borradorId: string | null;
   chat: Msg[];
@@ -512,7 +514,8 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
       if (plantilla && m.modo === "adaptacion" && !oferta && !opts.cambio) toast.message("No tienes una oferta Disponible: la llamada final será de interés, no de compra.");
       // ESPEJO (26-oct-2026): el reel se arma plano por plano desde la ficha del original; la IA solo retoca las frases.
       if (plantilla && !plantilla.publica && m.modo === "espejo" && m.origen === "referencia" && !opts.cambio) {
-        const opc = { palabra: m.ajustes.palabra, cambiarGancho: !!m.cambiarGancho, ropa: m.ajustes.ropa };
+        const opc = { palabra: m.ajustes.palabra, cambiarGancho: !!m.cambiarGancho, ropa: m.ajustes.ropa, presentador: m.idea.trim(),
+          original: !!plantilla.video_path && m.imagenesOriginal !== false };
         const { text: t2, billing: b2 } = await streamGenerator(GENERATOR_ID, "Reel Studio", SYSTEM_ESPEJO, pedidoEspejo(plantilla.analisis, opc));
         applyServerCharge("gen_light", b2, "Reel Studio");
         if (!/"frases"\s*:/.test(t2)) throw new Error("La IA no devolvió tu espejo. Toca Preparar otra vez.");
@@ -650,7 +653,8 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
         }
         setPaso(`Tu look ${k + 1}…`);
         setAsset(key, { estado: "trabajando" });
-        const ropa = m0.ajustes.ropa.trim().slice(0, 80);
+        // En Espejo, lo que escribiste para el presentador ya trae la ropa (no se mezcla con la de Mi identidad).
+        const ropa = m0.modo === "espejo" && m0.idea.trim() ? "" : m0.ajustes.ropa.trim().slice(0, 80);
         const fill = `${reel.looks[k].escena.slice(0, 210 - ropa.length)}${ropa ? `, wearing ${ropa}` : ""}`;
         // GPT Image 2 primero; si se agota el tiempo (APIMart, 24-oct-2026, intermitente), Nano Banana Pro.
         const pedirLook = (model: "gpt" | "pro") => supabase.functions.invoke("avatar-studio", {
@@ -670,6 +674,20 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
       for (let i = 0; i < visuales.length && alive.current; i++) {
         const key = `img:${huella(visuales[i])}`;
         if (metaRef.current.assets[key]?.estado === "listo") continue;
+        const ref = planoOriginal(visuales[i]);
+        if (ref >= 0) {
+          // Imagen del original (Espejo): el cuadro del video en ese momento; en pantalla dividida, solo la mitad de arriba.
+          const rp = plantilla?.analisis.planos[ref];
+          setPaso(`Imagen del original ${i + 1} de ${visuales.length}…`);
+          try {
+            if (!rp || !plantilla?.video_path) throw new Error("No está el video original de esta referencia.");
+            const { data: s } = await supabase.storage.from(BIBLIO).createSignedUrl(plantilla.video_path, 3600);
+            if (!s?.signedUrl) throw new Error("No se pudo abrir el video original.");
+            const arriba = rp.forma === "dividida";
+            await guardarMedia(key, await cuadro(s.signedUrl, (rp.t0 + rp.t1) / 2, arriba ? "arriba" : "todo"), { vertical: !arriba });
+          } catch (err) { setAsset(key, { estado: "falló", motivo: motivoDe(err) }); }
+          continue;
+        }
         setPaso(`Imagen ${i + 1} de ${visuales.length}…`);
         setAsset(key, { estado: "trabajando" });
         try {
@@ -777,7 +795,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
       } else if (p.visual) {
         const ak = `anim:${huella(p.visual)}`, ik = `img:${huella(p.visual)}`;
         if (urls[ak]) top = { url: urls[ak], video: true, vertical: true };
-        else if (urls[ik]) top = { url: urls[ik], video: false, vertical: true };
+        else if (urls[ik]) top = { url: urls[ik], video: false, vertical: meta.assets[ik]?.vertical ?? true };
       }
       return { ...t[i], forma: p.forma, tramo: deTramo.get(i) ?? -1, top, enfasis: p.enfasis };
     });
@@ -1144,8 +1162,15 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
                   <span className="text-muted-foreground">Si no lo marcas, empieza igual que el original: «{plantilla.analisis.gancho.texto.slice(0, 90)}»</span></span>
               </label>
             )}
+            {meta.origen === "referencia" && meta.modo === "espejo" && !plantilla?.publica && plantilla?.video_path && (
+              <label className="flex items-start gap-2 rounded-xl border border-border p-2.5 text-[12px] cursor-pointer">
+                <input type="checkbox" checked={meta.imagenesOriginal !== false} onChange={e => commit({ imagenesOriginal: e.target.checked })} disabled={!!busy} className="mt-0.5" />
+                <span><span className="text-foreground">Usar las imágenes del original</span><br />
+                  <span className="text-muted-foreground">Las capturas y escenas salen del mismo video, tal cual. No se crean con IA y no cuestan.</span></span>
+              </label>
+            )}
             <textarea value={meta.idea} rows={meta.origen === "guion" ? 8 : 4} onChange={e => commit({ idea: e.target.value.slice(0, 3000) })} disabled={!!busy}
-              placeholder={meta.origen === "guion" ? "Pega tu guion tal cual. SUPERNOVA no le cambia ni una palabra." : meta.origen === "referencia" ? (!plantilla?.publica && (meta.modo === "espejo" || meta.modo === "recrear") ? "Opcional: algo tuyo que quieras sumar." : "¿De qué trata tu versión? Ej.: cómo saber si un producto digital ya vende.") : "Ej.: un reel de 40 s de cómo SUPERNOVA encuentra ofertas que ya venden, gancho fuerte y al final «Comenta SUPERNOVA»."}
+              placeholder={meta.origen === "guion" ? "Pega tu guion tal cual. SUPERNOVA no le cambia ni una palabra." : meta.origen === "referencia" ? (!plantilla?.publica && meta.modo === "espejo" ? "Opcional: cómo sales tú (ropa, pose, lugar). Ej.: camiseta casual elegante y pose natural." : !plantilla?.publica && meta.modo === "recrear" ? "Opcional: algo tuyo que quieras sumar." : "¿De qué trata tu versión? Ej.: cómo saber si un producto digital ya vende.") : "Ej.: un reel de 40 s de cómo SUPERNOVA encuentra ofertas que ya venden, gancho fuerte y al final «Comenta SUPERNOVA»."}
               className={`${field} py-2`} />
             {meta.origen === "guion" && <p className="text-[11px] text-muted-foreground">{meta.idea.trim() ? meta.idea.trim().split(/\s+/).length : 0} palabras · unos {Math.round((meta.idea.trim() ? meta.idea.trim().split(/\s+/).length : 0) / (2.9 * aj.velocidad))} s de voz</p>}
             {meta.origen === "idea" && !meta.idea && <button type="button" onClick={() => commit({ idea: PEDIDO_SUPERNOVA })} className={chip(false)}><Sparkles className="inline w-3.5 h-3.5 mr-1 text-primary" />Reel de SUPERNOVA</button>}

@@ -11,10 +11,11 @@ import type { Word } from "@/lib/subtitleStyles";
 
 export {
   DATOS_SUPERNOVA, MAX_ANIMADAS, MAX_LOOKS, MAX_PLANOS, MODO_NOMBRE, MODO_REGLAS, PALETAS, SYSTEM, cleanAnalisis, descDeNombre,
-  idsDeBiblioteca, palabraDelGuion, paleta, parseReel, pedidoIA, refCompacta, SYSTEM_ESPEJO, pedidoEspejo, parseEspejo, espejoReel,
+  idsDeBiblioteca, ORIGINAL, planoOriginal, palabraDelGuion, paleta, parseReel, pedidoIA, refCompacta, SYSTEM_ESPEJO, pedidoEspejo, parseEspejo, espejoReel,
 } from "../../supabase/functions/_shared/reelPlan";
 export type { Analisis, ClipInfo, Forma, Look, ModoReel, Oferta, Pedido, Plano, Reel, RefPlano } from "../../supabase/functions/_shared/reelPlan";
 import type { Forma, Plano, Reel, RefPlano } from "../../supabase/functions/_shared/reelPlan";
+import { planoOriginal } from "../../supabase/functions/_shared/reelPlan";
 
 export const GENERATOR_ID = "reel-ia-escenas";
 export const PRICE_PLAN = 15;
@@ -92,7 +93,8 @@ export const audioTramo = (tr: Tramo, total: number) => ({ desde: tr.desde, hast
 
 /** Créditos de las piezas que cobra el servidor y segundos tuyos hablando (los paga fal). */
 export function costo(r: Reel, t: Tiempo[] | null, looksPropios: Set<number> = new Set()) {
-  const visuales = new Set(r.planos.filter(p => p.visual).map(p => p.visual));
+  // Las imágenes del original (Espejo) salen del video: no se crean con IA ni cuestan.
+  const visuales = new Set(r.planos.filter(p => p.visual && planoOriginal(p.visual) < 0).map(p => p.visual));
   const animadas = new Set(r.planos.filter(p => p.animar).map(p => p.visual));
   // Un look con tu foto subida no se crea con IA: no cuesta.
   const looks = new Set(r.planos.filter(p => seVe(p.forma) && !looksPropios.has(p.look)).map(p => p.look));
@@ -243,4 +245,4 @@ export function conTusImagenes(r: Reel, clipDeRef: (ref: number) => string | nul
 }
 
 /** Créditos que cuesta producir un plano (si necesita imagen o animación). */
-export const costoPlano = (p: Plano) => (p.visual ? PRICES.imagen + (p.animar ? PRICES.animar : 0) : 0);
+export const costoPlano = (p: Plano) => (p.visual && planoOriginal(p.visual) < 0 ? PRICES.imagen + (p.animar ? PRICES.animar : 0) : 0);

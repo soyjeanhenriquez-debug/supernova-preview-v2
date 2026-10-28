@@ -92,3 +92,20 @@ export async function miniaturas(src: string, planos: { t0: number; t1: number }
   v.removeAttribute("src"); v.load();
   return out;
 }
+
+/**
+ * Un cuadro del video en buena calidad (máx. 1080 de ancho). recorte "arriba" = solo la mitad de arriba (la captura de
+ * una pantalla dividida, sin la persona de abajo). Espejo (28-oct-2026): las imágenes del original, sin IA.
+ */
+export async function cuadro(src: string, t: number, recorte: "todo" | "arriba" = "todo"): Promise<Blob> {
+  const v = await abrir(src);
+  try {
+    await seek(v, Math.min(Math.max(0, v.duration - 0.05), t));
+    const vw = v.videoWidth || 1080, vh = v.videoHeight || 1920;
+    const sh = recorte === "arriba" ? Math.round(vh / 2) : vh;
+    const w = Math.min(1080, vw), h = Math.round(sh * (w / vw));
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    c.getContext("2d")!.drawImage(v, 0, 0, vw, sh, 0, 0, w, h);
+    return await new Promise<Blob>((ok, no) => c.toBlob(b => (b ? ok(b) : no(new Error("No se pudo leer el cuadro."))), "image/jpeg", 0.9));
+  } finally { v.removeAttribute("src"); v.load(); }
+}

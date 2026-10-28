@@ -27,7 +27,7 @@ export type Identidad = {
 export const IDENTIDAD_VACIA: Identidad = { fotos: [], logo: null, voice_id: "", paleta: "cian", ropa: "ropa oscura elegante y bien ajustada", palabra: "", velocidad: 1.1, sfx: true, clips_desc: {} };
 export type BiblioItem = { path: string; name: string; url: string; video: boolean };
 export type Plantilla = {
-  id: string; nombre: string; fuente: string; duracion: number | null; analisis: Analisis; thumbs: string[]; thumbUrls: string[]; created_at: string;
+  id: string; nombre: string; fuente: string; duracion: number | null; video_path?: string | null; analisis: Analisis; thumbs: string[]; thumbUrls: string[]; created_at: string;
   /** Plantilla de SUPERNOVA (28-oct-2026): la ven todas las cuentas; no se borra ni se cambia desde la app. */
   publica?: boolean; descripcion?: string;
 };
@@ -90,7 +90,7 @@ export function useStudioDatos(uid: string) {
   const cargarPlantillas = useCallback(async () => {
     if (!uid) return;
     // Las tuyas y las de SUPERNOVA (públicas; primero, en su orden).
-    const { data } = await db().from("reel_plantillas").select("id, nombre, fuente, duracion, analisis, thumbs, created_at, publica, descripcion, orden")
+    const { data } = await db().from("reel_plantillas").select("id, nombre, fuente, duracion, video_path, analisis, thumbs, created_at, publica, descripcion, orden")
       .or(`user_id.eq.${uid},publica.eq.true`).order("publica", { ascending: false }).order("orden").order("created_at", { ascending: false }).limit(30);
     const rows = (data ?? []) as Omit<Plantilla, "thumbUrls">[];
     // Miniaturas: las públicas son imágenes de la app ("/plantillas/…"); las tuyas, archivos de tu biblioteca.

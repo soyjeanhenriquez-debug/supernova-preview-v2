@@ -191,7 +191,7 @@ export function GeneradoresPage() {
             <div className="relative rounded-2xl overflow-hidden mb-8 bg-gradient-to-r from-card via-secondary to-card border border-border">
               <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-primary/10 to-accent/5" />
               <div className="relative px-5 py-8 md:px-8 md:py-10 text-center">
-                <p className="text-xs uppercase tracking-wider text-primary font-semibold mb-1">Mi negocio · Etapa 5 · Vender</p>
+                <p className="text-xs uppercase tracking-wider text-primary font-semibold mb-1">Crea</p>
                 <AgenteFirma agente="ventas" className="mb-2" />
                 <h2 className="font-display font-bold text-2xl text-foreground mb-2">
                   {generators.length} generadores de textos para vender

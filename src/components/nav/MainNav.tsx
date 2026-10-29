@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, House, Clock, ChevronRight, Lock, Coins, GraduationCap, BadgeDollarSign } from "lucide-react";
+import { House, Clock, ChevronRight, Lock, Coins, GraduationCap, BadgeDollarSign } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFeatureAccess } from "@/lib/features";
 import { useVitrina } from "@/contexts/VitrinaContext";
@@ -10,9 +10,9 @@ import {
 } from "@/lib/menu";
 
 /**
- * Menú lateral estilo Apple (29-oct-2026): buscador arriba, Inicio, tus 3 recientes y cuatro secciones que se pliegan
+ * Menú lateral estilo Apple (29-oct-2026): Inicio, tus recientes y cuatro secciones que se pliegan
  * (se recuerda), cada herramienta a un toque. Lo seleccionado se marca en gris, sin ámbar (manual: el ámbar es solo
- * para acciones principales). La lista vive en src/lib/menu.ts.
+ * para acciones principales). El buscador es uno solo: el de arriba de la pantalla (⌘K). La lista vive en src/lib/menu.ts.
  */
 export function MainNav({ activePage, onNavigate, collapsed }: { activePage: string; onNavigate: (page: string) => void; collapsed: boolean }) {
   const { user } = useAuth();
@@ -33,12 +33,10 @@ export function MainNav({ activePage, onNavigate, collapsed }: { activePage: str
   const toggle = (id: string) => setFolded(f => { const n = { ...f, [id]: !f[id] }; saveFolded(n); return n; });
 
   const recentItems = useMemo(
-    () => recent.map(id => MENU_ITEMS.find(i => i.id === id)).filter((i): i is MenuItem => !!i && visible(i)),
-    [recent, canSee, jean], // eslint-disable-line react-hooks/exhaustive-deps
+    // Sin la pantalla en la que estás (ya se ve marcada en su sección).
+    () => recent.map(id => MENU_ITEMS.find(i => i.id === id)).filter((i): i is MenuItem => !!i && visible(i) && i.id !== current?.id),
+    [recent, canSee, jean, current?.id], // eslint-disable-line react-hooks/exhaustive-deps
   );
-
-  // El buscador de arriba (GlobalSearch) escucha ⌘K en la ventana.
-  const openSearch = () => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, ctrlKey: true }));
 
   const row = (active: boolean) =>
     `group flex items-center gap-2.5 w-full rounded-md transition-colors text-left ${collapsed ? "justify-center px-2 h-9" : "px-2.5 h-8"} ${
@@ -69,19 +67,13 @@ export function MainNav({ activePage, onNavigate, collapsed }: { activePage: str
 
   return (
     <div className="space-y-px">
-      <button onClick={openSearch} title="Buscar (⌘K)"
-        className={`flex items-center gap-2.5 w-full rounded-md border border-border bg-secondary/40 text-muted-foreground hover:text-foreground hover:border-foreground/25 transition-colors ${collapsed ? "justify-center h-9" : "px-2.5 h-8 mb-2"}`}>
-        <Search className="w-4 h-4 shrink-0" strokeWidth={1.7} />
-        {!collapsed && <><span className="text-[13px]">Buscar</span><kbd className="ml-auto text-[10.5px] font-sans text-muted-foreground/70">⌘K</kbd></>}
-      </button>
-
       <button onClick={() => onNavigate("Dashboard")} title={collapsed ? "Inicio" : undefined} aria-current={activePage === "Dashboard" ? "page" : undefined}
         className={row(activePage === "Dashboard")}>
         <House className="w-4 h-4 shrink-0" strokeWidth={1.7} />
         {!collapsed && <span className="text-[13px] tracking-tight">Inicio</span>}
       </button>
 
-      {recentItems.length > 0 && !collapsed && (
+      {recentItems.length > 1 && !collapsed && (
         <>
           <p className="flex items-center gap-1.5 px-2.5 pt-4 pb-1 text-[11px] font-semibold text-muted-foreground/80"><Clock className="w-3 h-3" strokeWidth={2} /> Recientes</p>
           {recentItems.map(i => item(i, "r-"))}

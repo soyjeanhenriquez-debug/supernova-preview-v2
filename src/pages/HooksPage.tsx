@@ -160,7 +160,7 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 5 · Vender</p>
+        <p className="text-xs uppercase tracking-wider text-primary font-semibold">Encuentra qué vender</p>
         <h2 className="page-heading font-display text-2xl text-foreground flex items-center gap-2 mt-1">
           <Quote className="w-6 h-6 text-primary" /> BÓVEDA DE GANCHOS
         </h2>

@@ -20,7 +20,7 @@ export default {
   },
   nav: {
     dashboard: "Hoy",
-    offers: "Ofertas ganadoras",
+    offers: "Ofertas que venden",
     kits: "Mini Apps",
     winners: "Radar de anuncios",
     hooks: "Ganchos (hooks)",

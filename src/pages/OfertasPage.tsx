@@ -333,8 +333,8 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 1 · Elegir</p>
-        <h2 className="page-heading font-display text-2xl text-foreground mt-1">OFERTAS GANADORAS</h2>
+        <p className="text-xs uppercase tracking-wider text-primary font-semibold">Encuentra qué vender</p>
+        <h2 className="page-heading font-display text-2xl text-foreground mt-1">OFERTAS QUE VENDEN</h2>
         <p className="text-sm text-muted-foreground mt-3 max-w-2xl">
           Productos que alguien paga por anunciar hoy. Toca uno, míralo de un vistazo y haz tu versión.
         </p>

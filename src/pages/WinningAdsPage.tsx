@@ -806,7 +806,7 @@ export function WinningAdsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 1 · Elegir</p>
+          <p className="text-xs uppercase tracking-wider text-primary font-semibold">Encuentra qué vender</p>
           <h2 className="page-heading font-display text-2xl text-foreground mt-1">RADAR DE ANUNCIOS</h2>
           <p className="text-sm text-muted-foreground mt-3 max-w-2xl">
             Anuncios reales de Facebook e Instagram. Busca un tema y mira qué venden otros y cómo lo anuncian.

@@ -94,7 +94,7 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
     desc: "6 caminos para empezar de cero, con ejemplos reales y la primera acción.", keywords: "ideas side hustle negocio empezar cero emprender caminos faceless ugc low ticket" }),
   T({ id: "radar", key: "Buscar Ofertas Winner", icon: Trophy, title: "Espiar anuncios ganadores", nav: "Radar de anuncios", cost: FREE,
     desc: "Los que llevan más días pagándose: la mejor prueba de que venden.", keywords: "radar anuncios ganadores espiar facebook instagram meta winner competencia biblioteca que vender ideas" }),
-  T({ id: "ofertas", key: "Ofertas", icon: Gem, featured: true, title: "Ofertas que venden", nav: "Ofertas ganadoras", cost: FREE,
+  T({ id: "ofertas", key: "Ofertas", icon: Gem, featured: true, title: "Ofertas que venden", nav: "Ofertas que venden", cost: FREE,
     desc: "Negocios digitales que ya venden, con su precio y su embudo.", keywords: "ofertas negocios productos digitales embudo checkout precio que vender idea ideas empezar cero curso cursos ebook guia programa reto infoproducto modelar version mi version hacer mi version" }),
   T({ id: "nichosyt", key: "Nichos YouTube", icon: Radar, title: "Nichos de YouTube", nav: "Nichos de YouTube", cost: FREE,
     desc: "Los videos que más crecieron este mes y su ingreso estimado.", keywords: "nichos youtube canales virales tendencias shorts largos rpm monetizar" }),

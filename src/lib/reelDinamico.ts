@@ -23,6 +23,10 @@ export const PRICE_PLAN = 15;
 export const PRICES = { imagen: 6, animar: 89, look: 9 } as const;
 /** Kling AI Avatar (fal): lo que cuesta cada segundo de ti hablando (costo real; solo para el panel de Jean). */
 export const HABLA_USD_SEG = 0.0562;
+/** Lo que pagamos de verdad a los proveedores (credit_prices.real_cost_usd y ai_usage, 28-oct-2026). */
+export const USD_REAL = { imagen: 0.0081, look: 0.0115, animar: 0.118, vozCaracter: 0.00022 } as const;
+/** Desde aquí se pregunta antes de producir (Jean, 28-oct-2026: «antes de entregar reels muy costosos, avisa»). */
+export const AVISO_USD = 2;
 /** Créditos de la voz y de cada toma hablando (credit_prices reel_voz_* y reel_lip_*; decisión de Jean, 26-oct-2026). Solo
  *  para MOSTRAR el estimado: quien cobra es el servidor (reel-ia). */
 export const PRECIO_VOZ = { hasta600: 99, hasta1200: 198 } as const;
@@ -109,6 +113,9 @@ export function costo(r: Reel, t: Tiempo[] | null, looksPropios: Set<number> = n
   return {
     creditos, imagenes: visuales.size, animadas: animadas.size, looks: looks.size, segHabla: seg, usdHabla: Math.round(seg * HABLA_USD_SEG * 100) / 100,
     tomas: tomas.length, creditosHabla, creditosVoz: voz, total: creditos + creditosHabla + voz,
+    // Costo real aproximado (con la voz si ya existe; si no, estimado). El lip-sync es casi todo.
+    usdReal: Math.round(((t ? seg : tomas.reduce((a, x) => a + x, 0)) * HABLA_USD_SEG + visuales.size * USD_REAL.imagen + animadas.size * USD_REAL.animar
+      + looks.size * USD_REAL.look + (r.guion ?? "").length * USD_REAL.vozCaracter) * 100) / 100,
   };
 }
 

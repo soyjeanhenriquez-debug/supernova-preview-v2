@@ -22,7 +22,7 @@ import { streamGenerator } from "@/components/video/videoApi";
 import { ToolShell } from "@/components/tool/ToolShell";
 import { ReelDinamico, type RDPlano, type RDProps, type RDTramo } from "@/remotion/ReelDinamico";
 import {
-  FORMAS, GENERATOR_ID, HABLA_USD_SEG, MODO_NOMBRE, PALETAS, palabraDelGuion, PRICE_PLAN, SYSTEM, VELOCIDADES, audioTramo, costo, huella, paleta, pantallas,
+  AVISO_USD, FORMAS, GENERATOR_ID, HABLA_USD_SEG, MODO_NOMBRE, PALETAS, palabraDelGuion, PRICE_PLAN, SYSTEM, VELOCIDADES, audioTramo, costo, huella, paleta, pantallas,
   parseReel, pedidoIA, SYSTEM_ESPEJO, pedidoEspejo, parseEspejo, espejoReel, resumen, seVe, textoPublicacion, planoOriginal, conTusImagenes, refDeLook, huecoDe, tiempos, tramos, type Analisis, type ModoReel, type Oferta, type Plano, type Reel,
 } from "@/lib/reelDinamico";
 import { Inicio, type Origen } from "./Inicio";
@@ -904,7 +904,17 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
       toast.error(e instanceof Error && e.message ? e.message : "No se pudo armar el video en este navegador. Prueba con Chrome.");
     } finally { setBusy(""); }
   };
-  const generar = async () => { commit({ auto: true, validado: null }); await producir(); };
+  const generar = async () => {
+    // Antes de gastar en serio, se pregunta (28-oct-2026). A Jean, en dólares reales; a un cliente, en créditos.
+    if (c && c.usdReal >= AVISO_USD) {
+      const seg = Math.round(c.segHabla || c.tomas * 6);
+      const msg = jean
+        ? `Este reel cuesta de verdad unos US$ ${c.usdReal.toFixed(2)}: casi todo es el lip-sync (${c.tomas} tomas, ~${seg} s de ti hablando a US$ ${HABLA_USD_SEG}/s). ¿Lo produzco?`
+        : `Este reel cuesta unos ${fmtCr(c.total)} créditos: la mayor parte son ${c.tomas} tomas de ti hablando (~${seg} s). Si sales en menos planos, cuesta menos. ¿Lo creo?`;
+      if (!confirm(msg)) return;
+    }
+    commit({ auto: true, validado: null }); await producir();
+  };
   // "Generar mi reel" sigue solo: cuando todo está listo, arma y valida el MP4. Si algo falla, se detiene y lo dice.
   useEffect(() => {
     if (!meta.auto || busy) return;
@@ -1310,7 +1320,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
         <Card label="Crear reel">
           <p className="text-[13px] text-foreground">Costo estimado: <span className="font-semibold">{fmtCr(c.total)} créditos</span></p>
           <p className="text-[12px] text-muted-foreground">{c.looks} looks tuyos · {c.imagenes} imágenes · {c.animadas} animaciones · tu voz · {c.tomas} {c.tomas === 1 ? "toma" : "tomas"} de ti hablando. Lo que ya está hecho no se vuelve a cobrar; si algo falla, se te devuelve.</p>
-          {jean && <p className="text-[11px] text-muted-foreground">Costo real aprox.: tú hablando {usd((c.segHabla || r.planos.filter(p => seVe(p.forma)).length * 1.5) * HABLA_USD_SEG)} · voz {usd(usdVoz)}.</p>}
+          {jean && <p className={`text-[11px] ${c.usdReal >= AVISO_USD ? "text-primary" : "text-muted-foreground"}`}>Costo real aprox.: {usd(c.usdReal)} en total · tú hablando {usd((c.segHabla || r.planos.filter(p => seVe(p.forma)).length * 1.5) * HABLA_USD_SEG)} · voz {usd(usdVoz)}.</p>}
           <button type="button" onClick={() => void generar()} disabled={!!busy || faltan.some(f => f.que === "Tu foto" || f.que === "Tu voz")} className={primario}>
             {busy === "producir" ? <><Loader2 className="w-4 h-4 animate-spin" /> {paso || "Generando…"}</> : busy === "render" ? <><Loader2 className="w-4 h-4 animate-spin" /> Armando tu reel… {progress} %</> : <><Sparkles className="w-4 h-4" /> Generar mi reel</>}
           </button>

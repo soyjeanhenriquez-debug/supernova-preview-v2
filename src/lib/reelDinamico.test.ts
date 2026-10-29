@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_ANIMADAS, audioTramo, cleanAnalisis, costo, descDeNombre, huella, idsDeBiblioteca, intercambiar, moverCorte, pantallas, parseReel, pedidoIA, quitarPlano, tiempos, tramos, type Plano, creditosToma, creditosVoz, conTusImagenes, costoPlano, ORIGINAL, planoOriginal, fichaHueco, huecoDe, refDeLook, type Reel, type RefPlano } from "@/lib/reelDinamico";
+import { MAX_ANIMADAS, audioTramo, cleanAnalisis, costo, descDeNombre, huella, idsDeBiblioteca, intercambiar, moverCorte, pantallas, parseReel, pedidoIA, quitarPlano, tiempos, tramos, type Plano, creditosToma, creditosVoz, conTusImagenes, costoPlano, AVISO_USD, ORIGINAL, planoOriginal, fichaHueco, huecoDe, refDeLook, type Reel, type RefPlano } from "@/lib/reelDinamico";
 
 const clips = [{ id: "ofertas-ganadoras-numeros.mp4", desc: "ofertas ganadoras" }, { id: "calculadora.mp4", desc: "calculadora de precio" }];
 const P = (texto: string, forma: Plano["forma"], extra: Partial<Plano> = {}) => ({ texto, forma, look: 0, clip: "", visual: "", animar: false, enfasis: "", ref: -1, ...extra });
@@ -180,5 +180,18 @@ describe("espejo con las imágenes del original", () => {
     expect(planoOriginal("a robot")).toBe(-1);
     expect(costo(r, null).imagenes).toBe(1);
     expect(costoPlano(r.planos[1])).toBe(0);
+  });
+});
+
+describe("costo real antes de producir", () => {
+  it("usdReal: el lip-sync manda; un reel largo donde siempre hablas pasa el aviso", () => {
+    const planos = Array.from({ length: 14 }, (_, i) => P(`frase número ${i} con varias palabras`, "dividida", { visual: `shot ${i}`, ref: i }));
+    const r: Reel = { titulo: "X", guion: "x".repeat(1221), palabra: "INFO", looks: [{ escena: "office" }], planos };
+    const words = planos.flatMap((p, i) => p.texto.split(" ").map((w, k) => ({ text: w, t0: i * 6 + k, t1: i * 6 + k + 0.9 })));
+    const c = costo(r, tiempos(planos, words, 86), new Set());
+    expect(c.usdReal).toBeGreaterThan(4);
+    expect(c.usdReal).toBeGreaterThanOrEqual(AVISO_USD);
+    const corto = costo({ ...r, guion: "hola", planos: planos.slice(0, 3).map((p, i) => (i === 1 ? { ...p, forma: "broll" as const } : p)) }, null);
+    expect(corto.usdReal).toBeLessThan(AVISO_USD);
   });
 });

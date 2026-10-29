@@ -93,7 +93,9 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const [tab, setTab] = useState<Tab>(() => {
     const t = localStorage.getItem(OFFERS_TAB_KEY);
     if (t) localStorage.removeItem(OFFERS_TAB_KEY);
-    if (todasFromHash()) return "todas";
+    // WhatsApp abre en todo el catálogo: las 300 ganadoras son una lista curada y casi no tiene de WhatsApp
+    // (Jean, 29-oct-2026: «salen 7» cuando Cazador tiene 30). Igual que el enlace «todas».
+    if (todasFromHash() || canalFromHash() === "whatsapp") return "todas";
     return t === "siguiendo" || t === "apps" ? t : "ganadoras";
   });
   const follows = useOfferFollows();
@@ -128,7 +130,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const [anuncios, setAnuncios] = useState("all");
   const [nuevas, setNuevas] = useState(false);
   const [opts, setOpts] = useState<OpcionesFiltro>({});
-  const [onlyCopiable, setOnlyCopiable] = useState(() => !todasFromHash());
+  const [onlyCopiable, setOnlyCopiable] = useState(() => !todasFromHash() && canalFromHash() !== "whatsapp");
   // En WhatsApp se ordena por escala, como Cazador (las de 480 anuncios arriba).
   const [sort, setSort] = useState(() => (canalFromHash() === "whatsapp" ? "ads" : "rank"));
   const [page, setPage] = useState(0);
@@ -279,11 +281,11 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
     [opts.nicho],
   );
 
-  // Al cambiar de canal: el checkout y el embudo dependen del canal (en WhatsApp solo hay WhatsApp), y en WhatsApp se
-  // ordena por escala, como Cazador.
+  // Al cambiar de canal: el checkout y el embudo dependen del canal (en WhatsApp solo hay WhatsApp). En WhatsApp se ve
+  // todo el catálogo ordenado por escala, como Cazador (sin la lista curada ni «Solo las que haces tú solo»).
   const elegirCanal = (v: typeof canal) => {
     setCanal(v); setPlatform("all"); setEmbudo("all");
-    if (v === "whatsapp") setSort("ads");
+    if (v === "whatsapp") { setSort("ads"); setOnlyCopiable(false); if (tab === "ganadoras") setTab("todas"); }
   };
   const otrosFiltros = [niche, model, platform, idioma, pais, tipo, embudo, tag, anuncios].some((v) => v !== "all") || nuevas;
   const limpiarOtros = () => {

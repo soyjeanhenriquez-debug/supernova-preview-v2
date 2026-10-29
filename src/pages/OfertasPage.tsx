@@ -24,6 +24,16 @@ const offerIdFromHash = () => {
   const id = window.location.hash.replace(/^#\/?/, "").split("/")[1] ?? "";
   return UUID_RE.test(id) ? id : null;
 };
+// #/ofertas/whatsapp y #/ofertas/pagina abren Ofertas ya filtradas por cómo venden (atajos del Radar, 28-oct-2026).
+const canalFromHash = (): "all" | "pagina" | "whatsapp" => {
+  const s = window.location.hash.replace(/^#\/?/, "").split("/")[1] ?? "";
+  return s === "whatsapp" || s === "pagina" ? s : "all";
+};
+const CANALES = [
+  { v: "all", t: "Todas", d: "Todas las formas de vender." },
+  { v: "whatsapp", t: "💬 Por WhatsApp", d: "El anuncio lleva a un chat y la venta se cierra ahí." },
+  { v: "pagina", t: "🔗 Con página de ventas", d: "El anuncio lleva a una página con botón de pago." },
+] as const;
 
 /**
  * Catálogo producto-primero (lo que Escala Ads llama "ofertas" y SwipeSaaS
@@ -80,7 +90,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   useEffect(() => { if (group === null) setGroupState("all"); }, [group]);
   const [model, setModel] = useState("all");
   // Cómo vende (28-oct-2026, Cindy: "¿están mezcladas?"): página de ventas, WhatsApp o mensajes.
-  const [canal, setCanal] = useState<"all" | "pagina" | "whatsapp" | "mensajes" | "sin">("all");
+  const [canal, setCanal] = useState<"all" | "pagina" | "whatsapp" | "mensajes" | "sin">(canalFromHash);
   // Plataforma de cobro (Hotmart, Kiwify, Gumroad…): solo se conoce en las ofertas ya revisadas.
   const [platform, setPlatform] = useState("all");
   const [platformCounts, setPlatformCounts] = useState<{ platform: string; total: number; winners: number }[]>([]);
@@ -243,6 +253,20 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
         </div>
       </div>
 
+      {/* Cómo vende, a la vista (28-oct-2026, Cindy no encontraba las de WhatsApp: estaba escondido entre los filtros). */}
+      <div className="space-y-2">
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground">¿Cómo quieres vender?</p>
+        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Cómo vende">
+          {CANALES.map((c) => (
+            <button key={c.v} type="button" role="radio" aria-checked={canal === c.v} onClick={() => setCanal(c.v)}
+              className={`rounded-xl border p-3 text-left transition-colors ${canal === c.v ? "border-primary bg-card" : "border-border hover:border-foreground/30"}`}>
+              <span className="block text-[13px] sm:text-sm font-semibold text-foreground">{c.t}</span>
+              <span className="hidden sm:block text-[12px] text-muted-foreground mt-0.5">{c.d}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Tabs */}
       {/* En el celular las pestañas van en una fila con scroll y con nombre corto (antes eran 3 filas). */}
       <div className="flex flex-nowrap sm:flex-wrap gap-2 overflow-x-auto -mx-1 px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -291,15 +315,6 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
             {Object.entries(MARKET_GROUP).map(([k, g]) => <SelectItem key={k} value={k}>{g.flag} {g.label}</SelectItem>)}
           </SelectContent>
         </Select>
-        <div className="space-y-1.5">
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Cómo vende</p>
-          <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Cómo vende">
-            {([["all", "Todas"], ["pagina", "🔗 Página de ventas"], ["whatsapp", "💬 WhatsApp"], ["mensajes", "💬 Messenger o Instagram"], ["sin", "Sin revisar"]] as const).map(([v, l]) => (
-              <button key={v} type="button" role="radio" aria-checked={canal === v} onClick={() => setCanal(v)}
-                className={`min-h-[36px] rounded-full border px-3 text-[12.5px] ${canal === v ? "border-foreground/60 bg-card text-foreground" : "border-border text-muted-foreground hover:border-foreground/30"}`}>{l}</button>
-            ))}
-          </div>
-        </div>
         <div className="grid grid-cols-2 gap-2">
           <Select value={niche} onValueChange={setNiche}>
             <SelectTrigger className="bg-secondary/50"><SelectValue placeholder="Tema" /></SelectTrigger>
@@ -345,9 +360,6 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
         {canal === "whatsapp" && !loading && (
           <span className="block mt-0.5">WhatsApp no deja ver el número en los datos públicos: abre el anuncio y toca su botón para ver cómo atienden.</span>
         )}
-        {(canal === "sin" || canal === "all") && !loading && (
-          <span className="block mt-0.5">«Sin revisar» = todavía no sabemos si vende por página o por WhatsApp. Las nuevas ya llegan marcadas.</span>
-        )}
         {platform !== "all" && !loading && (
           <span className="block mt-0.5">
             Solo cuentan las ofertas donde ya vimos dónde cobran ({platformKnown.toLocaleString("es-ES")} hasta hoy). Revisamos más cada día.
@@ -368,6 +380,17 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
             {tab === "ganadoras"
               ? "Ninguna de las ganadoras coincide. Quita algún filtro o busca en Explorar todo."
               : "Prueba quitando \"Solo las que puedes hacer tú solo\" o cambia de mercado."}
+          </div>
+          {/* Una salida en un toque (Cindy, 28-oct-2026: «no me salió nada»). */}
+          <div className="flex flex-wrap justify-center gap-2 mt-4">
+            {tab === "ganadoras" && (
+              <button type="button" onClick={() => setTab("todas")} className="min-h-[40px] px-4 rounded-full bg-primary text-primary-foreground text-[13px] font-semibold">Buscar en todo el catálogo</button>
+            )}
+            {group !== "all" && <button type="button" onClick={() => setGroup("all")} className="min-h-[40px] px-4 rounded-full border border-border text-[13px] text-foreground">Ver todos los mercados</button>}
+            {(niche !== "all" || model !== "all" || platform !== "all" || debounced) && (
+              <button type="button" onClick={() => { setNiche("all"); setModel("all"); setPlatform("all"); setSearch(""); }} className="min-h-[40px] px-4 rounded-full border border-border text-[13px] text-foreground">Quitar los demás filtros</button>
+            )}
+            {onlyCopiable && tab !== "ganadoras" && <button type="button" onClick={() => setOnlyCopiable(false)} className="min-h-[40px] px-4 rounded-full border border-border text-[13px] text-foreground">Ver también las más difíciles</button>}
           </div>
         </div>
       ) : (

@@ -465,7 +465,9 @@ export function WinningAdsPage() {
         };
       });
       setRealAds(mapped.filter((a) => !isAdultAd(`${a.title} ${a.body} ${a.pageName}`)));
-      setFilteredTotal(count ?? 0);
+      // El conteo "estimated" de la base puede decir 3.249 cuando con esos filtros hay 8 (Cindy, 28-oct-2026):
+      // si la primera página no se llena, el total real es lo que llegó.
+      setFilteredTotal(from === 0 && (data?.length ?? 0) < pageSize ? (data?.length ?? 0) : count ?? 0);
       setLoadingReal(false);
     })();
     return () => { cancelled = true; };
@@ -750,6 +752,25 @@ export function WinningAdsPage() {
     }
   };
 
+  // Atajo "Los que más tiempo llevan": limpia lo que esconde resultados y ordena por días pagando.
+  const quitarFiltros = () => {
+    setVerticalFilter("Todas"); setMinDays(0); setMinDups(0); setMinScore(0); setRegionFilter("Todos"); setKeyword(""); setPage(1);
+  };
+  const masTiempo = () => {
+    quitarFiltros(); setMinDays(30); setSort("Más Días");
+    document.getElementById("radar-resultados")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  // Los filtros puestos, cada uno con su botón para quitarlo (para el estado vacío).
+  const filtrosPuestos = [
+    verticalFilter !== "Todas" && { l: `Tipo: ${(CATEGORY_LABEL as Record<string, string>)[verticalFilter] ?? verticalFilter}`, quitar: () => setVerticalFilter("Todas") },
+    minDays > 0 && { l: `${minDays}+ días`, quitar: () => setMinDays(0) },
+    minDups > 0 && { l: `${minDups}+ copias`, quitar: () => setMinDups(0) },
+    regionFilter !== "Todos" && { l: `Mercado: ${regionFilter}`, quitar: () => setRegionFilter("Todos") },
+    market !== "all" && { l: `Idioma: ${MARKETS.find((m) => m.id === market)?.label ?? market}`, quitar: () => setMarket("all") },
+    minScore > 0 && { l: `Puntaje ${minScore}+`, quitar: () => setMinScore(0) },
+    keyword.trim() && { l: `«${keyword.trim()}»`, quitar: () => setKeyword("") },
+  ].filter(Boolean) as { l: string; quitar: () => void }[];
+
   const toggleSave = (id: string) => {
     setSaved((s) => {
       const n = new Set(s);
@@ -802,6 +823,23 @@ export function WinningAdsPage() {
         )}
       </div>
 
+
+      {/* Atajos (28-oct-2026, Cindy: «puse estos filtros y no me salió nada»): lo que la gente busca, en un toque. */}
+      <div className="space-y-2">
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground">¿Qué quieres encontrar?</p>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {([
+            { t: "💬 Negocios que venden por WhatsApp", d: "El anuncio lleva a un chat y la venta se cierra ahí.", go: () => { window.location.hash = "#/ofertas/whatsapp"; } },
+            { t: "🔗 Negocios con página de ventas", d: "El anuncio lleva a una página con botón de pago.", go: () => { window.location.hash = "#/ofertas/pagina"; } },
+            { t: "🏆 Los que más tiempo llevan pagando", d: "Anuncios de 30 días o más: la mejor prueba de que venden.", go: masTiempo },
+          ]).map((a) => (
+            <button key={a.t} type="button" onClick={a.go} className="rounded-xl border border-border p-3 text-left hover:border-primary/50 transition-colors">
+              <span className="block text-sm font-semibold text-foreground">{a.t}</span>
+              <span className="block text-[12px] text-muted-foreground mt-0.5">{a.d}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Selectores Edge Function + Debug panel (solo admin) */}
       {isAdmin && (
@@ -1142,7 +1180,7 @@ export function WinningAdsPage() {
 
 
       {/* Ofertas escalando */}
-      <div>
+      <div id="radar-resultados" className="scroll-mt-24">
         {(() => {
           return (
             <>
@@ -1183,17 +1221,37 @@ export function WinningAdsPage() {
         })()}
 
 
-        {filteredTotal === 0 ? (
-          <div className="card-surface rounded-xl py-16 text-center">
+        {filteredTotal === 0 || (!loadingReal && realAds.length > 0 && paginated.length === 0 && totalPages <= 1) ? (
+          <div className="card-surface rounded-xl py-12 px-4 text-center">
             <div className="empty-icon mb-4"><Trophy className="w-9 h-9" /></div>
             <div className="font-display font-bold text-lg mb-1">No hay anuncios con estos filtros</div>
-            <div className="text-sm text-muted-foreground max-w-sm mx-auto">Baja los días activo o las copias del anuncio, o cambia de mercado.</div>
+            <div className="text-sm text-muted-foreground max-w-md mx-auto">
+              {filtrosPuestos.length ? "Juntos dejan muy pocos anuncios. Quita uno y vuelve a mirar:" : "Prueba otra palabra o busca en vivo en Facebook."}
+            </div>
+            {filtrosPuestos.length > 0 && (
+              <div className="flex flex-wrap justify-center gap-2 mt-4">
+                {filtrosPuestos.map((f) => (
+                  <button key={f.l} type="button" onClick={f.quitar} className="min-h-[40px] px-3.5 rounded-full border border-border text-[13px] text-foreground hover:border-primary/50">
+                    <X className="inline w-3.5 h-3.5 mr-1" />{f.l}
+                  </button>
+                ))}
+                {filtrosPuestos.length > 1 && (
+                  <button type="button" onClick={quitarFiltros} className="min-h-[40px] px-4 rounded-full bg-primary text-primary-foreground text-[13px] font-semibold">Quitar todos los filtros</button>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <>
             {/* HeatMap ("Nichos en llamas") quitado del Radar el 12-oct-2026: lee offer_type, que está vacío en
                 todos los anuncios, así que nunca se pintaba pero cada apertura leía ~5.000 filas de winning_ads. */}
-            {verticalFilter !== "Todas" && (
+            {verticalFilter !== "Todas" && paginated.length === 0 && (
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>En esta página ninguno parece «{(CATEGORY_LABEL as Record<string, string>)[verticalFilter] ?? verticalFilter}». Pasa de página o</span>
+                <button type="button" onClick={() => setVerticalFilter("Todas")} className="min-h-[36px] px-3 rounded-full border border-border text-foreground">ver todos los tipos</button>
+              </div>
+            )}
+            {verticalFilter !== "Todas" && paginated.length > 0 && (
               // El tipo se adivina por el texto de cada anuncio de ESTA página (no hay columna en la base):
               // se dice claro para que el total de abajo no engañe (prueba de Hany, 10-oct-2026).
               <p className="text-xs text-muted-foreground">

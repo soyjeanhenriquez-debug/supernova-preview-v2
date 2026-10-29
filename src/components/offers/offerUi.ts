@@ -13,7 +13,7 @@ export const NIVELES = [
 ] as const;
 export type Nivel = (typeof NIVELES)[number];
 
-export function nivelOferta(o: Pick<Offer, "active_ads" | "days_active"> & Partial<Pick<Offer, "live_active_ads" | "live_capped">>): Nivel {
+export function nivelOferta(o: Pick<Offer, "active_ads" | "days_active"> & Partial<Pick<Offer, "live_active_ads" | "live_capped" | "source_data">>): Nivel {
   const l = scaleLabel(o);
   return NIVELES.find((n) => n.label === l) ?? NIVELES[0];
 }

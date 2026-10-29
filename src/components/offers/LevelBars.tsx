@@ -6,7 +6,7 @@ import { nivelOferta } from "@/components/offers/offerUi";
  * Cuenta anuncios activos y días pagando anuncios; el texto lo dice al pasar el dedo o el ratón.
  */
 export function LevelBars({ o, size = "sm" }: {
-  o: Pick<Offer, "active_ads" | "days_active"> & Partial<Pick<Offer, "live_active_ads" | "live_capped">>;
+  o: Pick<Offer, "active_ads" | "days_active"> & Partial<Pick<Offer, "live_active_ads" | "live_capped" | "source_data">>;
   size?: "sm" | "lg";
 }) {
   const n = nivelOferta(o);

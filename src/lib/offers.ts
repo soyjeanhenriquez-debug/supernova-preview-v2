@@ -211,7 +211,12 @@ export function anunciosActivos(o: Pick<Offer, "active_ads" | "live_active_ads" 
   return { n, texto: `${n.toLocaleString("es")}${vivo && o.live_capped ? "+" : ""}`, vivo };
 }
 
-export function scaleLabel(o: Pick<Offer, "active_ads" | "days_active"> & Partial<Pick<Offer, "live_active_ads" | "live_capped">>): string {
+// Niveles de Cazador Swipe → los nuestros. Solo se usan cuando no tenemos los días (sus ofertas de Brasil: Meta no da la
+// fecha); Cazador sí los midió. Sin esto, una oferta de 480 anuncios salía como «Despegando».
+const NIVEL_CAZADOR: Record<string, string> = { Dominando: "Dominando", Escalando: "Creciendo", Validando: "Despegando", Testeando: "En prueba" };
+
+export function scaleLabel(o: Pick<Offer, "active_ads" | "days_active"> & Partial<Pick<Offer, "live_active_ads" | "live_capped" | "source_data">>): string {
+  if (!(o.days_active > 0) && o.source_data?.nivel && NIVEL_CAZADOR[o.source_data.nivel]) return NIVEL_CAZADOR[o.source_data.nivel];
   o = { ...o, active_ads: anunciosActivos({ live_active_ads: null, live_capped: false, ...o }).n };
   if (o.active_ads >= 30 && o.days_active >= 60) return "Dominando";
   if (o.active_ads >= 10 && o.days_active >= 30) return "Creciendo";

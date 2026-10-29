@@ -13,6 +13,9 @@ interface AdMediaPreviewProps {
   fill?: boolean;
   /** "contain" enseña el creativo entero (ficha); "cover" lo recorta para llenar (tarjetas). */
   fit?: "cover" | "contain";
+  /** Portada fija de la oferta (offers.cover_url, p. ej. la de Cazador Swipe): se ve al instante, sin pedirle nada a
+   *  Meta, y queda debajo si después carga el anuncio real. */
+  coverUrl?: string | null;
 }
 
 // ============================================================
@@ -182,7 +185,7 @@ function requestMedia(adId: string, fresh: boolean, signal: AbortSignal): Promis
   });
 }
 
-export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title, fill, fit = "cover" }: AdMediaPreviewProps) {
+export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title, fill, fit = "cover", coverUrl }: AdMediaPreviewProps) {
   const fitCls = fit === "contain" ? "object-contain" : "object-cover";
   const adId = extractAdId(snapshotUrl) || extractAdId(adUrl);
   const [state, setState] = useState<"idle" | "loading" | "ready" | "failed">("idle");
@@ -197,6 +200,8 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title, fi
   const [retry, setRetry] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const [coverOk, setCoverOk] = useState(true);
+  const cover = coverOk ? safeExternalUrl(coverUrl ?? undefined) : null;
 
   // Lazy: solo dispara cuando entra al viewport
   useEffect(() => {
@@ -289,12 +294,12 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title, fi
         <div className="text-xs font-semibold text-foreground/90 line-clamp-2 max-w-[80%]">
           {title || pageName}
         </div>
-        {(state === "loading" || (state === "ready" && !painted)) && (
+        {!cover && (state === "loading" || (state === "ready" && !painted)) && (
           <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
             <Loader2 className="w-3 h-3 animate-spin" /> Cargando el anuncio…
           </div>
         )}
-        {state === "failed" && (
+        {state === "failed" && !cover && (
           <div className="flex flex-col items-center gap-1.5 text-[10px] text-muted-foreground">
             <span className="flex items-center gap-1.5"><ImageOff className="w-3 h-3" /> Sin vista previa</span>
             <button
@@ -307,6 +312,18 @@ export function AdMediaPreview({ snapshotUrl, adUrl, pageId, pageName, title, fi
           </div>
         )}
       </div>
+
+      {/* Portada fija de la oferta: tapa el póster y queda debajo del anuncio real si este carga. */}
+      {cover && (
+        <img
+          src={cover}
+          alt={`Anuncio de ${pageName}`}
+          loading="lazy"
+          decoding="async"
+          onError={() => setCoverOk(false)}
+          className={`absolute inset-0 w-full h-full ${fitCls} bg-black`}
+        />
+      )}
 
       {/* Video real si lo detectamos. Transparente hasta que pinta su primer cuadro: así se ve el póster
           de arriba y no un cuadro negro mientras baja. */}

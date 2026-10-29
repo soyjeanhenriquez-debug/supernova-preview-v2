@@ -3,7 +3,7 @@ import { AdMediaPreview } from "@/components/AdMediaPreview";
 import { Pill } from "@/components/ui/pill";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { Delta, type FollowedRow } from "@/components/dashboard/RoiHunterWidget";
-import { type Offer, NICHE_LABEL, CANAL_CORTO, flagFor, anunciosActivos } from "@/lib/offers";
+import { type Offer, NICHE_LABEL, CANAL_CORTO, flagFor, anunciosActivos, diasPagando } from "@/lib/offers";
 import { type OfferWatch, type WatchPoint, describeEvent, daysAgo } from "@/lib/offerWatch";
 import { LevelBars } from "@/components/offers/LevelBars";
 import { idiomaDe, hacerloSolo } from "@/components/offers/offerUi";
@@ -42,7 +42,7 @@ export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, onCr
         className="relative aspect-[4/3] bg-secondary/40 overflow-hidden cursor-pointer"
         onClick={(e) => { if (!(e.target as HTMLElement).closest("a,button")) onOpen(); }}
       >
-        <AdMediaPreview fill adUrl={o.sample_ad_url ?? undefined} pageId={o.page_id} pageName={o.page_name ?? name} title={name} />
+        <AdMediaPreview fill coverUrl={o.cover_url} adUrl={o.sample_ad_url ?? undefined} pageId={o.page_id} pageName={o.page_name ?? name} title={name} />
       </div>
       {/* 44px: el mínimo cómodo para un dedo. Seguir cobra: el precio se ve también en el teléfono (sin hover). */}
       <button onClick={onToggleFollow}
@@ -64,7 +64,7 @@ export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, onCr
 
           {/* La prueba de venta primero: días pagando anuncios. Luego cuántos anuncios, diciendo de dónde sale el número. */}
           <div className="grid grid-cols-2 gap-2 mt-3">
-            <Metric icon={<CalendarDays className="w-4 h-4 text-primary" />} value={o.days_active.toLocaleString("es")} label="días pagando anuncios" />
+            <Metric icon={<CalendarDays className="w-4 h-4 text-primary" />} value={diasPagando(o)} label="días pagando anuncios" />
             <Metric icon={<Flame className="w-4 h-4 text-muted-foreground" />} value={act.texto} label={act.vivo ? "anuncios activos hoy en Meta" : "anuncios activos que vimos"} />
           </div>
 

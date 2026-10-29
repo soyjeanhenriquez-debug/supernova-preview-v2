@@ -2,7 +2,7 @@ import { X, Heart, Zap, ArrowRight, CalendarDays, Flame, BadgeDollarSign, Check,
 import { ModalPortal } from "@/components/ModalPortal";
 import { AdMediaPreview } from "@/components/AdMediaPreview";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
-import { type Offer, NICHE_LABEL, MARKET_NAME, CANAL_LABEL, enlaceCanal, flagFor, anunciosActivos } from "@/lib/offers";
+import { type Offer, NICHE_LABEL, MARKET_NAME, CANAL_LABEL, enlaceCanal, flagFor, anunciosActivos, diasPagando } from "@/lib/offers";
 import { LevelBars } from "@/components/offers/LevelBars";
 import { nivelOferta, idiomaDe, hacerloSolo } from "@/components/offers/offerUi";
 
@@ -38,7 +38,7 @@ export function OfferQuickView({ offer: o, following, onToggleFollow, onCreate, 
           <div className="flex-1 overflow-y-auto overscroll-contain">
             <div className="px-4 sm:px-5 pt-2 sm:pt-5">
               <div className="relative aspect-video rounded-2xl overflow-hidden bg-secondary/40 border border-border">
-                <AdMediaPreview fill fit="contain" adUrl={o.sample_ad_url ?? undefined} pageId={o.page_id} pageName={o.page_name ?? name} title={name} />
+                <AdMediaPreview fill fit="contain" coverUrl={o.cover_url} adUrl={o.sample_ad_url ?? undefined} pageId={o.page_id} pageName={o.page_name ?? name} title={name} />
                 <button onClick={onClose} aria-label="Cerrar"
                   className="absolute top-2 right-2 z-20 w-10 h-10 rounded-full bg-background/80 backdrop-blur border border-border flex items-center justify-center text-foreground hover:bg-secondary">
                   <X className="w-5 h-5" />
@@ -58,7 +58,7 @@ export function OfferQuickView({ offer: o, following, onToggleFollow, onCreate, 
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <Kpi icon={<CalendarDays className="w-4 h-4 text-primary" />} value={o.days_active.toLocaleString("es")} label="días pagando anuncios" />
+                <Kpi icon={<CalendarDays className="w-4 h-4 text-primary" />} value={diasPagando(o)} label="días pagando anuncios" />
                 <Kpi icon={<Flame className="w-4 h-4 text-muted-foreground" />} value={act.texto} label={act.vivo ? "anuncios activos hoy en Meta" : "anuncios activos que vimos"} />
                 <Kpi icon={<BadgeDollarSign className="w-4 h-4 text-muted-foreground" />} value={o.price_hint ?? "—"}
                   label={o.price_hint ? "precio que cobra (en su moneda)" : "precio: lo buscamos en la ficha completa"} small />

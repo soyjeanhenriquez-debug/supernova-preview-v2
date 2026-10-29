@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   X, Flame, ChevronDown, CalendarDays, Trophy, Copy, Check, ExternalLink, ShoppingCart, Radar, Heart, Zap, Loader2,
   Target, Tag as TagIcon, Globe2, Users, CreditCard, Route, Layers, Languages, Flag, ThumbsUp, AlertTriangle,
-  MapPin, Lightbulb, BadgeDollarSign, Sparkles, RefreshCw, Briefcase, Calculator, Rocket,
+  MapPin, Lightbulb, BadgeDollarSign, Sparkles, RefreshCw, Briefcase, Calculator, Rocket, FolderOpen, PlayCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ModalPortal } from "@/components/ModalPortal";
@@ -10,8 +10,7 @@ import { AdMediaPreview } from "@/components/AdMediaPreview";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { buildAdsLibraryPageUrl, type AdMarket } from "@/lib/demo-winning-ads";
 import {
-  type Offer, NICHE_LABEL, OFFER_TYPE_LABEL, MODEL_LABEL, MARKET_NAME, flagFor, copyLabel, winnerPct, anunciosActivos,
-} from "@/lib/offers";
+  type Offer, NICHE_LABEL, OFFER_TYPE_LABEL, MODEL_LABEL, MARKET_NAME, flagFor, copyLabel, winnerPct, anunciosActivos, diasPagando } from "@/lib/offers";
 import {
   type OfferIntel, type OfferVerdict, FUNNEL_LABEL, loadOfferIntel, safeExternalUrl, reportOffer, verdictToText,
 } from "@/lib/offerIntel";
@@ -261,9 +260,14 @@ function OfferFacts({ o, name, intel, phase, onSeeAds, onVerdict }: {
 }) {
   const copy = copyLabel(o.copy_score);
   const market = (["BR", "US", "ES", "MX", "RU"].includes(o.market) ? o.market : "LATAM") as AdMarket;
-  const metaUrl = buildAdsLibraryPageUrl(o.page_id, market);
-  const landing = safeExternalUrl(intel?.landing_url);
-  const checkout = safeExternalUrl(intel?.checkout_url);
+  // Las de Cazador Swipe traen sus links; las que no tienen page_id de Meta usan su búsqueda en la Biblioteca.
+  const links = o.source_data?.links;
+  const metaUrl = /^\d+$/.test(o.page_id) ? buildAdsLibraryPageUrl(o.page_id, market) : safeExternalUrl(links?.biblioteca) ?? buildAdsLibraryPageUrl(o.page_id, market);
+  const landing = safeExternalUrl(intel?.landing_url) ?? safeExternalUrl(links?.pagina_ventas);
+  const checkout = safeExternalUrl(intel?.checkout_url) ?? safeExternalUrl(links?.checkout);
+  const drive = safeExternalUrl(links?.drive);
+  const vsl = safeExternalUrl(links?.vsl);
+  const radarRef = o.source_data?.radar;
   const working = phase === "loading" || phase === "generating";
   const price = intel?.price_text || o.price_hint;
   const otherMarkets = (o.markets ?? []).filter((m) => m !== o.market);
@@ -278,12 +282,12 @@ function OfferFacts({ o, name, intel, phase, onSeeAds, onVerdict }: {
   return (
     <div className="space-y-4">
       <div className="relative aspect-video rounded-2xl overflow-hidden bg-secondary/40 border border-border">
-        <AdMediaPreview fill fit="contain" adUrl={o.sample_ad_url ?? undefined} pageId={o.page_id} pageName={o.page_name ?? name} title={name} />
+        <AdMediaPreview fill fit="contain" coverUrl={o.cover_url} adUrl={o.sample_ad_url ?? undefined} pageId={o.page_id} pageName={o.page_name ?? name} title={name} />
       </div>
 
       {/* Lo primero que se mira: ¿cuánto dinero hay detrás y puedo copiarlo? */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <Kpi icon={<CalendarDays className="w-3.5 h-3.5" />} label="Días pagando anuncios" value={o.days_active.toLocaleString("es")} hint="la mejor señal de que vende" />
+        <Kpi icon={<CalendarDays className="w-3.5 h-3.5" />} label="Días pagando anuncios" value={diasPagando(o)} hint="la mejor señal de que vende" />
         <Kpi icon={<Flame className="w-3.5 h-3.5" />} label="Anuncios activos" value={anunciosActivos(o).texto} hint={anunciosActivos(o).vivo ? "hoy en la Biblioteca de Meta" : "los que vimos nosotros"} />
         <Kpi icon={<Trophy className="w-3.5 h-3.5" />} label="Índice ganador" value={`${winnerPct(o)}%`} hint="dinero + facilidad" accent />
         {/* Facilidad ≠ recomendación: si el veredicto dice que no, se avisa aquí mismo. */}
@@ -311,6 +315,12 @@ function OfferFacts({ o, name, intel, phase, onSeeAds, onVerdict }: {
             <span className="min-w-0"><span className="block text-[12.5px] font-semibold text-foreground truncate">Ver en el Radar</span><span className="block text-[10.5px] text-muted-foreground truncate">todos sus anuncios</span></span>
           </button>
         </div>
+        {(drive || vsl) && (
+          <div className="grid grid-cols-2 gap-2">
+            {drive && <LinkButton href={drive} icon={<FolderOpen className="w-4 h-4" />} label="Materiales del producto" sub="carpeta con lo que entrega" compact />}
+            {vsl && <LinkButton href={vsl} icon={<PlayCircle className="w-4 h-4" />} label="Video de ventas" sub="VSL de la oferta" compact />}
+          </div>
+        )}
       </section>
 
       {/* Ficha */}
@@ -331,6 +341,19 @@ function OfferFacts({ o, name, intel, phase, onSeeAds, onVerdict }: {
         <section className="space-y-2">
           {o.mechanism && <TextBlock title="Qué vende y cómo" text={o.mechanism} />}
           {o.why_wins && <TextBlock title="Por qué convierte" text={o.why_wins} />}
+        </section>
+      )}
+
+      {/* Análisis escrito de la oferta (viene con las de Cazador Swipe que lo tienen). */}
+      {radarRef && (radarRef.que_funciona || radarRef.que_modelaria || radarRef.conclusion) && (
+        <section className="space-y-2">
+          <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground px-1">Análisis de la oferta{radarRef.nota ? ` · ${radarRef.nota}/10` : ""}</h4>
+          {radarRef.porque_llamo_atencion && <TextBlock title="Por qué llama la atención" text={radarRef.porque_llamo_atencion} />}
+          {radarRef.que_funciona && <TextBlock title="Qué funciona" text={radarRef.que_funciona} />}
+          {radarRef.que_modelaria && <TextBlock title="Qué tomar para tu versión" text={radarRef.que_modelaria} />}
+          {radarRef.que_cambiaria && <TextBlock title="Qué cambiar" text={radarRef.que_cambiaria} />}
+          {radarRef.como_adaptar_latam && <TextBlock title="Cómo llevarla a Latinoamérica" text={radarRef.como_adaptar_latam} />}
+          {radarRef.conclusion && <TextBlock title="Conclusión" text={radarRef.conclusion} />}
         </section>
       )}
 
@@ -402,7 +425,7 @@ function TextBlock({ title, text }: { title: string; text: string }) {
   return (
     <div className="rounded-xl border border-border bg-secondary/20 px-4 py-3">
       <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{title}</div>
-      <p className="text-[13.5px] text-foreground/90 leading-relaxed mt-1.5">{text}</p>
+      <p className="text-[13.5px] text-foreground/90 leading-relaxed mt-1.5 whitespace-pre-line">{text}</p>
     </div>
   );
 }

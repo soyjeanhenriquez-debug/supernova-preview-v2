@@ -48,7 +48,26 @@ export interface Offer {
   canal?: Canal | null;
   /** Si vende por página: su enlace. */
   canal_url?: string | null;
+  /** Portada fija (bucket ofertas-portadas). La de Cazador Swipe, por ejemplo. */
+  cover_url?: string | null;
+  /** null = nuestro recolector; "cazador" = catálogo de Cazador Swipe (de Jean, 29-oct-2026). */
+  source?: string | null;
+  source_data?: OfferSourceData | null;
 }
+
+/** Lo que trae la oferta de Cazador Swipe y no tiene columna propia. */
+export interface OfferSourceData {
+  codigo?: string;
+  nivel?: string;
+  anuncios?: number | null;
+  links?: { biblioteca?: string | null; pagina_ventas?: string | null; checkout?: string | null; drive?: string | null; vsl?: string | null };
+  hero_url?: string | null;
+  radar?: { nota?: number | null; porque_llamo_atencion?: string | null; que_funciona?: string | null; que_modelaria?: string | null;
+    que_cambiaria?: string | null; como_adaptar_latam?: string | null; paises_testaria?: string[]; ticket_testaria?: string | null; conclusion?: string | null } | null;
+}
+
+/** Días pagando anuncios. 0 = todavía no lo medimos (llega de Cazador sin la fecha del anuncio más viejo). */
+export const diasPagando = (o: Pick<Offer, "days_active">) => (o.days_active > 0 ? o.days_active.toLocaleString("es") : "Por medir");
 
 export type Canal = "whatsapp" | "pagina" | "mensajes";
 /** Cómo vende cada oferta, en palabras de la persona (Cindy, 28-oct-2026: "¿están mezcladas?"). */

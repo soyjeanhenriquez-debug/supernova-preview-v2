@@ -7,6 +7,9 @@
 // offers.live_active_ads. Primero las de WhatsApp
 // y las 300 ganadoras, después las demás por puntaje; cada una se relee a los 3 días. No toca winning_ads ni borra
 // ni esconde nada del catálogo. Sin IA ni proveedores pagados.
+// Cazador Swipe (29-oct-2026): sus ofertas llegan sin fecha del anuncio más viejo ni id de un anuncio. Con la misma
+// lectura se guarda (a) en las de Cazador, los días del anuncio activo más viejo, solo si son MÁS que los que ya había (nunca baja una
+// oferta), y (b) el id de ese anuncio como muestra si la oferta no tenía uno, para que la tarjeta cargue el anuncio real.
 //
 // Compuertas: el cron (x-cron-secret, comparado dentro de la base) o Jean con sesión.
 //   { limit?: 1..150 } → { contadas, fallas, con_mas_de_100, ejemplo }
@@ -24,7 +27,9 @@ async function porCron(req: Request): Promise<boolean> {
   return data === true;
 }
 
-async function contar(token: string, pageId: string, market: string): Promise<{ n: number; capped: boolean } | null> {
+type Conteo = { n: number; capped: boolean; inicio: string | null; adId: string | null };
+
+async function contar(token: string, pageId: string, market: string): Promise<Conteo | null> {
   const url = new URL("https://graph.facebook.com/v21.0/ads_archive");
   url.searchParams.set("access_token", token);
   url.searchParams.set("search_page_ids", JSON.stringify([pageId]));
@@ -32,22 +37,28 @@ async function contar(token: string, pageId: string, market: string): Promise<{ 
   url.searchParams.set("ad_reached_countries", JSON.stringify([market]));
   url.searchParams.set("ad_type", "ALL");
   url.searchParams.set("ad_active_status", "ACTIVE");
-  url.searchParams.set("fields", "id");
+  url.searchParams.set("fields", "id,ad_delivery_start_time");
   url.searchParams.set("limit", String(POR_PAGINA));
   let next: string | null = url.toString();
   let n = 0;
+  let inicio: string | null = null, adId: string | null = null;
   for (let p = 0; next && p < MAX_PAGINAS; p++) {
     try {
       const r: Response = await fetch(next, { signal: AbortSignal.timeout(20_000) });
       const d: { data?: unknown[]; paging?: { next?: unknown } } | null = await r.json().catch(() => null);
       // El error de Meta puede traer la URL con el token: nunca se registra.
       if (!r.ok || !d) return null;
-      n += Array.isArray(d.data) ? d.data.length : 0;
+      const ads = Array.isArray(d.data) ? d.data as { id?: unknown; ad_delivery_start_time?: unknown }[] : [];
+      n += ads.length;
+      for (const a of ads) {
+        const t = typeof a.ad_delivery_start_time === "string" ? a.ad_delivery_start_time : null;
+        if (t && (!inicio || t < inicio) && typeof a.id === "string" && /^\d{6,25}$/.test(a.id)) { inicio = t; adId = a.id; }
+      }
       const nx = typeof d.paging?.next === "string" ? d.paging.next : null;
       next = nx && /^https:\/\/graph\.facebook\.com\//.test(nx) ? nx : null;
     } catch { return null; }
   }
-  return { n, capped: !!next };
+  return { n, capped: !!next, inicio, adId };
 }
 
 Deno.serve(async (req) => {
@@ -68,7 +79,8 @@ Deno.serve(async (req) => {
 
   const t0 = Date.now();
   let contadas = 0, fallas = 0, grandes = 0;
-  let ejemplo: { n: number; capped: boolean } | null = null;
+  let ejemplo: Conteo | null = null;
+  let conDias = 0;
   for (let i = 0; i < lista.length && Date.now() - t0 < 120_000; i += 3) {
     const tanda = lista.slice(i, i + 3);
     const res = await Promise.all(tanda.map(o => contar(token, o.page_id, o.market)));
@@ -77,10 +89,22 @@ Deno.serve(async (req) => {
       // Si Meta falla se marca la fecha igual (no se reintenta en cada vuelta) y el número queda como estaba.
       const patch = r ? { live_active_ads: r.n, live_capped: r.capped, live_checked_at: new Date().toISOString() } : { live_checked_at: new Date().toISOString() };
       await db.from("offers").update(patch).eq("page_id", tanda[k].page_id);
+      if (r?.inicio) {
+        const dias = Math.floor((Date.now() - new Date(r.inicio).getTime()) / 86_400_000);
+        if (dias > 0) {
+          const { data: sub } = await db.from("offers").update({ days_active: dias })
+            .eq("page_id", tanda[k].page_id).eq("source", "cazador").lt("days_active", dias).select("id");
+          if (sub?.length) conDias++;
+        }
+        if (r.adId) {
+          await db.from("offers").update({ sample_ad_url: `https://www.facebook.com/ads/library/?id=${r.adId}` })
+            .eq("page_id", tanda[k].page_id).eq("source", "cazador").not("sample_ad_url", "like", "%?id=%");
+        }
+      }
       if (r) { contadas++; if (r.n >= 100) grandes++; if (!ejemplo || r.n > ejemplo.n) ejemplo = r; } else fallas++;
     }
   }
-  const out = { contadas, fallas, con_mas_de_100: grandes, ejemplo, pendientes_en_esta_vuelta: lista.length };
+  const out = { contadas, fallas, con_mas_de_100: grandes, dias_subidos: conDias, ejemplo: ejemplo && { n: ejemplo.n, capped: ejemplo.capped }, pendientes_en_esta_vuelta: lista.length };
   console.log("offer-live-count", JSON.stringify(out));
   return json(out);
 });

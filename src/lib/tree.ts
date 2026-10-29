@@ -206,10 +206,7 @@ export function useTreeMenu() {
     setPref(on);
     window.dispatchEvent(new Event(TREE_EVENT));
   }, []);
-  // 29-oct-2026: el menú nuevo (src/lib/menu.ts) es uno solo para todos; el árbol queda apagado (sus direcciones
-  // #/paso/… abren el Inicio normal). Para volver a probarlo: `isAdmin && pref`.
-  void pref;
-  return { enabled: false, isAdmin, setTree };
+  return { enabled: isAdmin && pref, isAdmin, setTree };
 }
 
 /** Abre una pestaña del árbol: pantalla, paso dentro de ella o generador concreto. */

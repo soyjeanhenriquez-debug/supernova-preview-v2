@@ -14,6 +14,7 @@ import { useCredits, type CreditAction } from "@/hooks/useCredits";
 import { useProductBuilds } from "@/hooks/useProductBuilds";
 import { supabase } from "@/integrations/supabase/client";
 import { SupportCard } from "@/components/SupportCard";
+import { AgenteProducto } from "@/components/producto/AgenteProducto";
 import {
   builderCall, exportMarkdown, isGrouped, isPieceDone, kindLabel, printBuild, COVER_COLORS, FORMAT_LABEL, MAX_NOTES, MAX_PIECES,
   MAX_PIECE_CHARS, TONE_LABEL, UPCOMING_MODELS,
@@ -105,6 +106,8 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
   const [pieces, setPieces] = useState<Piece[]>([]);
   const [step, setStep] = useState<Step>("start");
   const [creatingNew, setCreatingNew] = useState(false);
+  /** Agente de producto: el mismo constructor, conversando (src/components/producto/AgenteProducto.tsx). */
+  const [agente, setAgente] = useState(false);
   const [opening, setOpening] = useState(false);
 
   // Paso 0
@@ -376,9 +379,29 @@ export function ProductBuilderPage({ onNavigate }: { onNavigate?: (page: string)
   // ---------- Sin libro abierto: lista + paso 0 ----------
   if (!build) {
     const showList = pb.builds.length > 0 && !creatingNew;
+    if (agente) {
+      return (
+        <div className="space-y-5 max-w-3xl">
+          {header}
+          <AgenteProducto profile={profile} productName={active?.name ?? "Tu producto"} activeId={activeId} pb={pb}
+            unlocked={unlocked} balance={balance} applyServerCharge={applyServerCharge}
+            onClose={() => { setAgente(false); void pb.reload(); }}
+            onOpenBuild={b => { setAgente(false); void openBuild(b); }}
+            onNavigate={onNavigate} />
+        </div>
+      );
+    }
     return (
       <div className="space-y-5 max-w-3xl">
         {header}
+        <button onClick={() => setAgente(true)}
+          className="card-surface w-full rounded-2xl p-4 text-left flex items-center justify-between gap-3 hover:border-primary/60 transition-colors">
+          <span>
+            <span className="block font-display font-semibold text-foreground">Hazlo conversando con el agente</span>
+            <span className="block text-sm text-muted-foreground">Te hace hasta 4 preguntas y te entrega tu producto listo para vender.</span>
+          </span>
+          <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+        </button>
         {showList ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">

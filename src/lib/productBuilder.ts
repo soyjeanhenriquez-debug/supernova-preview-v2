@@ -33,6 +33,8 @@ export interface Build {
   pieces_total: number;
   pieces_done: number;
   cover?: BuildCover | null;
+  /** Lo devuelve el índice (servidor nuevo): qué enseña, para quién y el género. */
+  outline?: { promise?: string; audience?: string; genre?: BuildGenre } | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -132,7 +134,9 @@ export const BUILDER_ERRORS: Record<BuilderErrorCode, string> = {
 
 export type BuilderError = { error: string; code?: BuilderErrorCode; refunded?: boolean; balance?: number; cost?: number };
 
-export type OutlineBody = { action: "outline"; product_id?: string; format: BuildFormat; size: BuildSize; tone: BuildTone; notes?: string };
+/** genre (Agente de producto): qué se entrega dentro de un ebook. Opcional; el servidor viejo lo ignora. */
+export type BuildGenre = "recetario" | "guia" | "plantilla" | "servicio" | "curso";
+export type OutlineBody = { action: "outline"; product_id?: string; format: BuildFormat; size: BuildSize; tone: BuildTone; notes?: string; genre?: BuildGenre };
 export type PieceBody = { action: "piece"; build_id: string; piece_id: string; model: string; instructions?: string };
 export type OutlineResult = { build: Build; pieces: Piece[]; charged: 0 };
 export type PieceResult = { piece: Piece; charged: number; balance: number | null };

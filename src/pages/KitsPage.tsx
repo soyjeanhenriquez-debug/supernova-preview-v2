@@ -158,7 +158,7 @@ export function KitsPage({ onNavigate }: { onNavigate?: (page: string) => void }
     <div className="space-y-6">
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <p className="text-xs uppercase tracking-wider text-primary font-semibold">Encuentra qué vender</p>
+          <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 1 · Elegir</p>
           <h2 className="page-heading font-display text-2xl text-foreground mt-1">MINI APPS RENTABLES</h2>
           <p className="text-sm text-muted-foreground mt-3 max-w-2xl">
             Negocios digitales listos para modelar y vender. Cada kit nace de una oferta real que lleva meses pagando anuncios.

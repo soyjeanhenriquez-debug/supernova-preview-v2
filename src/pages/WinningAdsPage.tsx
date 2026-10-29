@@ -246,6 +246,11 @@ export function WinningAdsPage() {
   const [searchLimit, setSearchLimit] = useState(25);
   const [searchStatus, setSearchStatus] = useState<"ACTIVE" | "INACTIVE" | "ALL">("ACTIVE");
   const [verticalFilter, setVerticalFilter] = useState<string>("Todas");
+  // Mayor de edad confirmado por el servidor (is_adult, de la pantalla de edad): ve también los anuncios adultos
+  // (29-oct-2026, Jean). Hasta saberlo se esconden, como antes.
+  const adultoRef = useRef(false);
+  useEffect(() => { void supabase.rpc("is_adult" as never).then(({ data }) => { adultoRef.current = data === true; }); }, []);
+  const esconder = (a: { title: string; body: string; pageName: string }) => !adultoRef.current && isAdultAd(`${a.title} ${a.body} ${a.pageName}`);
   // (filtro "Creativo" eliminado — los ads sin texto se muestran junto al resto usando ad_title como fallback)
 
   const [viewMode, setViewMode] = useState<"grid" | "list">(() => (localStorage.getItem("supernova:ads-view") as "grid" | "list") ?? "grid");
@@ -464,7 +469,7 @@ export function WinningAdsPage() {
           vertical: classifyOffer(`${title} ${body}`),
         };
       });
-      setRealAds(mapped.filter((a) => !isAdultAd(`${a.title} ${a.body} ${a.pageName}`)));
+      setRealAds(mapped.filter((a) => !esconder(a)));
       // El conteo "estimated" de la base puede decir 3.249 cuando con esos filtros hay 8 (Cindy, 28-oct-2026):
       // si la primera página no se llena, el total real es lo que llegó.
       setFilteredTotal(from === 0 && (data?.length ?? 0) < pageSize ? (data?.length ?? 0) : count ?? 0);
@@ -588,7 +593,7 @@ export function WinningAdsPage() {
       // Prepend nuevos, dedupe por id, mantener historial
       setRealAds((prev) => {
         const seen = new Set(prev.map((a) => a.id));
-        const fresh = groupedMapped.filter((a) => !seen.has(a.id) && !isAdultAd(`${a.title} ${a.body} ${a.pageName}`));
+        const fresh = groupedMapped.filter((a) => !seen.has(a.id) && !esconder(a));
         return [...fresh, ...prev];
       });
       setLastAutoRun(new Date());
@@ -741,7 +746,7 @@ export function WinningAdsPage() {
         };
       });
       const grouped = groupByAdvertiser(mapped, items);
-      setRealAds(grouped.filter((a) => !isAdultAd(`${a.title} ${a.body} ${a.pageName}`)));
+      setRealAds(grouped.filter((a) => !esconder(a)));
       toast.success(`✓ Encontramos ${mapped.length} anuncios de ${grouped.length} anunciantes distintos`);
     } catch (e: unknown) {
       console.error(e);

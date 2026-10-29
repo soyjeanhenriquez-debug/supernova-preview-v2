@@ -70,7 +70,7 @@ export function GlobalSearch({ open, onOpenChange, onNavigate, onOpenOffer }: Pr
     const k = (offerSearchTerm(debounced) || debounced).replace(/[,()%*.]/g, " ").trim();
     if (k.length < 2) { setOffers([]); setOffersLoading(false); return; }
     supabase.from("offers").select("id,product_name,page_name,niche,days_active")
-      .eq("enrich_failed", false).is("excluded_reason", null).eq("is_primary", true)
+      .eq("enrich_failed", false).or("excluded_reason.is.null,excluded_reason.eq.adult").eq("is_primary", true)
       .or(`product_name.ilike.%${k}%,page_name.ilike.%${k}%,niche.ilike.%${k}%`)
       .order("winner_score", { ascending: false }).limit(5)
       .then(({ data }) => {

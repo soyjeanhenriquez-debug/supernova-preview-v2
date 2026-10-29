@@ -152,7 +152,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   useEffect(() => {
     const id = offerIdFromHash();
     if (!id) return;
-    supabase.from("offers").select("*").eq("id", id).is("excluded_reason", null).maybeSingle()
+    supabase.from("offers").select("*").eq("id", id).or("excluded_reason.is.null,excluded_reason.eq.adult").maybeSingle()
       .then(({ data }) => { if (data) setDetail(data as unknown as Offer); else closeDetail(); });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -180,11 +180,12 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
     if (tab === "siguiendo") { setLoading(false); return; }
     if (group === null) return; // esperando el país de la persona
     (async () => {
-      // excluded_reason (flag_excluded_offers): contenido adulto y apps de
-      // dramas/novelas no se muestran NUNCA en el catálogo, con ningún filtro.
+      // excluded_reason (flag_excluded_offers): las apps de dramas/novelas no se muestran nunca; las adultas,
+      // solo a mayores de edad confirmados en el servidor (RLS de offers).
       // La plataforma viene de offer_platform (1 a 1). Con filtro, el join es obligatorio (!inner).
       const cols = platform !== "all" ? "*, offer_platform!inner(platform)" : "*, offer_platform(platform)";
-      let q = supabase.from("offers").select(cols, { count: "exact" }).eq("enrich_failed", false).is("excluded_reason", null);
+      // Adultas (29-oct-2026, Jean: «¡Ábrelas!»): solo las devuelve la base a quien el servidor confirma mayor de edad (RLS + is_adult()).
+      let q = supabase.from("offers").select(cols, { count: "exact" }).eq("enrich_failed", false).or("excluded_reason.is.null,excluded_reason.eq.adult");
       if (platform !== "all") q = q.eq("offer_platform.platform", platform);
       // Ganadoras: la lista curada (curate_offers → top 300 por winner_index).
       // El resto de pestañas son "explorar": una tarjeta por ANUNCIANTE

@@ -2,7 +2,7 @@ import { Flame, CalendarDays, Heart, Zap, Eye, Sparkles, ExternalLink } from "lu
 import { AdMediaPreview } from "@/components/AdMediaPreview";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { Delta, type FollowedRow } from "@/components/dashboard/RoiHunterWidget";
-import { type Offer, NICHE_LABEL, MARKET_NAME, CANAL_CORTO, CANAL_LABEL, enlaceCanal, flagFor, copyLabel, scaleLabel, winnerPct } from "@/lib/offers";
+import { type Offer, NICHE_LABEL, MARKET_NAME, CANAL_CORTO, CANAL_LABEL, enlaceCanal, flagFor, copyLabel, scaleLabel, winnerPct, anunciosActivos } from "@/lib/offers";
 import { type OfferWatch, type WatchPoint, describeEvent, daysAgo } from "@/lib/offerWatch";
 
 /**
@@ -28,6 +28,7 @@ export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, onCr
   const copy = copyLabel(o.copy_score);
   const name = o.product_name || o.sample_title || o.page_name || "Oferta";
   const score = winnerPct(o);
+  const act = anunciosActivos(o);
 
   return (
     <article className="card-surface rounded-2xl overflow-hidden flex flex-col ad-card-hover">
@@ -65,7 +66,7 @@ export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, onCr
         </div>
 
         <div className="grid grid-cols-2 gap-2 mt-3">
-          <Metric icon={<Flame className="w-4 h-4 text-primary" />} value={o.active_ads.toLocaleString("es")} label="anuncios activos ahora" />
+          <Metric icon={<Flame className="w-4 h-4 text-primary" />} value={act.texto} label={act.vivo ? "anuncios activos hoy en Meta" : "anuncios activos que vimos"} />
           <Metric icon={<CalendarDays className="w-4 h-4 text-muted-foreground" />} value={o.days_active.toLocaleString("es")} label="días pagando anuncios" />
         </div>
 

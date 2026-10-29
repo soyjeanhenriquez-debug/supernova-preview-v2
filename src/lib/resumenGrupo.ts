@@ -70,3 +70,20 @@ export function contarNichos(niches: (string | null)[]): { niche: string; n: num
   for (const k of niches) if (k && k !== "otro") m.set(k, (m.get(k) ?? 0) + 1);
   return [...m].map(([niche, n]) => ({ niche, n })).sort((a, b) => b.n - a.n);
 }
+
+/**
+ * El mismo resumen como correo (Admin → Mensajes): saludo con {{nombre}}, *negrita* de WhatsApp → **negrita**,
+ * el enlace marcado como correo y firma de Jean. El asunto sale de los datos del día (o uno general).
+ */
+export function resumenCorreo(texto: string): { subject: string; body: string } {
+  const nuevos = texto.match(/\*(\d[\d.]*) negocios? nuevos?\*/)?.[1];
+  const dias = texto.match(/\*(\d[\d.]*) días pagando\*/)?.[1];
+  const subject = nuevos
+    ? `Radar de hoy: ${nuevos} negocios nuevos${dias ? ` y uno que lleva ${dias} días pagando anuncios` : ""}`
+    : "Radar de hoy de SUPERNOVA";
+  const cuerpo = texto
+    .replace(/^🔭 \*SUPERNOVA · Radar de hoy\*.*\n+/, "")
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1**$2**")
+    .replace("utm_source=whatsapp&utm_medium=grupo", "utm_source=correo&utm_medium=email");
+  return { subject, body: `Hola {{nombre}}.\n\nEsto es lo que encontró el radar hoy:\n\n${cuerpo}\n\nJean` };
+}

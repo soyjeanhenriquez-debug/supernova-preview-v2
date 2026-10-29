@@ -196,7 +196,8 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
         // casi nada tiene índice: los NULL van al final, ordenados por score.
         case "rank": q = q.order("winner_index", { ascending: false, nullsFirst: false }).order("winner_score", { ascending: false }).order("active_ads", { ascending: false }); break;
         case "copy": q = q.order("copy_score", { ascending: false, nullsFirst: false }).order("winner_score", { ascending: false }); break;
-        case "ads": q = q.order("active_ads", { ascending: false }); break;
+        // Primero el conteo en vivo de Meta (offer-live-count); las que aún no tienen, por los que vimos nosotros.
+        case "ads": q = q.order("live_active_ads", { ascending: false, nullsFirst: false }).order("active_ads", { ascending: false }); break;
         case "days": q = q.order("days_active", { ascending: false }); break;
         case "recent": q = q.order("first_seen", { ascending: false, nullsFirst: false }); break;
         default: q = q.order("winner_score", { ascending: false }).order("active_ads", { ascending: false });

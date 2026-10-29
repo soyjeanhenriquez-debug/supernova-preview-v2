@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bandera, contarNichos, ENLACE_GRUPO, lineaOferta, masDe, resumenGrupo } from "@/lib/resumenGrupo";
+import { bandera, contarNichos, ENLACE_GRUPO, lineaOferta, masDe, resumenCorreo, resumenGrupo } from "@/lib/resumenGrupo";
 
 describe("resumen para el grupo de WhatsApp", () => {
   it("masDe nunca infla la cifra", () => {
@@ -33,5 +33,21 @@ describe("resumen para el grupo de WhatsApp", () => {
     expect(t.endsWith(ENLACE_GRUPO)).toBe(true);
     const vacio = resumenGrupo({ hoy: 0, semana: 0, total: 100, top: [], whatsapp: 0, whatsappGanadoras: 0, nichos: [] });
     expect(vacio).not.toMatch(/WhatsApp:|Nichos|pagando anuncios/);
+  });
+});
+
+describe("resumen como correo", () => {
+  it("negrita de correo, saludo, enlace de correo y asunto con los datos del día", () => {
+    const t = resumenGrupo({ hoy: 23, semana: 65, total: 8316, whatsapp: 0, whatsappGanadoras: 0, nichos: [],
+      top: [{ niche: "espiritualidad", market: "AR", days_active: 286, active_ads: 9, canal: "pagina", copy_score: 4 }] });
+    const c = resumenCorreo(t);
+    expect(c.subject).toBe("Radar de hoy: 23 negocios nuevos y uno que lleva 286 días pagando anuncios");
+    expect(c.body.startsWith("Hola {{nombre}}.")).toBe(true);
+    expect(c.body).toMatch(/\*\*23 negocios nuevos\*\* hoy/);
+    expect(c.body).toMatch(/\*\*286 días pagando\*\*/);
+    expect(c.body).not.toMatch(/Radar de hoy\*/);
+    expect(c.body).toMatch(/utm_source=correo&utm_medium=email/);
+    expect(c.body.endsWith("Jean")).toBe(true);
+    expect(resumenCorreo("hola").subject).toBe("Radar de hoy de SUPERNOVA");
   });
 });

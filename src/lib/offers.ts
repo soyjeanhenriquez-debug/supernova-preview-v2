@@ -13,6 +13,9 @@ export interface Offer {
   page_name: string | null;
   ads_count: number;
   active_ads: number;
+  /** Anuncios activos hoy en la Biblioteca de Meta (offer-live-count, 29-oct-2026). null = aún no contado. */
+  live_active_ads?: number | null;
+  live_capped?: boolean;
   days_active: number;
   duplicate_count: number;
   winner_score: number;
@@ -174,7 +177,15 @@ export function copyLabel(score: number | null | undefined): { label: string; sh
 }
 
 /** Etiqueta DR de escala: qué tan fuerte está pagando el anunciante ahora mismo. */
-export function scaleLabel(o: Pick<Offer, "active_ads" | "days_active">): string {
+/** Anuncios activos: el conteo en vivo de Meta si ya está; si no, los que vimos nosotros (una muestra). */
+export function anunciosActivos(o: Pick<Offer, "active_ads" | "live_active_ads" | "live_capped">): { n: number; texto: string; vivo: boolean } {
+  const vivo = typeof o.live_active_ads === "number" && o.live_active_ads > 0;
+  const n = vivo ? Math.max(o.live_active_ads as number, o.active_ads) : o.active_ads;
+  return { n, texto: `${n.toLocaleString("es")}${vivo && o.live_capped ? "+" : ""}`, vivo };
+}
+
+export function scaleLabel(o: Pick<Offer, "active_ads" | "days_active"> & Partial<Pick<Offer, "live_active_ads" | "live_capped">>): string {
+  o = { ...o, active_ads: anunciosActivos({ live_active_ads: null, live_capped: false, ...o }).n };
   if (o.active_ads >= 30 && o.days_active >= 60) return "Dominando";
   if (o.active_ads >= 10 && o.days_active >= 30) return "Creciendo";
   if (o.active_ads >= 5) return "Despegando";

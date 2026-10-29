@@ -10,7 +10,7 @@ import { AdMediaPreview } from "@/components/AdMediaPreview";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { buildAdsLibraryPageUrl, type AdMarket } from "@/lib/demo-winning-ads";
 import {
-  type Offer, NICHE_LABEL, OFFER_TYPE_LABEL, MODEL_LABEL, MARKET_NAME, flagFor, copyLabel, scaleLabel, winnerPct,
+  type Offer, NICHE_LABEL, OFFER_TYPE_LABEL, MODEL_LABEL, MARKET_NAME, flagFor, copyLabel, scaleLabel, winnerPct, anunciosActivos,
 } from "@/lib/offers";
 import {
   type OfferIntel, type OfferVerdict, FUNNEL_LABEL, loadOfferIntel, safeExternalUrl, reportOffer, verdictToText,
@@ -281,7 +281,7 @@ function OfferFacts({ o, name, intel, phase, onSeeAds, onVerdict }: {
 
       {/* Lo primero que se mira: ¿cuánto dinero hay detrás y puedo copiarlo? */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <Kpi icon={<Flame className="w-3.5 h-3.5" />} label="Anuncios activos" value={o.active_ads.toLocaleString("es")} hint="corriendo a la vez" />
+        <Kpi icon={<Flame className="w-3.5 h-3.5" />} label="Anuncios activos" value={anunciosActivos(o).texto} hint={anunciosActivos(o).vivo ? "hoy en la Biblioteca de Meta" : "los que vimos nosotros"} />
         <Kpi icon={<CalendarDays className="w-3.5 h-3.5" />} label="Días pagando" value={o.days_active.toLocaleString("es")} hint="sin apagar la campaña" />
         <Kpi icon={<Trophy className="w-3.5 h-3.5" />} label="Índice ganador" value={`${winnerPct(o)}%`} hint="dinero + facilidad" accent />
         {/* Facilidad ≠ recomendación: si el veredicto dice que no, se avisa aquí mismo. */}

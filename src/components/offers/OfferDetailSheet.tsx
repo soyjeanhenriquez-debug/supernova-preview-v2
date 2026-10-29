@@ -10,7 +10,7 @@ import { AdMediaPreview } from "@/components/AdMediaPreview";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { buildAdsLibraryPageUrl, type AdMarket } from "@/lib/demo-winning-ads";
 import {
-  type Offer, NICHE_LABEL, OFFER_TYPE_LABEL, MODEL_LABEL, MARKET_NAME, flagFor, copyLabel, scaleLabel, winnerPct, anunciosActivos,
+  type Offer, NICHE_LABEL, OFFER_TYPE_LABEL, MODEL_LABEL, MARKET_NAME, flagFor, copyLabel, winnerPct, anunciosActivos,
 } from "@/lib/offers";
 import {
   type OfferIntel, type OfferVerdict, FUNNEL_LABEL, loadOfferIntel, safeExternalUrl, reportOffer, verdictToText,
@@ -22,6 +22,7 @@ import { setAutorun, type AutorunAction } from "@/lib/autorun";
 import { startChain } from "@/lib/launchChain";
 import { useFeatureAccess } from "@/lib/features";
 import { BusinessMap } from "@/components/offers/BusinessMap";
+import { LevelBars } from "@/components/offers/LevelBars";
 import { CreateFromIdeaSheet } from "@/components/create/CreateFromIdeaSheet";
 import { ideaFromOffer } from "@/lib/recommendTarget";
 
@@ -145,10 +146,11 @@ export function OfferDetailSheet({ offer: o, following, onToggleFollow, onCreate
 
           <header className="px-4 sm:px-6 pt-2 sm:pt-5 pb-3 flex items-start gap-3 shrink-0">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
-                <span>{flagFor(o.market)} {MARKET_NAME[o.market] ?? o.market}</span>
-                <span className="text-border">•</span>
-                <span>🔥 {scaleLabel(o)}</span>
+              {/* El mismo nivel en barras que la tarjeta y la ficha rápida (29-oct-2026). */}
+              <div className="flex items-center gap-2.5 min-w-0">
+                <LevelBars o={o} />
+                <span className="text-border" aria-hidden>•</span>
+                <span className="text-[11.5px] text-muted-foreground truncate">{flagFor(o.market)} {MARKET_NAME[o.market] ?? o.market}</span>
               </div>
               <h3 className="font-display font-semibold text-[19px] sm:text-xl leading-snug text-foreground mt-1 line-clamp-2">{name}</h3>
               {o.page_name && <p className="text-[12px] text-muted-foreground truncate mt-0.5">{o.page_name}</p>}
@@ -281,8 +283,8 @@ function OfferFacts({ o, name, intel, phase, onSeeAds, onVerdict }: {
 
       {/* Lo primero que se mira: ¿cuánto dinero hay detrás y puedo copiarlo? */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <Kpi icon={<CalendarDays className="w-3.5 h-3.5" />} label="Días pagando anuncios" value={o.days_active.toLocaleString("es")} hint="la mejor señal de que vende" />
         <Kpi icon={<Flame className="w-3.5 h-3.5" />} label="Anuncios activos" value={anunciosActivos(o).texto} hint={anunciosActivos(o).vivo ? "hoy en la Biblioteca de Meta" : "los que vimos nosotros"} />
-        <Kpi icon={<CalendarDays className="w-3.5 h-3.5" />} label="Días pagando" value={o.days_active.toLocaleString("es")} hint="sin apagar la campaña" />
         <Kpi icon={<Trophy className="w-3.5 h-3.5" />} label="Índice ganador" value={`${winnerPct(o)}%`} hint="dinero + facilidad" accent />
         {/* Facilidad ≠ recomendación: si el veredicto dice que no, se avisa aquí mismo. */}
         <Kpi icon={<Target className="w-3.5 h-3.5" />} label="Replicarla" value={copy.short}

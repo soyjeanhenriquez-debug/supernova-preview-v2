@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, Loader2, Gem, Layers, Globe2, Tag as TagIcon, RefreshCw, Crosshair, ChevronDown } from "lucide-react";
+import { Loader2, Gem, Crosshair, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { MiniAppModal } from "@/components/MiniAppModal";
 import { OfferCard } from "@/components/offers/OfferCard";
 import { OfferDetailSheet } from "@/components/offers/OfferDetailSheet";
+import { OfferQuickView } from "@/components/offers/OfferQuickView";
+import { OfferFilters, type FiltroOferta } from "@/components/offers/OfferFilters";
+import { NIVELES } from "@/components/offers/offerUi";
 import { offerBrief } from "@/lib/sellThis";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { useOfferFollows } from "@/hooks/useOfferFollows";
 import { OFFERS_TAB_KEY, type FollowedRow } from "@/components/dashboard/RoiHunterWidget";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { type Offer, NICHE_LABEL, MODEL_LABEL, MARKET_GROUP, LANG_ES_FILTER, offerToDemoAd, openOfferAdsInRadar } from "@/lib/offers";
 import { type OfferWatch, parseWatch } from "@/lib/offerWatch";
 import { CreateFromIdeaSheet } from "@/components/create/CreateFromIdeaSheet";
@@ -110,11 +112,25 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const [creating, setCreating] = useState<Offer | null>(null);
   const [detail, setDetail] = useState<Offer | null>(null);
   const [ideaOffer, setIdeaOffer] = useState<Offer | null>(null);
-
-  const openDetail = useCallback((o: Offer) => {
-    setDetail(o);
-    if (offerIdFromHash() !== o.id) window.history.pushState({ offer: o.id }, "", `${window.location.pathname}${window.location.search}#/ofertas/${o.id}`);
+  // Ficha rápida (al tocar una tarjeta). Ocupa una entrada del historial SIN cambiar la dirección: el botón
+  // "atrás" del teléfono la cierra. "Ver oferta completa" reemplaza esa entrada por la de la ficha completa.
+  const [quick, setQuick] = useState<Offer | null>(null);
+  const openQuick = useCallback((o: Offer) => {
+    setQuick(o);
+    window.history.pushState({ quick: o.id }, "", window.location.href);
   }, []);
+  const closeQuick = useCallback(() => {
+    if (window.history.state?.quick) window.history.back();
+    else setQuick(null);
+  }, []);
+  const quickToFull = useCallback((o: Offer) => {
+    setQuick(null);
+    setDetail(o);
+    const url = `${window.location.pathname}${window.location.search}#/ofertas/${o.id}`;
+    if (window.history.state?.quick) window.history.replaceState({ offer: o.id }, "", url);
+    else window.history.pushState({ offer: o.id }, "", url);
+  }, []);
+
   // Cerrar = volver atrás: consume la entrada que abrió la ficha. Si se llegó por
   // un enlace directo no hay entrada previa nuestra: se limpia la dirección.
   const closeDetail = useCallback(() => {
@@ -125,7 +141,10 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
     }
   }, []);
   useEffect(() => {
-    const sync = () => { if (!offerIdFromHash()) setDetail(null); };
+    const sync = () => {
+      if (!offerIdFromHash()) setDetail(null);
+      if (!window.history.state?.quick) setQuick(null);
+    };
     window.addEventListener("popstate", sync);
     return () => window.removeEventListener("popstate", sync);
   }, []);
@@ -239,42 +258,62 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   );
   const hayFiltros = tab === "ganadoras" || group !== "all" || niche !== "all" || model !== "all" || platform !== "all" || !!debounced || onlyCopiable;
 
+  // Filtros en píldoras (computadora) y en hoja (teléfono): la misma lista para los dos.
+  const filtros: FiltroOferta[] = [
+    {
+      key: "mercado", titulo: "Idioma y mercado", todos: "🌍 Todos los mercados", valor: group ?? "all", cambiar: setGroup,
+      opciones: [{ v: LANG_ES_FILTER, l: "🗣️ En español (todos los países)" }, ...Object.entries(MARKET_GROUP).map(([k, g]) => ({ v: k, l: `${g.flag} ${g.label}` }))],
+    },
+    { key: "tema", titulo: "Tema", todos: "Todos los temas", valor: niche, cambiar: setNiche, opciones: nicheOptions.map(([k, l]) => ({ v: k, l })) },
+    {
+      key: "cobra", titulo: "Dónde cobra", todos: "Cualquier plataforma", valor: platform, cambiar: setPlatform,
+      opciones: platformOptions.map((p) => ({ v: p.platform, l: `${p.platform} · ${p.n.toLocaleString("es-ES")}` })),
+    },
+    { key: "modelo", titulo: "Forma de cobro", todos: "Cualquier forma de cobro", valor: model, cambiar: setModel, opciones: Object.entries(MODEL_LABEL).map(([k, l]) => ({ v: k, l })) },
+  ];
+  const orden: FiltroOferta = { key: "orden", titulo: "Ordenar", todos: "", valor: sort, cambiar: setSort, opciones: SORTS.map((x) => ({ v: x.v, l: x.l })) };
+  // En Ganadoras la lista ya exige que se pueda hacer solo, y en Siguiendo no aplica: un botón que no hace nada confunde.
+  const conInterruptor = tab !== "ganadoras" && tab !== "siguiendo";
+  const activos = [group !== "all" && group !== null, niche !== "all", model !== "all", platform !== "all", conInterruptor && onlyCopiable, !!debounced].filter(Boolean).length;
+  const limpiar = () => { setGroup("all"); setNiche("all"); setModel("all"); setPlatform("all"); setSearch(""); setOnlyCopiable(false); };
+  const sortLabel = SORTS.find((x) => x.v === sort)?.l ?? "";
+
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between flex-wrap gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 1 · Elegir</p>
-          <h2 className="page-heading font-display text-2xl text-foreground mt-1">OFERTAS GANADORAS</h2>
-          <p className="text-sm text-muted-foreground mt-3 max-w-2xl">
-            Productos que alguien paga por anunciar hoy. Abre uno que te guste y haz tu versión.
+      <div>
+        <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 1 · Elegir</p>
+        <h2 className="page-heading font-display text-2xl text-foreground mt-1">OFERTAS GANADORAS</h2>
+        <p className="text-sm text-muted-foreground mt-3 max-w-2xl">
+          Productos que alguien paga por anunciar hoy. Toca uno, míralo de un vistazo y haz tu versión.
+        </p>
+        {stats && (
+          <p className="text-[12px] text-muted-foreground mt-2 tabular-nums">
+            {stats.offers.toLocaleString("es-ES")} ofertas analizadas · {stats.active_ads.toLocaleString("es-ES")} anuncios que siguen activos
+            {stats.updated_at && <> · lista actualizada el {new Date(stats.updated_at).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}</>}
           </p>
-          <details className="group mt-2 max-w-2xl">
-            <summary className="inline-flex items-center gap-1 cursor-pointer list-none [&::-webkit-details-marker]:hidden select-none text-[12.5px] font-medium text-muted-foreground hover:text-foreground">
-              ¿Cómo funciona? <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
-            </summary>
-            <ul className="mt-2 space-y-1 pl-4 list-disc marker:text-primary text-[12.5px] text-muted-foreground">
-              <li>Si alguien paga anuncios durante semanas, normalmente es porque vende.</li>
-              <li>La IA ya leyó cada oferta: qué vende, a quién y si tú puedes replicarla.</li>
-              <li>Mirar es gratis. "Hacer mi versión" cuesta {CREDIT_COSTS.gen_master_prompt} créditos.</li>
-            </ul>
-          </details>
-        </div>
-        {stats?.updated_at && (
-          <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1.5">
-            <RefreshCw className="w-3 h-3" /> Lista actualizada el {new Date(stats.updated_at).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
-          </span>
         )}
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatTile icon={<Gem className="w-4 h-4" />} label="Ofertas analizadas" value={stats?.offers} />
-        <StatTile icon={<Layers className="w-4 h-4" />} label="Anuncios que siguen activos" value={stats?.active_ads} />
-        {/* En el celular solo las dos que dicen si hay dinero detrás: las otras empujaban las ofertas fuera de la pantalla. */}
-        <div className="hidden lg:contents">
-          <StatTile icon={<Globe2 className="w-4 h-4" />} label="Países donde se anuncian" value={stats?.markets} />
-          <StatTile icon={<TagIcon className="w-4 h-4" />} label="Temas (nichos)" value={stats?.niches} />
-        </div>
+        <details className="group mt-2 max-w-2xl">
+          <summary className="inline-flex items-center gap-1 cursor-pointer list-none [&::-webkit-details-marker]:hidden select-none text-[12.5px] font-medium text-muted-foreground hover:text-foreground">
+            ¿Cómo funciona? <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
+          </summary>
+          <ul className="mt-2 space-y-1 pl-4 list-disc marker:text-primary text-[12.5px] text-muted-foreground">
+            <li>Si alguien paga anuncios durante semanas, normalmente es porque vende. Por eso cada tarjeta muestra primero los días pagando anuncios.</li>
+            <li>La IA ya leyó cada oferta: qué vende, a quién y si tú puedes hacer tu versión solo.</li>
+            <li>Mirar es gratis. "Hacer mi versión" cuesta {CREDIT_COSTS.gen_master_prompt} créditos.</li>
+          </ul>
+          <div className="mt-3 rounded-xl border border-border p-3 space-y-1.5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Las barras de nivel cuentan</p>
+            {[...NIVELES].reverse().map((n) => (
+              <div key={n.label} className="flex items-center gap-2.5 text-[12.5px]">
+                <span className="inline-flex items-end gap-[2px] shrink-0" aria-hidden>
+                  {[5, 8, 11, 14].map((px, i) => <span key={px} style={{ height: px }} className={`w-[3px] rounded-[1px] ${i < n.barras ? "bg-primary" : "bg-foreground/15"}`} />)}
+                </span>
+                <span className="font-semibold text-foreground w-[84px] shrink-0">{n.label}</span>
+                <span className="text-muted-foreground">{n.regla}</span>
+              </div>
+            ))}
+          </div>
+        </details>
       </div>
 
       {/* Cómo vende, a la vista (28-oct-2026, Cindy no encontraba las de WhatsApp: estaba escondido entre los filtros). */}
@@ -310,68 +349,23 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
             </button>
           );
         })}
-        {/* Solo en las pestañas de exploración: en Ganadoras la lista ya exige
-            copiabilidad y en Siguiendo no aplica — un botón que no hace nada confunde. */}
-        {tab !== "ganadoras" && tab !== "siguiendo" && (
-          <button onClick={() => setOnlyCopiable((v) => !v)}
-            className={`shrink-0 whitespace-nowrap sm:ml-auto px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-              onlyCopiable ? "bg-success/15 text-success border-success/40" : "bg-secondary/40 text-muted-foreground border-border hover:text-foreground"}`}>
-            <span className="sm:hidden">✓ Solo tú solo</span><span className="hidden sm:inline">✓ Solo las que puedes hacer tú solo</span>
-          </button>
-        )}
       </div>
 
       {tab === "siguiendo" ? (
-        <FollowingList rows={followed} watch={watch} follows={follows} onCreate={setCreating} onOpen={openDetail} />
+        <FollowingList rows={followed} watch={watch} follows={follows} onCreate={setCreating} onOpen={openQuick} />
       ) : (<>
-      {/* Filtros */}
-      <div className="card-surface rounded-xl p-3 grid grid-cols-1 md:grid-cols-5 gap-2">
-        <div className="relative md:col-span-2">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Busca un producto, una marca o un tema (ej: ansiedad, inglés)…"
-            className="w-full bg-secondary/50 border border-border rounded-lg pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50" />
-        </div>
-        <Select value={group ?? "all"} onValueChange={setGroup}>
-          <SelectTrigger className="bg-secondary/50" aria-label="Idioma del mercado"><SelectValue placeholder="Idioma del mercado" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">🌍 Todos los mercados</SelectItem>
-            <SelectItem value={LANG_ES_FILTER}>🗣️ En español (todos los países)</SelectItem>
-            {Object.entries(MARKET_GROUP).map(([k, g]) => <SelectItem key={k} value={k}>{g.flag} {g.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <div className="grid grid-cols-2 gap-2">
-          <Select value={niche} onValueChange={setNiche}>
-            <SelectTrigger className="bg-secondary/50"><SelectValue placeholder="Tema" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los temas</SelectItem>
-              {nicheOptions.map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={platform} onValueChange={setPlatform}>
-            <SelectTrigger className="bg-secondary/50" aria-label="Plataforma de cobro"><SelectValue placeholder="Dónde cobran" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Cualquier plataforma</SelectItem>
-              {platformOptions.map((p) => <SelectItem key={p.platform} value={p.platform}>{p.platform} · {p.n.toLocaleString("es-ES")}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Select value={model} onValueChange={setModel}>
-            <SelectTrigger className="bg-secondary/50"><SelectValue placeholder="Cómo cobran" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Cualquier forma de cobro</SelectItem>
-              {Object.entries(MODEL_LABEL).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={sort} onValueChange={setSort}>
-            <SelectTrigger className="bg-secondary/50"><SelectValue /></SelectTrigger>
-            <SelectContent>{SORTS.map((s) => <SelectItem key={s.v} value={s.v}>{s.l}</SelectItem>)}</SelectContent>
-          </Select>
-        </div>
-      </div>
+      <OfferFilters
+        search={search} onSearch={setSearch} filtros={filtros} orden={orden}
+        interruptor={conInterruptor ? { label: "Solo las que haces tú solo", corto: "Tú solo", on: onlyCopiable, cambiar: setOnlyCopiable } : undefined}
+        activos={activos} onClear={limpiar} total={total} loading={loading && page === 0}
+      />
 
-      <div className="text-[12px] text-muted-foreground">
-        {loading && page === 0 ? "Buscando…" : `${total.toLocaleString("es-ES")} ${total === 1 ? "oferta encontrada" : "ofertas encontradas"}`}
+      <div className="text-[12px] text-muted-foreground -mt-2">
+        {loading && page === 0 ? "Buscando…" : (
+          <span>
+            <span className="font-semibold text-foreground tabular-nums">{total.toLocaleString("es-ES")}</span> {total === 1 ? "oferta" : "ofertas"} · ordenadas por «{sortLabel}»
+          </span>
+        )}
         {!loading && total > 0 && total < 6 && hayFiltros && (
           <span className="block mt-2 space-y-2">
             <span className="block text-foreground">Salen pocas porque tienes filtros puestos{mercadoLabel && group !== "all" ? ` (por ejemplo «${mercadoLabel}»)` : ""}. Para ver más:</span>
@@ -385,7 +379,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
           </span>
         )}
         {sort === "rank" && (
-          <span className="block mt-0.5">«Las mejores primero» junta tiempo pagando anuncios y qué tan fácil es hacer tu versión; no es la que más anuncios tiene. Para eso, ordena por «Más anuncios activos».</span>
+          <span className="block mt-0.5">«Las mejores primero» junta días pagando anuncios y qué tan fácil es hacer tu versión; no es la que más anuncios tiene. Para eso, ordena por «Más anuncios activos».</span>
         )}
         {canal === "whatsapp" && !loading && (
           <span className="block mt-0.5">WhatsApp no deja ver el número en los datos públicos: abre el anuncio y toca su botón para ver cómo atienden.</span>
@@ -409,7 +403,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
           <div className="text-sm text-muted-foreground">
             {tab === "ganadoras"
               ? "Ninguna de las ganadoras coincide. Quita algún filtro o busca en Explorar todo."
-              : "Prueba quitando \"Solo las que puedes hacer tú solo\" o cambia de mercado."}
+              : "Prueba quitando \"Solo las que haces tú solo\" o cambia de mercado."}
           </div>
           {/* Una salida en un toque (Cindy, 28-oct-2026: «no me salió nada»). */}
           <div className="flex justify-center mt-4">{salidas}</div>
@@ -417,7 +411,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
       ) : (
         <>
           <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {rows.map((o) => <OfferCard key={o.id} o={o} onOpen={() => openDetail(o)} onCreate={() => setCreating(o)} onCreateIdea={() => setIdeaOffer(o)} following={follows.isFollowing(o.id)} onToggleFollow={() => follows.toggle(o)} />)}
+            {rows.map((o) => <OfferCard key={o.id} o={o} onOpen={() => openQuick(o)} onCreate={() => setCreating(o)} onCreateIdea={() => setIdeaOffer(o)} following={follows.isFollowing(o.id)} onToggleFollow={() => follows.toggle(o)} />)}
           </div>
           {rows.length < total && (
             <div className="flex justify-center pt-2">
@@ -432,6 +426,16 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
 
       </>)}
 
+      {quick && !detail && (
+        <OfferQuickView
+          offer={quick}
+          following={follows.isFollowing(quick.id)}
+          onToggleFollow={() => follows.toggle(quick)}
+          onCreate={() => setCreating(quick)}
+          onFull={() => quickToFull(quick)}
+          onClose={closeQuick}
+        />
+      )}
       {detail && (
         <OfferDetailSheet
           offer={detail}
@@ -474,18 +478,6 @@ function FollowingList({ rows, watch, follows, onCreate, onOpen }: {
           following={follows.isFollowing(r.offer.id)} onToggleFollow={() => follows.toggle(r.offer)}
           insight={r} watch={watch.get(r.offer.id)} />
       ))}
-    </div>
-  );
-}
-
-function StatTile({ icon, label, value }: { icon: React.ReactNode; label: string; value: number | undefined }) {
-  return (
-    <div className="card-surface rounded-xl px-4 py-3 flex items-center gap-3">
-      <span className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">{icon}</span>
-      <div>
-        <div className="font-display font-bold text-xl text-foreground tabular-nums leading-none">{value == null ? "—" : value.toLocaleString("es-ES")}</div>
-        <div className="text-[11px] text-muted-foreground mt-1">{label}</div>
-      </div>
     </div>
   );
 }

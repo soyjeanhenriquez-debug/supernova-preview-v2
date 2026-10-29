@@ -1,15 +1,19 @@
-import { Flame, CalendarDays, Heart, Zap, Eye, Sparkles, ExternalLink } from "lucide-react";
+import { Flame, CalendarDays, Heart, Zap, Eye, Sparkles, Check } from "lucide-react";
 import { AdMediaPreview } from "@/components/AdMediaPreview";
+import { Pill } from "@/components/ui/pill";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { Delta, type FollowedRow } from "@/components/dashboard/RoiHunterWidget";
-import { type Offer, NICHE_LABEL, MARKET_NAME, CANAL_CORTO, CANAL_LABEL, enlaceCanal, flagFor, copyLabel, scaleLabel, winnerPct, anunciosActivos } from "@/lib/offers";
+import { type Offer, NICHE_LABEL, CANAL_CORTO, flagFor, anunciosActivos } from "@/lib/offers";
 import { type OfferWatch, type WatchPoint, describeEvent, daysAgo } from "@/lib/offerWatch";
+import { LevelBars } from "@/components/offers/LevelBars";
+import { idiomaDe, hacerloSolo } from "@/components/offers/offerUi";
 
 /**
- * Tarjeta de oferta. Orden de lectura de arriba abajo, el mismo en el que un
- * principiante decide: ¿qué es? → ¿hay dinero detrás? → ¿puedo copiarla? → abrir.
- * Todo lo demás (mecanismo, público, embudo, checkout, veredicto) vive en la
- * ficha: aquí solo lo que cabe de un vistazo en un teléfono.
+ * Tarjeta de oferta (rediseño 29-oct-2026, estilo Cazador Swipe pero con nuestra prueba de venta).
+ * De arriba abajo, lo que un principiante mira para decidir en un segundo:
+ *   imagen del anuncio → nivel en barras + idioma → nombre → días pagando anuncios y anuncios activos
+ *   (cada número dice qué cuenta) → cómo vende, si lo haces tú solo y su precio → "Hacer mi versión".
+ * Tocar la imagen o el nombre abre la ficha rápida; lo demás vive en la ficha completa.
  */
 interface Props {
   o: Offer;
@@ -25,96 +29,76 @@ interface Props {
 }
 
 export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, onCreateIdea, insight, watch }: Props) {
-  const copy = copyLabel(o.copy_score);
   const name = o.product_name || o.sample_title || o.page_name || "Oferta";
-  const score = winnerPct(o);
   const act = anunciosActivos(o);
+  const idioma = idiomaDe(o.language);
+  const solo = hacerloSolo(o.copy_score);
+  const sub = [o.page_name, o.niche ? (NICHE_LABEL[o.niche] ?? o.niche) : null].filter(Boolean).join(" · ");
 
   return (
-    <article className="card-surface rounded-2xl overflow-hidden flex flex-col ad-card-hover">
-      <div className="relative aspect-[16/10] bg-secondary/40 overflow-hidden">
+    <article className="card-surface rounded-2xl overflow-hidden flex flex-col ad-card-hover relative">
+      {/* La imagen abre la ficha rápida, salvo el enlace «Original» que lleva dentro. */}
+      <div
+        className="relative aspect-[4/3] bg-secondary/40 overflow-hidden cursor-pointer"
+        onClick={(e) => { if (!(e.target as HTMLElement).closest("a,button")) onOpen(); }}
+      >
         <AdMediaPreview fill adUrl={o.sample_ad_url ?? undefined} pageId={o.page_id} pageName={o.page_name ?? name} title={name} />
-        <div className="absolute top-2.5 left-2.5 flex flex-col items-start gap-1.5 pointer-events-none">
-          <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 bg-primary text-primary-foreground shadow">🔥 {scaleLabel(o)}</span>
-          {o.price_hint && <span className="text-[10.5px] font-bold rounded-full px-2.5 py-1 bg-background/85 backdrop-blur text-foreground border border-border">{o.price_hint}</span>}
-          {o.canal && <span className="text-[10.5px] font-bold rounded-full px-2.5 py-1 bg-background/85 backdrop-blur text-foreground border border-border">{CANAL_CORTO[o.canal]}</span>}
-        </div>
-        {/* 44px: el mínimo cómodo para un dedo */}
-        <button onClick={onToggleFollow}
-          aria-label={following ? "Dejar de seguir" : `Seguir esta oferta · ${CREDIT_COSTS.follow_offer} créditos`}
-          title={following ? "Dejar de seguir" : `Seguir esta oferta · ${CREDIT_COSTS.follow_offer} créditos`}
-          className={`absolute top-2 right-2 w-11 h-11 rounded-full backdrop-blur flex flex-col items-center justify-center border transition-colors ${following ? "bg-primary/90 border-primary text-primary-foreground" : "bg-background/70 border-border text-foreground hover:text-primary"}`}>
-          <Heart className={following ? "w-[18px] h-[18px]" : "w-4 h-4"} fill={following ? "currentColor" : "none"} />
-          {/* Seguir cobra: el precio se ve también en el teléfono (sin hover). */}
-          {!following && <span aria-hidden className="text-[9px] font-bold leading-none mt-0.5 tabular-nums">{CREDIT_COSTS.follow_offer}⚡</span>}
-        </button>
       </div>
+      {/* 44px: el mínimo cómodo para un dedo. Seguir cobra: el precio se ve también en el teléfono (sin hover). */}
+      <button onClick={onToggleFollow}
+        aria-label={following ? "Dejar de seguir" : `Seguir esta oferta · ${CREDIT_COSTS.follow_offer} créditos`}
+        title={following ? "Dejar de seguir" : `Seguir esta oferta: te avisamos si crece o se apaga · ${CREDIT_COSTS.follow_offer} créditos`}
+        className={`absolute top-2 right-2 z-10 w-11 h-11 rounded-full backdrop-blur flex flex-col items-center justify-center border transition-colors ${following ? "bg-primary/90 border-primary text-primary-foreground" : "bg-background/70 border-border text-foreground hover:text-primary"}`}>
+        <Heart className={following ? "w-[18px] h-[18px]" : "w-4 h-4"} fill={following ? "currentColor" : "none"} />
+        {!following && <span aria-hidden className="text-[9px] font-bold leading-none mt-0.5 tabular-nums">{CREDIT_COSTS.follow_offer}⚡</span>}
+      </button>
 
-      <div className="p-4 flex flex-col flex-1">
-        <button onClick={onOpen} className="text-left group">
-          <h4 className="font-display font-semibold text-[16px] leading-snug text-foreground line-clamp-2 group-hover:text-primary transition-colors">{name}</h4>
-          <p className="text-[11.5px] text-muted-foreground mt-0.5 truncate">{o.page_name}</p>
+      <div className="px-4 pt-3.5 flex flex-col flex-1">
+        <button onClick={onOpen} className="text-left group" aria-label={`Ver ${name} de un vistazo`}>
+          <div className="flex items-center justify-between gap-3">
+            <LevelBars o={o} />
+            <span className="text-[11.5px] text-muted-foreground shrink-0 whitespace-nowrap">{flagFor(o.market)}{idioma ? ` ${idioma}` : ""}</span>
+          </div>
+          <h4 className="font-display font-semibold text-[17px] leading-snug text-foreground line-clamp-2 mt-2 group-hover:text-primary transition-colors">{name}</h4>
+          {sub && <p className="text-[12px] text-muted-foreground mt-0.5 truncate">{sub}</p>}
+
+          {/* La prueba de venta primero: días pagando anuncios. Luego cuántos anuncios, diciendo de dónde sale el número. */}
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <Metric icon={<CalendarDays className="w-4 h-4 text-primary" />} value={o.days_active.toLocaleString("es")} label="días pagando anuncios" />
+            <Metric icon={<Flame className="w-4 h-4 text-muted-foreground" />} value={act.texto} label={act.vivo ? "anuncios activos hoy en Meta" : "anuncios activos que vimos"} />
+          </div>
+
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            <Pill>{o.canal ? CANAL_CORTO[o.canal] : "Cómo vende: sin revisar"}</Pill>
+            {solo && <Pill tone={solo.solo ? "success" : "neutral"} icon={solo.solo ? <Check /> : undefined}>{solo.texto}</Pill>}
+            {o.price_hint && <Pill>Precio: {o.price_hint}</Pill>}
+          </div>
         </button>
-
-        <div className="mt-3">
-          <div className="flex items-center justify-between text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5">
-            <span>Índice ganador</span><span className="text-success font-bold text-[12px] tabular-nums">{score}%</span>
-          </div>
-          <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden" role="img" aria-label={`Índice ganador ${score} por ciento`}>
-            <div className="h-full bg-success rounded-full" style={{ width: `${score}%` }} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 mt-3">
-          <Metric icon={<Flame className="w-4 h-4 text-primary" />} value={act.texto} label={act.vivo ? "anuncios activos hoy en Meta" : "anuncios activos que vimos"} />
-          <Metric icon={<CalendarDays className="w-4 h-4 text-muted-foreground" />} value={o.days_active.toLocaleString("es")} label="días pagando anuncios" />
-        </div>
 
         {insight && !watch && (
-          <div className="mt-2 rounded-lg bg-secondary/40 px-3 py-2 flex items-center justify-between text-[11px]">
+          <div className="mt-3 rounded-lg bg-secondary/40 px-3 py-2 flex items-center justify-between text-[11px]">
             <span className="text-muted-foreground">{insight.days_tracked > 0 ? `Últimos ${insight.days_tracked} días` : "Seguimiento desde hoy"}</span>
-            <span className="flex items-center gap-3"><Delta value={insight.ads_delta} suffix="ads" /><Delta value={insight.score_delta} suffix="score" /></span>
+            <span className="flex items-center gap-3"><Delta value={insight.ads_delta} suffix="anuncios" /><Delta value={insight.score_delta} suffix="puntos" /></span>
           </div>
         )}
         {watch && <WatchPanel w={watch} />}
 
-        <dl className="mt-3 space-y-1.5 text-[12px]">
-          {/* market = país pedido en ad_reached_countries a la Biblioteca de Anuncios de Meta
-              (bulk-seed-ads): dónde se MUESTRAN los anuncios, no de dónde es el anunciante. */}
-          <Row label="Se anuncia en" value={`${flagFor(o.market)} ${MARKET_NAME[o.market] ?? o.market}`} />
-          {o.niche && <Row label="Nicho" value={NICHE_LABEL[o.niche] ?? o.niche} />}
-          {o.offer_platform?.platform && <Row label="Cobra con" value={o.offer_platform.platform} />}
-          <div className="flex items-start justify-between gap-2">
-            <dt className="text-muted-foreground shrink-0">Vende por</dt>
-            <dd className="text-right min-w-0">
-              <span className="font-medium text-foreground">{o.canal ? CANAL_LABEL[o.canal] : "Sin revisar todavía"}</span>
-              {(() => { const l = enlaceCanal(o); return l && (
-                <a href={l.href} target="_blank" rel="noopener noreferrer" className="mt-0.5 flex items-center justify-end gap-1 text-[11.5px] text-primary hover:underline">
-                  <ExternalLink className="w-3 h-3 shrink-0" /><span className="truncate">{l.texto}</span>
-                </a>
-              ); })()}
-            </dd>
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            <dt className="text-muted-foreground">Hacer tu versión</dt>
-            <dd><span className={`text-[10.5px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5 ${copy.cls}`}>{copy.short}</span></dd>
-          </div>
-        </dl>
-
         {/* Apiladas: "Hacer mi versión · 50 créditos" no cabe a media tarjeta en 2-3 columnas. */}
-        <div className="mt-4 pt-3 border-t border-border/60 flex flex-col gap-2">
-          <button onClick={onCreate} className="h-11 btn-primary-nova rounded-xl text-[13px] font-semibold inline-flex items-center justify-center gap-1.5">
-            <Zap className="w-4 h-4" /> Hacer mi versión <span className="opacity-70 font-medium">· {CREDIT_COSTS.gen_master_prompt} créditos</span>
-          </button>
-          <div className={onCreateIdea ? "grid grid-cols-2 gap-2" : "grid"}>
-            <button onClick={onOpen} className="h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-primary/40 inline-flex items-center justify-center gap-1.5 min-w-0">
-              <Eye className="w-4 h-4 shrink-0" /> <span className="truncate">{onCreateIdea ? "Detalles" : "Ver detalles"}</span>
+        <div className="mt-auto pt-4 pb-4">
+          <div className="pt-3 border-t border-border/60 flex flex-col gap-2">
+            <button onClick={onCreate} className="h-11 btn-primary-nova rounded-xl text-[13px] font-semibold inline-flex items-center justify-center gap-1.5">
+              <Zap className="w-4 h-4" /> Hacer mi versión <span className="opacity-70 font-medium">· {CREDIT_COSTS.gen_master_prompt} créditos</span>
             </button>
-            {onCreateIdea && (
-              <button onClick={onCreateIdea} className="h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-primary/40 inline-flex items-center justify-center gap-1.5 min-w-0">
-                <Sparkles className="w-4 h-4 shrink-0" /> <span className="truncate">Crear anuncios</span>
+            <div className={onCreateIdea ? "grid grid-cols-2 gap-2" : "grid"}>
+              <button onClick={onOpen} className="h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-foreground/40 inline-flex items-center justify-center gap-1.5 min-w-0">
+                <Eye className="w-4 h-4 shrink-0" /> <span className="truncate">{onCreateIdea ? "Ver ficha" : "Ver ficha rápida"}</span>
               </button>
-            )}
+              {onCreateIdea && (
+                <button onClick={onCreateIdea} className="h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-foreground/40 inline-flex items-center justify-center gap-1.5 min-w-0">
+                  <Sparkles className="w-4 h-4 shrink-0" /> <span className="truncate">Crear anuncios</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -185,18 +169,9 @@ function Sparkline({ points }: { points: WatchPoint[] }) {
 
 function Metric({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
   return (
-    <div className="rounded-xl bg-secondary/40 border border-border/60 px-3 py-2.5">
+    <div className="rounded-xl bg-secondary/40 border border-border/60 px-3 py-2.5 min-w-0">
       <div className="flex items-center gap-1.5 font-display font-bold text-[20px] text-foreground tabular-nums leading-none">{icon}{value}</div>
-      <div className="text-[10.5px] text-muted-foreground mt-1.5">{label}</div>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <dt className="text-muted-foreground shrink-0">{label}</dt>
-      <dd className="text-foreground font-medium truncate text-right">{value}</dd>
+      <div className="text-[10.5px] text-muted-foreground mt-1.5 leading-tight">{label}</div>
     </div>
   );
 }

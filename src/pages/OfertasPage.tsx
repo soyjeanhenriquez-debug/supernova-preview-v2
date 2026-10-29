@@ -215,6 +215,23 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
 
   const nicheOptions = useMemo(() => Object.entries(NICHE_LABEL), []);
 
+  // Salidas en un toque cuando hay pocas o ninguna (28-oct-2026: Cindy tenía guardado «Mercado brasileño» de otra
+  // visita y con WhatsApp le salía 1 sola; el filtro estaba fuera de su vista). Cada botón dice qué quita.
+  const mercadoLabel = group === LANG_ES_FILTER ? "En español" : MARKET_GROUP[group ?? ""]?.label;
+  const salidas = (
+    <div className="flex flex-wrap gap-2">
+      {tab === "ganadoras" && (
+        <button type="button" onClick={() => setTab("todas")} className="min-h-[40px] px-4 rounded-full bg-primary text-primary-foreground text-[13px] font-semibold">Buscar en todo el catálogo</button>
+      )}
+      {group !== "all" && mercadoLabel && <button type="button" onClick={() => setGroup("all")} className="min-h-[40px] px-4 rounded-full border border-border text-[13px] text-foreground">✕ {mercadoLabel}: ver todos los mercados</button>}
+      {(niche !== "all" || model !== "all" || platform !== "all" || debounced) && (
+        <button type="button" onClick={() => { setNiche("all"); setModel("all"); setPlatform("all"); setSearch(""); }} className="min-h-[40px] px-4 rounded-full border border-border text-[13px] text-foreground">✕ Quitar los demás filtros</button>
+      )}
+      {onlyCopiable && tab !== "ganadoras" && <button type="button" onClick={() => setOnlyCopiable(false)} className="min-h-[40px] px-4 rounded-full border border-border text-[13px] text-foreground">Ver también las más difíciles</button>}
+    </div>
+  );
+  const hayFiltros = tab === "ganadoras" || group !== "all" || niche !== "all" || model !== "all" || platform !== "all" || !!debounced || onlyCopiable;
+
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between flex-wrap gap-3">
@@ -347,7 +364,13 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
       </div>
 
       <div className="text-[12px] text-muted-foreground">
-        {loading && page === 0 ? "Buscando…" : `${total.toLocaleString("es-ES")} ofertas encontradas`}
+        {loading && page === 0 ? "Buscando…" : `${total.toLocaleString("es-ES")} ${total === 1 ? "oferta encontrada" : "ofertas encontradas"}`}
+        {!loading && total > 0 && total < 6 && hayFiltros && (
+          <span className="block mt-2 space-y-2">
+            <span className="block text-foreground">Salen pocas porque tienes filtros puestos{mercadoLabel && group !== "all" ? ` (por ejemplo «${mercadoLabel}»)` : ""}. Para ver más:</span>
+            {salidas}
+          </span>
+        )}
         {groupFromCountry && group !== "all" && (
           <span className="ml-1.5">
             · {group === LANG_ES_FILTER ? "en español" : MARKET_GROUP[group ?? ""]?.label.toLowerCase()}, por tu país.{" "}
@@ -382,16 +405,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
               : "Prueba quitando \"Solo las que puedes hacer tú solo\" o cambia de mercado."}
           </div>
           {/* Una salida en un toque (Cindy, 28-oct-2026: «no me salió nada»). */}
-          <div className="flex flex-wrap justify-center gap-2 mt-4">
-            {tab === "ganadoras" && (
-              <button type="button" onClick={() => setTab("todas")} className="min-h-[40px] px-4 rounded-full bg-primary text-primary-foreground text-[13px] font-semibold">Buscar en todo el catálogo</button>
-            )}
-            {group !== "all" && <button type="button" onClick={() => setGroup("all")} className="min-h-[40px] px-4 rounded-full border border-border text-[13px] text-foreground">Ver todos los mercados</button>}
-            {(niche !== "all" || model !== "all" || platform !== "all" || debounced) && (
-              <button type="button" onClick={() => { setNiche("all"); setModel("all"); setPlatform("all"); setSearch(""); }} className="min-h-[40px] px-4 rounded-full border border-border text-[13px] text-foreground">Quitar los demás filtros</button>
-            )}
-            {onlyCopiable && tab !== "ganadoras" && <button type="button" onClick={() => setOnlyCopiable(false)} className="min-h-[40px] px-4 rounded-full border border-border text-[13px] text-foreground">Ver también las más difíciles</button>}
-          </div>
+          <div className="flex justify-center mt-4">{salidas}</div>
         </div>
       ) : (
         <>

@@ -1,4 +1,4 @@
-import { Sun, FolderKanban, Coins, Fingerprint, Shield, LogOut, PanelLeftClose, PanelLeftOpen, X, KeyRound, Briefcase, LayoutGrid, GraduationCap, Lock, BadgeDollarSign, ChevronRight, MoreHorizontal, type LucideIcon } from "lucide-react";
+import { Shield, LogOut, PanelLeftClose, PanelLeftOpen, X, KeyRound, Lock, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,11 +8,9 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useNavigate } from "react-router-dom";
 import { useFeatureAccess } from "@/lib/features";
 import { ProductSwitcher } from "@/components/ProductSwitcher";
-import { GRID_TOOLS, ADMIN_EXTRA_TOOLS, VIAS, openTool, useVia, viaToolIds, type Tool } from "@/lib/tools";
-import { TUTORIALS } from "@/lib/tutorials";
+import { ADMIN_EXTRA_TOOLS, openTool, type Tool } from "@/lib/tools";
 import { useVitrina } from "@/contexts/VitrinaContext";
-import { useTreeMenu } from "@/lib/tree";
-import { TreeNav } from "@/components/tree/TreeNav";
+import { MainNav } from "@/components/nav/MainNav";
 
 interface SidebarProps {
   activePage: string;
@@ -23,7 +21,6 @@ interface SidebarProps {
 }
 
 const COLLAPSE_KEY = "supernova:sidebar-collapsed";
-const MORE_KEY = "supernova:sidebar-more-open";
 
 export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile }: SidebarProps) {
   const { user, signOut } = useAuth();
@@ -32,53 +29,9 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
   const { locked, openPlans } = useVitrina();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  // El árbol (21-oct-2026): solo admin mientras se prueba; "Ver menú anterior" lo apaga en este navegador.
-  const { enabled: tree, setTree } = useTreeMenu();
-
-  // Las 2 vías (decisión de Jean, 12-oct-2026): "Creador con marca" o "Marketer sin rostro". El menú
-  // muestra solo lo de su vía (encontrar, crear, vender y medir). Todo lo demás vive en "Más
-  // herramientas", plegado: nada se borra, sus direcciones siguen abriendo y el buscador lo encuentra.
-  // Las secciones en pausa (src/lib/features.ts) solo las ve un admin. Las claves y los
-  // data-tour="nav-<key>" no cambian (los usan el tour y la ayuda).
   type NavItem = { icon: LucideIcon; key: string; label: string; hint: string; tool?: Tool; id?: string };
   const fromTool = (tl: Tool): NavItem => ({ icon: tl.icon, key: tl.key, label: tl.nav, hint: tl.desc, tool: tl, id: tl.id });
-  const visible = (list: Tool[]) => list.filter(tl => canSee(tl.key)).map(fromTool);
-  const { via, setVia, current: viaInfo } = useVia();
-  const inVia = viaToolIds(viaInfo);
-  const groups: { title: string; items: NavItem[] }[] = [
-    { title: "", items: [
-      { icon: Sun, key: "Dashboard", label: "Hoy", hint: "Tu siguiente paso y lo que puedes crear hoy." },
-      { icon: LayoutGrid, key: "Productos", label: "Mis versiones", hint: "Tus versiones y cuánto avanzó cada una." },
-    ] },
-    { title: via === "creador" ? "Ideas para tu contenido" : "Lo que ya vende", items: visible(viaInfo.find) },
-    { title: "Crear", items: visible(viaInfo.create) },
-    { title: via === "creador" ? "Publicar y cobrar" : "Vender y medir", items: visible(viaInfo.sell) },
-    { title: "", items: [
-      { icon: Coins, key: "Créditos", label: t("nav.credits"), hint: t("nav.hint.credits") },
-      // Aprende: guías de Jean (siempre) y videos de cada herramienta (cuando haya). El asistente es la burbuja.
-      { icon: GraduationCap, key: "Aprende", label: "Ayuda y guías", hint: TUTORIALS.length ? "Guías paso a paso de Jean y un video corto por herramienta." : "Guías paso a paso de Jean, con las herramientas para hacerlo." },
-    ] },
-  ];
-  // "Más herramientas": plegado. Lo que no es de su vía (la otra vía incluida).
-  const moreItems: NavItem[] = [
-    { icon: FolderKanban, key: "Proyectos", label: t("nav.projects"), hint: t("nav.hint.projects") },
-    { icon: Briefcase, key: "Mi negocio", label: "Mi ficha", hint: "Qué vendes, para quién y qué logra este producto. Lo usan todas las herramientas." },
-    { icon: Fingerprint, key: "Tu ADN", label: "Tu ADN", hint: "Quién eres y cómo hablas. Lo que modelas suena a ti, sin cambiar el tema." },
-    ...visible(GRID_TOOLS.filter(tl => !inVia.has(tl.id))),
-    // Recompensas (07-oct-2026): clips de SUPERNOVA o de Jean pagados por vistas en Whop. Sin candado.
-    ...(canSee("Recompensas") ? [{ icon: BadgeDollarSign, key: "Recompensas", label: "Gana con tu contenido", hint: "Haz clips sobre SUPERNOVA o sobre Jean y cobra por cada 1.000 vistas en Whop." }] : []),
-  ];
-  const adminItems = visible(ADMIN_EXTRA_TOOLS);
-  const inMore = moreItems.some(i => i.key === activePage);
-  const [moreOpen, setMoreOpen] = useState<boolean>(() => {
-    try { return localStorage.getItem(MORE_KEY) === "1"; } catch { return false; }
-  });
-  const toggleMore = () => setMoreOpen(o => {
-    try { localStorage.setItem(MORE_KEY, o ? "0" : "1"); } catch { /* sin almacenamiento */ }
-    return !o;
-  });
-  // Si estás en una pantalla de "Más herramientas", el grupo se ve abierto (para no perderte).
-  const showMore = moreOpen || inMore;
+  const adminItems = ADMIN_EXTRA_TOOLS.filter(tl => canSee(tl.key)).map(fromTool);
 
   const [collapsed, setCollapsed] = useState<boolean>(() => localStorage.getItem(COLLAPSE_KEY) === "1");
 
@@ -170,52 +123,8 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
             </div>
           )
         ) : <div className="pb-3"><ProductSwitcher collapsed={isCollapsed} onNavigate={handleNav} /></div>}
-        {tree && <TreeNav activePage={activePage} onNavigate={handleNav} collapsed={isCollapsed} />}
-        {!tree && isAdmin && !isCollapsed && (
-          <button onClick={() => setTree(true)} className="mb-3 w-full rounded-xl border border-primary/40 px-3 py-2 text-left text-[12px] text-foreground hover:border-primary">
-            Probar el menú en árbol <span className="block text-[11px] text-muted-foreground">Solo lo ves tú (admin)</span>
-          </button>
-        )}
-        {/* Tu vía: cambia el menú, el Inicio y el botón Crear del teléfono. */}
-        {!tree && !isCollapsed && (
-          <div className="pb-3 px-1">
-            <p className="px-2 pb-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-semibold">Tu vía</p>
-            <div className="grid grid-cols-2 gap-1 rounded-xl border border-border p-1" role="group" aria-label="Tu vía">
-              {VIAS.map(v => (
-                <button key={v.id} onClick={() => setVia(v.id)} aria-pressed={via === v.id} title={v.line}
-                  className={`h-8 rounded-lg text-[12px] font-medium transition-colors ${via === v.id ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-                  {v.short}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {!tree && groups.filter(g => g.items.length).map((g, gi) => (
-          <div key={g.title || gi} className={gi ? (isCollapsed ? "pt-2 mt-2 border-t border-border/50" : "pt-3") : ""}>
-            {g.title && !isCollapsed && (
-              <p className="px-3 pb-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-semibold">{g.title}</p>
-            )}
-            {g.items.map(renderItem)}
-          </div>
-        ))}
-
-        {/* Más herramientas: plegado. Nada se borró; aquí sigue todo lo demás. */}
-        {!tree && <div className={isCollapsed ? "pt-2 mt-2 border-t border-border/50" : "pt-3"}>
-          <button
-            onClick={toggleMore}
-            aria-expanded={showMore}
-            data-tour="nav-mas"
-            title={isCollapsed ? "Más herramientas" : "Todo lo demás: Lo que creaste, tu ficha, YouTube, ganchos, precio, validar…"}
-            className={`flex items-center gap-3 w-full rounded-lg transition-colors text-left text-muted-foreground hover:bg-secondary/60 hover:text-foreground ${isCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2"}`}
-          >
-            {isCollapsed
-              ? <MoreHorizontal className="w-[15px] h-[15px] flex-shrink-0" strokeWidth={1.6} />
-              : <ChevronRight className={`w-[15px] h-[15px] flex-shrink-0 transition-transform ${showMore ? "rotate-90" : ""}`} strokeWidth={1.6} />}
-            {!isCollapsed && <span className="text-[13px] font-medium tracking-tight truncate">Más herramientas</span>}
-            {!isCollapsed && <span className="ml-auto text-[11px] tabular-nums text-muted-foreground/70">{moreItems.length}</span>}
-          </button>
-          {showMore && moreItems.map(renderItem)}
-        </div>}
+        {/* Un solo menú para todos (29-oct-2026): src/lib/menu.ts. */}
+        <MainNav activePage={activePage} onNavigate={handleNav} collapsed={isCollapsed} />
 
         {adminItems.length > 0 && (
           <div className={isCollapsed ? "pt-2 mt-2 border-t border-border/50" : "pt-3"}>

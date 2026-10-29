@@ -29,6 +29,9 @@ const canalFromHash = (): "all" | "pagina" | "whatsapp" => {
   const s = window.location.hash.replace(/^#\/?/, "").split("/")[1] ?? "";
   return s === "whatsapp" || s === "pagina" ? s : "all";
 };
+// #/ofertas/whatsapp/todas: TODAS las de ese canal (todo el catálogo, todos los mercados, fáciles y difíciles), sin
+// importar los filtros guardados. Es el enlace que se le manda a alguien (Cindy, 28-oct-2026).
+const todasFromHash = () => (window.location.hash.replace(/^#\/?/, "").split("/")[2] ?? "") === "todas" && canalFromHash() !== "all";
 const CANALES = [
   { v: "all", t: "Todas", d: "Todas las formas de vender." },
   { v: "whatsapp", t: "💬 Por WhatsApp", d: "El anuncio lleva a un chat y la venta se cierra ahí." },
@@ -68,6 +71,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const [tab, setTab] = useState<Tab>(() => {
     const t = localStorage.getItem(OFFERS_TAB_KEY);
     if (t) localStorage.removeItem(OFFERS_TAB_KEY);
+    if (todasFromHash()) return "todas";
     return t === "siguiendo" || t === "apps" ? t : "ganadoras";
   });
   const follows = useOfferFollows();
@@ -78,7 +82,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const [niche, setNiche] = useState("all");
   // Mercado: el que la persona eligió antes o, si nunca eligió, el de su país (user_age_country). Hasta
   // saberlo vale null y no se consulta nada (así no se carga dos veces la lista).
-  const [group, setGroupState] = useState<string | null>(readMarketPref);
+  const [group, setGroupState] = useState<string | null>(() => (todasFromHash() ? "all" : readMarketPref()));
   const [groupFromCountry, setGroupFromCountry] = useState(false);
   const setGroup = (g: string) => {
     setGroupState(g);
@@ -88,13 +92,15 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   // Decisión de Jean (12-oct-2026, igual que el Radar): se abre en "Todas" para no esconder de
   // entrada ninguna ganadora (de 300, 215 están en inglés o portugués). El idioma queda a un toque.
   useEffect(() => { if (group === null) setGroupState("all"); }, [group]);
+  // Con el enlace de «todas» el mercado guardado se cambia a todos (si no, la próxima vez vuelve a esconderlas).
+  useEffect(() => { if (todasFromHash()) setGroup("all"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [model, setModel] = useState("all");
   // Cómo vende (28-oct-2026, Cindy: "¿están mezcladas?"): página de ventas, WhatsApp o mensajes.
   const [canal, setCanal] = useState<"all" | "pagina" | "whatsapp" | "mensajes" | "sin">(canalFromHash);
   // Plataforma de cobro (Hotmart, Kiwify, Gumroad…): solo se conoce en las ofertas ya revisadas.
   const [platform, setPlatform] = useState("all");
   const [platformCounts, setPlatformCounts] = useState<{ platform: string; total: number; winners: number }[]>([]);
-  const [onlyCopiable, setOnlyCopiable] = useState(true);
+  const [onlyCopiable, setOnlyCopiable] = useState(() => !todasFromHash());
   const [sort, setSort] = useState("rank");
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState<Offer[]>([]);

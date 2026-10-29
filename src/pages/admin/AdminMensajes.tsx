@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { History, Loader2, Mail, Send, Users } from "lucide-react";
 import { toast } from "sonner";
 import { fnHeaders } from "@/lib/fnAuth";
+import { ResumenGrupo } from "@/components/admin/ResumenGrupo";
 
 /**
  * Admin → Mensajes: escribir y enviar correos a un cliente o a un grupo (función admin-email, solo
@@ -118,6 +119,8 @@ export default function AdminMensajes() {
         <h1 className="font-display text-2xl font-semibold text-foreground">Mensajes</h1>
         <p className="text-sm text-muted-foreground mt-1">Escribe a un cliente o a un grupo. Sale de <b className="text-foreground">hola@supernova.jeanhenriquez.com</b> y las respuestas llegan a tu correo.</p>
       </div>
+
+      <ResumenGrupo />
 
       <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-4">
         <div className="rounded-2xl border border-border bg-card p-5 space-y-4">

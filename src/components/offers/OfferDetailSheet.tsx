@@ -268,6 +268,9 @@ function OfferFacts({ o, name, intel, phase, onSeeAds, onVerdict }: {
   const drive = safeExternalUrl(links?.drive);
   const vsl = safeExternalUrl(links?.vsl);
   const radarRef = o.source_data?.radar;
+  // Si vende por WhatsApp, cobra por WhatsApp (offers.checkout lo deja coherente en la base).
+  const cobra = o.checkout ?? intel?.checkout_platform ?? null;
+  const embudoV = o.embudo ?? intel?.funnel_type ?? null;
   const working = phase === "loading" || phase === "generating";
   const price = intel?.price_text || o.price_hint;
   const otherMarkets = (o.markets ?? []).filter((m) => m !== o.market);
@@ -305,7 +308,7 @@ function OfferFacts({ o, name, intel, phase, onSeeAds, onVerdict }: {
         ) : (
           <div className="grid sm:grid-cols-2 gap-2">
             <LinkButton href={landing} icon={<ExternalLink className="w-4 h-4" />} label="Ver página de ventas" sub={intel?.landing_domain ?? "no la encontramos"} primary />
-            <LinkButton href={checkout} icon={<ShoppingCart className="w-4 h-4" />} label="Ver página de pago" sub={intel?.checkout_platform ? `cobra con ${intel.checkout_platform}` : "no detectado"} />
+            <LinkButton href={checkout} icon={<ShoppingCart className="w-4 h-4" />} label="Ver página de pago" sub={cobra ? `cobra con ${cobra}` : "no detectado"} />
           </div>
         )}
         <div className="grid grid-cols-2 gap-2">
@@ -329,8 +332,8 @@ function OfferFacts({ o, name, intel, phase, onSeeAds, onVerdict }: {
         <Fact icon={<BadgeDollarSign className="w-4 h-4" />} label="Ticket (precio del producto)" value={price} loading={working && !price} highlight />
         <Fact icon={<Layers className="w-4 h-4" />} label="Tipo de producto" value={o.offer_type ? (OFFER_TYPE_LABEL[o.offer_type] ?? o.offer_type) : null} />
         <Fact icon={<CreditCard className="w-4 h-4" />} label="Modelo de cobro" value={o.business_model && o.business_model !== "otro" ? MODEL_LABEL[o.business_model] : null} />
-        <Fact icon={<Route className="w-4 h-4" />} label="Camino de venta (embudo)" value={intel?.funnel_type ? (FUNNEL_LABEL[intel.funnel_type] ?? intel.funnel_type) : null} loading={working} />
-        <Fact icon={<ShoppingCart className="w-4 h-4" />} label="Página de pago (checkout)" value={intel?.checkout_platform ?? null} loading={working} />
+        <Fact icon={<Route className="w-4 h-4" />} label="Camino de venta (embudo)" value={embudoV ? (FUNNEL_LABEL[embudoV] ?? embudoV) : null} loading={working} />
+        <Fact icon={<ShoppingCart className="w-4 h-4" />} label="Página de pago (checkout)" value={cobra} loading={working} />
         <Fact icon={<Flag className="w-4 h-4" />} label="Países donde anuncia"
           value={[o.market, ...otherMarkets].slice(0, 6).map((m) => `${flagFor(m)} ${MARKET_NAME[m] ?? m}`).join(" · ")} />
         <Fact icon={<Languages className="w-4 h-4" />} label="Idioma" value={o.language ? o.language.toUpperCase() : null} />

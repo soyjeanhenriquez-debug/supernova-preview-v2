@@ -77,7 +77,7 @@ export function OfferQuickView({ offer: o, following, onToggleFollow, onCreate, 
                 {/* market = país pedido a la Biblioteca de Anuncios de Meta: dónde se MUESTRAN los anuncios. */}
                 <Row label="Se anuncia en"><span className="font-medium text-foreground">{flagFor(o.market)} {MARKET_NAME[o.market] ?? o.market}</span></Row>
                 {o.niche && <Row label="Tema"><span className="font-medium text-foreground">{NICHE_LABEL[o.niche] ?? o.niche}</span></Row>}
-                {o.offer_platform?.platform && <Row label="Cobra con"><span className="font-medium text-foreground">{o.offer_platform.platform}</span></Row>}
+                {(o.checkout ?? o.offer_platform?.platform) && <Row label="Cobra con"><span className="font-medium text-foreground">{o.checkout ?? o.offer_platform?.platform}</span></Row>}
               </dl>
 
               {o.why_wins && (

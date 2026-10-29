@@ -48,6 +48,13 @@ export interface Offer {
   canal?: Canal | null;
   /** Si vende por página: su enlace. */
   canal_url?: string | null;
+  /** Anuncios que ve la persona: el conteo en vivo de Meta o, si no lo da, el que trae la oferta (para ordenar por escala). */
+  escala?: number;
+  /** Dónde cobra, un nombre por plataforma. Si vende por WhatsApp, es WhatsApp (refresh_offer_checkout, 29-oct-2026). */
+  checkout?: string | null;
+  /** Camino de venta (FUNNEL_LABEL); "whatsapp" si vende por WhatsApp. */
+  embudo?: string | null;
+  tags?: string[] | null;
   /** Portada fija (bucket ofertas-portadas). La de Cazador Swipe, por ejemplo. */
   cover_url?: string | null;
   /** null = nuestro recolector; "cazador" = catálogo de Cazador Swipe (de Jean, 29-oct-2026). */

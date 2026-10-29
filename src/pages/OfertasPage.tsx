@@ -11,7 +11,8 @@ import { offerBrief } from "@/lib/sellThis";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 import { useOfferFollows } from "@/hooks/useOfferFollows";
 import { OFFERS_TAB_KEY, type FollowedRow } from "@/components/dashboard/RoiHunterWidget";
-import { type Offer, NICHE_LABEL, MODEL_LABEL, MARKET_GROUP, LANG_ES_FILTER, offerToDemoAd, openOfferAdsInRadar } from "@/lib/offers";
+import { type Offer, NICHE_LABEL, MARKET_GROUP, LANG_ES_FILTER, MARKET_NAME, OFFER_TYPE_LABEL, flagFor, offerToDemoAd, openOfferAdsInRadar } from "@/lib/offers";
+import { FUNNEL_LABEL } from "@/lib/offerIntel";
 import { type OfferWatch, parseWatch } from "@/lib/offerWatch";
 import { CreateFromIdeaSheet } from "@/components/create/CreateFromIdeaSheet";
 import { ideaFromOffer } from "@/lib/recommendTarget";
@@ -55,16 +56,35 @@ type Tab = "ganadoras" | "todas" | "apps" | "info" | "siguiendo";
 const PAGE_SIZE = 12;
 // Mercado elegido a mano (gana sobre el que se deduce del país). Solo comodidad de este navegador.
 const MARKET_PREF_KEY = "supernova_offers_market";
-const readMarketPref = () => { try { return localStorage.getItem(MARKET_PREF_KEY); } catch { return null; } };
+// 29-oct-2026: Idioma y País son filtros a la vista (como Cazador). El mercado guardado de antes era un filtro escondido
+// (a Cindy le dejaba 1 sola oferta de WhatsApp): se borra y la lista abre siempre con todos.
+const clearMarketPref = () => { try { localStorage.removeItem(MARKET_PREF_KEY); } catch { /* sin almacenamiento */ } };
 
 const SORTS = [
   { v: "rank", l: "Las mejores primero" },
+  { v: "ads", l: "Más anuncios (escala)" },
   { v: "score", l: "Mayor puntaje" },
   { v: "copy", l: "Más fáciles de replicar" },
-  { v: "ads", l: "Más anuncios activos" },
   { v: "days", l: "Más días con anuncios" },
   { v: "recent", l: "Las más nuevas" },
 ];
+
+// Filtros como Cazador Swipe (Jean, 29-oct-2026): las opciones y su conteo salen de la base (offer_filter_options),
+// dentro del canal elegido. Así en WhatsApp el checkout solo puede ser WhatsApp.
+type Opcion = { v: string; n: number };
+type OpcionesFiltro = Partial<Record<"checkout" | "embudo" | "tags" | "tipo" | "idioma" | "pais" | "nicho", Opcion[]>>;
+const ANUNCIOS = [
+  { v: "100", l: "100 o más anuncios", min: 100, max: null },
+  { v: "50", l: "50 a 99 anuncios", min: 50, max: 99 },
+  { v: "10", l: "10 a 49 anuncios", min: 10, max: 49 },
+  { v: "1", l: "Menos de 10", min: 1, max: 9 },
+] as const;
+const nombreIdioma = (() => {
+  let dn: Intl.DisplayNames | null = null;
+  try { dn = new Intl.DisplayNames(["es"], { type: "language" }); } catch { /* navegador viejo */ }
+  return (c: string) => { const n = dn?.of(c); return n ? n.charAt(0).toUpperCase() + n.slice(1) : c.toUpperCase(); };
+})();
+const conN = (l: string, n: number) => `${l} · ${n.toLocaleString("es-ES")}`;
 
 interface Stats { offers: number; active_ads: number; markets: number; niches: number; updated_at: string | null; }
 
@@ -82,9 +102,8 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [niche, setNiche] = useState("all");
-  // Mercado: el que la persona eligió antes o, si nunca eligió, el de su país (user_age_country). Hasta
-  // saberlo vale null y no se consulta nada (así no se carga dos veces la lista).
-  const [group, setGroupState] = useState<string | null>(() => (todasFromHash() ? "all" : readMarketPref()));
+  // Mercado agrupado (heredado): ya no tiene botón; abre en "all" y solo lo cambian las salidas. Idioma y País son los filtros.
+  const [group, setGroupState] = useState<string | null>(() => { clearMarketPref(); return "all"; });
   const [groupFromCountry, setGroupFromCountry] = useState(false);
   const setGroup = (g: string) => {
     setGroupState(g);
@@ -99,11 +118,19 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   const [model, setModel] = useState("all");
   // Cómo vende (28-oct-2026, Cindy: "¿están mezcladas?"): página de ventas, WhatsApp o mensajes.
   const [canal, setCanal] = useState<"all" | "pagina" | "whatsapp" | "mensajes" | "sin">(canalFromHash);
-  // Plataforma de cobro (Hotmart, Kiwify, Gumroad…): solo se conoce en las ofertas ya revisadas.
+  // Checkout (Hotmart, Kiwify, WhatsApp…): offers.checkout, un nombre por plataforma.
   const [platform, setPlatform] = useState("all");
-  const [platformCounts, setPlatformCounts] = useState<{ platform: string; total: number; winners: number }[]>([]);
+  const [idioma, setIdioma] = useState("all");
+  const [pais, setPais] = useState("all");
+  const [tipo, setTipo] = useState("all");
+  const [embudo, setEmbudo] = useState("all");
+  const [tag, setTag] = useState("all");
+  const [anuncios, setAnuncios] = useState("all");
+  const [nuevas, setNuevas] = useState(false);
+  const [opts, setOpts] = useState<OpcionesFiltro>({});
   const [onlyCopiable, setOnlyCopiable] = useState(() => !todasFromHash());
-  const [sort, setSort] = useState("rank");
+  // En WhatsApp se ordena por escala, como Cazador (las de 480 anuncios arriba).
+  const [sort, setSort] = useState(() => (canalFromHash() === "whatsapp" ? "ads" : "rank"));
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState<Offer[]>([]);
   const [total, setTotal] = useState(0);
@@ -158,12 +185,18 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
   }, []);
 
   useEffect(() => { const t = setTimeout(() => setDebounced(search.trim()), 300); return () => clearTimeout(t); }, [search]);
-  useEffect(() => { setPage(0); }, [tab, debounced, niche, group, model, platform, onlyCopiable, sort, canal]);
+  useEffect(() => { setPage(0); }, [tab, debounced, niche, group, model, platform, onlyCopiable, sort, canal, idioma, pais, tipo, embudo, tag, anuncios, nuevas]);
 
   useEffect(() => {
     supabase.rpc("get_offers_stats").then(({ data }) => { if (data) setStats(data as unknown as Stats); });
-    supabase.rpc("offer_platform_counts").then(({ data }) => setPlatformCounts((data ?? []).map((r) => ({ ...r, total: Number(r.total), winners: Number(r.winners) }))));
   }, []);
+  // Opciones de los filtros dentro del canal elegido (un filtro que ya no existe en ese canal se apaga).
+  useEffect(() => {
+    let alive = true;
+    supabase.rpc("offer_filter_options" as never, { p_canal: canal === "all" || canal === "sin" ? null : canal } as never)
+      .then(({ data }) => { if (alive && data) setOpts(data as unknown as OpcionesFiltro); });
+    return () => { alive = false; };
+  }, [canal]);
 
   // Cazador de ROI: ofertas seguidas + vigilancia diaria (conteo en vivo de Meta y alertas).
   // Si get_offer_watch falla, la tarjeta cae al resumen viejo de 7 días: nunca queda vacía.
@@ -182,11 +215,19 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
     (async () => {
       // excluded_reason (flag_excluded_offers): las apps de dramas/novelas no se muestran nunca; las adultas,
       // solo a mayores de edad confirmados en el servidor (RLS de offers).
-      // La plataforma viene de offer_platform (1 a 1). Con filtro, el join es obligatorio (!inner).
-      const cols = platform !== "all" ? "*, offer_platform!inner(platform)" : "*, offer_platform(platform)";
+      const cols = "*, offer_platform(platform)";
       // Adultas (29-oct-2026, Jean: «¡Ábrelas!»): solo las devuelve la base a quien el servidor confirma mayor de edad (RLS + is_adult()).
       let q = supabase.from("offers").select(cols, { count: "exact" }).eq("enrich_failed", false).or("excluded_reason.is.null,excluded_reason.eq.adult");
-      if (platform !== "all") q = q.eq("offer_platform.platform", platform);
+      // Columnas nuevas (29-oct-2026) que aún no están en los tipos generados: filtros sin tipar.
+      if (platform !== "all") q = q.filter("checkout", "eq", platform);
+      if (idioma !== "all") q = q.eq("language", idioma);
+      if (pais !== "all") q = q.eq("market", pais);
+      if (tipo !== "all") q = q.eq("offer_type", tipo);
+      if (embudo !== "all") q = q.filter("embudo", "eq", embudo);
+      if (tag !== "all") q = q.filter("tags", "cs", `{"${tag.replace(/"/g, "")}"}`);
+      const rango = ANUNCIOS.find((r) => r.v === anuncios);
+      if (rango) { q = q.filter("escala", "gte", rango.min); if (rango.max !== null) q = q.filter("escala", "lte", rango.max); }
+      if (nuevas) q = q.gte("created_at", new Date(Date.now() - 7 * 86_400_000).toISOString());
       // Ganadoras: la lista curada (curate_offers → top 300 por winner_index).
       // El resto de pestañas son "explorar": una tarjeta por ANUNCIANTE
       // (is_primary), no una por país. Ambas columnas las mantiene curate_offers.
@@ -216,8 +257,8 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
         // casi nada tiene índice: los NULL van al final, ordenados por score.
         case "rank": q = q.order("winner_index", { ascending: false, nullsFirst: false }).order("winner_score", { ascending: false }).order("active_ads", { ascending: false }); break;
         case "copy": q = q.order("copy_score", { ascending: false, nullsFirst: false }).order("winner_score", { ascending: false }); break;
-        // Primero el conteo en vivo de Meta (offer-live-count); las que aún no tienen, por los que vimos nosotros.
-        case "ads": q = q.order("live_active_ads", { ascending: false, nullsFirst: false }).order("active_ads", { ascending: false }); break;
+        // Escala: el número de anuncios que se ve en la tarjeta (en vivo de Meta o el que trae la oferta).
+        case "ads": q = q.order("escala" as never, { ascending: false }).order("days_active", { ascending: false }); break;
         case "days": q = q.order("days_active", { ascending: false }); break;
         case "recent": q = q.order("first_seen", { ascending: false, nullsFirst: false }); break;
         default: q = q.order("winner_score", { ascending: false }).order("active_ads", { ascending: false });
@@ -231,16 +272,24 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
       setLoading(false);
     })();
     return () => { alive = false; };
-  }, [tab, debounced, niche, group, model, platform, onlyCopiable, sort, page, canal]);
+  }, [tab, debounced, niche, group, model, platform, onlyCopiable, sort, page, canal, idioma, pais, tipo, embudo, tag, anuncios, nuevas]);
 
-  // Opciones del filtro: solo plataformas con ofertas en esta pestaña, con su conteo real.
-  const platformOptions = useMemo(
-    () => platformCounts.map((p) => ({ ...p, n: tab === "ganadoras" ? p.winners : p.total })).filter((p) => p.n > 0),
-    [platformCounts, tab],
+  const nicheOptions = useMemo(
+    () => (opts.nicho ?? []).filter((o) => NICHE_LABEL[o.v]).map((o) => ({ v: o.v, l: conN(NICHE_LABEL[o.v], o.n) })),
+    [opts.nicho],
   );
-  const platformKnown = platformOptions.reduce((a, p) => a + p.n, 0);
 
-  const nicheOptions = useMemo(() => Object.entries(NICHE_LABEL), []);
+  // Al cambiar de canal: el checkout y el embudo dependen del canal (en WhatsApp solo hay WhatsApp), y en WhatsApp se
+  // ordena por escala, como Cazador.
+  const elegirCanal = (v: typeof canal) => {
+    setCanal(v); setPlatform("all"); setEmbudo("all");
+    if (v === "whatsapp") setSort("ads");
+  };
+  const otrosFiltros = [niche, model, platform, idioma, pais, tipo, embudo, tag, anuncios].some((v) => v !== "all") || nuevas;
+  const limpiarOtros = () => {
+    setNiche("all"); setModel("all"); setPlatform("all"); setIdioma("all"); setPais("all");
+    setTipo("all"); setEmbudo("all"); setTag("all"); setAnuncios("all"); setNuevas(false);
+  };
 
   // Salidas en un toque cuando hay pocas o ninguna (28-oct-2026: Cindy tenía guardado «Mercado brasileño» de otra
   // visita y con WhatsApp le salía 1 sola; el filtro estaba fuera de su vista). Cada botón dice qué quita.
@@ -251,32 +300,32 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
         <button type="button" onClick={() => setTab("todas")} className="min-h-[40px] px-4 rounded-full bg-primary text-primary-foreground text-[13px] font-semibold">Buscar en todo el catálogo</button>
       )}
       {group !== "all" && mercadoLabel && <button type="button" onClick={() => setGroup("all")} className="min-h-[40px] px-4 rounded-full border border-border text-[13px] text-foreground">✕ {mercadoLabel}: ver todos los mercados</button>}
-      {(niche !== "all" || model !== "all" || platform !== "all" || debounced) && (
-        <button type="button" onClick={() => { setNiche("all"); setModel("all"); setPlatform("all"); setSearch(""); }} className="min-h-[40px] px-4 rounded-full border border-border text-[13px] text-foreground">✕ Quitar los demás filtros</button>
+      {(otrosFiltros || debounced) && (
+        <button type="button" onClick={() => { limpiarOtros(); setSearch(""); }} className="min-h-[40px] px-4 rounded-full border border-border text-[13px] text-foreground">✕ Quitar los demás filtros</button>
       )}
       {onlyCopiable && tab !== "ganadoras" && <button type="button" onClick={() => setOnlyCopiable(false)} className="min-h-[40px] px-4 rounded-full border border-border text-[13px] text-foreground">Ver también las más difíciles</button>}
     </div>
   );
-  const hayFiltros = tab === "ganadoras" || group !== "all" || niche !== "all" || model !== "all" || platform !== "all" || !!debounced || onlyCopiable;
+  const hayFiltros = tab === "ganadoras" || group !== "all" || otrosFiltros || !!debounced || onlyCopiable;
 
-  // Filtros en píldoras (computadora) y en hoja (teléfono): la misma lista para los dos.
+  // Filtros en píldoras (computadora) y en hoja (teléfono): la misma lista para los dos. Mismo orden que Cazador Swipe.
+  const op = (k: keyof OpcionesFiltro, label: (v: string) => string) => (opts[k] ?? []).map((o) => ({ v: o.v, l: conN(label(o.v), o.n) }));
   const filtros: FiltroOferta[] = [
-    {
-      key: "mercado", titulo: "Idioma y mercado", todos: "🌍 Todos los mercados", valor: group ?? "all", cambiar: setGroup,
-      opciones: [{ v: LANG_ES_FILTER, l: "🗣️ En español (todos los países)" }, ...Object.entries(MARKET_GROUP).map(([k, g]) => ({ v: k, l: `${g.flag} ${g.label}` }))],
-    },
-    { key: "tema", titulo: "Tema", todos: "Todos los temas", valor: niche, cambiar: setNiche, opciones: nicheOptions.map(([k, l]) => ({ v: k, l })) },
-    {
-      key: "cobra", titulo: "Dónde cobra", todos: "Cualquier plataforma", valor: platform, cambiar: setPlatform,
-      opciones: platformOptions.map((p) => ({ v: p.platform, l: `${p.platform} · ${p.n.toLocaleString("es-ES")}` })),
-    },
-    { key: "modelo", titulo: "Forma de cobro", todos: "Cualquier forma de cobro", valor: model, cambiar: setModel, opciones: Object.entries(MODEL_LABEL).map(([k, l]) => ({ v: k, l })) },
-  ];
+    { key: "tema", titulo: "Nicho", todos: "Todos los nichos", valor: niche, cambiar: setNiche, opciones: nicheOptions },
+    { key: "idioma", titulo: "Idioma", todos: "Todos los idiomas", valor: idioma, cambiar: setIdioma, opciones: op("idioma", nombreIdioma) },
+    { key: "pais", titulo: "País", todos: "Todos los países", valor: pais, cambiar: setPais, opciones: op("pais", (m) => `${flagFor(m)} ${MARKET_NAME[m] ?? m}`) },
+    { key: "cobra", titulo: "Checkout", todos: "Cualquier checkout", valor: platform, cambiar: setPlatform, opciones: op("checkout", (v) => v) },
+    { key: "tipo", titulo: "Tipo de producto", todos: "Cualquier tipo", valor: tipo, cambiar: setTipo, opciones: op("tipo", (v) => OFFER_TYPE_LABEL[v] ?? v) },
+    { key: "embudo", titulo: "Embudo", todos: "Cualquier embudo", valor: embudo, cambiar: setEmbudo, opciones: op("embudo", (v) => FUNNEL_LABEL[v] ?? v) },
+    { key: "tags", titulo: "Etiquetas", todos: "Todas las etiquetas", valor: tag, cambiar: setTag, opciones: op("tags", (v) => v) },
+    { key: "anuncios", titulo: "Anuncios", todos: "Cualquier cantidad", valor: anuncios, cambiar: setAnuncios, opciones: ANUNCIOS.map((r) => ({ v: r.v, l: r.l })) },
+  ].filter((f) => f.opciones.length > 0 || f.valor !== "all");
   const orden: FiltroOferta = { key: "orden", titulo: "Ordenar", todos: "", valor: sort, cambiar: setSort, opciones: SORTS.map((x) => ({ v: x.v, l: x.l })) };
   // En Ganadoras la lista ya exige que se pueda hacer solo, y en Siguiendo no aplica: un botón que no hace nada confunde.
   const conInterruptor = tab !== "ganadoras" && tab !== "siguiendo";
-  const activos = [group !== "all" && group !== null, niche !== "all", model !== "all", platform !== "all", conInterruptor && onlyCopiable, !!debounced].filter(Boolean).length;
-  const limpiar = () => { setGroup("all"); setNiche("all"); setModel("all"); setPlatform("all"); setSearch(""); setOnlyCopiable(false); };
+  const activos = [group !== "all" && group !== null, niche !== "all", model !== "all", platform !== "all", idioma !== "all", pais !== "all",
+    tipo !== "all", embudo !== "all", tag !== "all", anuncios !== "all", nuevas, conInterruptor && onlyCopiable, !!debounced].filter(Boolean).length;
+  const limpiar = () => { setGroup("all"); limpiarOtros(); setSearch(""); setOnlyCopiable(false); };
   const sortLabel = SORTS.find((x) => x.v === sort)?.l ?? "";
 
   return (
@@ -322,7 +371,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
         <p className="text-[11px] uppercase tracking-wider text-muted-foreground">¿Cómo quieres vender?</p>
         <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Cómo vende">
           {CANALES.map((c) => (
-            <button key={c.v} type="button" role="radio" aria-checked={canal === c.v} onClick={() => setCanal(c.v)}
+            <button key={c.v} type="button" role="radio" aria-checked={canal === c.v} onClick={() => elegirCanal(c.v)}
               className={`rounded-xl border p-3 text-left transition-colors ${canal === c.v ? "border-primary bg-card" : "border-border hover:border-foreground/30"}`}>
               <span className="block text-[13px] sm:text-sm font-semibold text-foreground">{c.t}</span>
               <span className="hidden sm:block text-[12px] text-muted-foreground mt-0.5">{c.d}</span>
@@ -358,6 +407,7 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
       <OfferFilters
         search={search} onSearch={setSearch} filtros={filtros} orden={orden}
         interruptor={conInterruptor ? { label: "Solo las que haces tú solo", corto: "Tú solo", on: onlyCopiable, cambiar: setOnlyCopiable } : undefined}
+        nuevas={{ label: "Nuevas (7 días)", corto: "Nuevas", on: nuevas, cambiar: setNuevas }}
         activos={activos} onClear={limpiar} total={total} loading={loading && page === 0}
       />
 
@@ -380,15 +430,13 @@ export function OfertasPage({ onNavigate }: { onNavigate?: (page: string) => voi
           </span>
         )}
         {sort === "rank" && (
-          <span className="block mt-0.5">«Las mejores primero» junta días pagando anuncios y qué tan fácil es hacer tu versión; no es la que más anuncios tiene. Para eso, ordena por «Más anuncios activos».</span>
+          <span className="block mt-0.5">«Las mejores primero» junta días pagando anuncios y qué tan fácil es hacer tu versión; no es la que más anuncios tiene. Para eso, ordena por «Más anuncios (escala)».</span>
         )}
         {canal === "whatsapp" && !loading && (
           <span className="block mt-0.5">WhatsApp no deja ver el número en los datos públicos: abre el anuncio y toca su botón para ver cómo atienden.</span>
         )}
         {platform !== "all" && !loading && (
-          <span className="block mt-0.5">
-            Solo cuentan las ofertas donde ya vimos dónde cobran ({platformKnown.toLocaleString("es-ES")} hasta hoy). Revisamos más cada día.
-          </span>
+          <span className="block mt-0.5">Solo cuentan las ofertas donde ya vimos dónde cobran. Revisamos más cada día.</span>
         )}
       </div>
 

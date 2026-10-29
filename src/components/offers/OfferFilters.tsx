@@ -5,7 +5,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/u
 
 /**
  * Filtros de Ofertas (29-oct-2026, estilo Cazador Swipe):
- *  · Computadora: una fila de píldoras (cada una abre su lista), "Solo las que haces tú solo", "Limpiar filtros"
+ *  · Computadora: una fila de píldoras (cada una abre su lista), "Nuevas (7 días)", "Solo las que haces tú solo", "Limpiar filtros"
  *    y el orden a la derecha.
  *  · Teléfono: buscador + botón "Filtros" que abre una hoja con todas las opciones a la vista y el botón
  *    "Ver N ofertas". Los filtros se aplican al tocarlos, así N es el conteo real de la base, no un cálculo.
@@ -28,13 +28,16 @@ interface Props {
   filtros: FiltroOferta[];
   orden: FiltroOferta;
   interruptor?: InterruptorOferta;
+  /** "Nuevas (7 días)", como Cazador Swipe. */
+  nuevas?: InterruptorOferta;
   activos: number;
   onClear: () => void;
   total: number;
   loading: boolean;
 }
 
-export function OfferFilters({ search, onSearch, filtros, orden, interruptor, activos, onClear, total, loading }: Props) {
+export function OfferFilters({ search, onSearch, filtros, orden, interruptor, nuevas, activos, onClear, total, loading }: Props) {
+  const toggles = [nuevas, interruptor].filter((t): t is InterruptorOferta => !!t);
   const [sheet, setSheet] = useState(false);
   const ordenLabel = orden.opciones.find((x) => x.v === orden.valor)?.l ?? orden.todos;
 
@@ -66,12 +69,12 @@ export function OfferFilters({ search, onSearch, filtros, orden, interruptor, ac
       {/* Computadora: todo en una fila */}
       <div className="hidden sm:flex flex-wrap items-center gap-2">
         {filtros.map((f) => <ChipSelect key={f.key} f={f} />)}
-        {interruptor && (
-          <button onClick={() => interruptor.cambiar(!interruptor.on)} aria-pressed={interruptor.on}
-            className={`h-9 px-3.5 rounded-full border text-[12.5px] font-semibold inline-flex items-center gap-1.5 transition-colors ${interruptor.on ? "bg-success/10 text-success border-success/40" : "bg-secondary/40 text-muted-foreground border-border hover:text-foreground"}`}>
-            {interruptor.on && <Check className="w-3.5 h-3.5" />} {interruptor.label}
+        {toggles.map((t) => (
+          <button key={t.label} onClick={() => t.cambiar(!t.on)} aria-pressed={t.on}
+            className={`h-9 px-3.5 rounded-full border text-[12.5px] font-semibold inline-flex items-center gap-1.5 transition-colors ${t.on ? "bg-success/10 text-success border-success/40" : "bg-secondary/40 text-muted-foreground border-border hover:text-foreground"}`}>
+            {t.on && <Check className="w-3.5 h-3.5" />} {t.label}
           </button>
-        )}
+        ))}
         {activos > 0 && (
           <button onClick={onClear} className="h-9 px-3 rounded-full text-[12.5px] font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
             <X className="w-3.5 h-3.5" /> Limpiar filtros
@@ -84,7 +87,7 @@ export function OfferFilters({ search, onSearch, filtros, orden, interruptor, ac
       </div>
 
       {sheet && (
-        <FilterSheet filtros={filtros} interruptor={interruptor} activos={activos} onClear={onClear}
+        <FilterSheet filtros={filtros} toggles={toggles} activos={activos} onClear={onClear}
           total={total} loading={loading} onClose={() => setSheet(false)} />
       )}
     </div>
@@ -108,8 +111,8 @@ function ChipSelect({ f, label, className = "" }: { f: FiltroOferta; label?: str
   );
 }
 
-function FilterSheet({ filtros, interruptor, activos, onClear, total, loading, onClose }: {
-  filtros: FiltroOferta[]; interruptor?: InterruptorOferta; activos: number; onClear: () => void;
+function FilterSheet({ filtros, toggles, activos, onClear, total, loading, onClose }: {
+  filtros: FiltroOferta[]; toggles: InterruptorOferta[]; activos: number; onClear: () => void;
   total: number; loading: boolean; onClose: () => void;
 }) {
   return (
@@ -126,15 +129,15 @@ function FilterSheet({ filtros, interruptor, activos, onClear, total, loading, o
           </header>
 
           <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-4 space-y-5">
-            {interruptor && (
-              <button onClick={() => interruptor.cambiar(!interruptor.on)} aria-pressed={interruptor.on}
+            {toggles.map((t) => (
+              <button key={t.label} onClick={() => t.cambiar(!t.on)} aria-pressed={t.on}
                 className="w-full flex items-center justify-between gap-3 rounded-xl border border-border px-3.5 py-3 text-left">
-                <span className="text-[14px] font-semibold text-foreground">{interruptor.label}</span>
-                <span className={`w-6 h-6 rounded-md border flex items-center justify-center shrink-0 ${interruptor.on ? "bg-foreground border-foreground text-background" : "border-border"}`}>
-                  {interruptor.on && <Check className="w-4 h-4" />}
+                <span className="text-[14px] font-semibold text-foreground">{t.label}</span>
+                <span className={`w-6 h-6 rounded-md border flex items-center justify-center shrink-0 ${t.on ? "bg-foreground border-foreground text-background" : "border-border"}`}>
+                  {t.on && <Check className="w-4 h-4" />}
                 </span>
               </button>
-            )}
+            ))}
             {filtros.map((f) => (
               <section key={f.key}>
                 <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-2">{f.titulo}</h4>

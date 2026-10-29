@@ -753,11 +753,13 @@ export function WinningAdsPage() {
   };
 
   // Atajo "Los que más tiempo llevan": limpia lo que esconde resultados y ordena por días pagando.
-  const quitarFiltros = () => {
+  // conIdioma: el botón «Quitar todos» también quita el idioma; el atajo deja el idioma de la persona.
+  const quitarFiltros = (conIdioma = true) => {
     setVerticalFilter("Todas"); setMinDays(0); setMinDups(0); setMinScore(0); setRegionFilter("Todos"); setKeyword(""); setPage(1);
+    if (conIdioma) setMarket("all");
   };
   const masTiempo = () => {
-    quitarFiltros(); setMinDays(30); setSort("Más Días");
+    quitarFiltros(false); setMinDays(30); setSort("Más Días");
     document.getElementById("radar-resultados")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
   // Los filtros puestos, cada uno con su botón para quitarlo (para el estado vacío).
@@ -1236,7 +1238,7 @@ export function WinningAdsPage() {
                   </button>
                 ))}
                 {filtrosPuestos.length > 1 && (
-                  <button type="button" onClick={quitarFiltros} className="min-h-[40px] px-4 rounded-full bg-primary text-primary-foreground text-[13px] font-semibold">Quitar todos los filtros</button>
+                  <button type="button" onClick={() => quitarFiltros()} className="min-h-[40px] px-4 rounded-full bg-primary text-primary-foreground text-[13px] font-semibold">Quitar todos los filtros</button>
                 )}
               </div>
             )}

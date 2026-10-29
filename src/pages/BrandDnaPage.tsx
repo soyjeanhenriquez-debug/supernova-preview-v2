@@ -4,6 +4,8 @@ import { AlertCircle, ArrowRight, Check, ChevronDown, Fingerprint, Loader2, Lock
 import {
   charCount, DNA_FIELDS, dnaErrors, dnaProgress, isAnswered, useBrandDna, useEditorialPrefs, type DnaField, type SaveState,
 } from "@/lib/brandDna";
+import { AgenteFirma } from "@/components/agentes/AgenteFirma";
+import { SiguientePaso } from "@/components/agentes/SiguientePaso";
 
 /**
  * "Tu ADN" (19-oct-2026, ADN de marca 2.0): quién eres y cómo comunicas, una sola vez. Lo usan los
@@ -27,21 +29,24 @@ export function BrandDnaPage({ onNavigate }: { onNavigate?: (page: string) => vo
     const ok = await flush();
     if (!ok) { toast.error("No se guardó, revisa tu conexión."); return; }
     if (Object.keys(errors).length) { toast.error("Hay una respuesta muy larga. Acórtala y se guarda sola."); return; }
-    if (firstMissing) {
-      toast("Te falta una esencial", { description: firstMissing.question });
-      document.getElementById(`adn-${firstMissing.key}`)?.focus();
-      return;
-    }
-    toast.success("Tu ADN está listo", { description: "Pruébalo modelando un Reel." });
+    // Misión de Eco (29-oct-2026): ninguna pregunta frena. Lo que falta se completa después; mientras, se usa lo que hay.
+    if (firstMissing) toast.success("Guardado", { description: "Lo que falta lo completas cuando quieras. Mientras, usamos lo que ya sabemos." });
+    else toast.success("Tu ADN está listo", { description: "Pruébalo modelando un Reel." });
     onNavigate?.("Con tu cara");
+  };
+  // El sí de la tarjeta de cierre: guarda y abre a Zeus (Reel Studio) para el primer reel con su voz.
+  const irAZeus = async () => {
+    if (!(await flush())) { toast.error("No se guardó, revisa tu conexión."); return; }
+    window.location.hash = "#/con-tu-cara/reel-ia"; window.scrollTo({ top: 0 });
   };
 
   return (
     <div className="max-w-3xl space-y-5 pb-28 sm:pb-8">
       <header className="space-y-1">
         <p className="text-xs uppercase tracking-wider text-primary font-semibold">Tu ADN</p>
+        <AgenteFirma agente="voz" />
         <h1 className="font-display font-bold text-2xl text-foreground flex items-center gap-2"><Fingerprint className="w-5 h-5 text-primary" /> Cómo eres y cómo hablas</h1>
-        <p className="text-sm text-muted-foreground max-w-2xl">Lo llenas una vez. SUPERNOVA lo usa para que lo que modelas suene a ti, sin cambiar el tema de lo que tomas como referencia.</p>
+        <p className="text-sm text-muted-foreground max-w-2xl">Lo llenas una vez y lo que dejes en blanco se completa después. SUPERNOVA lo usa para que lo que modelas suene a ti, sin cambiar el tema de lo que tomas como referencia.</p>
       </header>
 
       <div className="card-surface rounded-2xl p-4 space-y-2" aria-live="polite">
@@ -98,6 +103,9 @@ export function BrandDnaPage({ onNavigate }: { onNavigate?: (page: string) => vo
           </div>
         )}
       </section>
+
+      {/* Misión de Eco: con 3 esenciales ya hay con qué escribir en su voz. Ulises todavía no tiene pantalla: va a Zeus. */}
+      {progress.essentials >= 3 && <SiguientePaso agente="voz" hacia="reels" pregunta="¿Hacemos ya tu primer reel con tu voz?" onIr={() => void irAZeus()} />}
 
       <PrefsSection prefs={prefs} />
 

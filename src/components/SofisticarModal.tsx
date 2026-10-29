@@ -8,6 +8,8 @@ import type { DemoAd } from "@/lib/demo-winning-ads";
 import { OFFER_TYPE_LABEL } from "@/lib/demo-winning-ads";
 import { fnHeaders, fnErrorMessage, readBilling } from "@/lib/fnAuth";
 import { ModalPortal } from "@/components/ModalPortal";
+import { SiguientePaso } from "@/components/agentes/SiguientePaso";
+import { AGENTES, separarAvance } from "@/lib/agentes";
 
 interface Props { ad: DemoAd; onClose: () => void; }
 
@@ -87,7 +89,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
     create({
       name: ad.title.slice(0, 50),
       mode: projectMode as "sofisticar" | "crear" | "blueprint",
-      context: { ad, analysis: streamText, mode },
+      context: { ad, analysis: separarAvance(streamText).cuerpo, mode },
     });
     toast.success("✓ Guardado en Lo que creaste");
   };
@@ -102,7 +104,7 @@ export function SofisticarModal({ ad, onClose }: Props) {
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="w-4 h-4" /> {mode === "choose" ? "Cerrar" : "Volver"}
           </button>
-          <span className="text-xs uppercase tracking-widest text-primary font-bold">⚡ Mejorar esta oferta</span>
+          <span className="text-xs uppercase tracking-widest text-primary font-bold text-center">⚡ Mejorar esta oferta<span className="block text-[11px] normal-case tracking-normal font-semibold" title={AGENTES.ventas.rol}>{AGENTES.ventas.emoji} {AGENTES.ventas.nombre} · {AGENTES.ventas.etiqueta}</span></span>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
         </div>
 
@@ -178,14 +180,14 @@ export function SofisticarModal({ ad, onClose }: Props) {
                 </details>
               </div>
               <div className="md:col-span-3 p-6 overflow-y-auto" ref={scrollRef}>
-                <StreamOutput text={streamText} loading={loading} onSave={saveAsProject} />
+                <StreamOutput text={streamText} loading={loading} onSave={saveAsProject} onClose={onClose} />
               </div>
             </div>
           )}
 
           {(mode === "adaptar" || mode === "blueprint") && (
             <div className="p-6 h-full overflow-y-auto" ref={scrollRef}>
-              <StreamOutput text={streamText} loading={loading} onSave={saveAsProject} />
+              <StreamOutput text={streamText} loading={loading} onSave={saveAsProject} onClose={onClose} />
             </div>
           )}
         </div>
@@ -226,7 +228,9 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   );
 }
 
-function StreamOutput({ text, loading, onSave }: { text: string; loading: boolean; onSave: () => void }) {
+function StreamOutput({ text: raw, loading, onSave, onClose }: { text: string; loading: boolean; onSave: () => void; onClose: () => void }) {
+  // La pregunta de avance que escribe Hermes al final va en la tarjeta de cierre, no en el análisis.
+  const { cuerpo: text, pregunta } = separarAvance(raw);
   if (!text && !loading) {
     return <div className="text-center text-sm text-muted-foreground py-20">Elige tus respuestas a la izquierda y pulsa "Hacer mi versión mejorada".</div>;
   }
@@ -240,6 +244,11 @@ function StreamOutput({ text, loading, onSave }: { text: string; loading: boolea
         <button onClick={onSave} className="btn-primary-nova px-4 py-2 rounded-lg text-sm">
           → Guardar en Lo que creaste
         </button>
+      )}
+      {/* Misión de Hermes (29-oct-2026): una sola pregunta de avance; el sí cierra esta ventana y abre a Robin Hood. */}
+      {text && !loading && (
+        <SiguientePaso agente="ventas" pregunta={pregunta}
+          onIr={() => { onClose(); window.location.hash = `#/${AGENTES.anuncios.ruta}`; window.scrollTo({ top: 0 }); }} />
       )}
     </div>
   );

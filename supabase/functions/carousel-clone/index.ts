@@ -26,6 +26,7 @@ import type { Nivel } from "../_shared/reelLayers.ts";
 import { loadCreator } from "../_shared/creatorContext.ts";
 import { cleanJudge, correctionNote, criticas, failMessage, judgePrompt, localChecks, revision, type Check, type Pieza } from "../_shared/contentQa.ts";
 import { geminiMedia, logMediaCost } from "../_shared/geminiMedia.ts";
+import { conMision } from "../_shared/misionAgente.ts";
 
 const FN = "carousel-clone";
 const MODEL = "gemini-3-flash-preview";
@@ -215,7 +216,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: MODEL, max_tokens: 16_000, response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: SYSTEM + HONESTY_RULES },
+          { role: "system", content: conMision(SYSTEM + HONESTY_RULES, "json") }, // misión de Merlín (29-oct-2026)
           { role: "user", content: [{ type: "text", text: userPrompt({ nivel, ctx: creator.ctx, handle, world, line, ...orig, n: nLaminas, rad: rad ? radiografiaTexto(rad) : undefined }) }, ...parts] },
         ],
       }),

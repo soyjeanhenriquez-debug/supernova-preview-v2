@@ -23,6 +23,8 @@ import {
   cleanGuion, cleanPersonaje, parseArray, promptFoto, promptGuiones, promptIdeas,
   type Guion, type Personaje, type PersonajeState,
 } from "@/lib/personaje";
+import { AgenteFirma } from "@/components/agentes/AgenteFirma";
+import { SiguientePaso } from "@/components/agentes/SiguientePaso";
 
 /**
  * Influencer IA ("Vende sin mostrar tu cara"): un personaje creado con IA cuenta tu oferta en
@@ -55,7 +57,8 @@ async function invokeAvatar<T>(body: Record<string, unknown>): Promise<T> {
 async function streamGenerator(generatorId: string, title: string, system: string, user: string): Promise<{ text: string; resp: Response }> {
   const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
     method: "POST", headers: await fnHeaders(),
-    body: JSON.stringify({ generator_id: generatorId, generator_title: title, systemPrompt: system, messages: [{ role: "user", content: user }] }),
+    // Misión de El Fantasma de la Ópera (29-oct-2026): el servidor le suma la misión del equipo (no cambia el precio).
+    body: JSON.stringify({ generator_id: generatorId, generator_title: title, systemPrompt: system, messages: [{ role: "user", content: user }], mision_agente: "sincara" }),
   });
   if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "La IA no respondió. No se te cobró: intenta de nuevo."));
   const reader = resp.body.getReader();
@@ -340,6 +343,7 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
     <div className="max-w-5xl mx-auto space-y-6 py-2">
       <div>
         <p className="text-xs uppercase tracking-wider text-primary font-semibold">Crear · Vende sin mostrar tu cara</p>
+        <AgenteFirma agente="sincara" className="mt-0.5" />
         <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground mt-1">Tu influencer IA</h1>
         <p className="text-[15px] text-muted-foreground mt-1.5 max-w-2xl">Elige o crea a tu influencer, dale una voz y hazlo hablar de «{profile.product}» en Reels, TikTok y Shorts. Tú publicas; él da la cara.</p>
       </div>
@@ -514,6 +518,8 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
               <p className="text-[12px] text-muted-foreground pt-1">Consejo: prueba 2 o 3 personajes a la vez. En la prueba pública que estudiamos, el que parecía ganador no fue el que más creció.</p>
             </div>
           )}
+          {/* Misión de El Fantasma de la Ópera (29-oct-2026): con los guiones listos, una sola pregunta de avance. */}
+          {!!state.guiones?.length && busy !== "guiones" && <SiguientePaso agente="sincara" />}
           {canTalk === false
             ? <button onClick={() => setStep(3)} className="h-11 px-5 rounded-full border border-border text-[14px] text-muted-foreground inline-flex items-center gap-2"><Lock className="w-4 h-4" /> Su video hablando: pronto</button>
             : <button onClick={() => setStep(3)} className="h-11 px-5 rounded-full btn-primary-nova text-[14px] inline-flex items-center gap-2"><Mic className="w-4 h-4" /> Siguiente: su video hablando</button>}
@@ -624,6 +630,7 @@ export function PersonajePage({ onNavigate, initialStep }: { onNavigate: (page: 
               <p className="text-[11px] text-muted-foreground">Descárgalos hoy: el enlace del video dura 24 horas.</p>
             </div>
           )}
+          {talkReady.length > 0 && <SiguientePaso agente="sincara" pregunta="¿Convertimos este video en un reel con gancho, imágenes y subtítulos?" />}
         </section>
       )}
 

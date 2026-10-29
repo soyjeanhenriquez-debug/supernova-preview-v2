@@ -24,6 +24,7 @@
 // su nombre, su marca ni sus números.
 import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 import { HONESTY_RULES } from "../_shared/honesty.ts";
+import { conMision } from "../_shared/misionAgente.ts";
 import { admin, billingHeaders, caller, charge, type Caller, type Gate, json, refund } from "../_shared/media.ts";
 import { b64, geminiMedia, logMediaCost, MEDIA_MODEL } from "../_shared/geminiMedia.ts";
 import { getReel, REEL_RE, type ReelExtraction } from "../_shared/reelSource.ts";
@@ -221,7 +222,9 @@ async function stepVersion(who: Caller, body: Record<string, unknown>, t0: numbe
       const ms = remainingMs();
       if (ms <= 0) throw new DOMException("Tiempo agotado", "TimeoutError");
       // La revisión (temperatura 0,1) es corta: 30 s como máximo para no comerse el tiempo de la versión.
-      const result = await geminiMedia([{ text: prompt }], 8_000, Math.min(temperature <= 0.1 ? 30_000 : 60_000, ms), temperature);
+      // Misión de Sherlock Holmes (29-oct-2026) solo en lo que se escribe para la persona; la revisión (0,1) es un juez.
+      const text = temperature <= 0.1 ? prompt : conMision(prompt, "json");
+      const result = await geminiMedia([{ text }], 8_000, Math.min(temperature <= 0.1 ? 30_000 : 60_000, ms), temperature);
       cost += result.cost;
       await logMediaCost(who.id, FN, result.cost, result.usage);
       return result.out;
@@ -318,7 +321,8 @@ async function stepCarrusel(who: Caller, body: Record<string, unknown>, t0: numb
       await logMediaCost(who.id, FN, r.cost, r.usage);
       return r.out;
     };
-    const prompt = promptC(base, nivel, brief, creator.ctx) + "\n\n" + HONESTY_RULES;
+    // Misión de Merlín (29-oct-2026): la respuesta es JSON, la pregunta de avance la pone la app.
+    const prompt = conMision(promptC(base, nivel, brief, creator.ctx) + "\n\n" + HONESTY_RULES, "json");
     const temp = nivel === "espejo" ? 0.4 : nivel === "inspiracion" ? 0.8 : 0.6;
     let car = cleanReelCarousel(await generate(prompt, temp), base);
     if (!car) {

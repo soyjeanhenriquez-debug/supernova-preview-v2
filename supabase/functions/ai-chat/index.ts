@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2.117.1";
 import { safeRefund } from "../_shared/refund.ts";
 import { ESTRATEGA_ACTION, ESTRATEGA_LABEL, ESTRATEGA_STEP_PROMPT, ESTRATEGA_SYSTEM, estrategaContext, isEstrategaStep } from "../_shared/estratega.ts";
+import { AVANCE_DE, conMisionDe, formatoDe } from "../_shared/misionAgente.ts";
 import { ANUNCIO_ACTION, ANUNCIO_LABEL, ANUNCIO_MAX_TOKENS, ANUNCIO_STEP_PROMPT, ANUNCIO_SYSTEM, anuncioContext, isAnuncioStep } from "../_shared/anuncioAnimado.ts";
 
 const corsHeaders = {
@@ -71,6 +72,14 @@ const HELP_MAX_TOKENS = 2_500;
 // Gemini 3 cuenta lo que "piensa" dentro de max_tokens: con 4.000 el carrusel se cortaba a la mitad
 // (11-oct-2026, 3.996 tokens dos veces). Los ligeros piensan poco (reasoning low) y tienen 8.000.
 const GEN_MAX_TOKENS: Record<string, number> = { gen_light: 8_000, gen_medium: 8_000, gen_heavy: 16_000 };
+// Misión común del equipo de agentes (29-oct-2026, src/lib/agentes.ts): la pantalla dice qué agente habla
+// (mision_agente) y el servidor añade la misión. Solo cambia el texto del sistema, nunca el precio ni el acceso.
+// Si el pedido es JSON, el formato manda y la pregunta de avance la pone la app (_shared/misionAgente.ts).
+// Devuelve lo que se suma al final del sistema ("" si la pantalla no nombra un agente del equipo).
+function misionExtra(agente: unknown, system: string, pedido: string): string {
+  if (typeof agente !== "string" || !Object.hasOwn(AVANCE_DE, agente)) return "";
+  return conMisionDe(agente, "", formatoDe(`${system}\n${pedido.slice(0, 20_000)}`));
+}
 const HELP_GUARD = "\n\nREGLA DEL SISTEMA: eres el asistente de AYUDA de la app. Responde dudas sobre cómo usar SUPERNOVA en pocas líneas. Si te piden redactar copys, guiones, landings, secuencias de email u otro entregable, no lo escribas: indica qué sección de la app lo genera (Textos que venden, Creativos, Video con IA, Influencer IA, Mini Apps). Solo nombra pantallas que existan en el menú; Mercado, Oráculo, Crear producto y Media Studio están en pausa: no las recomiendes. Termina siempre la respuesta completa, en pocas líneas.";
 
 // Solo turnos user/assistant con texto acotado: el rol "system" lo pone el
@@ -223,7 +232,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   let gate: Gate | null = null;
   try {
-    const { messages: rawMessages, systemPrompt: rawSystem, model, generator_id, generator_title, agent, step, product, formats, opts } = await readJson(req, 150000);
+    const { messages: rawMessages, systemPrompt: rawSystem, model, generator_id, generator_title, agent, step, product, formats, opts, mision_agente } = await readJson(req, 150000);
     const messages = cleanMessages(rawMessages);
     if (messages.length === 0) {
       return new Response(JSON.stringify({ error: "messages requerido" }), {
@@ -288,7 +297,7 @@ serve(async (req) => {
       : estStep
       ? ESTRATEGA_SYSTEM + "\n" + HONESTY_RULES + ESTRATEGA_STEP_PROMPT[estStep] + estrategaContext(product, formats)
       : generatorId
-      ? (clientSystem || GENERATOR_SYSTEM) + GENERATOR_GUARD
+      ? (clientSystem || GENERATOR_SYSTEM) + GENERATOR_GUARD + misionExtra(mision_agente, clientSystem, messages[messages.length - 1]?.content ?? "")
       : (clientSystem || DEFAULT_SYSTEM) + HELP_GUARD;
     const LOVABLE_API_KEY = (Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY"));
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");

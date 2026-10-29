@@ -28,6 +28,7 @@ import { AddToTracker } from "@/components/AddToTracker";
 import { ToolFeedback } from "@/components/ToolFeedback";
 import { imageTag } from "@/lib/modelAdvice";
 import { PresenterPicker } from "@/components/video/PresenterPicker";
+import { SiguientePaso } from "@/components/agentes/SiguientePaso";
 // Remotion solo se carga si la persona abre "Convertir en video para Reels" o "Dar vida a esta lámina".
 const AnimateCarousel = lazy(() => import("@/components/image/carousel/AnimateCarousel").then(m => ({ default: m.AnimateCarousel })));
 const LiveSlide = lazy(() => import("@/components/image/carousel/LiveSlide").then(m => ({ default: m.LiveSlide })));
@@ -186,7 +187,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     const label = `Carrusel · ${seed?.title || brief.product}`;
     try {
       const text = await runGenerator({
-        id: GENERATOR_ID, title: label, system: SYSTEM,
+        id: GENERATOR_ID, title: label, system: SYSTEM, agente: "carruseles",
         prompt: carouselRequest({ goal, format: fmt, brief, slides: count, source: fmt === "texto" || fmt === "historia" ? source : undefined, hook: seed?.hook, angle: seed?.angle, angleId, levelId, evidence: seed?.evidence, handle: design.handle, world: design.world, line: design.line }),
         onCharge: b => applyServerCharge(action, b, label),
       });
@@ -448,7 +449,7 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
     setWriting(true);
     const label = "Carrusel · modelar con otro ADN";
     try {
-      const text = await runGenerator({ id: GENERATOR_ID, title: label, system: SYSTEM, prompt: recloneRequest({ info: cloneInfo, keep, brief, goal: goal === "ensenar" ? "ensenar" : "vender", handle: design.handle, world: design.world, line: design.line }), onCharge: b => applyServerCharge(action, b, label) });
+      const text = await runGenerator({ id: GENERATOR_ID, title: label, system: SYSTEM, agente: "carruseles", prompt: recloneRequest({ info: cloneInfo, keep, brief, goal: goal === "ensenar" ? "ensenar" : "vender", handle: design.handle, world: design.world, line: design.line }), onCharge: b => applyServerCharge(action, b, label) });
       const parsed = parseReclone(text, design.start);
       if (!parsed) throw new Error("La respuesta de la IA salió incompleta. Toca de nuevo: si se cortó por largo, ya te devolvimos los créditos.");
       setDraft({ ...parsed.draft, slides: withRefs(parsed.draft.slides, cloneInfo), clone: { ...cloneInfo, keep, improvements: parsed.improvements.length ? parsed.improvements : cloneInfo.improvements } }); setSel(0); setScenePaths({});
@@ -1323,6 +1324,8 @@ export function CarouselStudio({ brief, seed, uid, productId, folder, kitColors,
             </li>
           ))}
         </ol>
+        {/* Misión de Merlín (29-oct-2026): con el carrusel listo, una sola pregunta de avance. */}
+        {!isSample && <SiguientePaso agente="carruseles" />}
       </section>
     </div>
   );

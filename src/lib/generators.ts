@@ -2,6 +2,7 @@ import { fnHeaders, fnErrorMessage, readBilling, type ServerBilling } from "@/li
 import { businessHint, copyLevelHint, type BusinessProfile } from "@/lib/businessProfile";
 import { angleInstruction } from "@/lib/angles";
 import { levelInstruction } from "@/lib/awareness";
+import type { AgenteId } from "@/lib/agentes";
 
 /**
  * Los generadores de textos (Robot de copy) y la llamada a la IA que los escribe. Viven aquí para
@@ -669,8 +670,10 @@ export async function streamGenerator(opts: {
   angle?: string;
   /** Nivel de consciencia elegido (id de src/lib/awareness.ts o "auto"). */
   level?: string;
+  /** El agente que habla (src/lib/agentes.ts): el servidor le suma la misión del equipo. No cambia el precio. */
+  agente?: AgenteId;
 }): Promise<string> {
-  const { generator, profile, input, onCharged, onText, angle, level } = opts;
+  const { generator, profile, input, onCharged, onText, angle, level, agente } = opts;
   const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
     method: "POST",
     headers: await fnHeaders(),
@@ -678,6 +681,7 @@ export async function streamGenerator(opts: {
       generator_id: generator.id,
       generator_title: generator.title,
       messages: [{ role: "user", content: generatorMessage(generator, profile, input, angle, level) }],
+      ...(agente ? { mision_agente: agente } : {}),
     }),
   });
   if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "Error al generar"));

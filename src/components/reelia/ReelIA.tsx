@@ -32,6 +32,7 @@ import { ReelsEnCurso } from "./ReelsEnCurso";
 import { TusImagenes, type Propia } from "./TusImagenes";
 import { GrabarConGuion } from "@/components/reel/GrabarConGuion";
 import { dejarToma } from "@/lib/grabacion";
+import { SiguientePaso } from "@/components/agentes/SiguientePaso";
 import { BIBLIO, useStudioDatos, type Borrador, type Identidad, type Plantilla } from "./useStudioDatos";
 
 /**
@@ -516,7 +517,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
       if (plantilla && !plantilla.publica && m.modo === "espejo" && m.origen === "referencia" && !opts.cambio) {
         const opc = { palabra: m.ajustes.palabra, cambiarGancho: !!m.cambiarGancho, ropa: m.ajustes.ropa, presentador: m.idea.trim(),
           original: !!plantilla.video_path && m.imagenesOriginal !== false };
-        const { text: t2, billing: b2 } = await streamGenerator(GENERATOR_ID, "Reel Studio", SYSTEM_ESPEJO, pedidoEspejo(plantilla.analisis, opc));
+        const { text: t2, billing: b2 } = await streamGenerator(GENERATOR_ID, "Reel Studio", SYSTEM_ESPEJO, pedidoEspejo(plantilla.analisis, opc), "reels");
         applyServerCharge("gen_light", b2, "Reel Studio");
         if (!/"frases"\s*:/.test(t2)) throw new Error("La IA no devolvió tu espejo. Toca Preparar otra vez.");
         const e0 = espejoReel(plantilla.analisis, parseEspejo(t2, plantilla.analisis), opc);
@@ -537,7 +538,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
         // Preparar desde «Tu idea» = lo que elegiste ahí (Espejo/Recrear → el tema de la referencia, aunque venga de
         // un borrador). Al pedir cambios sobre un borrador del productor diario, se respeta su tema propio.
         temaDeLaReferencia: m.origen === "referencia" && (!opts.cambio || !m.borradorId), cambiarGancho: !!m.cambiarGancho,
-      }));
+      }), "reels");
       applyServerCharge("gen_light", billing, "Reel Studio");
       const r0 = parseReel(text, clips, opts.literal ? msg : undefined, plantilla?.analisis.planos.length ?? 0);
       const reel = r0 && conTusImagenes(r0, clipDeRef(m.propias));
@@ -1066,7 +1067,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
   // ---------- Vistas ----------
   if (vista === "inicio" || vista === "identidad") {
     return (
-      <ToolShell toolId="reel-studio" onNavigate={onNavigate}
+      <ToolShell toolId="reel-studio" agente="reels" onNavigate={onNavigate}
         crumbs={[{ label: "Crear" }, { label: "Con tu cara", onClick: onHome }, { label: "Reel Studio", onClick: vista === "identidad" ? () => setVista("inicio") : undefined }, ...(vista === "identidad" ? [{ label: "Mi identidad" }] : [])]}
         title={vista === "identidad" ? "Mi identidad" : "Reel Studio"}
         line={vista === "identidad" ? "Se configura una vez y SUPERNOVA la usa sola en cada reel. Puedes cambiarla en un reel en particular." : "¿Qué quieres crear? SUPERNOVA hace el guion, tus tomas, las escenas y el montaje."}
@@ -1360,6 +1361,8 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
             </div>
           )}
         </Card>
+        {/* Misión de Zeus (29-oct-2026): con el reel listo, una sola pregunta de avance hacia Merlín. */}
+        {meta.validado?.ok && !busy && <SiguientePaso agente="reels" />}
       </>
     );
   }
@@ -1385,7 +1388,7 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
   }
 
   return (
-    <ToolShell toolId="reel-studio" onNavigate={onNavigate} previewFirst={pasoN !== 2}
+    <ToolShell toolId="reel-studio" agente="reels" onNavigate={onNavigate} previewFirst={pasoN !== 2}
       crumbs={[{ label: "Crear" }, { label: "Reel Studio", onClick: () => setVista("inicio") }, { label: meta.origen ? titulos[meta.origen] : "Tu reel" }]}
       title={meta.origen ? titulos[meta.origen] : "Reel Studio"}
       line={pasoN === 0 ? "Paso 1: cuéntanos qué quieres. Lo demás lo prepara SUPERNOVA." : pasoN === 1 ? "Paso 2: revisa que tengas lo necesario. Lo que ya guardaste no se vuelve a pedir." : pasoN === 2 ? "Paso 3: tu storyboard. Toca un plano para cambiarlo o pide cambios conversando." : "Paso 4: genera tu reel. Ves el avance real de cada parte."}

@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { fnErrorMessage, fnHeaders, invokeErrorMessage, readBilling, type ServerBilling } from "@/lib/fnAuth";
+import type { AgenteId } from "@/lib/agentes";
 
 /**
  * Llamadas a la función video-studio (KINEMA, 04-oct-2026). El servidor cobra antes de generar y
@@ -103,11 +104,14 @@ export async function downloadVideo(url: string, name: string) {
 /** "Mejorar el guion con IA": generador ugc-script de ai-chat (lo cobra el servidor). */
 export const streamUgcScript = (system: string, user: string) => streamGenerator("ugc-script", "Guion de video IA", system, user);
 
-/** Un generador de ai-chat con sistema propio, leído en streaming. El precio lo pone el servidor por su id. */
-export async function streamGenerator(id: string, title: string, system: string, user: string): Promise<{ text: string; billing: ServerBilling }> {
+/**
+ * Un generador de ai-chat con sistema propio, leído en streaming. El precio lo pone el servidor por su id.
+ * `agente` (src/lib/agentes.ts): el servidor le suma la misión del equipo a su sistema; no cambia el precio.
+ */
+export async function streamGenerator(id: string, title: string, system: string, user: string, agente?: AgenteId): Promise<{ text: string; billing: ServerBilling }> {
   const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
     method: "POST", headers: await fnHeaders(),
-    body: JSON.stringify({ generator_id: id, generator_title: title, systemPrompt: system, messages: [{ role: "user", content: user }] }),
+    body: JSON.stringify({ generator_id: id, generator_title: title, systemPrompt: system, messages: [{ role: "user", content: user }], ...(agente ? { mision_agente: agente } : {}) }),
   });
   if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "La IA no respondió. No se te cobró: intenta de nuevo."));
   const billing = readBilling(resp);

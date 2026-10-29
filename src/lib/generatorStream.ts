@@ -1,4 +1,5 @@
 import { fnErrorMessage, fnHeaders, readBilling, type ServerBilling } from "@/lib/fnAuth";
+import type { AgenteId } from "@/lib/agentes";
 
 /**
  * Llama a un generador de ai-chat y junta la respuesta completa. El servidor cobra ANTES según el
@@ -7,6 +8,8 @@ import { fnErrorMessage, fnHeaders, readBilling, type ServerBilling } from "@/li
  */
 export async function runGenerator(opts: {
   id: string; title: string; prompt: string; system?: string;
+  /** El agente que habla (src/lib/agentes.ts): el servidor le suma la misión del equipo. No cambia el precio. */
+  agente?: AgenteId;
   onCharge?: (b: ServerBilling) => void; onText?: (full: string) => void;
 }): Promise<string> {
   const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
@@ -14,6 +17,7 @@ export async function runGenerator(opts: {
     body: JSON.stringify({
       generator_id: opts.id, generator_title: opts.title.slice(0, 80),
       ...(opts.system ? { systemPrompt: opts.system } : {}),
+      ...(opts.agente ? { mision_agente: opts.agente } : {}),
       messages: [{ role: "user", content: opts.prompt }],
     }),
   });

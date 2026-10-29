@@ -11,6 +11,7 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 import { admin, billingHeaders, caller, charge, json, refund } from "../_shared/media.ts";
 import { cleanDiseno, DISENO_RULE, DISENO_SHAPE, fillGaleria, fitAnalysis, GALERIA_RULE, SIRVE_RULE, SYSTEM, TIPOS, TIPOS_LAMINA } from "../_shared/carouselRules.ts";
+import { conMision } from "../_shared/misionAgente.ts";
 
 const FN = "carousel-slide-model";
 const MODEL = "gemini-3-flash-preview";
@@ -156,7 +157,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: MODEL, max_tokens: 8_000, response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: SYSTEM },
+          { role: "system", content: conMision(SYSTEM, "json") }, // misión de Merlín (29-oct-2026)
           { role: "user", content: [{ type: "text", text: userPrompt({ n, ctx, brief, handle, world, line }) }, { type: "image_url", image_url: { url: dataUrl } }] },
         ],
       }),

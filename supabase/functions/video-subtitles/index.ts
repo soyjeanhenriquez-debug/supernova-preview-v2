@@ -10,6 +10,7 @@
 // para 90 s) y después quema los subtítulos sobre el video con canvas, como "Armar video final".
 import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 import { HONESTY_RULES } from "../_shared/honesty.ts";
+import { conMision } from "../_shared/misionAgente.ts";
 import { billingHeaders, caller, charge, json, refund } from "../_shared/media.ts";
 import { geminiMedia, logMediaCost } from "../_shared/geminiMedia.ts";
 
@@ -58,7 +59,8 @@ Deno.serve(async (req) => {
 
     const { out, cost, usage } = await geminiMedia([
       { inline_data: { mime_type: "audio/wav", data: audio } },
-      { text: prompt({ seconds, product, who: whoFor }) + "\n\n" + HONESTY_RULES },
+      // Misión de Pegaso (29-oct-2026): la respuesta es JSON, la pregunta de avance la pone la app.
+      { text: conMision(prompt({ seconds, product, who: whoFor }) + "\n\n" + HONESTY_RULES, "json") },
     ], 10_000, 100_000);
     await logMediaCost(who.id, FN, cost, usage);
     if (!out || !Array.isArray(out.subtitulos)) {

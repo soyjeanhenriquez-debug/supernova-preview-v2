@@ -12,6 +12,7 @@ import { extractAudio, MAX_VIDEO_SECONDS, NO_IMAGE_MSG, toSrt, videoHasImage, ty
 import { SUB_STYLE_BY_ID, SUB_STYLES, wordsFromSubs, type StyleId } from "@/lib/subtitleStyles";
 import { deepVoice } from "@/lib/voiceFx";
 import { ToolShell } from "@/components/tool/ToolShell";
+import { SiguientePaso } from "@/components/agentes/SiguientePaso";
 import { ToolFeedback } from "@/components/ToolFeedback";
 import { FONTS, SubsVideo, type SubsProps } from "@/remotion/SubsVideo";
 import { palabraDelCierre, tomarToma } from "@/lib/grabacion";
@@ -349,12 +350,14 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
           </ul>
         </details>
       )}
+      {/* Misión de Pegaso (29-oct-2026): con el video descargado, una sola pregunta de avance hacia Argos. */}
+      {done && !busy && <SiguientePaso agente="editor" />}
       {ready && <ToolFeedback tool="subtitulos" />}
     </>
   );
 
   return (
-    <ToolShell toolId="sube-tu-video" onNavigate={onNavigate} previewFirst
+    <ToolShell toolId="sube-tu-video" agente="editor" onNavigate={onNavigate} previewFirst
       crumbs={[{ label: "Crear" }, { label: "Con tu cara", onClick: onHome }, { label: "Sube tu video" }]}
       title={desdeGuion ? "Tu toma con subtítulos" : "Sube tu video y ponle estilo"}
       line="Subtítulos con estilo, portada, cierre y voz grave. Lo ves en tu video antes de descargarlo."

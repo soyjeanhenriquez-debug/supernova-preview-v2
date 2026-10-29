@@ -16,6 +16,9 @@ import { useBusinessProfile, profileText, profileReady } from "@/lib/businessPro
 import { CopyLevelPicker } from "@/components/CopyLevelPicker";
 import { AddToTracker } from "@/components/AddToTracker";
 import type { Kind } from "@/lib/contentTracker";
+import { AgenteFirma } from "@/components/agentes/AgenteFirma";
+import { SiguientePaso } from "@/components/agentes/SiguientePaso";
+import { separarAvance } from "@/lib/agentes";
 
 const categories = [
   { icon: Sparkles, label: "Todos", id: "all" },
@@ -73,6 +76,8 @@ export function GeneradoresPage() {
   // El tono se guarda en "Mi negocio" (solo ese campo).
   const changeTone = (next: typeof profile) => { savePatch({ copy_level: next.copy_level }); };
   const myBusiness = profileReady(profile) ? profileText(profile) : "";
+  // La pregunta de avance que escribe Hermes al final no va en el texto que se copia ni en el siguiente paso.
+  const avance = separarAvance(generatorOutput);
   // Desde el Calendario de contenido llega una pieza para escribirle el guion: se abre ese
   // generador con el negocio y la idea ya puestos.
   useEffect(() => {
@@ -135,6 +140,7 @@ export function GeneradoresPage() {
         level: usesAngle(generator.id) ? level : undefined,
         onCharged: (billing) => applyServerCharge(action, billing, generator.title),
         onText: setGeneratorOutput,
+        agente: "ventas", // Hermes: el servidor le suma la misión del equipo
       });
       toast.success("Listo. Revísalo y cópialo.");
     } catch (err: unknown) {
@@ -186,6 +192,7 @@ export function GeneradoresPage() {
               <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-primary/10 to-accent/5" />
               <div className="relative px-5 py-8 md:px-8 md:py-10 text-center">
                 <p className="text-xs uppercase tracking-wider text-primary font-semibold mb-1">Mi negocio · Etapa 5 · Vender</p>
+                <AgenteFirma agente="ventas" className="mb-2" />
                 <h2 className="font-display font-bold text-2xl text-foreground mb-2">
                   {generators.length} generadores de textos para vender
                 </h2>
@@ -307,6 +314,7 @@ export function GeneradoresPage() {
               </button>
 
               <div>
+                <AgenteFirma agente="ventas" className="mb-1" />
                 <h2 className="font-display font-bold text-xl text-foreground">{selectedGen.title}</h2>
                 <p className="text-sm text-muted-foreground mt-1">{selectedGen.description}</p>
               </div>
@@ -358,7 +366,7 @@ export function GeneradoresPage() {
                     <span className="text-sm font-semibold text-foreground">Tu texto</span>
                     {generatorOutput && !loading && (
                       <button
-                        onClick={() => { navigator.clipboard.writeText(generatorOutput); toast.success("Copiado. Ya puedes pegarlo donde quieras."); }}
+                        onClick={() => { navigator.clipboard.writeText(avance.cuerpo); toast.success("Copiado. Ya puedes pegarlo donde quieras."); }}
                         className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
                       >
                         <Copy className="w-3.5 h-3.5" /> Copiar
@@ -370,7 +378,7 @@ export function GeneradoresPage() {
                   <div className="bg-secondary rounded-lg p-4 text-sm text-foreground leading-relaxed min-h-[100px] overflow-x-auto">
                     {generatorOutput ? (
                       <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:mt-4 prose-headings:mb-2 prose-p:leading-relaxed prose-li:leading-relaxed prose-strong:text-foreground prose-blockquote:border-primary/40 prose-blockquote:not-italic">
-                        <ReactMarkdown>{generatorOutput}</ReactMarkdown>
+                        <ReactMarkdown>{avance.cuerpo}</ReactMarkdown>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 text-muted-foreground">
@@ -383,14 +391,14 @@ export function GeneradoresPage() {
                     const nextGen = next ? generators.find(g => g.id === next) : null;
                     const kind = TRACKER_KIND[selectedGen.id];
                     if (!nextGen && !kind) return null;
-                    const firstLine = generatorOutput.split("\n").map(l => l.replace(/^[#>*\-\d.\s]+/, "").replace(/\*\*/g, "").trim()).find(l => l.length > 3) ?? selectedGen.title;
+                    const firstLine = avance.cuerpo.split("\n").map(l => l.replace(/^[#>*\-\d.\s]+/, "").replace(/\*\*/g, "").trim()).find(l => l.length > 3) ?? selectedGen.title;
                     return (
                       <div className="mt-4 flex flex-wrap items-center gap-2">
                         {nextGen && (
                           <button type="button"
                             onClick={() => {
                               // El siguiente paso llega con el negocio y lo que se acaba de escribir, para que todo diga lo mismo.
-                              const prev = `Lo que ya escribí en el paso anterior (${selectedGen.title}); úsalo para que todo diga lo mismo:\n${generatorOutput.replace(/\*\*/g, "").slice(0, 1500)}`;
+                              const prev = `Lo que ya escribí en el paso anterior (${selectedGen.title}); úsalo para que todo diga lo mismo:\n${avance.cuerpo.replace(/\*\*/g, "").slice(0, 1500)}`;
                               setActiveGenerator(nextGen.id); setGeneratorOutput("");
                               setGeneratorInput([myBusiness, prev].filter(Boolean).join("\n\n").slice(0, 2500));
                               window.scrollTo({ top: 0, behavior: "smooth" });
@@ -403,6 +411,8 @@ export function GeneradoresPage() {
                       </div>
                     );
                   })()}
+                  {/* Misión de Hermes (29-oct-2026): con el texto listo, una sola pregunta de avance hacia Robin Hood. */}
+                  {generatorOutput && !loading && <div className="mt-4"><SiguientePaso agente="ventas" pregunta={avance.pregunta} /></div>}
                 </div>
               )}
             </div>

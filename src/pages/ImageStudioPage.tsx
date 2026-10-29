@@ -26,6 +26,11 @@ import { ImageSlotCard, type Slot } from "@/components/image/ImageSlotCard";
 import { ReadyToPublish } from "@/components/image/ReadyToPublish";
 import { SavedGallery, type SavedImage } from "@/components/image/SavedGallery";
 import { CarouselStudio } from "@/components/image/CarouselStudio";
+import { AgenteFirma } from "@/components/agentes/AgenteFirma";
+import type { AgenteId } from "@/lib/agentes";
+
+// El agente del equipo que atiende cada modo (29-oct-2026): Merlín los carruseles, Robin Hood las imágenes de anuncio.
+const AGENTE_DE_MODO: Partial<Record<StudioMode, AgenteId>> = { carrusel: "carruseles", creativo: "anuncios", variar: "anuncios", foto_ugc: "anuncios", foto_producto: "anuncios" };
 
 /**
  * Estudio de imágenes (03-oct-2026; plan ATLAS 04-oct-2026): Creativos, Carrusel, Miniaturas, Fotos
@@ -241,6 +246,7 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
   return (
     <div className="max-w-[1180px] mx-auto space-y-6 py-4 min-w-0">
       <div>
+        {AGENTE_DE_MODO[mode] && <AgenteFirma agente={AGENTE_DE_MODO[mode]!} className="mb-1" />}
         <h1 className="font-display font-bold text-2xl text-foreground">{info.title}</h1>
         <p className="text-sm text-muted-foreground mt-1">{info.line} {mode === "variar" || mode === "carrusel" ? "" : "Salen de tu producto: no tienes que escribir nada."}</p>
       </div>
@@ -348,7 +354,7 @@ export function ImageStudioPage({ initialMode = "creativo" }: { initialMode?: St
       )}
 
       {done.length > 0 && !running && (
-        <ReadyToPublish mode={mode} count={done.length} onDownloadAll={downloadAll} title={seed?.title || brief.product}
+        <ReadyToPublish mode={mode} count={done.length} onDownloadAll={downloadAll} title={seed?.title || brief.product} agente={AGENTE_DE_MODO[mode]}
           copyRequest={adCopyRequest(mode, { brief, hook: seed?.hook, angle: seed?.angle, angleId: angleOn ? angleId : undefined, levelId: angleOn ? levelId : undefined })} />
       )}
 

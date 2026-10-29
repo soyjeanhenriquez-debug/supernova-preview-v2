@@ -17,6 +17,8 @@ export type Agente = {
   emoji: string;
   /** Qué hace, en una línea. */
   rol: string;
+  /** Cómo se presenta en el encabezado de su herramienta: «⚡ Zeus · tu agente de reels». */
+  etiqueta: string;
   /** Dirección de su herramienta en la app (#/...). null = todavía no existe. */
   ruta: string | null;
   /** El paso que sigue en el camino hacia la primera venta. */
@@ -26,19 +28,19 @@ export type Agente = {
 };
 
 export const AGENTES: Record<AgenteId, Agente> = {
-  lanzamiento: { id: "lanzamiento", nombre: "Ulises", emoji: "🛡️", rol: "Elige contigo qué lanzar con datos reales y dirige al equipo hasta dejarlo listo.", ruta: null, siguiente: "producto", avance: "¿Creamos ya el producto de esta oferta?" },
-  producto: { id: "producto", nombre: "Hefesto", emoji: "⚒️", rol: "Te crea el producto que vendes: guía, recetario, mini curso o plantilla, listo en PDF.", ruta: "crear-producto", siguiente: "pagina", avance: "¿Le hacemos ahora su página de venta?" },
-  miniapps: { id: "miniapps", nombre: "Dédalo", emoji: "🏗️", rol: "Construye tu Mini App y te deja el enlace para venderla.", ruta: "mini-apps", siguiente: "pagina", avance: "¿Le hacemos ahora su página de venta?" },
-  pagina: { id: "pagina", nombre: "Atenea", emoji: "🏛️", rol: "Tu página de venta con precio por país y botón de pago, publicada en un dominio aparte.", ruta: null, siguiente: "ventas", avance: "¿Preparamos los mensajes de WhatsApp para cerrar las ventas?" },
-  ventas: { id: "ventas", nombre: "Hermes", emoji: "🤝", rol: "Arma la oferta, el precio y los mensajes de WhatsApp que cierran la venta.", ruta: "generadores", siguiente: "anuncios", avance: "¿Hacemos los anuncios que traen gente a tu WhatsApp?" },
-  anuncios: { id: "anuncios", nombre: "Robin Hood", emoji: "🏹", rol: "Imágenes y videos para tus anuncios, modelados de los que ya funcionan.", ruta: "creativos", siguiente: "reels", avance: "¿Hacemos el reel que acompaña tus anuncios?" },
-  reels: { id: "reels", nombre: "Zeus", emoji: "⚡", rol: "Escribe tu reel, le pone voz, imágenes y subtítulos, y te entrega el video.", ruta: "con-tu-cara/reel-ia", siguiente: "carruseles", avance: "¿Convertimos este mensaje en un carrusel para tus redes?" },
-  carruseles: { id: "carruseles", nombre: "Merlín", emoji: "🔮", rol: "Modela un carrusel que ya funciona, con tu cara en la portada.", ruta: "carrusel", siguiente: "resultados", avance: "¿Lo publicas hoy y medimos cómo le va?" },
-  analista: { id: "analista", nombre: "Sherlock Holmes", emoji: "🔍", rol: "Te dice por qué un reel funciona y te da tu versión para grabarla.", ruta: "con-tu-cara", siguiente: "editor", avance: "¿Lo grabas ahora y te lo dejo editado?" },
-  editor: { id: "editor", nombre: "Pegaso", emoji: "💨", rol: "Si grabaste tú, te pone subtítulos, portada y cierre. Sin saber editar.", ruta: "con-tu-cara", siguiente: "resultados", avance: "¿Lo publicas hoy y medimos cómo le va?" },
-  sincara: { id: "sincara", nombre: "El Fantasma de la Ópera", emoji: "🎭", rol: "Si no quieres salir, un personaje creado con IA da la cara por ti.", ruta: "personaje", siguiente: "reels", avance: "¿Hacemos el primer reel con tu personaje?" },
-  voz: { id: "voz", nombre: "Eco", emoji: "🧬", rol: "Aprende cómo hablas y escribes, para que todo suene a ti.", ruta: "tu-adn", siguiente: "lanzamiento", avance: "¿Elegimos ya qué vas a lanzar?" },
-  resultados: { id: "resultados", nombre: "Argos", emoji: "🔭", rol: "Lee cómo van tus anuncios y ventas y te dice qué cambiar hoy.", ruta: "resultados", siguiente: "anuncios", avance: "¿Hacemos la nueva versión del anuncio que mejor va?" },
+  lanzamiento: { id: "lanzamiento", nombre: "Ulises", emoji: "🛡️", etiqueta: "tu agente de lanzamiento", rol: "Elige contigo qué lanzar con datos reales y dirige al equipo hasta dejarlo listo.", ruta: null, siguiente: "producto", avance: "¿Creamos ya el producto de esta oferta?" },
+  producto: { id: "producto", nombre: "Hefesto", emoji: "⚒️", etiqueta: "tu agente de producto", rol: "Te crea el producto que vendes: guía, recetario, mini curso o plantilla, listo en PDF.", ruta: "crear-producto", siguiente: "pagina", avance: "¿Le hacemos ahora su página de venta?" },
+  miniapps: { id: "miniapps", nombre: "Dédalo", emoji: "🏗️", etiqueta: "tu agente de Mini Apps", rol: "Construye tu Mini App y te deja el enlace para venderla.", ruta: "mini-apps", siguiente: "pagina", avance: "¿Le hacemos ahora su página de venta?" },
+  pagina: { id: "pagina", nombre: "Atenea", emoji: "🏛️", etiqueta: "tu agente de página de venta", rol: "Tu página de venta con precio por país y botón de pago, publicada en un dominio aparte.", ruta: null, siguiente: "ventas", avance: "¿Preparamos los mensajes de WhatsApp para cerrar las ventas?" },
+  ventas: { id: "ventas", nombre: "Hermes", emoji: "🤝", etiqueta: "tu agente de ventas", rol: "Arma la oferta, el precio y los mensajes de WhatsApp que cierran la venta.", ruta: "generadores", siguiente: "anuncios", avance: "¿Hacemos los anuncios que traen gente a tu WhatsApp?" },
+  anuncios: { id: "anuncios", nombre: "Robin Hood", emoji: "🏹", etiqueta: "tu agente de anuncios", rol: "Imágenes y videos para tus anuncios, modelados de los que ya funcionan.", ruta: "creativos", siguiente: "reels", avance: "¿Hacemos el reel que acompaña tus anuncios?" },
+  reels: { id: "reels", nombre: "Zeus", emoji: "⚡", etiqueta: "tu agente de reels", rol: "Escribe tu reel, le pone voz, imágenes y subtítulos, y te entrega el video.", ruta: "con-tu-cara/reel-ia", siguiente: "carruseles", avance: "¿Convertimos este mensaje en un carrusel para tus redes?" },
+  carruseles: { id: "carruseles", nombre: "Merlín", emoji: "🔮", etiqueta: "tu agente de carruseles", rol: "Modela un carrusel que ya funciona, con tu cara en la portada.", ruta: "carrusel", siguiente: "resultados", avance: "¿Lo publicas hoy y medimos cómo le va?" },
+  analista: { id: "analista", nombre: "Sherlock Holmes", emoji: "🔍", etiqueta: "tu analista de reels", rol: "Te dice por qué un reel funciona y te da tu versión para grabarla.", ruta: "con-tu-cara", siguiente: "editor", avance: "¿Lo grabas ahora y te lo dejo editado?" },
+  editor: { id: "editor", nombre: "Pegaso", emoji: "💨", etiqueta: "tu editor de video", rol: "Si grabaste tú, te pone subtítulos, portada y cierre. Sin saber editar.", ruta: "con-tu-cara", siguiente: "resultados", avance: "¿Lo publicas hoy y medimos cómo le va?" },
+  sincara: { id: "sincara", nombre: "El Fantasma de la Ópera", emoji: "🎭", etiqueta: "tu agente para no mostrar tu cara", rol: "Si no quieres salir, un personaje creado con IA da la cara por ti.", ruta: "personaje", siguiente: "reels", avance: "¿Hacemos el primer reel con tu personaje?" },
+  voz: { id: "voz", nombre: "Eco", emoji: "🧬", etiqueta: "tu agente de voz", rol: "Aprende cómo hablas y escribes, para que todo suene a ti.", ruta: "tu-adn", siguiente: "lanzamiento", avance: "¿Elegimos ya qué vas a lanzar?" },
+  resultados: { id: "resultados", nombre: "Argos", emoji: "🔭", etiqueta: "tu agente de resultados", rol: "Lee cómo van tus anuncios y ventas y te dice qué cambiar hoy.", ruta: "resultados", siguiente: "anuncios", avance: "¿Hacemos la nueva versión del anuncio que mejor va?" },
 };
 
 /** El orden del camino, de elegir a medir (para mostrar el equipo). */
@@ -48,4 +50,16 @@ export const EQUIPO: AgenteId[] = ["lanzamiento", "producto", "miniapps", "pagin
 export function siguientePaso(id: AgenteId): Agente | null {
   const s = AGENTES[id].siguiente;
   return s && AGENTES[s].ruta ? AGENTES[s] : null;
+}
+
+/**
+ * Separa la pregunta de avance que la IA escribe al final de un texto para publicar (formato "texto" de
+ * supabase/functions/_shared/misionAgente.ts: «---» y luego «Siguiente paso: …»). Así el texto que se copia no
+ * lleva la pregunta, y la tarjeta de cierre la muestra. Sirve también a mitad de la escritura.
+ */
+export function separarAvance(texto: string): { cuerpo: string; pregunta: string | null } {
+  const m = texto.match(/\n[ \t]*(?:[-*_]{3,}[ \t]*\n+)?[ \t>*_]*Siguiente paso:?[*_]*[ \t]*([^\n]*)\s*$/i);
+  if (!m || m.index === undefined) return { cuerpo: texto, pregunta: null };
+  const pregunta = m[1].replace(/[*_]+/g, "").trim();
+  return { cuerpo: texto.slice(0, m.index).replace(/\n[ \t]*[-*_]{3,}[ \t]*$/, "").trimEnd(), pregunta: pregunta || null };
 }

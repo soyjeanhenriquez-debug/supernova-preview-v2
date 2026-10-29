@@ -6,13 +6,17 @@ import { fnErrorMessage, fnHeaders, readBilling } from "@/lib/fnAuth";
 import { generatorCost, useCredits } from "@/hooks/useCredits";
 import { formatNumber, publishSteps, type StudioMode } from "@/lib/imagePrompts";
 import { AddToTracker } from "@/components/AddToTracker";
+import { SiguientePaso } from "@/components/agentes/SiguientePaso";
+import { separarAvance, type AgenteId } from "@/lib/agentes";
 
 /**
  * "Listo para publicar": descargar todo, escribir el texto del anuncio (generador mandala-ad de
  * ai-chat, cobra el servidor ANTES y reembolsa si falla) y 3 pasos para subirlo.
  */
-export function ReadyToPublish({ mode, count, onDownloadAll, copyRequest, title }: {
+export function ReadyToPublish({ mode, count, onDownloadAll, copyRequest, title, agente }: {
   mode: StudioMode; count: number; onDownloadAll: () => Promise<void>; copyRequest: string; title: string;
+  /** El agente que entrega estas imágenes (Robin Hood en anuncios): misión en el texto y tarjeta de cierre. */
+  agente?: AgenteId;
 }) {
   const { applyServerCharge, balance } = useCredits();
   const creditsLeft = useCreditsLeft().label;
@@ -23,6 +27,8 @@ export function ReadyToPublish({ mode, count, onDownloadAll, copyRequest, title 
   const { action, cost } = generatorCost("mandala-ad");
   const { where, steps } = publishSteps(mode);
   const wantsCopy = mode !== "foto_producto";
+  // La pregunta de avance que escribe la IA al final (misión del equipo) no va en el texto que se copia.
+  const { cuerpo, pregunta } = separarAvance(text);
 
   const write = async () => {
     if (busy) return;
@@ -32,7 +38,7 @@ export function ReadyToPublish({ mode, count, onDownloadAll, copyRequest, title 
     try {
       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
         method: "POST", headers: await fnHeaders(),
-        body: JSON.stringify({ generator_id: "mandala-ad", generator_title: label, messages: [{ role: "user", content: copyRequest }] }),
+        body: JSON.stringify({ generator_id: "mandala-ad", generator_title: label, messages: [{ role: "user", content: copyRequest }], ...(agente ? { mision_agente: agente } : {}) }),
       });
       if (!resp.ok || !resp.body) throw new Error(await fnErrorMessage(resp, "No se pudo escribir el texto. No se te cobró."));
       applyServerCharge(action, readBilling(resp), label);
@@ -63,7 +69,7 @@ export function ReadyToPublish({ mode, count, onDownloadAll, copyRequest, title 
   };
 
   const copy = async () => {
-    try { await navigator.clipboard.writeText(text.replace(/\*\*/g, "")); setCopied(true); setTimeout(() => setCopied(false), 1800); }
+    try { await navigator.clipboard.writeText(cuerpo.replace(/\*\*/g, "")); setCopied(true); setTimeout(() => setCopied(false), 1800); }
     catch { toast.error("No se pudo copiar. Selecciona el texto y cópialo a mano."); }
   };
 
@@ -93,7 +99,7 @@ export function ReadyToPublish({ mode, count, onDownloadAll, copyRequest, title 
 
       {text && (
         <div className="rounded-xl border border-border bg-background/40 p-4 space-y-3">
-          <pre className="whitespace-pre-wrap break-words font-sans text-[13px] leading-relaxed text-foreground max-h-[360px] overflow-y-auto">{text}</pre>
+          <pre className="whitespace-pre-wrap break-words font-sans text-[13px] leading-relaxed text-foreground max-h-[360px] overflow-y-auto">{cuerpo}</pre>
           {!busy && (
             <button type="button" onClick={() => void copy()} className="min-h-[40px] inline-flex items-center gap-2 rounded-lg border border-border px-3 text-[12px] text-foreground">
               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />} {copied ? "Copiado" : "Copiar texto"}
@@ -110,6 +116,7 @@ export function ReadyToPublish({ mode, count, onDownloadAll, copyRequest, title 
           </li>
         ))}
       </ol>
+      {agente && !busy && <SiguientePaso agente={agente} pregunta={pregunta} />}
     </section>
   );
 }

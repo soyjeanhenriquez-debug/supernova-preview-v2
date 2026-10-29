@@ -3,6 +3,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2.117.1/cors";
 import { HONESTY_RULES } from "../_shared/honesty.ts";
 import { createClient as createGuardClient } from "npm:@supabase/supabase-js@2.117.1";
 import { safeRefund } from "../_shared/refund.ts";
+import { conMisionDe } from "../_shared/misionAgente.ts";
 
 interface Payload {
   action: "sofisticar" | "adaptar" | "blueprint";
@@ -288,7 +289,7 @@ Deno.serve(async (req) => {
         stream: true,
         stream_options: { include_usage: true },
         messages: [
-          { role: "system", content: system + HONESTY_RULES },
+          { role: "system", content: conMisionDe("ventas", system + HONESTY_RULES, "texto") }, // misión de Hermes (29-oct-2026)
           { role: "user", content: user },
         ],
       }),

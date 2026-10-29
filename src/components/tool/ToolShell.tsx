@@ -3,6 +3,8 @@ import { ArrowLeft, Check, ChevronRight } from "lucide-react";
 import { ProductSwitcher } from "@/components/ProductSwitcher";
 import { useVia } from "@/lib/tools";
 import { toolEvent } from "@/lib/toolEvents";
+import { AgenteFirma } from "@/components/agentes/AgenteFirma";
+import type { AgenteId } from "@/lib/agentes";
 
 /**
  * Esqueleto común de una herramienta (Fase 1 de la organización, 16-oct-2026, estilo Higgsfield):
@@ -13,7 +15,7 @@ import { toolEvent } from "@/lib/toolEvents";
  */
 export type Crumb = { label: string; onClick?: () => void };
 
-export function ToolShell({ crumbs, title, line, onBack, backLabel = "Volver", steps, step = 0, onStep, aside, children, onNavigate, previewFirst, toolId }: {
+export function ToolShell({ crumbs, title, line, onBack, backLabel = "Volver", steps, step = 0, onStep, aside, children, onNavigate, previewFirst, toolId, agente }: {
   crumbs: Crumb[];
   title: string;
   line?: string;
@@ -31,6 +33,8 @@ export function ToolShell({ crumbs, title, line, onBack, backLabel = "Volver", s
   previewFirst?: boolean;
   /** Id corto de la herramienta (p. ej. "reel-studio") para medir "abrir" (src/lib/toolEvents.ts). */
   toolId?: string;
+  /** El agente del equipo que atiende esta herramienta (src/lib/agentes.ts): va encima del título. */
+  agente?: AgenteId;
 }) {
   useEffect(() => { if (toolId) toolEvent(toolId, "abrir"); }, [toolId]);
   return (
@@ -56,6 +60,7 @@ export function ToolShell({ crumbs, title, line, onBack, backLabel = "Volver", s
       </div>
 
       <div>
+        {agente && <AgenteFirma agente={agente} className="mb-1" />}
         <h1 className="font-display font-bold text-[22px] sm:text-2xl leading-tight text-foreground">{title}</h1>
         {line && <p className="text-sm text-muted-foreground mt-1 max-w-2xl">{line}</p>}
       </div>

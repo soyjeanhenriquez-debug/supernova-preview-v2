@@ -1,22 +1,27 @@
 import type { ReactNode } from "react";
+import { AgenteFirma } from "@/components/agentes/AgenteFirma";
+import type { AgenteId } from "@/lib/agentes";
 
 /**
  * Encabezado de cada herramienta del recorrido, "estilo Apple": etapa, título y UNA línea de qué
  * hacer aquí. Lo demás, solo si el usuario lo pide ("¿Cómo funciona?"). Así nadie tiene que leer
  * un párrafo para empezar.
  */
-export function PageHeader({ stage, title, line, icon, details, right }: {
+export function PageHeader({ stage, title, line, icon, details, right, agente }: {
   stage?: string;
   title: string;
   line: string;
   icon?: ReactNode;
   details?: string[];
   right?: ReactNode;
+  /** El agente del equipo que atiende esta herramienta (src/lib/agentes.ts): va encima del título. */
+  agente?: AgenteId;
 }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
         {stage && <p className="text-xs uppercase tracking-wider text-primary font-semibold">{stage}</p>}
+        {agente && <AgenteFirma agente={agente} className={stage ? "mt-0.5" : ""} />}
         {/* items-start + icono fijo: en el teléfono el título ocupa 2 o 3 líneas y el icono se quedaba
             flotando a media altura. */}
         <h1 className="font-display font-bold text-[22px] sm:text-2xl leading-tight text-foreground flex items-start gap-2 [&>svg]:shrink-0 [&>svg]:mt-1">{icon}{title}</h1>

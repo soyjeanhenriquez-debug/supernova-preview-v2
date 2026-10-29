@@ -13,6 +13,7 @@ import {
 } from "@/lib/brandDna";
 import { CREDIT_COSTS, useCredits } from "@/hooks/useCredits";
 import { ToolShell } from "@/components/tool/ToolShell";
+import { SiguientePaso } from "@/components/agentes/SiguientePaso";
 import { ToolFeedback } from "@/components/ToolFeedback";
 import { AddToTracker } from "@/components/AddToTracker";
 import { Teleprompter } from "@/components/reel/Teleprompter";
@@ -361,7 +362,7 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
   );
 
   return (
-    <ToolShell toolId="analiza-reel" onNavigate={onNavigate}
+    <ToolShell toolId="analiza-reel" agente="analista" onNavigate={onNavigate}
       crumbs={[{ label: "Crear" }, { label: "Con tu cara", onClick: onHome }, { label: "Analiza un Reel", onClick: startOver }]}
       title="Analiza un Reel y graba tu versión"
       line="Pega un Reel que ya funciona, elige cuánto se parece tu versión y grábala con el teleprompter."
@@ -451,9 +452,11 @@ export function AnalizaReel({ route, go, onUpload, onHome, onNavigate }: {
             )}
           </div>
 
+          {/* Misión de Sherlock Holmes (29-oct-2026): una sola pregunta de avance; el sí lleva a Pegaso (Sube tu video). */}
+          {v && <SiguientePaso agente="analista" onIr={onUpload} />}
           {v && (
             <div className="card-surface rounded-2xl p-4 sm:p-5 space-y-3">
-              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Siguiente paso</p>
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Otras opciones</p>
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={() => { setTeleOpen(true); setRecorded(true); }} className="btn-primary-nova inline-flex min-h-[44px] items-center gap-2 rounded-xl px-4 text-sm font-semibold"><Clapperboard className="w-4 h-4" /> Grabar con el teleprompter</button>
                 <button type="button" onClick={onUpload} className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-border px-4 text-sm text-foreground hover:bg-secondary/60"><Captions className="w-4 h-4" /> Ya lo grabé: ponerle subtítulos</button>

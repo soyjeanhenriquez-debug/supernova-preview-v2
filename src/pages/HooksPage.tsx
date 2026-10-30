@@ -31,6 +31,10 @@ interface VaultHook {
   winner_score: number | null;
   source_page_name: string | null;
   created_at: string;
+  /** 'anuncio' (prueba = días pagando) o 'reel' (prueba = vistas en Instagram), 30-oct-2026. */
+  source?: string | null;
+  source_url?: string | null;
+  views?: number | null;
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -66,17 +70,17 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("todos");
-  const [view, setView] = useState<"todos" | "favoritos" | "nuevos">("todos");
+  const [view, setView] = useState<"todos" | "reels" | "favoritos" | "nuevos">("todos");
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from("hook_vault")
-        .select("id, hook_text, hook_template, category, language, market, days_active, duplicate_count, winner_score, source_page_name, created_at")
+        .select("id, hook_text, hook_template, category, language, market, days_active, duplicate_count, winner_score, source_page_name, created_at, source, source_url, views")
         .order("winner_score", { ascending: false })
         .order("days_active", { ascending: false })
         .limit(500);
-      setHooks((data as VaultHook[]) ?? []);
+      setHooks((data as unknown as VaultHook[]) ?? []);
 
       if (user?.id) {
         const { data: favs } = await supabase
@@ -127,7 +131,7 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
     setSeed({
       source: "radar", target, title: h.hook_template.slice(0, 80),
       product: ready ? profile.product : "", who: ready ? profile.who : "", promise: ready ? profile.promise : "", price: ready ? profile.price : undefined,
-      hook: h.hook_template, evidence: h.days_active ? `${h.days_active} días en el aire` : undefined, refId: h.id,
+      hook: h.hook_template, evidence: h.source === "reel" ? (h.views ? `${h.views.toLocaleString("es")} vistas en Instagram` : undefined) : h.days_active ? `${h.days_active} días en el aire` : undefined, refId: h.id,
     });
     if (!ready) toast("Cuéntanos qué vendes en el estudio y la IA usa este gancho.");
     onNavigate?.(TARGET_PAGE[target]);
@@ -144,6 +148,7 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
     const q = search.trim().toLowerCase();
     return hooks.filter((h) => {
       if (view === "favoritos" && !favorites.has(h.id)) return false;
+      if (view === "reels" && h.source !== "reel") return false;
       if (view === "nuevos" && new Date(h.created_at) < today) return false;
       if (category !== "todos" && h.category !== category) return false;
       if (q && !`${h.hook_text} ${h.hook_template} ${h.source_page_name ?? ""}`.toLowerCase().includes(q)) return false;
@@ -192,6 +197,7 @@ export function HooksPage({ onNavigate }: { onNavigate?: (page: string) => void 
         </div>
         {([
           { key: "todos", label: "Todos los ganchos" },
+          { key: "reels", label: "🎬 De reels" },
           { key: "favoritos", label: "⭐ Mis guardados" },
           { key: "nuevos", label: "🆕 Añadidos hoy" },
         ] as const).map((v) => (
@@ -301,7 +307,7 @@ function HookCard({ hook: h, isFavorite, onToggleFavorite, onCopy, onVideo, onCo
       </p>
 
       <button onClick={() => setShowOriginal(!showOriginal)} className="text-[11px] text-muted-foreground hover:text-primary text-left">
-        {showOriginal ? "− Ocultar el original" : "+ Ver la frase original del anuncio"}
+        {showOriginal ? "− Ocultar el original" : h.source === "reel" ? "+ Ver la frase original del reel" : "+ Ver la frase original del anuncio"}
       </button>
       {showOriginal && (
         <p className="text-[13px] text-muted-foreground italic border-l-2 border-primary/40 pl-3">
@@ -310,7 +316,15 @@ function HookCard({ hook: h, isFavorite, onToggleFavorite, onCopy, onVideo, onCo
         </p>
       )}
 
-      {/* La prueba con dinero real */}
+      {/* La prueba: en anuncios, dinero real (días pagando); en reels, vistas reales en Instagram. */}
+      {h.source === "reel" ? (
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
+          <span className="flex items-center gap-1 text-primary font-semibold">
+            <Flame className="w-3 h-3" /> {(h.views ?? 0).toLocaleString("es")} vistas en Instagram
+          </span>
+          {h.source_url && <a href={h.source_url} target="_blank" rel="noopener noreferrer" className="hover:text-foreground underline-offset-2 hover:underline">· ver el reel</a>}
+        </div>
+      ) : (
       <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
         <span className="flex items-center gap-1 text-primary font-semibold">
           <Flame className="w-3 h-3" /> {h.days_active ?? "?"} días en el aire
@@ -319,6 +333,7 @@ function HookCard({ hook: h, isFavorite, onToggleFavorite, onCopy, onVideo, onCo
         <span title="Qué tan fuerte es la señal de que funciona, de 0 a 100">· puntaje {h.winner_score ?? "—"}/100</span>
         <span title="País donde se muestra el anuncio">· se anuncia en {flag}</span>
       </div>
+      )}
 
       <div className="flex items-center gap-2 pt-2 border-t border-border">
         <button

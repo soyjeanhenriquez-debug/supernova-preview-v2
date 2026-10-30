@@ -60,6 +60,7 @@ const VIDEO_DOORS: TreeDoor[] = [
     { label: "Estudio de avatar", page: "Estudio de avatar", desc: "Fotos y videos de tu avatar: ropa, ángulos, tu producto." },
   ] },
   { id: "con-cara", name: "Con tu cara", tabs: [
+    { label: "Reels que funcionan", page: "Con tu cara", hash: "#/con-tu-cara/biblioteca", desc: "Reels reales con sus vistas y por qué funcionan. Gratis de mirar." },
     { label: "Analiza un Reel", page: "Con tu cara", hash: "#/con-tu-cara/reel", desc: "Por qué funciona cualquier Reel y tu versión para grabar." },
     { label: "Sube tu video", page: "Con tu cara", hash: "#/con-tu-cara/video", desc: "Subtítulos, gancho y edición de lo que ya grabaste." },
     { label: "Teleprompter", page: "Con tu cara", hash: "#/con-tu-cara/teleprompter", desc: "Lee tu guion mirando a la cámara." },

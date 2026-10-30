@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Captions, ChevronRight, Clapperboard, Loader2, ScrollText, Search, Sparkles, Video, Wand2 } from "lucide-react";
+import { Captions, ChevronRight, Clapperboard, Flame, Loader2, ScrollText, Search, Sparkles, Video, Wand2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { AnalizaReel } from "@/components/reel/AnalizaReel";
 import { TeleprompterLibre } from "@/components/reel/TeleprompterLibre";
@@ -18,6 +18,8 @@ const EstudioAvatarPage = lazy(() => import("@/pages/EstudioAvatarPage").then(m 
 const HistoriaAnimada = lazy(() => import("@/components/historia/HistoriaAnimada").then(m => ({ default: m.HistoriaAnimada })));
 // Reel de herramienta IA (24-oct-2026, formato "Voz en off"): solo la cuenta de Jean mientras lo prueba.
 const ReelIA = lazy(() => import("@/components/reelia/ReelIA").then(m => ({ default: m.ReelIA })));
+// Reels que funcionan (30-oct-2026): biblioteca de reels reales con sus vistas, gratis de mirar.
+const ReelsQueFuncionan = lazy(() => import("@/components/reel/ReelsQueFuncionan").then(m => ({ default: m.ReelsQueFuncionan })));
 // Anuncio animado (28-oct-2026): agente que arma guion, storyboard e instrucciones de imagen. Solo admin en prueba.
 const AnuncioAnimado = lazy(() => import("@/components/anuncio/AnuncioAnimado").then(m => ({ default: m.AnuncioAnimado })));
 
@@ -79,6 +81,13 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
       </Suspense>
     );
   }
+  if (segs[0] === "biblioteca") {
+    return (
+      <Suspense fallback={<div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
+        <ReelsQueFuncionan onHome={() => go([])} onNavigate={nav} />
+      </Suspense>
+    );
+  }
   if (segs[0] === "teleprompter") return <TeleprompterLibre onHome={() => go([])} />;
   if (segs[0] === "video") {
     return (
@@ -101,6 +110,7 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
 
       <div className="grid gap-3 sm:grid-cols-3">
         {([
+          ["biblioteca", Flame, "Reels que funcionan", "Reels reales con sus vistas, su gancho y por qué funcionan. Elige uno y haz tu versión.", "Gratis"],
           ["reel", Search, "Analiza un Reel", "Pega un Reel que funciona → elige Espejo, Recrear, Reinventar o Vender → grábalo con el teleprompter.", `${CREDIT_COSTS.reel_analyze} créditos`],
           ["video", Captions, "Sube tu video", "Ya grabaste: subtítulos con sus tiempos, el texto para publicar y si tu inicio engancha.", `${CREDIT_COSTS.video_subtitles} créditos`],
           ...(estudio ? [["estudio", Wand2, "Estudio de avatar", "Tu foto en otra ropa, otro ángulo, con tu producto o tu app, y en video hablando.", "Desde 11 créditos"] as const] : []),

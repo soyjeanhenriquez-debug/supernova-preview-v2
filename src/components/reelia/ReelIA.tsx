@@ -34,6 +34,7 @@ import { GrabarConGuion } from "@/components/reel/GrabarConGuion";
 import { dejarToma } from "@/lib/grabacion";
 import { SiguientePaso } from "@/components/agentes/SiguientePaso";
 import { BIBLIO, useStudioDatos, type Borrador, type Identidad, type Plantilla } from "./useStudioDatos";
+import { takeReelStudioRef } from "@/lib/intentHandoff";
 
 /**
  * Reel Studio (24/25-oct-2026; abierto a clientes el 26-oct-2026: el servidor cobra voz, tomas hablando y análisis). Inicio: recrear un reel de referencia, crear desde una idea o
@@ -261,6 +262,9 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
     const l = leerReels(uid); listaRef.current = l; setLista(l);
     if (m.origen) setVista("estudio");
     void cargarMedia(m);
+    // Desde «Reels que funcionan»: un reel nuevo de referencia con el enlace puesto. Analizarlo lo decide la persona.
+    const ref = takeReelStudioRef();
+    if (ref) { empezar("referencia"); setEnlace(ref); }
   }, [uid, setUrl]); // eslint-disable-line react-hooks/exhaustive-deps
   // Un proyecto nuevo toma Mi identidad cuando termina de cargar.
   useEffect(() => { if (datos.idnListo && !metaRef.current.reel && !metaRef.current.chat.length) commit({ ajustes: ajustesDe(idn) }); }, [datos.idnListo]); // eslint-disable-line react-hooks/exhaustive-deps

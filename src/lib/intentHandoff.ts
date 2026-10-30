@@ -32,3 +32,13 @@ export function takeReelUrl(): string {
     return IG_REEL_RE.test(v) ? v.slice(0, 300) : "";
   } catch { return ""; }
 }
+
+/** Reel de «Reels que funcionan» para recrear en Reel Studio (30-oct-2026). Solo prellena el enlace: nunca analiza. */
+export const REELIA_REF_KEY = "supernova.reelia-ref";
+export function takeReelStudioRef(): string {
+  try {
+    const v = sessionStorage.getItem(REELIA_REF_KEY) ?? "";
+    sessionStorage.removeItem(REELIA_REF_KEY);
+    return IG_REEL_RE.test(v) ? v.slice(0, 300) : "";
+  } catch { return ""; }
+}

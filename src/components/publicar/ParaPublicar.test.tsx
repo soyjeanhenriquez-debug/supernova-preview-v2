@@ -71,14 +71,14 @@ describe("Para publicar", () => {
     fireEvent.click(await screen.findByRole("button", { name: "10" }));
     await waitFor(() => expect(screen.getAllByText(/Casilla libre|Sin pieza/).length + screen.queryAllByText("Listo para programar").length).toBe(10));
   });
-  it("al subir un reel pregunta qué hacer: solo programar, silencios, subtítulos o edición completa con IA", async () => {
+  it("al subir un reel pregunta qué hacer: solo programar, subtítulos o editar (simple, con B-roll o plantilla)", async () => {
     await irAManana();
     const input = [...document.querySelectorAll<HTMLInputElement>('input[type="file"][accept="video/*"]')].find(x => !x.multiple)!;
     fireEvent.change(input, { target: { files: [new File(["x"], "mi-toma.mp4", { type: "video/mp4" })] } });
     expect(await screen.findByText("¿Qué hacemos con este video?")).toBeInTheDocument();
-    for (const t of ["Ya está editado: solo programarlo", "Quitarle los silencios", "Subtítulos (y quitar silencios si quieres)", "Edición completa con IA"]) {
-      expect(screen.getByRole("button", { name: new RegExp(t.replace(/[()]/g, "\\$&")) })).toBeInTheDocument();
-    }
+    for (const t of ["Ya está editado: solo programarlo", "Subtítulos", "Editarlo"]) expect(screen.getByRole("button", { name: new RegExp(`^${t}`) })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Editarlo/ }));
+    for (const t of ["Edición simple", "Con B-roll", "Plantilla Reel dinámico"]) expect(screen.getByRole("button", { name: new RegExp(`^${t}`) })).toBeInTheDocument();
   });
   it("una pieza ya subida se puede mandar a editar (sin la opción de solo programar)", async () => {
     await irAManana();
@@ -86,7 +86,7 @@ describe("Para publicar", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Editar video/ }));
     expect(await screen.findByText("¿Qué hacemos con este video?")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /solo programarlo/ })).toBeNull();
-    expect(screen.getByRole("button", { name: /Edición completa con IA/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Editarlo/ })).toBeInTheDocument();
   });
   it("«Subir varios videos» y «Programar los listos» están a mano", async () => {
     await irAManana();

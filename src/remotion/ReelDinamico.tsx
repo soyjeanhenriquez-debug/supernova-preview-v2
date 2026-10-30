@@ -15,7 +15,11 @@ import { pantallas, type Forma, type Pantalla } from "@/lib/reelDinamico";
  */
 export type RDMedia = { url: string; video: boolean; vertical: boolean };
 export type RDPlano = { t0: number; t1: number; forma: Forma; tramo: number; top: RDMedia | null; enfasis: string };
-export type RDTramo = { desde: number; hasta: number; clip: string | null; img: string | null };
+/**
+ * Un tramo tuyo hablando. `inicio` y `sonido` (30-oct-2026): con TU video subido, el tramo empieza en ese segundo del
+ * video (así se saltan los silencios) y se oye su propio audio.
+ */
+export type RDTramo = { desde: number; hasta: number; clip: string | null; img: string | null; inicio?: number; sonido?: boolean };
 export type RDProps = {
   planos: RDPlano[];
   tramos: RDTramo[];
@@ -172,7 +176,9 @@ function Presentador({ tramo, k, planos, desde, W, H }: { tramo: RDTramo; k: num
   const hook = desde === 0 && j === 0 ? interpolate(frame, [0, 10], [1.12, 1], clamp) : 1;
   const media: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 30%",
     transform: `scale(${zoom * hook})`, transformOrigin: "50% 28%" };
-  const toma = (style: React.CSSProperties) => (tramo.clip ? <Video src={tramo.clip} muted style={style} /> : tramo.img ? <Img src={tramo.img} style={style} /> : null);
+  const toma = (style: React.CSSProperties) => (tramo.clip
+    ? <Video src={tramo.clip} muted={!tramo.sonido} trimBefore={tramo.inicio ? Math.round(tramo.inicio * fps) : undefined} style={style} />
+    : tramo.img ? <Img src={tramo.img} style={style} /> : null);
   if (forma === "dividida") {
     // Mitad de abajo (25-oct-2026): recortar tu toma vertical cortaba la cabeza porque en esos looks estás al centro.
     // Ahora sales de la cabeza a la cintura (la toma a 1,6 veces la altura de la mitad, pegada arriba) y los lados se

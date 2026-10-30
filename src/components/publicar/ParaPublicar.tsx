@@ -3,7 +3,8 @@ import { toast } from "sonner";
 import {
   CalendarClock, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, Film, Images, ListChecks, Loader2, Plus, Send, Upload, Wand2, X,
 } from "lucide-react";
-import { OPCIONES_EDICION, dejarEncargo, type ModoEdicion } from "@/lib/edicionVideo";
+import { dejarEncargo, type ModoEdicion } from "@/lib/edicionVideo";
+import { ElegirEdicion } from "@/components/subs/ElegirEdicion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { fnErrorMessage, fnHeaders } from "@/lib/fnAuth";
@@ -20,8 +21,8 @@ import {
  *  · Plan de 3, 5 o 10 al día (hora de RD) + casillas sueltas. La app recuerda la vista y el plan de cada quien.
  * «Programar» lo hace el servidor (edge function publicar → Upload-Post) y Notion solo recibe lo que pasa aquí.
  * Los reels terminados en Reel Studio entran solos en la siguiente casilla libre.
- * Editar antes de programar (30-oct-2026, Jean): al subir un reel se pregunta si solo se programa, se le quitan los
- * silencios, se le ponen subtítulos o se edita completo con IA (B-roll). Lo que se edita va a «Sube tu video» y vuelve
+ * Editar antes de programar (30-oct-2026, Jean): al subir un reel se pregunta si solo se programa, se le ponen
+ * subtítulos o se edita (simple, con B-roll o con la plantilla Reel dinámico). Lo que se edita va a «Sube tu video» y vuelve
  * solo a su casilla. «Subir varios» llena las siguientes casillas libres y «Programar los listos» los programa de una vez.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -324,14 +325,14 @@ export function ParaPublicar() {
               onCaption={caption => void guardar(f.pieza!, { caption })} onRedes={pub_redes => void guardar(f.pieza!, { pub_redes })}
               onProgramar={() => void programar(f.pieza!)} onMover={() => void mover(f.pieza!)} onQuitar={() => void quitar(f.pieza!)}
               onEditar={() => setElegir({ slot: f.slot, pieza: f.pieza! })}
-              eleccion={elegir?.pieza?.id === f.pieza.id ? <ElegirEdicion editado ocupado={ocupado === f.slot} onElegir={m => void decidir(m)} onCancelar={() => setElegir(null)} /> : null} />
+              eleccion={elegir?.pieza?.id === f.pieza.id ? <ElegirEdicion ocupado={ocupado === f.slot} onElegir={m => void decidir(m)} onCancelar={() => setElegir(null)} /> : null} />
           ) : (
             <div key={f.slot} className="space-y-2">
               <FilaVacia f={f} ocupado={ocupado === f.slot} pasada={new Date(f.slot).getTime() < Date.now()}
                 onArchivos={files => (f.tipo === "reel" ? setElegir({ slot: f.slot, file: files[0] }) : void subir(f.slot, f.tipo, [...files]))}
                 onQuitar={f.extra ? () => void cambiarAjustes({ extras: conExtra(aj.extras, dia, { hora: f.hora, tipo: f.tipo }, true) }) : undefined} />
               {elegir?.slot === f.slot && elegir.file && !elegir.pieza && (
-                <ElegirEdicion nombre={elegir.file.name} ocupado={ocupado === f.slot} onElegir={m => void decidir(m)} onCancelar={() => setElegir(null)} />
+                <ElegirEdicion conProgramar nombre={elegir.file.name} ocupado={ocupado === f.slot} onElegir={m => void decidir(m)} onCancelar={() => setElegir(null)} />
               )}
             </div>
           ))}
@@ -520,32 +521,6 @@ function Detalle({ p, url, redes, ocupado, onCaption, onRedes, onProgramar, onMo
           </p>
         )}
       </div>
-    </div>
-  );
-}
-
-/** ¿Qué hacemos con este video? Las 4 opciones (sin «solo programar» si el video ya está en su casilla). */
-function ElegirEdicion({ nombre, editado, ocupado, onElegir, onCancelar }: { nombre?: string; editado?: boolean; ocupado: boolean; onElegir: (m: ModoEdicion) => void; onCancelar: () => void }) {
-  const opciones = OPCIONES_EDICION.filter(o => !editado || o.id !== "programar");
-  return (
-    <div className="rounded-xl border border-primary/40 bg-primary/[0.04] p-3 space-y-2" role="group" aria-label="Qué hacemos con este video">
-      <div className="flex items-start gap-2">
-        <p className="flex-1 text-[13px] font-semibold text-foreground">¿Qué hacemos con este video?{nombre ? <span className="block text-[11px] font-normal text-muted-foreground truncate">{nombre}</span> : null}</p>
-        <button type="button" aria-label="Cancelar" onClick={onCancelar} className="h-7 w-7 rounded-full border border-border inline-flex items-center justify-center"><X className="w-3.5 h-3.5" /></button>
-      </div>
-      <div className="grid gap-1.5 sm:grid-cols-2">
-        {opciones.map(o => (
-          <button key={o.id} type="button" disabled={ocupado} onClick={() => onElegir(o.id)}
-            className="rounded-lg border border-border bg-card p-2.5 text-left hover:border-foreground/40 disabled:opacity-50">
-            <span className="flex items-baseline justify-between gap-2">
-              <span className="text-[12px] font-semibold text-foreground">{o.titulo}</span>
-              <span className={`shrink-0 text-[10px] ${o.precio === "Gratis" ? "text-emerald-400" : "text-muted-foreground"}`}>{o.precio}</span>
-            </span>
-            <span className="block text-[11px] text-muted-foreground">{o.linea}</span>
-          </button>
-        ))}
-      </div>
-      {ocupado && <p className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground"><Loader2 className="w-3 h-3 animate-spin" /> Subiendo tu video…</p>}
     </div>
   );
 }

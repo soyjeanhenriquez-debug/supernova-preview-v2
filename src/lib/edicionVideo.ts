@@ -5,14 +5,23 @@
 import { aRecortado, type Tramo } from "@/lib/recorte";
 import type { Subtitle } from "@/lib/burnSubtitles";
 
-export type ModoEdicion = "programar" | "silencios" | "subtitulos" | "ia";
+import type { ModoEditar } from "@/lib/agenteEditor";
+import type { RDPlano, RDProps, RDTramo } from "@/remotion/ReelDinamico";
+import type { Word } from "@/lib/subtitleStyles";
 
-/** Las opciones que ve la persona al subir un video. `cr` = créditos fijos (las imágenes de B-roll se suman aparte). */
-export const OPCIONES_EDICION: { id: ModoEdicion; titulo: string; linea: string; precio: string }[] = [
+/** Lo que se elige al subir un video: programarlo tal cual, ponerle subtítulos o editarlo (simple, con B-roll o con plantilla). */
+export type ModoEdicion = "programar" | "subtitulos" | ModoEditar;
+
+/** Las 3 puertas al subir un video. «Editar» abre sus 3 formas (EDITAR_OPCIONES). */
+export const OPCIONES_EDICION: { id: "programar" | "subtitulos" | "editar"; titulo: string; linea: string; precio: string }[] = [
   { id: "programar", titulo: "Ya está editado: solo programarlo", linea: "Va tal cual a su casilla.", precio: "Gratis" },
-  { id: "silencios", titulo: "Quitarle los silencios", linea: "Corta las pausas largas. Sin subtítulos.", precio: "Gratis" },
-  { id: "subtitulos", titulo: "Subtítulos (y quitar silencios si quieres)", linea: "Eliges el estilo y lo ves antes de guardarlo.", precio: "20 créditos" },
-  { id: "ia", titulo: "Edición completa con IA", linea: "Subtítulos, sin silencios y B-roll con imágenes de IA.", precio: "20 créditos + 6 por imagen" },
+  { id: "subtitulos", titulo: "Subtítulos", linea: "Eliges entre 7 estilos y lo ves antes de guardarlo.", precio: "20 créditos" },
+  { id: "editar", titulo: "Editarlo", linea: "Simple, con B-roll o con una plantilla.", precio: "Desde gratis" },
+];
+export const EDITAR_OPCIONES: { id: ModoEditar; titulo: string; linea: string; precio: string }[] = [
+  { id: "simple", titulo: "Edición simple", linea: "Sin silencios y con acercamientos entre frases.", precio: "Gratis" },
+  { id: "broll", titulo: "Con B-roll", linea: "Subtítulos, sin silencios e imágenes de IA que ilustran lo que dices.", precio: "20 créditos + 6 por imagen" },
+  { id: "plantilla", titulo: "Plantilla Reel dinámico", linea: "Cortes cada ~2 s con transición y sonido, subtítulos cortos y B-roll.", precio: "20 créditos + 6 por imagen" },
 ];
 
 /** Lo que Para publicar le deja a «Sube tu video»: el video, la pieza de la casilla y lo que se pidió. */
@@ -106,4 +115,40 @@ export function visualBroll(m: MomentoBroll, tema: string): string {
   return (`Imagen de apoyo (B-roll) para un reel vertical. En ese momento la persona dice: «${m.texto}». `
     + (tema ? `El video trata de: ${tema.slice(0, 160)}. ` : "")
     + "Muestra una escena real y concreta que ilustre esa frase, fotográfica y con buena luz. Sin texto, letras ni logotipos.").slice(0, 600);
+}
+
+/**
+ * La plantilla Reel dinámico con TU video (30-oct-2026): un plano cada ~2 s (corte en salto con acercamiento), los
+ * B-roll a pantalla completa mientras sigue tu voz, y sin los silencios (cada tramo arranca en su segundo del video).
+ * `ts` = tramos que se quedan del original (vacío = el video entero); `words` y `brolls` en tiempo del video final.
+ */
+export function reelDinamicoConTuVideo(o: { src: string; dur: number; ts: Tramo[]; words: Word[]; brolls: { t: number; dur: number; src: string }[]; palabra: string }): { props: RDProps; segundos: number } {
+  const partes = o.ts.length ? o.ts : [{ a: 0, b: o.dur }];
+  const tramos: RDTramo[] = [];
+  let off = 0;
+  for (const x of partes) {
+    tramos.push({ desde: off, hasta: off + (x.b - x.a), clip: o.src, img: null, inicio: x.a, sonido: true });
+    off += x.b - x.a;
+  }
+  const total = off;
+  const cortes = new Set<number>([0, total]);
+  for (const tr of tramos) {
+    cortes.add(tr.desde);
+    const n = Math.max(1, Math.round((tr.hasta - tr.desde) / 2));
+    for (let k = 1; k < n; k++) cortes.add(tr.desde + ((tr.hasta - tr.desde) * k) / n);
+  }
+  for (const b of o.brolls) { cortes.add(Math.max(0, b.t)); cortes.add(Math.min(total, b.t + b.dur)); }
+  const ordenados = [...cortes].map(x => Math.round(x * 100) / 100).sort((a, b) => a - b).filter((x, i, l) => i === 0 || x - l[i - 1] > 0.05);
+  const planos: RDPlano[] = [];
+  for (let i = 0; i + 1 < ordenados.length; i++) {
+    const t0 = ordenados[i], t1 = ordenados[i + 1];
+    const tramo = Math.max(0, tramos.findIndex(tr => t0 >= tr.desde - 0.01 && t0 < tr.hasta));
+    const b = o.brolls.find(x => t0 >= x.t - 0.01 && t0 < x.t + x.dur);
+    planos.push(b ? { t0, t1, forma: "broll", tramo, top: { url: b.src, video: false, vertical: true }, enfasis: "" }
+      : { t0, t1, forma: "tu", tramo, top: null, enfasis: "" });
+  }
+  return {
+    props: { planos, tramos, audio: null, words: o.words, palabra: o.palabra, acento: "#F5A83B", fondo: "#0B0B0D", sfx: true },
+    segundos: total,
+  };
 }

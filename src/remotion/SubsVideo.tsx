@@ -82,7 +82,8 @@ export function SubsVideo(p: SubsProps) {
             const desde = Math.round(x.a * fps), hasta = Math.max(desde + 1, Math.round(x.b * fps));
             return (
               <Series.Sequence key={i} durationInFrames={hasta - desde} premountFor={fps}>
-                <Video src={p.src} muted={!!p.audioSrc} trimBefore={desde} trimAfter={hasta} style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${scale})`, transformOrigin: "50% 35%" }} />
+                {/* Sin subtítulos (edición simple), el acercamiento alterna en cada corte. */}
+                <Video src={p.src} muted={!!p.audioSrc} trimBefore={desde} trimAfter={hasta} style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${p.zoom && !p.words.length ? (i % 2 ? 1.12 : 1) : scale})`, transformOrigin: "50% 35%" }} />
                 {p.audioSrc && <Audio src={p.audioSrc} trimBefore={desde} trimAfter={hasta} />}
               </Series.Sequence>
             );

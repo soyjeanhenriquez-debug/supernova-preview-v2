@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { blockingIssue } from "@/lib/webRender";
 import { Player } from "@remotion/player";
-import { CalendarClock, Captions, Check, ChevronDown, Clapperboard, Copy, Download, Image as ImageIcon, Loader2, Mic, Scissors, Sparkles, Upload } from "lucide-react";
+import { CalendarClock, Captions, Check, ChevronDown, Clapperboard, Copy, Download, Image as ImageIcon, Loader2, MessageSquare, Mic, Send, Sparkles, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { invokeErrorMessage } from "@/lib/fnAuth";
 import { useBusinessProfile } from "@/lib/businessProfile";
@@ -18,7 +18,10 @@ import { FONTS, SubsVideo, type SubsProps } from "@/remotion/SubsVideo";
 import { palabraDelCierre, tomarToma } from "@/lib/grabacion";
 import { duracion, palabrasRecortadas, repetidas, tramos, type Tramo } from "@/lib/recorte";
 import { useAuth } from "@/contexts/AuthContext";
-import { audioMono, momentosBroll, tomarEncargo, tramosPorAudio, visualBroll, type Encargo } from "@/lib/edicionVideo";
+import { EDITAR_OPCIONES, audioMono, momentosBroll, reelDinamicoConTuVideo, tomarEncargo, tramosPorAudio, visualBroll, type Encargo, type ModoEdicion } from "@/lib/edicionVideo";
+import { entender, type Accion, type ModoEditar } from "@/lib/agenteEditor";
+import { ReelDinamico } from "@/remotion/ReelDinamico";
+import { ElegirEdicion } from "@/components/subs/ElegirEdicion";
 
 /**
  * Sube tu video (Fase A, 16-oct-2026): tu video + subtítulos con estilo, portada, título arriba,
@@ -88,6 +91,15 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
   // Silencios sin subtítulos: se buscan en el audio, en tu navegador, sin IA ni créditos.
   const [tsAudio, setTsAudio] = useState<Tramo[] | null>(null);
   const [brolls, setBrolls] = useState<{ t: number; dur: number; src: string }[]>([]);
+  // Las 2 secciones (30-oct-2026, Jean): al elegir el video se pregunta qué hacer y se abre Subtítulos o Editar.
+  const [seccion, setSeccion] = useState<"subtitulos" | "editar" | null>(null);
+  const [modoEd, setModoEd] = useState<ModoEditar>("simple");
+  const brollPedido = useRef(false);
+  const subsEnCurso = useRef(false);
+  const [guardarPend, setGuardarPend] = useState(false);
+  // El agente editor: le escribes lo que quieres y la app lo hace (sin IA: entiende el pedido en tu navegador).
+  const [chat, setChat] = useState<{ de: "tu" | "editor"; texto: string }[]>([]);
+  const [pedido, setPedido] = useState("");
 
   useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
   useEffect(() => () => { if (vozUrl) URL.revokeObjectURL(vozUrl); }, [vozUrl]);
@@ -97,7 +109,7 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
     if (!f.type.startsWith("video/")) { toast.error("Elige un video (MP4 o MOV)."); return; }
     const u = URL.createObjectURL(f);
     setFile(f); setUrl(u); setRes(null); setHasImage(null); setMeta(null); setVoz(false); setVozUrl(null); setDone(false); setWebIssue(null); setMantener(new Set());
-    setTsAudio(null); setBrolls([]);
+    setTsAudio(null); setBrolls([]); setSeccion(null); brollPedido.current = false;
     void readMeta(u).then(setMeta);
     void videoHasImage(f).then(setHasImage);
   };
@@ -108,7 +120,7 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
     pick(t.file);
     const w = palabraDelCierre(t.guion);
     if (w) setCierre(w);
-    setRecortar(true); setDesdeGuion(true);
+    setRecortar(true); setDesdeGuion(true); setSeccion("subtitulos");
     toast.success("Tu toma está lista", { description: "Ahora toca «Hacer mis subtítulos»." });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -118,10 +130,17 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
     const { file: f, ...resto } = e;
     pick(f);
     setEncargo(resto);
-    setRecortar(true);
-    if (e.modo === "silencios") void buscarSilencios(f);
-    else toast.success("Tu video está aquí", { description: e.modo === "ia" ? "Toca «Hacer mis subtítulos» y después «Poner B-roll con IA»." : "Toca «Hacer mis subtítulos» y elige el estilo." });
+    elegir(e.modo, f);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Lo que la persona eligió para su video: se abre su sección y arranca solo lo que pidió (con su precio a la vista). */
+  const elegir = (m: Exclude<ModoEdicion, "programar">, f: File | null = file) => {
+    setRecortar(true);
+    if (m === "subtitulos") { setSeccion("subtitulos"); void makeSubs(f); return; }
+    setSeccion("editar"); setModoEd(m); setZoom(true);
+    if (m === "simple") void buscarSilencios(f);
+    else void makeSubs(f);
+  };
 
   const buscarSilencios = async (f: File | null = file) => {
     if (!f) return;
@@ -135,11 +154,13 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
     finally { setBusy(""); }
   };
 
-  const makeSubs = async () => {
-    if (!file || busy) return;
+  const makeSubs = async (f: File | null = file) => {
+    // Un solo pedido a la vez (el agente puede pedir subtítulos y B-roll en la misma frase: se cobra una vez).
+    if (!f || subsEnCurso.current) return;
+    subsEnCurso.current = true;
     try {
       setBusy("audio");
-      const { audio, seconds } = await extractAudio(file);
+      const { audio, seconds } = await extractAudio(f);
       setBusy("ia");
       const { data, error } = await supabase.functions.invoke("video-subtitles", {
         body: { audio, seconds, brief: { product: profile.product ?? "", who: profile.who ?? "" } },
@@ -153,7 +174,7 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
       else toast.success("Listo: tus subtítulos", { description: "Elige el estilo y mira cómo queda." });
     } catch (e) {
       toast.error(e instanceof Error && e.message ? e.message : "No se pudo procesar el video.");
-    } finally { setBusy(""); }
+    } finally { setBusy(""); subsEnCurso.current = false; }
   };
 
   const toggleVoz = async () => {
@@ -180,12 +201,22 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
   const nRep = rep.filter(i => !mantener.has(i)).length;
   const size = meta ? outSize(meta) : { width: 1080, height: 1920 };
   const durationInFrames = Math.max(FPS, Math.round((ts.length ? duracion(ts) : meta?.dur ?? 1) * FPS));
+  const wordsFinal = useMemo(() => (ts.length ? palabrasRecortadas(words, ts) : words), [words, ts]);
   const props: SubsProps = {
-    src: url ?? "", audioSrc: voz ? vozUrl : null, words: ts.length ? palabrasRecortadas(words, ts) : words, style, tramos: ts.length ? ts : undefined,
+    src: url ?? "", audioSrc: voz ? vozUrl : null, words: wordsFinal, style, tramos: ts.length ? ts : undefined,
     portada: portadaOn ? portada : null, tituloArriba: conTitulo ? tituloArriba : "", cierre,
-    zoom: style === "conversacion" && zoom, brolls,
+    zoom: (style === "conversacion" || seccion === "editar") && zoom, brolls,
   };
   const composition = { id: "subs", component: SubsVideo, durationInFrames, fps: FPS, ...size, defaultProps: props };
+  // Plantilla Reel dinámico con TU video: cortes cada ~2 s, transiciones con sonido, subtítulos cortos y el B-roll.
+  const rd = useMemo(() => (seccion === "editar" && modoEd === "plantilla" && res?.subtitulos.length && url && meta
+    ? reelDinamicoConTuVideo({ src: url, dur: meta.dur, ts, words: wordsFinal, brolls, palabra: cierre }) : null),
+    [seccion, modoEd, res?.subtitulos.length, url, meta, ts, wordsFinal, brolls, cierre]);
+  const final = rd
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? { id: "reel-dinamico", component: ReelDinamico as React.FC<any>, inputProps: rd.props as Record<string, unknown>, frames: Math.max(FPS, Math.round(rd.segundos * FPS)) }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    : { id: "subs", component: SubsVideo as React.FC<any>, inputProps: props as unknown as Record<string, unknown>, frames: durationInFrames };
   // El armador de video (web-renderer) pesa: se baja recién al tocar "Descargar".
   const renderer = () => import("@remotion/web-renderer");
 
@@ -197,7 +228,8 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
       const check = await canRenderMediaOnWeb({ ...size, container: "mp4", videoCodec: "h264" });
       { const why = blockingIssue(check); if (why) throw new Error(why); }
       const out = await renderMediaOnWeb({
-        composition, inputProps: props, container: "mp4", videoCodec: "h264",
+        composition: { id: final.id, component: final.component, durationInFrames: final.frames, fps: FPS, ...size, defaultProps: final.inputProps },
+        inputProps: final.inputProps, container: "mp4", videoCodec: "h264",
         onProgress: p => setProgress(Math.round(p.progress * 100)),
       });
       const blob = await out.getBlob();
@@ -276,16 +308,68 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
     } finally { setBusy(""); }
   };
 
-  const soloSilencios = encargo?.modo === "silencios" && !res;
-  const ready = !!res?.subtitulos.length || (soloSilencios && tsAudio !== null);
+  const ready = !!res?.subtitulos.length || (seccion === "editar" && modoEd === "simple" && tsAudio !== null);
   const step = !file ? 0 : !ready ? 1 : done ? 3 : 2;
+
+  // Con B-roll o plantilla, el B-roll sale solo en cuanto están los subtítulos (la persona lo eligió con su precio).
+  useEffect(() => {
+    if (seccion === "editar" && (modoEd === "broll" || modoEd === "plantilla") && res?.subtitulos.length && meta && !brolls.length && !brollPedido.current && !busy) {
+      brollPedido.current = true;
+      void ponerBroll();
+    }
+  }, [seccion, modoEd, res, meta, brolls.length, busy]); // eslint-disable-line react-hooks/exhaustive-deps
+  // «Guárdalo» del agente: espera a que termine lo que esté haciendo.
+  useEffect(() => {
+    if (guardarPend && !busy && ready) { setGuardarPend(false); void render(); }
+  }, [guardarPend, busy, ready]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const cambiarModo = (m: ModoEditar) => {
+    setModoEd(m); setSeccion("editar");
+    if (m === "simple") { if (!res && tsAudio === null) void buscarSilencios(); }
+    else if (!res) void makeSubs();
+  };
+
+  /** Aplica lo que el agente entendió. Lo que gasta (subtítulos, B-roll) se pide una sola vez al final. */
+  const aplicar = (acciones: Accion[]) => {
+    let subs = false, sil = false;
+    for (const a of acciones) {
+      switch (a.tipo) {
+        case "seccion": setSeccion(a.v); break;
+        case "modo": setModoEd(a.v); setSeccion("editar"); if (a.v === "simple") sil = true; else subs = true; break;
+        case "silencios": setRecortar(a.on); if (a.on) sil = true; break;
+        case "subtitulos": subs = true; break;
+        case "estilo": setStyle(a.v); break;
+        case "broll": setBrolls([]); brollPedido.current = false; setModoEd(m => (m === "simple" ? "broll" : m)); subs = true; break;
+        case "portada": setPortadaOn(true); if (a.titulo) setPortada({ titulo: a.titulo, acento: a.acento }); break;
+        case "portadaOff": setPortadaOn(false); break;
+        case "cierre": setCierre(a.palabra); break;
+        case "titulo": setTituloArriba(a.texto); if (!SUB_STYLE_BY_ID[style].tituloArriba) setStyle("impacto"); break;
+        case "voz": if (a.on && !voz) void toggleVoz(); else if (!a.on) setVoz(false); break;
+        case "zoom": setZoom(a.on); break;
+        case "guardar": setGuardarPend(true); break;
+      }
+    }
+    if (subs && !res) void makeSubs();
+    else if (sil && !res && tsAudio === null) void buscarSilencios();
+  };
+
+  const hablar = () => {
+    const txt = pedido.trim();
+    if (!txt) return;
+    setPedido("");
+    const { acciones, respuesta } = entender(txt);
+    let resp = respuesta;
+    if (acciones.length && !file) resp = "Primero elige tu video y después dime qué hacerle.";
+    else aplicar(acciones);
+    setChat(c => [...c.slice(-6), { de: "tu", texto: txt }, { de: "editor", texto: resp }]);
+  };
 
   const preview = (
     <div className="card-surface rounded-2xl p-3 sm:p-4">
       {url ? (
         <div className="mx-auto overflow-hidden rounded-xl bg-black [--pv-h:46dvh] lg:[--pv-h:68dvh]"
           style={{ aspectRatio: `${size.width} / ${size.height}`, width: `min(100%, 360px, calc(var(--pv-h) * ${size.width / size.height}))` }}>
-          <Player component={SubsVideo} inputProps={props} durationInFrames={durationInFrames} fps={FPS}
+          <Player component={final.component} inputProps={final.inputProps} durationInFrames={final.frames} fps={FPS}
             compositionWidth={size.width} compositionHeight={size.height} controls loop clickToPlay
             style={{ width: "100%", height: "100%" }} />
         </div>
@@ -297,8 +381,56 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
           <span className="text-[12px] text-muted-foreground">El que grabaste con tu celular, de hasta {MAX_VIDEO_SECONDS} segundos.</span>
         </button>
       )}
-      <p className="mt-2 text-center text-[11px] text-muted-foreground">{url ? (ready ? "Vista previa: así queda tu video." : "Haz los subtítulos para verlos aquí.") : "Aquí verás tu video con el estilo que elijas."}</p>
+      <p className="mt-2 text-center text-[11px] text-muted-foreground">{url ? (ready ? "Vista previa: así queda tu video." : !seccion ? "Elige qué hacemos con tu video." : "Aquí lo verás editado en cuanto esté.") : "Aquí verás tu video con el estilo que elijas."}</p>
     </div>
+  );
+
+  const subtitulosCard = !res ? (
+    <>
+      <button type="button" onClick={() => void makeSubs()} disabled={!file || !!busy}
+        className="btn-primary-nova inline-flex w-full min-h-[48px] items-center justify-center gap-2 rounded-xl text-sm font-semibold disabled:opacity-50">
+        {busy === "audio" ? <><Loader2 className="w-4 h-4 animate-spin" /> Leyendo el audio…</> : busy === "ia" ? <><Loader2 className="w-4 h-4 animate-spin" /> Escuchando tu video…</> : <><Captions className="w-4 h-4" /> Hacer mis subtítulos · {CREDIT_COSTS.video_subtitles} créditos</>}
+      </button>
+      <p className="text-[11px] text-muted-foreground">Solo mandamos el audio a la IA. Si falla, no se cobra.</p>
+    </>
+  ) : (
+    <details className="group">
+      <summary className="flex cursor-pointer list-none items-center justify-between text-sm text-foreground">
+        <span className="inline-flex items-center gap-1.5"><Check className="w-4 h-4 text-primary" /> {res.subtitulos.length} subtítulos · revisar textos</span>
+        <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
+      <ol className="mt-2 max-h-64 space-y-1.5 overflow-y-auto pr-1">
+        {res.subtitulos.map((s, i) => (
+          <li key={i} className="grid grid-cols-[52px_1fr] items-center gap-2">
+            <span className="text-[11px] tabular-nums text-muted-foreground">{s.desde.toFixed(1)} s</span>
+            <input value={s.texto} onChange={e => editSub(i, e.target.value)} className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-base sm:text-sm text-foreground focus:border-primary/60 focus:outline-none" />
+          </li>
+        ))}
+      </ol>
+      <button type="button" onClick={() => download(new Blob([toSrt(res.subtitulos)], { type: "text/plain" }), "subtitulos.srt")} className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-primary hover:underline"><Download className="w-3.5 h-3.5" /> Bajar .srt (CapCut)</button>
+    </details>
+  );
+
+  // Quitar silencios: con subtítulos usa sus tiempos (y quita frases repetidas); sin ellos, el volumen del audio. Gratis.
+  const silenciosToggle = (
+    <>
+      <Toggle on={recortar} busy={busy === "silencios"} disabled={!res && tsAudio === null && busy !== ""}
+        onClick={() => { if (!recortar && !res && tsAudio === null) void buscarSilencios(); setRecortar(v => !v); }}
+        title="Quitar silencios y repeticiones"
+        line={busy === "silencios" ? "Buscando las pausas…" : recortar && (res || tsAudio) ? `Se quitan ${quitados.toFixed(1).replace(".", ",")} s: pausas largas${nRep ? ` y ${nRep} frase${nRep > 1 ? "s" : ""} que repetiste` : ""}. Gratis.` : "Corta las pausas largas y, si repetiste una frase, deja solo la última. Gratis."} />
+      {recortar && rep.length > 0 && (
+        <ul className="space-y-1.5">
+          {rep.map(i => (
+            <li key={i}>
+              <label className="flex items-start gap-2 rounded-lg border border-border p-2 text-[12px]">
+                <input type="checkbox" className="mt-0.5" checked={!mantener.has(i)} onChange={() => setMantener(m => { const n = new Set(m); if (n.has(i)) n.delete(i); else n.add(i); return n; })} />
+                <span><span className="text-muted-foreground">Quitar el intento repetido: </span><span className="text-foreground">«{res?.subtitulos[i]?.texto}»</span></span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
   );
 
   const aside = (
@@ -318,82 +450,92 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
         {hasImage === false && <p role="alert" className="rounded-lg border border-primary/40 bg-primary/10 p-3 text-[12px] text-foreground">{NO_IMAGE_MSG}</p>}
       </Card>
 
-      {encargo?.modo === "silencios" && (
-        <Card label="Silencios · gratis">
-          {busy === "silencios" ? <p className="inline-flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Buscando las pausas…</p>
-            : tsAudio === null ? (
-              <button type="button" onClick={() => void buscarSilencios()} disabled={!file || !!busy} className="btn-primary-nova inline-flex w-full min-h-[48px] items-center justify-center gap-2 rounded-xl text-sm font-semibold disabled:opacity-50"><Scissors className="w-4 h-4" /> Quitar los silencios</button>
-            ) : <p className="inline-flex items-center gap-1.5 text-sm text-foreground"><Check className="w-4 h-4 text-primary" /> {quitados > 0.05 ? `Se quitan ${quitados.toFixed(1).replace(".", ",")} s de pausas.` : "No hay pausas largas que quitar."}</p>}
-          <p className="text-[11px] text-muted-foreground">Se corta en tu navegador, sin IA. Si quieres subtítulos, hazlos abajo.</p>
-        </Card>
-      )}
+      {file && !seccion && <ElegirEdicion onElegir={m => { if (m !== "programar") elegir(m); }} />}
 
-      {/* 2 · Subtítulos */}
-      <Card label={encargo?.modo === "silencios" ? "Subtítulos (opcional)" : "2 · Subtítulos"}>
-        {!res ? (
-          <>
-            <button type="button" onClick={makeSubs} disabled={!file || !!busy}
-              className="btn-primary-nova inline-flex w-full min-h-[48px] items-center justify-center gap-2 rounded-xl text-sm font-semibold disabled:opacity-50">
-              {busy === "audio" ? <><Loader2 className="w-4 h-4 animate-spin" /> Leyendo el audio…</> : busy === "ia" ? <><Loader2 className="w-4 h-4 animate-spin" /> Escuchando tu video…</> : <><Captions className="w-4 h-4" /> Hacer mis subtítulos · {CREDIT_COSTS.video_subtitles} créditos</>}
-            </button>
-            <p className="text-[11px] text-muted-foreground">Solo mandamos el audio a la IA. Si falla, no se cobra.</p>
-          </>
-        ) : (
-          <details className="group">
-            <summary className="flex cursor-pointer list-none items-center justify-between text-sm text-foreground">
-              <span className="inline-flex items-center gap-1.5"><Check className="w-4 h-4 text-primary" /> {res.subtitulos.length} subtítulos · revisar textos</span>
-              <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-180" />
-            </summary>
-            <ol className="mt-2 max-h-64 space-y-1.5 overflow-y-auto pr-1">
-              {res.subtitulos.map((s, i) => (
-                <li key={i} className="grid grid-cols-[52px_1fr] items-center gap-2">
-                  <span className="text-[11px] tabular-nums text-muted-foreground">{s.desde.toFixed(1)} s</span>
-                  <input value={s.texto} onChange={e => editSub(i, e.target.value)} className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-base sm:text-sm text-foreground focus:border-primary/60 focus:outline-none" />
-                </li>
-              ))}
-            </ol>
-            <button type="button" onClick={() => download(new Blob([toSrt(res.subtitulos)], { type: "text/plain" }), "subtitulos.srt")} className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-primary hover:underline"><Download className="w-3.5 h-3.5" /> Bajar .srt (CapCut)</button>
-          </details>
-        )}
-      </Card>
-
-      {/* 3 · Estilos de subtítulos y edición */}
-      <section aria-labelledby="estilos-titulo" className="space-y-3">
-        <div>
-          <h2 id="estilos-titulo" className="font-display text-lg font-semibold text-foreground">Estilos de subtítulos y edición</h2>
-          <p className="text-[12px] text-muted-foreground">Toca uno y míralo en tu video.</p>
-        </div>
-        <div role="radiogroup" aria-label="Estilo de subtítulos" className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:grid-cols-2 lg:overflow-visible lg:px-0">
-          {styles.map(s => (
-            <button key={s.id} type="button" role="radio" aria-checked={style === s.id} onClick={() => setStyle(s.id)}
-              className={`group w-[42vw] max-w-[180px] shrink-0 snap-start overflow-hidden rounded-xl border text-left transition-colors lg:w-auto lg:max-w-none ${style === s.id ? "border-primary ring-1 ring-primary" : "border-border hover:border-foreground/30"}`}>
-              <StyleThumb id={s.id} />
-              <span className="block px-2.5 pb-2.5 pt-2">
-                <span className="block text-[13px] font-semibold text-foreground">{s.nombre}</span>
-                <span className="block text-[11px] leading-snug text-muted-foreground">{s.linea}</span>
-              </span>
+      {file && seccion && (
+        <div role="tablist" aria-label="Sección" className="grid grid-cols-2 rounded-full border border-border p-0.5">
+          {(["subtitulos", "editar"] as const).map(x => (
+            <button key={x} type="button" role="tab" aria-selected={seccion === x} onClick={() => setSeccion(x)}
+              className={`h-10 rounded-full text-sm transition-colors ${seccion === x ? "bg-foreground text-background font-semibold" : "text-muted-foreground hover:text-foreground"}`}>
+              {x === "subtitulos" ? "Subtítulos" : "Editar"}
             </button>
           ))}
         </div>
+      )}
 
-        <Card label="Edición">
-          <Toggle on={recortar} onClick={() => setRecortar(v => !v)} disabled={!ready} title="Quitar silencios y repeticiones"
-            line={!ready ? "Primero haz los subtítulos." : recortar ? `Se quitan ${quitados.toFixed(1).replace(".", ",")} s: pausas largas${nRep ? ` y ${nRep} frase${nRep > 1 ? "s" : ""} que repetiste` : ""}. Gratis.` : "Corta las pausas largas y, si repetiste una frase, deja solo la última."} />
-          {recortar && rep.length > 0 && (
-            <ul className="space-y-1.5">
-              {rep.map(i => (
-                <li key={i}>
-                  <label className="flex items-start gap-2 rounded-lg border border-border p-2 text-[12px]">
-                    <input type="checkbox" className="mt-0.5" checked={!mantener.has(i)} onChange={() => setMantener(m => { const n = new Set(m); if (n.has(i)) n.delete(i); else n.add(i); return n; })} />
-                    <span><span className="text-muted-foreground">Quitar el intento repetido: </span><span className="text-foreground">«{res?.subtitulos[i]?.texto}»</span></span>
-                  </label>
-                </li>
+      {seccion === "subtitulos" && (
+        <>
+          <Card label="Subtítulos">{subtitulosCard}</Card>
+          <section aria-labelledby="estilos-titulo" className="space-y-3">
+            <div>
+              <h2 id="estilos-titulo" className="font-display text-lg font-semibold text-foreground">Estilos de subtítulos</h2>
+              <p className="text-[12px] text-muted-foreground">Toca uno y míralo en tu video.</p>
+            </div>
+            <div role="radiogroup" aria-label="Estilo de subtítulos" className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:grid-cols-2 lg:overflow-visible lg:px-0">
+              {styles.map(s => (
+                <button key={s.id} type="button" role="radio" aria-checked={style === s.id} onClick={() => setStyle(s.id)}
+                  className={`group w-[42vw] max-w-[180px] shrink-0 snap-start overflow-hidden rounded-xl border text-left transition-colors lg:w-auto lg:max-w-none ${style === s.id ? "border-primary ring-1 ring-primary" : "border-border hover:border-foreground/30"}`}>
+                  <StyleThumb id={s.id} />
+                  <span className="block px-2.5 pb-2.5 pt-2">
+                    <span className="block text-[13px] font-semibold text-foreground">{s.nombre}</span>
+                    <span className="block text-[11px] leading-snug text-muted-foreground">{s.linea}</span>
+                  </span>
+                </button>
               ))}
-            </ul>
+            </div>
+            <Card label="Detalles">
+              {silenciosToggle}
+              <Toggle on={portadaOn} onClick={() => setPortadaOn(v => !v)} title="Portada" line="Título grande y una palabra a mano en el primer segundo." />
+              {portadaOn && (
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Título" value={portada.titulo} max={28} onChange={v => setPortada(p => ({ ...p, titulo: v }))} placeholder="GRACIAS" />
+                  <Field label="Palabra a mano" value={portada.acento} max={18} onChange={v => setPortada(p => ({ ...p, acento: v }))} placeholder="Dios" />
+                </div>
+              )}
+              {conTitulo && (
+                <Field label="Título arriba (opcional; las palabras entre *asteriscos* van en azul)" value={tituloArriba} max={70} onChange={setTituloArriba} placeholder="3 errores que *frenan tus ventas*" />
+              )}
+              {style === "conversacion" && (
+                <Toggle on={zoom} onClick={() => setZoom(v => !v)} title="Acercamientos" line="Entre frases la cámara se acerca y se aleja, como cortes de edición." />
+              )}
+              <Field label="Cierre: palabra que comentan (opcional)" value={cierre} max={20} onChange={v => setCierre(v.replace(/\s+/g, "").toUpperCase())} placeholder="GEMELO" />
+              <Toggle on={voz} onClick={toggleVoz} busy={busy === "voz"} icon={<Mic className="w-4 h-4" />} title="Voz grave" line="Tu voz más grave y con cuerpo, como de locutor." disabled={!file} />
+            </Card>
+          </section>
+        </>
+      )}
+
+      {seccion === "editar" && (
+        <Card label="Cómo lo edito">
+          <div role="radiogroup" aria-label="Tipo de edición" className="grid gap-1.5">
+            {EDITAR_OPCIONES.map(o => (
+              <button key={o.id} type="button" role="radio" aria-checked={modoEd === o.id} disabled={!!busy && modoEd !== o.id} onClick={() => cambiarModo(o.id)}
+                className={`rounded-xl border p-2.5 text-left disabled:opacity-50 ${modoEd === o.id ? "border-primary ring-1 ring-primary" : "border-border hover:border-foreground/30"}`}>
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className="text-[13px] font-semibold text-foreground">{o.titulo}</span>
+                  <span className={`shrink-0 text-[10px] ${o.precio === "Gratis" ? "text-emerald-400" : "text-muted-foreground"}`}>{o.precio}</span>
+                </span>
+                <span className="block text-[11px] text-muted-foreground">{o.linea}</span>
+              </button>
+            ))}
+          </div>
+          {silenciosToggle}
+          {modoEd !== "plantilla" && (
+            <Toggle on={zoom} onClick={() => setZoom(v => !v)} title="Acercamientos" line="La cámara se acerca y se aleja entre frases, como cortes de edición." />
+          )}
+          {!res ? (
+            <div className="space-y-2">
+              {subtitulosCard}
+              {modoEd === "simple" && <p className="text-[11px] text-muted-foreground">En la edición simple los subtítulos son opcionales.</p>}
+            </div>
+          ) : (
+            <p className="text-[12px] text-muted-foreground">
+              <Check className="mr-1 inline w-3.5 h-3.5 text-primary" />{res.subtitulos.length} subtítulos{modoEd === "plantilla" ? " cortos, al ritmo de la plantilla." : <> estilo {SUB_STYLE_BY_ID[style].nombre}. <button type="button" onClick={() => setSeccion("subtitulos")} className="text-primary hover:underline">Cambiar estilo o textos</button></>}
+            </p>
           )}
           {res?.subtitulos.length ? (
             <button type="button" onClick={() => void ponerBroll()} disabled={!!busy}
-              className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left hover:bg-secondary/40 disabled:opacity-50 ${encargo?.modo === "ia" && !brolls.length ? "border-primary/60" : "border-border"}`}>
+              className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left hover:bg-secondary/40 disabled:opacity-50 ${modoEd !== "simple" && !brolls.length ? "border-primary/60" : "border-border"}`}>
               <span className="text-muted-foreground">{busy === "broll" ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <Clapperboard className="w-4 h-4" />}</span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-medium text-foreground">{brolls.length ? `B-roll listo (${brolls.length}) · hacerlo de nuevo` : "Poner B-roll con IA"}</span>
@@ -401,26 +543,31 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
               </span>
             </button>
           ) : null}
-          <Toggle on={portadaOn} onClick={() => setPortadaOn(v => !v)} title="Portada" line="Título grande y una palabra a mano en el primer segundo." />
-          {portadaOn && (
-            <div className="grid grid-cols-2 gap-2">
-              <Field label="Título" value={portada.titulo} max={28} onChange={v => setPortada(p => ({ ...p, titulo: v }))} placeholder="GRACIAS" />
-              <Field label="Palabra a mano" value={portada.acento} max={18} onChange={v => setPortada(p => ({ ...p, acento: v }))} placeholder="Dios" />
-            </div>
-          )}
-          {conTitulo && (
-            <Field label="Título arriba (opcional; las palabras entre *asteriscos* van en azul)" value={tituloArriba} max={70} onChange={setTituloArriba} placeholder="3 errores que *frenan tus ventas*" />
-          )}
-          {style === "conversacion" && (
-            <Toggle on={zoom} onClick={() => setZoom(v => !v)} title="Acercamientos" line="Entre frases la cámara se acerca y se aleja, como cortes de edición." />
-          )}
-          <Field label="Cierre: palabra que comentan (opcional)" value={cierre} max={20} onChange={v => setCierre(v.replace(/\s+/g, "").toUpperCase())} placeholder="GEMELO" />
-          <Toggle on={voz} onClick={toggleVoz} busy={busy === "voz"} icon={<Mic className="w-4 h-4" />} title="Voz grave" line="Tu voz más grave y con cuerpo, como de locutor." disabled={!file} />
+          <Field label={modoEd === "plantilla" ? "Cierre con golpe: palabra que comentan (opcional)" : "Cierre: palabra que comentan (opcional)"} value={cierre} max={20} onChange={v => setCierre(v.replace(/\s+/g, "").toUpperCase())} placeholder="GEMELO" />
         </Card>
-      </section>
+      )}
 
-      {/* 4 · Descargar */}
-      <Card label={encargo ? "4 · A tu casilla" : "4 · Descarga"}>
+      {file && seccion && (
+        <Card label="Habla con tu editor">
+          {chat.length > 0 && (
+            <ul className="max-h-48 space-y-1.5 overflow-y-auto" aria-live="polite">
+              {chat.map((m, k) => (
+                <li key={k} className={`rounded-lg px-2.5 py-1.5 text-[12px] ${m.de === "tu" ? "ml-6 bg-secondary/60 text-foreground" : "mr-6 border border-border text-foreground"}`}>{m.texto}</li>
+              ))}
+            </ul>
+          )}
+          <form onSubmit={e => { e.preventDefault(); hablar(); }} className="flex items-center gap-2">
+            <MessageSquare className="w-4 h-4 shrink-0 text-muted-foreground" />
+            <input value={pedido} onChange={e => setPedido(e.target.value.slice(0, 300))} placeholder="Ej.: quita los silencios, subtítulos Impacto y B-roll"
+              aria-label="Pídele algo a tu editor" className="min-h-[44px] w-full rounded-lg border border-border bg-background px-3 text-base sm:text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary/60 focus:outline-none" />
+            <button type="submit" aria-label="Enviar" disabled={!pedido.trim()} className="h-10 w-10 shrink-0 rounded-full bg-primary text-primary-foreground inline-flex items-center justify-center disabled:opacity-50"><Send className="w-4 h-4" /></button>
+          </form>
+          <p className="text-[11px] text-muted-foreground">Dile qué quieres con tus palabras: silencios, subtítulos y su estilo, B-roll, plantilla, portada, cierre, voz grave o «guárdalo».</p>
+        </Card>
+      )}
+
+      {/* Descargar o guardar en la casilla */}
+      {seccion && <Card label={encargo ? "A tu casilla" : "Descarga"}>
         <button type="button" onClick={render} disabled={!ready || !!busy}
           className="btn-primary-nova inline-flex w-full min-h-[52px] items-center justify-center gap-2 rounded-xl text-sm font-semibold disabled:opacity-50">
           {busy === "render" ? <><Loader2 className="w-4 h-4 animate-spin" /> Armando tu video… {progress} %</> : encargo ? <><CalendarClock className="w-4 h-4" /> Guardar en mi casilla · gratis</> : <><Sparkles className="w-4 h-4" /> Descargar mi video · gratis</>}
@@ -434,7 +581,7 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
         )}
         {webIssue && <p role="alert" className="rounded-lg border border-primary/40 bg-primary/10 p-3 text-[12px] text-foreground">{webIssue}</p>}
         <p className="text-[11px] text-muted-foreground">Se arma en tu navegador: tarda más o menos lo que dura tu video. No cierres la pestaña.</p>
-      </Card>
+      </Card>}
 
       {res && (res.pie || res.hashtags?.length) ? (
         <details className="card-surface group rounded-2xl p-4">

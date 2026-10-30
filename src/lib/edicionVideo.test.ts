@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dejarEncargo, momentosBroll, tomarEncargo, tramosPorAudio, visualBroll } from "@/lib/edicionVideo";
+import { dejarEncargo, momentosBroll, reelDinamicoConTuVideo, tomarEncargo, tramosPorAudio, visualBroll } from "@/lib/edicionVideo";
 
 const SR = 16_000;
 /** Audio de prueba: tramos [desde, hasta, amplitud] sobre un ruido de fondo muy bajo. */
@@ -53,11 +53,31 @@ describe("momentosBroll", () => {
 describe("encargo y descripción", () => {
   it("el encargo se recoge una sola vez", () => {
     const file = new File(["x"], "v.mp4", { type: "video/mp4" });
-    dejarEncargo({ file, itemId: "1", modo: "ia", caption: "" });
+    dejarEncargo({ file, itemId: "1", modo: "broll", caption: "" });
     expect(tomarEncargo()?.itemId).toBe("1");
     expect(tomarEncargo()).toBeNull();
   });
   it("la descripción del B-roll nunca pasa de 600 caracteres", () => {
     expect(visualBroll({ t: 4, dur: 1.8, texto: "x".repeat(400) }, "y".repeat(400)).length).toBeLessThanOrEqual(600);
+  });
+});
+
+describe("Reel dinámico con tu video", () => {
+  it("cada tramo arranca en su segundo del video (sin silencios), con su sonido, y planos de ~2 s", () => {
+    const { props, segundos } = reelDinamicoConTuVideo({ src: "blob:v", dur: 20, ts: [{ a: 1, b: 7 }, { a: 10, b: 14 }], words: [], brolls: [], palabra: "" });
+    expect(segundos).toBeCloseTo(10);
+    expect(props.tramos).toEqual([
+      { desde: 0, hasta: 6, clip: "blob:v", img: null, inicio: 1, sonido: true },
+      { desde: 6, hasta: 10, clip: "blob:v", img: null, inicio: 10, sonido: true },
+    ]);
+    expect(props.planos.every(p => p.t1 - p.t0 <= 2.1)).toBe(true);
+    expect(props.planos[props.planos.length - 1].t1).toBeCloseTo(10);
+  });
+  it("el B-roll tapa justo su momento y el resto eres tú", () => {
+    const { props } = reelDinamicoConTuVideo({ src: "v", dur: 12, ts: [], words: [], brolls: [{ t: 4, dur: 1.8, src: "img" }], palabra: "GUIA" });
+    const b = props.planos.filter(p => p.forma === "broll");
+    expect(b).toHaveLength(1);
+    expect(b[0]).toMatchObject({ t0: 4, t1: 5.8, top: { url: "img" } });
+    expect(props.palabra).toBe("GUIA");
   });
 });

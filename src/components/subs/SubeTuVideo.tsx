@@ -21,6 +21,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { EDITAR_OPCIONES, audioMono, momentosBroll, reelDinamicoConTuVideo, tomarEncargo, tramosPorAudio, visualBroll, type Encargo, type ModoEdicion } from "@/lib/edicionVideo";
 import { entender, type Accion, type ModoEditar } from "@/lib/agenteEditor";
 import { ReelDinamico } from "@/remotion/ReelDinamico";
+import { PlantillaVideo, type PlantillaProps } from "@/remotion/PlantillaVideo";
+import { PLANTILLAS, clavesDe, momentosFinales, type Momento, type PlantillaId } from "@/lib/plantillasVideo";
 import { ElegirEdicion } from "@/components/subs/ElegirEdicion";
 
 /**
@@ -29,7 +31,9 @@ import { ElegirEdicion } from "@/components/subs/ElegirEdicion";
  * descarga: se arma gratis en tu navegador (renderMediaOnWeb). Solo el audio va a la IA (20 créditos).
  * Mobile first: en el teléfono la vista previa va arriba y las opciones debajo.
  */
-type SubsResult = { subtitulos: Subtitle[]; gancho?: { detiene?: boolean; por_que?: string; propuestas?: string[] }; pie?: string; hashtags?: string[]; nota?: string };
+type SubsResult = { subtitulos: Subtitle[]; gancho?: { detiene?: boolean; por_que?: string; propuestas?: string[] }; pie?: string; hashtags?: string[]; nota?: string;
+  /** Plan para las plantillas (la misma escucha, sin cobro extra). */
+  letrero?: string; momentos?: Momento[] };
 type Meta = { w: number; h: number; dur: number };
 const FPS = 30;
 
@@ -94,6 +98,8 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
   // Las 2 secciones (30-oct-2026, Jean): al elegir el video se pregunta qué hacer y se abre Subtítulos o Editar.
   const [seccion, setSeccion] = useState<"subtitulos" | "editar" | null>(null);
   const [modoEd, setModoEd] = useState<ModoEditar>("simple");
+  const [plantillaId, setPlantillaId] = useState<PlantillaId>("dinamico");
+  const [letrero, setLetrero] = useState("");
   const brollPedido = useRef(false);
   const subsEnCurso = useRef(false);
   const [guardarPend, setGuardarPend] = useState(false);
@@ -163,11 +169,12 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
       const { audio, seconds } = await extractAudio(f);
       setBusy("ia");
       const { data, error } = await supabase.functions.invoke("video-subtitles", {
-        body: { audio, seconds, brief: { product: profile.product ?? "", who: profile.who ?? "" } },
+        body: { audio, seconds, plan: true, brief: { product: profile.product ?? "", who: profile.who ?? "" } },
       });
       if (error || !Array.isArray(data?.subtitulos)) throw new Error(error ? await invokeErrorMessage(error, "No se pudieron hacer los subtítulos. No se te cobró.") : (data?.error || "No se pudieron hacer los subtítulos. No se te cobró."));
       if (data.billing) applyServerCharge("video_subtitles", data.billing, "Subtítulos y gancho");
       setRes(data as SubsResult);
+      if (typeof data.letrero === "string") setLetrero(l => l || data.letrero);
       const first = (data.subtitulos as Subtitle[])[0]?.texto ?? "";
       setPortada(p => p.titulo ? p : { titulo: first.split(/\s+/).slice(0, 3).join(" ").replace(/[.,;:]+$/, ""), acento: "" });
       if (!data.subtitulos.length) toast("No escuchamos voz en ese video", { description: data.nota || "Prueba con un video donde hables." });
@@ -209,10 +216,19 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
   };
   const composition = { id: "subs", component: SubsVideo, durationInFrames, fps: FPS, ...size, defaultProps: props };
   // Plantilla Reel dinámico con TU video: cortes cada ~2 s, transiciones con sonido, subtítulos cortos y el B-roll.
-  const rd = useMemo(() => (seccion === "editar" && modoEd === "plantilla" && res?.subtitulos.length && url && meta
+  const conPlantilla = seccion === "editar" && modoEd === "plantilla" && !!res?.subtitulos.length && !!url && !!meta;
+  const rd = useMemo(() => (conPlantilla && plantillaId === "dinamico" && url && meta
     ? reelDinamicoConTuVideo({ src: url, dur: meta.dur, ts, words: wordsFinal, brolls, palabra: cierre }) : null),
-    [seccion, modoEd, res?.subtitulos.length, url, meta, ts, wordsFinal, brolls, cierre]);
-  const final = rd
+    [conPlantilla, plantillaId, url, meta, ts, wordsFinal, brolls, cierre]);
+  // Las otras 6 plantillas: tu toma sin silencios + el diseño de cada una con los momentos clave de lo que dices.
+  const pv = useMemo((): PlantillaProps | null => (conPlantilla && plantillaId !== "dinamico" && url && res
+    ? { plantilla: plantillaId, src: url, tramos: ts, words: wordsFinal, claves: clavesDe(res.subtitulos), letrero, cierre,
+      momentos: momentosFinales(res.momentos ?? [], plantillaId, ts, durationInFrames / FPS, !!cierre) }
+    : null), [conPlantilla, plantillaId, url, res, ts, wordsFinal, letrero, cierre, durationInFrames]);
+  const final = pv
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? { id: "plantilla", component: PlantillaVideo as React.FC<any>, inputProps: pv as unknown as Record<string, unknown>, frames: durationInFrames }
+    : rd
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ? { id: "reel-dinamico", component: ReelDinamico as React.FC<any>, inputProps: rd.props as Record<string, unknown>, frames: Math.max(FPS, Math.round(rd.segundos * FPS)) }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -313,11 +329,11 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
 
   // Con B-roll o plantilla, el B-roll sale solo en cuanto están los subtítulos (la persona lo eligió con su precio).
   useEffect(() => {
-    if (seccion === "editar" && (modoEd === "broll" || modoEd === "plantilla") && res?.subtitulos.length && meta && !brolls.length && !brollPedido.current && !busy) {
+    if (seccion === "editar" && (modoEd === "broll" || (modoEd === "plantilla" && plantillaId === "dinamico")) && res?.subtitulos.length && meta && !brolls.length && !brollPedido.current && !busy) {
       brollPedido.current = true;
       void ponerBroll();
     }
-  }, [seccion, modoEd, res, meta, brolls.length, busy]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [seccion, modoEd, plantillaId, res, meta, brolls.length, busy]); // eslint-disable-line react-hooks/exhaustive-deps
   // «Guárdalo» del agente: espera a que termine lo que esté haciendo.
   useEffect(() => {
     if (guardarPend && !busy && ready) { setGuardarPend(false); void render(); }
@@ -336,6 +352,7 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
       switch (a.tipo) {
         case "seccion": setSeccion(a.v); break;
         case "modo": setModoEd(a.v); setSeccion("editar"); if (a.v === "simple") sil = true; else subs = true; break;
+        case "plantilla": setPlantillaId(a.v); break;
         case "silencios": setRecortar(a.on); if (a.on) sil = true; break;
         case "subtitulos": subs = true; break;
         case "estilo": setStyle(a.v); break;
@@ -519,6 +536,24 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
               </button>
             ))}
           </div>
+          {modoEd === "plantilla" && (
+            <div role="radiogroup" aria-label="Plantilla" className="grid grid-cols-2 gap-1.5">
+              {PLANTILLAS.map(x => (
+                <button key={x.id} type="button" role="radio" aria-checked={plantillaId === x.id} onClick={() => { setPlantillaId(x.id); if (!res) void makeSubs(); }}
+                  className={`rounded-lg border p-2 text-left ${plantillaId === x.id ? "border-primary ring-1 ring-primary" : "border-border hover:border-foreground/30"}`}>
+                  <span className="block text-[12px] font-semibold text-foreground">{x.nombre}</span>
+                  <span className="block text-[10px] leading-snug text-muted-foreground">{x.linea}</span>
+                  <span className="mt-1 block text-[10px] text-muted-foreground/70">{x.origen}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {modoEd === "plantilla" && plantillaId !== "dinamico" && (
+            <>
+              <Field label="Letrero (arriba o en la portada de la plantilla)" value={letrero} max={50} onChange={setLetrero} placeholder="Faltan 2 meses" />
+              {res && !res.momentos?.length && <p className="text-[11px] text-muted-foreground">No encontramos cifras, pasos ni casos en lo que dices: la plantilla va con tus subtítulos y su estilo.</p>}
+            </>
+          )}
           {silenciosToggle}
           {modoEd !== "plantilla" && (
             <Toggle on={zoom} onClick={() => setZoom(v => !v)} title="Acercamientos" line="La cámara se acerca y se aleja entre frases, como cortes de edición." />

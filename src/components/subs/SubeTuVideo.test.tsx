@@ -34,7 +34,7 @@ describe("Sube tu video: qué hacemos con tu video", () => {
     expect(await screen.findByText("¿Qué hacemos con este video?")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /solo programarlo/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /^Editarlo/ }));
-    for (const t of ["Edición simple", "Con B-roll", "Plantilla Reel dinámico"]) expect(screen.getByRole("button", { name: new RegExp(`^${t}`) })).toBeInTheDocument();
+    for (const t of ["Edición simple", "Con B-roll", "Con plantilla"]) expect(screen.getByRole("button", { name: new RegExp(`^${t}`) })).toBeInTheDocument();
   });
   it("«Subtítulos» abre la sección de subtítulos y los hace", async () => {
     invocaciones.length = 0;

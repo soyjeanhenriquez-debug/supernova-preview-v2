@@ -78,7 +78,7 @@ describe("Para publicar", () => {
     expect(await screen.findByText("¿Qué hacemos con este video?")).toBeInTheDocument();
     for (const t of ["Ya está editado: solo programarlo", "Subtítulos", "Editarlo"]) expect(screen.getByRole("button", { name: new RegExp(`^${t}`) })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /^Editarlo/ }));
-    for (const t of ["Edición simple", "Con B-roll", "Plantilla Reel dinámico"]) expect(screen.getByRole("button", { name: new RegExp(`^${t}`) })).toBeInTheDocument();
+    for (const t of ["Edición simple", "Con B-roll", "Con plantilla"]) expect(screen.getByRole("button", { name: new RegExp(`^${t}`) })).toBeInTheDocument();
   });
   it("una pieza ya subida se puede mandar a editar (sin la opción de solo programar)", async () => {
     await irAManana();

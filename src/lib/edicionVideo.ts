@@ -21,7 +21,7 @@ export const OPCIONES_EDICION: { id: "programar" | "subtitulos" | "editar"; titu
 export const EDITAR_OPCIONES: { id: ModoEditar; titulo: string; linea: string; precio: string }[] = [
   { id: "simple", titulo: "Edición simple", linea: "Sin silencios y con acercamientos entre frases.", precio: "Gratis" },
   { id: "broll", titulo: "Con B-roll", linea: "Subtítulos, sin silencios e imágenes de IA que ilustran lo que dices.", precio: "20 créditos + 6 por imagen" },
-  { id: "plantilla", titulo: "Plantilla Reel dinámico", linea: "Cortes cada ~2 s con transición y sonido, subtítulos cortos y B-roll.", precio: "20 créditos + 6 por imagen" },
+  { id: "plantilla", titulo: "Con plantilla", linea: "Reel dinámico, Explicador, Set + fichas, Desfile de casos, Lista, Íconos o Urgencia.", precio: "20 créditos" },
 ];
 
 /** Lo que Para publicar le deja a «Sube tu video»: el video, la pieza de la casilla y lo que se pidió. */

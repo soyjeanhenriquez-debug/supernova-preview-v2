@@ -2,11 +2,13 @@
 // y la app lo debe entender y, dentro de las posibilidades, hacerlo»). Entiende el pedido en español sin IA (gratis y
 // al instante) y lo convierte en acciones que «Sube tu video» sabe hacer. Lo que no puede, lo dice y ofrece lo que sí.
 import type { StyleId } from "@/lib/subtitleStyles";
+import type { PlantillaId } from "@/lib/plantillasVideo";
 
 export type ModoEditar = "simple" | "broll" | "plantilla";
 export type Accion =
   | { tipo: "seccion"; v: "subtitulos" | "editar" }
   | { tipo: "modo"; v: ModoEditar }
+  | { tipo: "plantilla"; v: PlantillaId }
   | { tipo: "silencios"; on: boolean }
   | { tipo: "subtitulos" }
   | { tipo: "estilo"; v: StyleId }
@@ -20,7 +22,7 @@ export type Accion =
   | { tipo: "guardar" };
 
 export const PUEDO = "Puedo quitar silencios, poner subtítulos (Impacto, Conversación, Minimal, Una palabra, Palabra en color, Clásico o En caja), "
-  + "poner B-roll con IA, usar la plantilla Reel dinámico, poner portada, título arriba, cierre «Comenta PALABRA», acercamientos y voz grave, y guardarlo.";
+  + "poner B-roll con IA, usar una plantilla (Reel dinámico, Explicador, Set + fichas, Desfile de casos, Lista, Íconos o Urgencia), poner portada, título arriba, cierre «Comenta PALABRA», acercamientos y voz grave, y guardarlo.";
 
 const norm = (s: string) => s.toLocaleLowerCase("es").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
 
@@ -32,6 +34,16 @@ const ESTILOS: [RegExp, StyleId, string][] = [
   [/palabra en color|resaltad|en color/, "resaltado", "Palabra en color"],
   [/clasico/, "clasico", "Clásico"],
   [/\bcaja\b/, "caja", "En caja"],
+];
+
+const PLANTILLA_RE: [RegExp, PlantillaId, string][] = [
+  [/reel dinamico|\bdinamico/, "dinamico", "Reel dinámico"],
+  [/explicador/, "explicador", "Explicador"],
+  [/\bset\b|fichas/, "set", "Set + fichas"],
+  [/desfile|tarjetas de casos|\bcasos\b/, "desfile", "Desfile de casos"],
+  [/\blista\b|numerad/, "lista", "Lista numerada"],
+  [/iconos|emojis/, "iconos", "Charla con íconos"],
+  [/urgencia|letrero/, "urgencia", "Letrero de urgencia"],
 ];
 
 /** Lo que va entre comillas o después de «que diga» / «:» en el texto original (con sus tildes y mayúsculas). */
@@ -53,7 +65,9 @@ export function entender(texto: string): { acciones: Accion[]; respuesta: string
     a.push({ tipo: "silencios", on: !dejar });
     dice.push(dejar ? "dejo las pausas como están" : "quito los silencios");
   }
-  if (/plantilla|reel dinamico|\bdinamico/.test(t)) { a.push({ tipo: "modo", v: "plantilla" }); dice.push("uso la plantilla Reel dinámico"); }
+  const pl = PLANTILLA_RE.find(([re]) => re.test(t));
+  if (pl) { a.push({ tipo: "modo", v: "plantilla" }, { tipo: "plantilla", v: pl[1] }); dice.push(`uso la plantilla ${pl[2]}`); }
+  else if (/plantilla/.test(t)) { a.push({ tipo: "modo", v: "plantilla" }); dice.push("abro las plantillas"); }
   else if (/b-?roll|imagenes de apoyo|imagenes con ia|tomas de apoyo/.test(t) && !no("b-?roll")) { a.push({ tipo: "modo", v: "broll" }, { tipo: "broll" }); dice.push("pongo B-roll con IA"); }
   else if (/edicion simple|\bsimple\b/.test(t)) { a.push({ tipo: "modo", v: "simple" }); dice.push("hago una edición simple"); }
 

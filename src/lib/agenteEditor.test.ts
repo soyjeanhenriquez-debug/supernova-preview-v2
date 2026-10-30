@@ -16,7 +16,10 @@ describe("agente editor", () => {
     expect(entender("no quites los silencios").acciones).toContainEqual({ tipo: "silencios", on: false });
   });
   it("entiende la plantilla y la edición simple", () => {
-    expect(entender("hazlo con la plantilla de reel dinámico").acciones).toContainEqual({ tipo: "modo", v: "plantilla" });
+    expect(entender("hazlo con la plantilla de reel dinámico").acciones).toContainEqual({ tipo: "plantilla", v: "dinamico" });
+    expect(entender("usa la lista numerada").acciones).toContainEqual({ tipo: "plantilla", v: "lista" });
+    expect(entender("ponle la plantilla explicador").acciones).toContainEqual({ tipo: "modo", v: "plantilla" });
+    expect(entender("con íconos al lado").acciones).toContainEqual({ tipo: "plantilla", v: "iconos" });
     expect(entender("solo una edición simple").acciones).toContainEqual({ tipo: "modo", v: "simple" });
   });
   it("portada, cierre y título con su texto", () => {

@@ -103,7 +103,8 @@ export function LanzarPage() {
         .in("offer_type", ["infoproducto", "saas_app", "comunidad"]);
       if (canal !== "all") q = q.filter("canal", "eq", canal);
       if (tema !== "all") q = q.eq("niche", tema);
-      if (idioma !== "all") q = q.eq("language", idioma);
+      // "Decide tú" = español o portugués: lo que se modela más fácil para LATAM (lo de EE. UU. en inglés queda fuera).
+      q = idioma !== "all" ? q.eq("language", idioma) : q.in("language", ["es", "pt"]);
       const { data } = await q.order("escala" as never, { ascending: false }).order("days_active", { ascending: false }).limit(3);
       if (vivo) { setOpciones((data ?? []) as unknown as Offer[]); setCargando(false); }
     })();

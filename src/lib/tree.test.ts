@@ -14,9 +14,9 @@ const GEN_SRC = fs.readFileSync(path.resolve(__dirname, "./generators.ts"), "utf
 const tabs = TREE.flatMap(b => b.leaves.flatMap(l => l.tabs));
 
 describe("El árbol de SUPERNOVA", () => {
-  it("tiene 4 ramas numeradas y 14 hojas", () => {
+  it("tiene 4 ramas numeradas y 15 hojas (29-oct: «Elige qué lanzar», Ulises)", () => {
     expect(TREE.map(b => b.n)).toEqual([1, 2, 3, 4]);
-    expect(TREE.flatMap(b => b.leaves)).toHaveLength(14);
+    expect(TREE.flatMap(b => b.leaves)).toHaveLength(15);
   });
 
   it("cada pestaña abre una pantalla de Index.tsx con dirección propia", () => {

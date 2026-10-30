@@ -38,7 +38,8 @@ describe("herramientas", () => {
     }
     // 23 desde el 13-oct-2026: "Sube tu video" (sección Con tu cara, pedida por Jean).
     // 25 desde el 20-oct-2026: "Quitar marca" y "Estudio de avatar" (pedidos por Jean).
-    expect(GRID_TOOLS.length).toBeLessThanOrEqual(25);
+    // 26 desde el 29-oct-2026: "Elige qué lanzar" (Ulises, el agente de lanzamiento).
+    expect(GRID_TOOLS.length).toBeLessThanOrEqual(26);
   });
   it("Order bump abre su propia pantalla, no Robot de copy", () => {
     expect(TOOL_BY_ID.bump.key).toBe("Order bump");

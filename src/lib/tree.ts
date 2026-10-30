@@ -75,6 +75,9 @@ const VIDEO_DOORS: TreeDoor[] = [
 
 export const TREE: TreeBranch[] = [
   { id: "encontrar", n: 1, name: "Encuentra qué vender", short: "Encuentra", q: "¿Qué vendo?", icon: Compass, leaves: [
+    { id: "lanzar", name: "Elige qué lanzar", free: true, desc: "Ulises te propone 3 negocios que ya venden y te deja el plan con el equipo.", tabs: [
+      { label: "Elige qué lanzar", page: "Lanzar" },
+    ] },
     { id: "ofertas", name: "Ofertas que venden", free: true, desc: "Negocios digitales que ya venden, con su precio y su embudo.", tabs: [
       { label: "Ofertas", page: "Ofertas" }, { label: "Mini Apps", page: "Mini Apps" },
     ] },

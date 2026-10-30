@@ -1,7 +1,7 @@
 // SUPERNOVA — El equipo de agentes (29-oct-2026, Jean: «ponle nombre de vengadores… que los usuarios conozcan, no
 // inventados»). Personajes que todos conocen y que no son de nadie (mitología, leyendas y clásicos de dominio público):
 // Marvel, Juego de Tronos o Breaking Bad son marcas con dueño y un producto que cobra se expone a un reclamo.
-// Cada nombre va con lo que hace: Hefesto forja, Dédalo construye, Hermes vende, Argos vigila con cien ojos…
+// Cada nombre va con lo que hace: Hefesto forja, Prometeo da las herramientas, Hermes vende, Argos vigila con cien ojos…
 // Misión común (Jean, 29-oct-2026): apoyar en todo al usuario para crear y lanzar Mini Apps y productos digitales,
 // sin límites de creación, con 2-3 preguntas orientativas, siempre entregar algo usable y cerrar con UNA pregunta
 // de avance real hacia su logro. La misión del servidor está en supabase/functions/_shared/misionAgente.ts.
@@ -28,9 +28,9 @@ export type Agente = {
 };
 
 export const AGENTES: Record<AgenteId, Agente> = {
-  lanzamiento: { id: "lanzamiento", nombre: "Ulises", emoji: "🛡️", etiqueta: "tu agente de lanzamiento", rol: "Elige contigo qué lanzar con datos reales y dirige al equipo hasta dejarlo listo.", ruta: null, siguiente: "producto", avance: "¿Creamos ya el producto de esta oferta?" },
+  lanzamiento: { id: "lanzamiento", nombre: "Ulises", emoji: "🛡️", etiqueta: "tu agente de lanzamiento", rol: "Elige contigo qué lanzar con datos reales y dirige al equipo hasta dejarlo listo.", ruta: "lanzar", siguiente: "producto", avance: "¿Creamos ya el producto de esta oferta?" },
   producto: { id: "producto", nombre: "Hefesto", emoji: "⚒️", etiqueta: "tu agente de producto", rol: "Te crea el producto que vendes: guía, recetario, mini curso o plantilla, listo en PDF.", ruta: "crear-producto", siguiente: "pagina", avance: "¿Le hacemos ahora su página de venta?" },
-  miniapps: { id: "miniapps", nombre: "Dédalo", emoji: "🏗️", etiqueta: "tu agente de Mini Apps", rol: "Construye tu Mini App y te deja el enlace para venderla.", ruta: "mini-apps", siguiente: "pagina", avance: "¿Le hacemos ahora su página de venta?" },
+  miniapps: { id: "miniapps", nombre: "Prometeo", emoji: "🔥", etiqueta: "tu agente de Mini Apps", rol: "Construye tu Mini App y te deja el enlace para venderla.", ruta: "mini-apps", siguiente: "pagina", avance: "¿Le hacemos ahora su página de venta?" },
   pagina: { id: "pagina", nombre: "Atenea", emoji: "🏛️", etiqueta: "tu agente de página de venta", rol: "Tu página de venta con precio por país y botón de pago, publicada en un dominio aparte.", ruta: null, siguiente: "ventas", avance: "¿Preparamos los mensajes de WhatsApp para cerrar las ventas?" },
   ventas: { id: "ventas", nombre: "Hermes", emoji: "🤝", etiqueta: "tu agente de ventas", rol: "Arma la oferta, el precio y los mensajes de WhatsApp que cierran la venta.", ruta: "generadores", siguiente: "anuncios", avance: "¿Hacemos los anuncios que traen gente a tu WhatsApp?" },
   anuncios: { id: "anuncios", nombre: "Robin Hood", emoji: "🏹", etiqueta: "tu agente de anuncios", rol: "Imágenes y videos para tus anuncios, modelados de los que ya funcionan.", ruta: "creativos", siguiente: "reels", avance: "¿Hacemos el reel que acompaña tus anuncios?" },

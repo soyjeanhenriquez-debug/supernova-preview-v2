@@ -19,6 +19,8 @@ import { useFeatureAccess } from "@/lib/features";
 import { DR_RULES } from "@/lib/generators";
 import { maxAdCostPerSale } from "@/lib/pricing";
 import { notifyJourneyChanged } from "@/contexts/JourneyContext";
+import { AgenteFirma } from "@/components/agentes/AgenteFirma";
+import { SiguientePaso } from "@/components/agentes/SiguientePaso";
 
 /**
  * Mándala Creativa: la rueda para no quedarse nunca sin anuncios.
@@ -596,11 +598,28 @@ export function MandalaPage({ onNavigate, initialTab = "ruta" }: { onNavigate?: 
     </div>
   );
 
+  // Argos: cuenta los veredictos de los anuncios con números y dice la acción de hoy (la más urgente primero).
+  const hoy = (() => {
+    const v = ads.map(ad => verdict(ad, price, maxSale)).filter((x): x is NonNullable<ReturnType<typeof verdict>> => !!x);
+    if (!v.length) return null;
+    const n = (t: string) => v.filter(x => x.tone === t).length;
+    const [good, bad, fix, wait] = [n("good"), n("bad"), n("fix"), n("wait")];
+    const plural = (k: number, uno: string, varios: string) => (k === 1 ? uno : varios.replace("#", String(k)));
+    const partes = [
+      good && plural(good, "1 para escalar", "# para escalar"), bad && plural(bad, "1 para apagar", "# para apagar"),
+      fix && plural(fix, "1 para cambiar", "# para cambiar"), wait && plural(wait, "1 que aún espera", "# que aún esperan"),
+    ].filter(Boolean).join(" · ");
+    if (bad) return { titulo: plural(bad, "Apaga hoy el anuncio que no vende", "Apaga hoy los # anuncios que no venden"), detalle: `${partes}. Lo que no vende te quita presupuesto del que sí.`, pregunta: "¿Hacemos un anuncio nuevo con otro ángulo?", hacia: "anuncios" as const };
+    if (good) return { titulo: plural(good, "Escala tu anuncio ganador", "Escala tus # anuncios ganadores"), detalle: `${partes}. Sube su presupuesto un 20 % cada 2 días y pide variaciones.`, pregunta: undefined, hacia: undefined };
+    if (fix) return { titulo: plural(fix, "Cambia el gancho del anuncio que no convence", "Cambia el gancho de # anuncios"), detalle: `${partes}. Los primeros 3 segundos deciden si alguien se queda.`, pregunta: "¿Hacemos el reel con un gancho nuevo?", hacia: "reels" as const };
+    return { titulo: "Déjalos correr: aún es pronto", detalle: `${partes}. Vuelve a anotar cuando hayas gastado unas 2 veces lo que te queda por venta.`, pregunta: "¿Preparamos más anuncios mientras tanto?", hacia: "anuncios" as const };
+  })();
+
   return (
     <div className="space-y-5">
       {isResults ? (
         <div className="flex flex-col gap-1">
-          <p className="text-xs uppercase tracking-wider text-primary font-semibold">Mi negocio · Etapa 6</p>
+          <AgenteFirma agente="resultados" />
           <h1 className="font-display font-bold text-2xl text-foreground">Resultados de tus anuncios</h1>
           <p className="text-sm text-muted-foreground max-w-2xl">
             A los 3 días de publicar, anota gasto, CTR y ventas: te decimos si apagar, esperar o escalar.
@@ -839,6 +858,14 @@ export function MandalaPage({ onNavigate, initialTab = "ruta" }: { onNavigate?: 
         </div>
       )}
 
+      {tab === "mis" && isResults && hoy && (
+        // Argos (29-oct-2026): lo que toca hoy, en una línea, con el mismo veredicto de cada anuncio de abajo.
+        <div className="card-surface rounded-xl p-4 space-y-1.5">
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">🔭 Argos · lo que te toca hoy</p>
+          <p className="text-[15px] font-semibold text-foreground">{hoy.titulo}</p>
+          <p className="text-[13px] text-muted-foreground">{hoy.detalle}</p>
+        </div>
+      )}
       {tab === "mis" && (
         <div className="space-y-3">
           {ads.length === 0 && (
@@ -900,6 +927,10 @@ export function MandalaPage({ onNavigate, initialTab = "ruta" }: { onNavigate?: 
             );
           })}
         </div>
+      )}
+
+      {tab === "mis" && isResults && hoy && (
+        <SiguientePaso agente="resultados" pregunta={hoy.pregunta} hacia={hoy.hacia} />
       )}
 
       {(output || loading) && outputAt === null && outputPanel()}

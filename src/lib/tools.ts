@@ -4,7 +4,7 @@ import {
   ListTodo, CalendarDays, MessageCircle, Calculator, BarChart3, Telescope, Store, Image, LayoutTemplate,
   MonitorPlay, Clapperboard, Send, TrendingUp, Mail, Film, Hash, Youtube, ShoppingBag, Radar,
   Megaphone, Smartphone, Camera, PanelsTopLeft, Stethoscope, Shapes, Captions, Eraser, Wand2,
-  type LucideIcon,
+  Rocket, type LucideIcon,
 } from "lucide-react";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
 
@@ -115,6 +115,8 @@ export const TOOL_BY_ID: Record<string, Tool> = Object.fromEntries([
     desc: "El extra de un clic antes de pagar: ideas gratis y el texto listo aquí mismo.", keywords: "order bump upsell oferta extra ticket promedio" }),
   T({ id: "recuperar", key: "Recuperar", icon: MessageCircle, title: "Recuperar ventas",
     desc: "Mensajes de WhatsApp para quien casi compra.", keywords: "recuperar ventas whatsapp carrito abandonado mensaje mensajes cliente clientes" }),
+  T({ id: "lanzar", key: "Lanzar", icon: Rocket, title: "Elige qué lanzar", nav: "Elige qué lanzar (Ulises)", cost: FREE,
+    desc: "3 preguntas y Ulises te propone 3 negocios que ya venden, con el plan para lanzarlo con el equipo.", keywords: "lanzar lanzamiento que vender elegir oferta empezar ulises agente plan no se que vender whatsapp" }),
   T({ id: "diagnostico", key: "Diagnóstico", icon: Stethoscope, title: "¿Dónde se me escapan las ventas?", nav: "Diagnóstico del embudo", cost: FREE,
     desc: "Anota tus números: te decimos qué paso frena todo y los 3 cambios que más mueven.", keywords: "diagnostico embudo metricas conversion cuello de botella consultor numeros ventas leads whatsapp por que no vendo" }),
   T({ id: "resultados", key: "Resultados", icon: BarChart3, title: "¿Qué anuncio apago o escalo?", nav: "Resultados de anuncios",

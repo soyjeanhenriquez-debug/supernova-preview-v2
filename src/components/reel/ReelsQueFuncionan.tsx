@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Copy, ExternalLink, Loader2, Search, Sparkles, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,10 +39,16 @@ export function cifra(n: number | null | undefined): string {
   return n.toLocaleString("es");
 }
 
-/** El titular de la tarjeta: el gancho leído, o la primera frase de lo que se dice, o el texto de la publicación. */
+const primeraFrase = (t: string | null) => (t ?? "").replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s/)[0] ?? "";
+
+/**
+ * El titular de la tarjeta: el gancho leído, o la primera frase de lo que se dice, o el texto de la publicación.
+ * En los reels de pura música la transcripción sale con pocas palabras sueltas: ahí manda el texto de la publicación.
+ */
 export function titular(r: Pick<Reel, "gancho" | "transcript" | "caption">): string {
-  const base = r.gancho || r.transcript || r.caption || "";
-  const frase = base.replace(/\s+/g, " ").trim().split(/(?<=[.!?¿¡])\s/)[0] ?? "";
+  const corto = (t: string) => t.split(" ").length < 4;
+  let frase = primeraFrase(r.gancho || r.transcript);
+  if (!frase || corto(frase)) frase = primeraFrase(r.caption) || frase;
   return (frase.length > 140 ? `${frase.slice(0, 137)}…` : frase) || "Reel sin texto";
 }
 
@@ -74,6 +80,7 @@ export function ReelsQueFuncionan({ onHome, onNavigate }: { onHome: () => void; 
   const [busca, setBusca] = useState("");
   const [buscaYa, setBuscaYa] = useState("");
   const [creadores, setCreadores] = useState<{ owner: string; n: number }[]>([]);
+  const [total, setTotal] = useState(0);
   const [abierto, setAbierto] = useState<Reel | null>(null);
 
   // La búsqueda espera a que dejes de escribir.
@@ -83,7 +90,9 @@ export function ReelsQueFuncionan({ onHome, onNavigate }: { onHome: () => void; 
   useEffect(() => {
     void supabase.from("reel_biblioteca" as never).select("owner").limit(2000).then(({ data }) => {
       const c = new Map<string, number>();
-      for (const r of (data ?? []) as { owner: string | null }[]) if (r.owner) c.set(r.owner, (c.get(r.owner) ?? 0) + 1);
+      const filas = (data ?? []) as { owner: string | null }[];
+      setTotal(filas.length);
+      for (const r of filas) if (r.owner) c.set(r.owner, (c.get(r.owner) ?? 0) + 1);
       setCreadores([...c.entries()].map(([owner, n]) => ({ owner, n })).sort((a, b) => b.n - a.n).slice(0, 14));
     });
   }, []);
@@ -109,8 +118,6 @@ export function ReelsQueFuncionan({ onHome, onNavigate }: { onHome: () => void; 
   }, [idioma, intencion, creador, buscaYa, orden]);
 
   useEffect(() => { void cargar(0); }, [cargar]);
-
-  const total = useMemo(() => creadores.reduce((s, c) => s + c.n, 0), [creadores]);
 
   const hacerVersion = (r: Reel) => {
     try { sessionStorage.setItem(REEL_URL_KEY, r.url); } catch { /* sin almacenamiento */ }

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { AbsoluteFill, interpolate, Series, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Img, interpolate, Sequence, Series, useCurrentFrame, useVideoConfig } from "remotion";
 import { Audio, Video } from "@remotion/media";
 import { loadFont as loadAnton } from "@remotion/google-fonts/Anton";
 import { loadFont as loadManrope } from "@remotion/google-fonts/Manrope";
@@ -43,6 +43,11 @@ export type SubsProps = {
    * orden. Las palabras (`words`) ya vienen con el tiempo del video recortado. Vacío o sin dar = el video entero.
    */
   tramos?: { a: number; b: number }[];
+  /**
+   * B-roll con IA (30-oct-2026, Jean): imágenes que tapan el video unos segundos mientras sigue tu voz. `t` y `dur`
+   * en segundos del video final (ya recortado). Entran con un barrido suave y se acercan despacio.
+   */
+  brolls?: { t: number; dur: number; src: string }[];
 };
 
 /** Tamaño de letra que entra en el ancho: base, pero más chico si la línea es larga. */
@@ -89,12 +94,29 @@ export function SubsVideo(p: SubsProps) {
           {p.audioSrc && <Audio src={p.audioSrc} />}
         </>
       )}
+      {(p.brolls ?? []).map((b, i) => (
+        <Sequence key={i} from={Math.round(b.t * fps)} durationInFrames={Math.max(1, Math.round(b.dur * fps))} premountFor={fps}>
+          <BrollImg src={b.src} d={Math.max(1, Math.round(b.dur * fps))} />
+        </Sequence>
+      ))}
       <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ position: "absolute", left: 0, top: 0 }}>
         {titulo && (p.style === "impacto" ? <TopTitle text={p.tituloArriba} W={W} H={H} /> : <SoftTitle text={p.tituloArriba} W={W} H={H} />)}
         {sc && <Caption key={sc.t0} words={sc.words} t={t} style={p.style} W={W} H={H} startFrame={Math.round(sc.t0 * fps)} />}
         {showPortada && p.portada && <Portada titulo={p.portada.titulo} acento={p.portada.acento} W={W} H={H} />}
         {showCierre && <Cierre palabra={p.cierre} W={W} H={H} startFrame={Math.round((end - 2.5) * fps)} />}
       </svg>
+    </AbsoluteFill>
+  );
+}
+
+/** Un B-roll: aparece en 4 cuadros, se acerca despacio y se va en 4 cuadros. */
+function BrollImg({ src, d }: { src: string; d: number }) {
+  const frame = useCurrentFrame();
+  const op = interpolate(frame, [0, 4, d - 4, d], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const sc = interpolate(frame, [0, d], [1.04, 1.12]);
+  return (
+    <AbsoluteFill style={{ opacity: op }}>
+      <Img src={src} style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${sc})` }} />
     </AbsoluteFill>
   );
 }

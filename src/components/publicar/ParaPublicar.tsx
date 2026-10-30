@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  CalendarClock, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, Film, Images, ListChecks, Loader2, Plus, Send, Upload, X,
+  CalendarClock, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, Film, Images, ListChecks, Loader2, Plus, Send, Upload, Wand2, X,
 } from "lucide-react";
+import { OPCIONES_EDICION, dejarEncargo, type ModoEdicion } from "@/lib/edicionVideo";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { fnErrorMessage, fnHeaders } from "@/lib/fnAuth";
@@ -19,6 +20,9 @@ import {
  *  · Plan de 3, 5 o 10 al día (hora de RD) + casillas sueltas. La app recuerda la vista y el plan de cada quien.
  * «Programar» lo hace el servidor (edge function publicar → Upload-Post) y Notion solo recibe lo que pasa aquí.
  * Los reels terminados en Reel Studio entran solos en la siguiente casilla libre.
+ * Editar antes de programar (30-oct-2026, Jean): al subir un reel se pregunta si solo se programa, se le quitan los
+ * silencios, se le ponen subtítulos o se edita completo con IA (B-roll). Lo que se edita va a «Sube tu video» y vuelve
+ * solo a su casilla. «Subir varios» llena las siguientes casillas libres y «Programar los listos» los programa de una vez.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = () => supabase as any;
@@ -42,6 +46,9 @@ export function ParaPublicar() {
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [ocupado, setOcupado] = useState("");
   const [abierta, setAbierta] = useState<string | null>(null);
+  // El video que acabas de elegir para una casilla (o una pieza ya subida), esperando qué hacer con él.
+  const [elegir, setElegir] = useState<{ slot: string; file?: File; pieza?: Pieza } | null>(null);
+  const variosRef = useRef<HTMLInputElement>(null);
   const vista = aj.vista;
   const dias = useMemo(() => (vista === "hoy" ? [dia] : semana(desde)), [vista, dia, desde]);
 
@@ -92,13 +99,13 @@ export function ParaPublicar() {
     return filas.sort((a, b) => a.slot.localeCompare(b.slot));
   }, [piezas, aj]);
 
-  const subir = async (slot: string, tipo: MediaTipo, files: FileList) => {
-    if (!uid || !files.length) return;
-    setOcupado(slot);
-    try {
-      const lista = [...files].slice(0, tipo === "reel" ? 1 : 10);
-      if (tipo === "reel" && !lista[0].type.startsWith("video/")) throw new Error("En esta casilla va un reel: sube un video.");
-      if (tipo === "carrusel" && lista.some(f => !f.type.startsWith("image/"))) throw new Error("En esta casilla va un carrusel: sube las imágenes.");
+  /** Sube los archivos y crea la pieza en su casilla. Devuelve su id (lanza un error con el motivo si falla). */
+  const crear = async (slot: string, tipo: MediaTipo, files: File[], estado: PubEstado = "listo"): Promise<string> => {
+    if (!uid) throw new Error("Inicia sesión.");
+    const lista = files.slice(0, tipo === "reel" ? 1 : 10);
+    if (tipo === "reel" && !lista[0]?.type.startsWith("video/")) throw new Error("En esta casilla va un reel: sube un video.");
+    if (tipo === "carrusel" && lista.some(f => !f.type.startsWith("image/"))) throw new Error("En esta casilla va un carrusel: sube las imágenes.");
+    {
       const carpeta = `${uid}/${crypto.randomUUID()}`;
       const paths: string[] = [];
       for (const [k, f] of lista.entries()) {
@@ -109,17 +116,90 @@ export function ParaPublicar() {
       }
       const nombre = lista[0].name.replace(/\.[a-z0-9]+$/i, "").replace(/[-_]+/g, " ").slice(0, 120);
       const redes = aj.redes.filter(r => redPosible({ media_tipo: tipo }, r));
-      const { error } = await db().from("content_items").insert({
+      const { data, error } = await db().from("content_items").insert({
         user_id: uid, topic: nombre || (tipo === "reel" ? "Reel" : "Carrusel"), title: nombre, kind: tipo === "reel" ? "corto" : "carrusel",
         platform: tipo === "reel" ? "reels" : "instagram", status: "grabado", source: "para-publicar", due: slot.slice(0, 10),
-        slot_at: slot, media_tipo: tipo, media_paths: paths, pub_estado: "listo", pub_redes: redes.length ? redes : ["instagram"],
-      });
-      if (error) throw new Error("No se pudo guardar en la casilla.");
+        slot_at: slot, media_tipo: tipo, media_paths: paths, pub_estado: estado, pub_redes: redes.length ? redes : ["instagram"],
+      }).select("id").single();
+      if (error || !data) throw new Error("No se pudo guardar en la casilla.");
+      return (data as { id: string }).id;
+    }
+  };
+
+  const subir = async (slot: string, tipo: MediaTipo, files: File[]) => {
+    if (!uid || !files.length) return;
+    setOcupado(slot);
+    try {
+      await crear(slot, tipo, files);
       toast.success("Listo en su casilla. Escribe el copy y toca Programar.");
       setAbierta(slot);
       await cargar();
     } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo subir."); }
     finally { setOcupado(""); }
+  };
+
+  /** Lo que se eligió para el video: programarlo tal cual o llevarlo al editor (y que vuelva solo a su casilla). */
+  const decidir = async (modo: ModoEdicion) => {
+    const e = elegir;
+    if (!e) return;
+    if (modo === "programar") {
+      setElegir(null);
+      if (e.file) await subir(e.slot, "reel", [e.file]);
+      return;
+    }
+    setOcupado(e.slot);
+    try {
+      let file = e.file, itemId = e.pieza?.id;
+      const caption = e.pieza?.caption ?? "";
+      if (!itemId && file) itemId = await crear(e.slot, "reel", [file], "borrador");
+      if (!file && e.pieza) {
+        const { data, error } = await supabase.storage.from(BUCKET).download(e.pieza.media_paths[0]);
+        if (error || !data) throw new Error("No se pudo abrir el video de esta casilla.");
+        file = new File([data], "video.mp4", { type: data.type || "video/mp4" });
+      }
+      if (!file || !itemId) return;
+      dejarEncargo({ file, itemId, modo, caption });
+      setElegir(null);
+      window.location.hash = "#/con-tu-cara/video";
+    } catch (err) { toast.error(err instanceof Error ? err.message : "No se pudo abrir el editor."); await cargar(); }
+    finally { setOcupado(""); }
+  };
+
+  /** Varios videos de una vez: cada uno a la siguiente casilla libre de reel, listos para escribir el copy y programar. */
+  const subirVarios = async (files: FileList) => {
+    const videos = [...files].filter(f => f.type.startsWith("video/")).slice(0, 30);
+    if (!uid || !videos.length) { toast.error("Elige uno o más videos."); return; }
+    setOcupado("varios");
+    let hechos = 0;
+    try {
+      const { data: futuras } = await db().from("content_items").select("slot_at").eq("user_id", uid).gte("slot_at", new Date().toISOString());
+      const ocupadas = ((futuras ?? []) as { slot_at: string }[]).map(x => x.slot_at);
+      for (const f of videos) {
+        const slot = siguienteLibre("reel", ocupadas, new Date(), d => casillasDelDia(aj, d));
+        if (!slot) { toast.error("No hay más casillas libres en los próximos 60 días."); break; }
+        await crear(slot, "reel", [f]);
+        ocupadas.push(slot);
+        hechos++;
+      }
+      if (hechos) toast.success(`${hechos} video${hechos > 1 ? "s" : ""} en sus casillas`, { description: "Ábrelos para editarlos o escribe el copy y programa." });
+    } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo subir."); }
+    finally { setOcupado(""); await cargar(); }
+  };
+
+  /** Programa de una vez todo lo que ya está listo y tiene copy (en lo que estás viendo). */
+  const programarListos = async () => {
+    const lista = (piezas ?? []).filter(p => (p.pub_estado === "listo" || p.pub_estado === "error") && (p.caption ?? "").trim() && new Date(p.slot_at).getTime() > Date.now() + 5 * 60_000);
+    if (!lista.length) return;
+    setOcupado("varios");
+    let ok = 0;
+    for (const p of lista) {
+      const r = await llamar("programar", p).catch(() => null);
+      if (r?.ok) ok++;
+    }
+    setOcupado("");
+    await cargar();
+    if (ok === lista.length) toast.success(`${ok} programado${ok > 1 ? "s" : ""}.`);
+    else toast.error(`Se programaron ${ok} de ${lista.length}. Abre los que dicen «No se pudo programar» para ver el motivo.`);
   };
 
   const guardar = async (p: Pieza, patch: Partial<Pieza>) => {
@@ -175,6 +255,7 @@ export function ParaPublicar() {
   };
 
   const visibles = useMemo(() => dias.flatMap(d => filasDe(d)), [dias, filasDe]);
+  const listos = (piezas ?? []).filter(p => (p.pub_estado === "listo" || p.pub_estado === "error") && (p.caption ?? "").trim() && new Date(p.slot_at).getTime() > Date.now() + 5 * 60_000).length;
   const resumen = useMemo(() => avance(visibles.flatMap(f => (f.pieza ? [f.pieza] : []))), [visibles]);
   const vacias = visibles.filter(f => !f.pieza && new Date(f.slot).getTime() > Date.now()).length;
   const redesVisibles = REDES.filter(r => aj.redes.includes(r.id));
@@ -217,6 +298,22 @@ export function ParaPublicar() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <input ref={variosRef} type="file" accept="video/*" multiple className="hidden"
+          onChange={e => { if (e.target.files) void subirVarios(e.target.files); e.target.value = ""; }} />
+        <button type="button" disabled={!!ocupado} onClick={() => variosRef.current?.click()}
+          className="h-9 px-3 rounded-full border border-border text-[12px] inline-flex items-center gap-1.5 disabled:opacity-50">
+          {ocupado === "varios" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} Subir varios videos
+        </button>
+        {listos > 0 && (
+          <button type="button" disabled={!!ocupado} onClick={() => void programarListos()}
+            className="h-9 px-3 rounded-full bg-primary text-primary-foreground text-[12px] font-semibold inline-flex items-center gap-1.5 disabled:opacity-50">
+            <Send className="w-3.5 h-3.5" /> Programar los listos ({listos})
+          </button>
+        )}
+        <p className="text-[11px] text-muted-foreground basis-full sm:basis-auto">Cada video va a la siguiente casilla libre. Ábrelo para editarlo o escribe el copy.</p>
+      </div>
+
       <Resumen hechas={resumen.hechas} total={resumen.total} porRed={resumen.porRed} redes={redesVisibles.map(r => r.id)} vacias={vacias} />
 
       {!piezas ? <p className="text-sm text-muted-foreground">Cargando…</p> : vista === "hoy" ? (
@@ -225,11 +322,18 @@ export function ParaPublicar() {
             <FilaPieza key={f.slot} f={f} p={f.pieza} url={urls[f.pieza.media_paths[0]]} redes={redesVisibles.map(r => r.id)} abierta={abierta === f.slot}
               ocupado={ocupado === f.slot} onAbrir={() => setAbierta(abierta === f.slot ? null : f.slot)} onRed={red => void tocarRed(f.pieza!, red)}
               onCaption={caption => void guardar(f.pieza!, { caption })} onRedes={pub_redes => void guardar(f.pieza!, { pub_redes })}
-              onProgramar={() => void programar(f.pieza!)} onMover={() => void mover(f.pieza!)} onQuitar={() => void quitar(f.pieza!)} />
+              onProgramar={() => void programar(f.pieza!)} onMover={() => void mover(f.pieza!)} onQuitar={() => void quitar(f.pieza!)}
+              onEditar={() => setElegir({ slot: f.slot, pieza: f.pieza! })}
+              eleccion={elegir?.pieza?.id === f.pieza.id ? <ElegirEdicion editado ocupado={ocupado === f.slot} onElegir={m => void decidir(m)} onCancelar={() => setElegir(null)} /> : null} />
           ) : (
-            <FilaVacia key={f.slot} f={f} ocupado={ocupado === f.slot} pasada={new Date(f.slot).getTime() < Date.now()}
-              onArchivos={files => void subir(f.slot, f.tipo, files)}
-              onQuitar={f.extra ? () => void cambiarAjustes({ extras: conExtra(aj.extras, dia, { hora: f.hora, tipo: f.tipo }, true) }) : undefined} />
+            <div key={f.slot} className="space-y-2">
+              <FilaVacia f={f} ocupado={ocupado === f.slot} pasada={new Date(f.slot).getTime() < Date.now()}
+                onArchivos={files => (f.tipo === "reel" ? setElegir({ slot: f.slot, file: files[0] }) : void subir(f.slot, f.tipo, [...files]))}
+                onQuitar={f.extra ? () => void cambiarAjustes({ extras: conExtra(aj.extras, dia, { hora: f.hora, tipo: f.tipo }, true) }) : undefined} />
+              {elegir?.slot === f.slot && elegir.file && !elegir.pieza && (
+                <ElegirEdicion nombre={elegir.file.name} ocupado={ocupado === f.slot} onElegir={m => void decidir(m)} onCancelar={() => setElegir(null)} />
+              )}
+            </div>
           ))}
           <AgregarCasilla existentes={filasDe(dia).map(f => f.hora)} onAgregar={c => void cambiarAjustes({ extras: conExtra(aj.extras, dia, c) })} />
         </div>
@@ -329,9 +433,10 @@ function Miniatura({ url, tipo }: { url?: string; tipo: MediaTipo | null }) {
   );
 }
 
-function FilaPieza({ f, p, url, redes, abierta, ocupado, onAbrir, onRed, onCaption, onRedes, onProgramar, onMover, onQuitar }: {
+function FilaPieza({ f, p, url, redes, abierta, ocupado, onAbrir, onRed, onCaption, onRedes, onProgramar, onMover, onQuitar, onEditar, eleccion }: {
   f: Fila; p: Pieza; url?: string; redes: RedId[]; abierta: boolean; ocupado: boolean; onAbrir: () => void; onRed: (r: RedId) => void;
   onCaption: (c: string) => void; onRedes: (r: string[]) => void; onProgramar: () => void; onMover: () => void; onQuitar: () => void;
+  onEditar: () => void; eleccion: React.ReactNode;
 }) {
   const est = ESTADO_PUB[p.pub_estado];
   const todas = p.pub_estado === "publicado";
@@ -356,14 +461,15 @@ function FilaPieza({ f, p, url, redes, abierta, ocupado, onAbrir, onRed, onCapti
           </button>
         </div>
       </div>
-      {abierta && <Detalle p={p} url={url} redes={redes} ocupado={ocupado} onCaption={onCaption} onRedes={onRedes} onProgramar={onProgramar} onMover={onMover} onQuitar={onQuitar} />}
+      {abierta && <Detalle p={p} url={url} redes={redes} ocupado={ocupado} onCaption={onCaption} onRedes={onRedes} onProgramar={onProgramar} onMover={onMover} onQuitar={onQuitar} onEditar={onEditar} />}
+      {abierta && eleccion && <div className="px-3 pb-3">{eleccion}</div>}
     </article>
   );
 }
 
-function Detalle({ p, url, redes, ocupado, onCaption, onRedes, onProgramar, onMover, onQuitar }: {
+function Detalle({ p, url, redes, ocupado, onCaption, onRedes, onProgramar, onMover, onQuitar, onEditar }: {
   p: Pieza; url?: string; redes: RedId[]; ocupado: boolean;
-  onCaption: (c: string) => void; onRedes: (r: string[]) => void; onProgramar: () => void; onMover: () => void; onQuitar: () => void;
+  onCaption: (c: string) => void; onRedes: (r: string[]) => void; onProgramar: () => void; onMover: () => void; onQuitar: () => void; onEditar: () => void;
 }) {
   const [copy, setCopy] = useState(p.caption ?? "");
   useEffect(() => setCopy(p.caption ?? ""), [p.caption]);
@@ -402,6 +508,9 @@ function Detalle({ p, url, redes, ocupado, onCaption, onRedes, onProgramar, onMo
           )}
           <button type="button" onClick={() => void navigator.clipboard?.writeText(copy).then(() => toast.success("Copy copiado"))} className="h-8 px-3 rounded-full border border-border inline-flex items-center gap-1"><Copy className="w-3.5 h-3.5" />Copiar copy</button>
           <button type="button" onClick={() => void descargar()} className="h-8 px-3 rounded-full border border-border inline-flex items-center gap-1"><Download className="w-3.5 h-3.5" />Descargar</button>
+          {!fijo && p.media_tipo !== "carrusel" && p.media_paths.length > 0 && (
+            <button type="button" onClick={onEditar} className="h-8 px-3 rounded-full border border-border inline-flex items-center gap-1"><Wand2 className="w-3.5 h-3.5" />Editar video</button>
+          )}
           {!fijo && <button type="button" onClick={onMover} className="h-8 px-3 rounded-full border border-border">Mover</button>}
           {!fijo && <button type="button" aria-label="Quitar de la casilla" onClick={onQuitar} className="h-8 w-8 rounded-full border border-border inline-flex items-center justify-center"><X className="w-3.5 h-3.5" /></button>}
         </div>
@@ -411,6 +520,32 @@ function Detalle({ p, url, redes, ocupado, onCaption, onRedes, onProgramar, onMo
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+/** ¿Qué hacemos con este video? Las 4 opciones (sin «solo programar» si el video ya está en su casilla). */
+function ElegirEdicion({ nombre, editado, ocupado, onElegir, onCancelar }: { nombre?: string; editado?: boolean; ocupado: boolean; onElegir: (m: ModoEdicion) => void; onCancelar: () => void }) {
+  const opciones = OPCIONES_EDICION.filter(o => !editado || o.id !== "programar");
+  return (
+    <div className="rounded-xl border border-primary/40 bg-primary/[0.04] p-3 space-y-2" role="group" aria-label="Qué hacemos con este video">
+      <div className="flex items-start gap-2">
+        <p className="flex-1 text-[13px] font-semibold text-foreground">¿Qué hacemos con este video?{nombre ? <span className="block text-[11px] font-normal text-muted-foreground truncate">{nombre}</span> : null}</p>
+        <button type="button" aria-label="Cancelar" onClick={onCancelar} className="h-7 w-7 rounded-full border border-border inline-flex items-center justify-center"><X className="w-3.5 h-3.5" /></button>
+      </div>
+      <div className="grid gap-1.5 sm:grid-cols-2">
+        {opciones.map(o => (
+          <button key={o.id} type="button" disabled={ocupado} onClick={() => onElegir(o.id)}
+            className="rounded-lg border border-border bg-card p-2.5 text-left hover:border-foreground/40 disabled:opacity-50">
+            <span className="flex items-baseline justify-between gap-2">
+              <span className="text-[12px] font-semibold text-foreground">{o.titulo}</span>
+              <span className={`shrink-0 text-[10px] ${o.precio === "Gratis" ? "text-emerald-400" : "text-muted-foreground"}`}>{o.precio}</span>
+            </span>
+            <span className="block text-[11px] text-muted-foreground">{o.linea}</span>
+          </button>
+        ))}
+      </div>
+      {ocupado && <p className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground"><Loader2 className="w-3 h-3 animate-spin" /> Subiendo tu video…</p>}
     </div>
   );
 }

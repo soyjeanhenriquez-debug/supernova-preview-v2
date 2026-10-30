@@ -71,4 +71,26 @@ describe("Para publicar", () => {
     fireEvent.click(await screen.findByRole("button", { name: "10" }));
     await waitFor(() => expect(screen.getAllByText(/Casilla libre|Sin pieza/).length + screen.queryAllByText("Listo para programar").length).toBe(10));
   });
+  it("al subir un reel pregunta qué hacer: solo programar, silencios, subtítulos o edición completa con IA", async () => {
+    await irAManana();
+    const input = [...document.querySelectorAll<HTMLInputElement>('input[type="file"][accept="video/*"]')].find(x => !x.multiple)!;
+    fireEvent.change(input, { target: { files: [new File(["x"], "mi-toma.mp4", { type: "video/mp4" })] } });
+    expect(await screen.findByText("¿Qué hacemos con este video?")).toBeInTheDocument();
+    for (const t of ["Ya está editado: solo programarlo", "Quitarle los silencios", "Subtítulos (y quitar silencios si quieres)", "Edición completa con IA"]) {
+      expect(screen.getByRole("button", { name: new RegExp(t.replace(/[()]/g, "\\$&")) })).toBeInTheDocument();
+    }
+  });
+  it("una pieza ya subida se puede mandar a editar (sin la opción de solo programar)", async () => {
+    await irAManana();
+    fireEvent.click(screen.getByRole("button", { name: "Ver detalles" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Editar video/ }));
+    expect(await screen.findByText("¿Qué hacemos con este video?")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /solo programarlo/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /Edición completa con IA/ })).toBeInTheDocument();
+  });
+  it("«Subir varios videos» y «Programar los listos» están a mano", async () => {
+    await irAManana();
+    expect(screen.getByRole("button", { name: /Subir varios videos/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Programar los listos \(1\)/ })).toBeInTheDocument();
+  });
 });

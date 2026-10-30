@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { blockingIssue } from "@/lib/webRender";
 import { Player } from "@remotion/player";
-import { Captions, Check, ChevronDown, Copy, Download, Image as ImageIcon, Loader2, Mic, Sparkles, Upload } from "lucide-react";
+import { CalendarClock, Captions, Check, ChevronDown, Clapperboard, Copy, Download, Image as ImageIcon, Loader2, Mic, Scissors, Sparkles, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { invokeErrorMessage } from "@/lib/fnAuth";
 import { useBusinessProfile } from "@/lib/businessProfile";
@@ -16,7 +16,9 @@ import { SiguientePaso } from "@/components/agentes/SiguientePaso";
 import { ToolFeedback } from "@/components/ToolFeedback";
 import { FONTS, SubsVideo, type SubsProps } from "@/remotion/SubsVideo";
 import { palabraDelCierre, tomarToma } from "@/lib/grabacion";
-import { duracion, palabrasRecortadas, repetidas, tramos } from "@/lib/recorte";
+import { duracion, palabrasRecortadas, repetidas, tramos, type Tramo } from "@/lib/recorte";
+import { useAuth } from "@/contexts/AuthContext";
+import { audioMono, momentosBroll, tomarEncargo, tramosPorAudio, visualBroll, type Encargo } from "@/lib/edicionVideo";
 
 /**
  * Sube tu video (Fase A, 16-oct-2026): tu video + subtítulos con estilo, portada, título arriba,
@@ -60,7 +62,7 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
   const [meta, setMeta] = useState<Meta | null>(null);
   const [hasImage, setHasImage] = useState<boolean | null>(null);
   const [res, setRes] = useState<SubsResult | null>(null);
-  const [busy, setBusy] = useState<"" | "audio" | "ia" | "voz" | "render" | "portada">("");
+  const [busy, setBusy] = useState<"" | "audio" | "ia" | "voz" | "render" | "portada" | "silencios" | "broll">("");
   const [progress, setProgress] = useState(0);
   const [style, setStyle] = useState<StyleId>("impacto");
   const [portadaOn, setPortadaOn] = useState(false);
@@ -80,6 +82,12 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
   const [recortar, setRecortar] = useState(false);
   const [mantener, setMantener] = useState<Set<number>>(new Set());
   const [desdeGuion, setDesdeGuion] = useState(false);
+  // Para publicar (30-oct-2026): el video que subiste a una casilla llega aquí con lo que pediste y vuelve a su casilla.
+  const { user } = useAuth();
+  const [encargo, setEncargo] = useState<Omit<Encargo, "file"> | null>(null);
+  // Silencios sin subtítulos: se buscan en el audio, en tu navegador, sin IA ni créditos.
+  const [tsAudio, setTsAudio] = useState<Tramo[] | null>(null);
+  const [brolls, setBrolls] = useState<{ t: number; dur: number; src: string }[]>([]);
 
   useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
   useEffect(() => () => { if (vozUrl) URL.revokeObjectURL(vozUrl); }, [vozUrl]);
@@ -89,6 +97,7 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
     if (!f.type.startsWith("video/")) { toast.error("Elige un video (MP4 o MOV)."); return; }
     const u = URL.createObjectURL(f);
     setFile(f); setUrl(u); setRes(null); setHasImage(null); setMeta(null); setVoz(false); setVozUrl(null); setDone(false); setWebIssue(null); setMantener(new Set());
+    setTsAudio(null); setBrolls([]);
     void readMeta(u).then(setMeta);
     void videoHasImage(f).then(setHasImage);
   };
@@ -102,6 +111,29 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
     setRecortar(true); setDesdeGuion(true);
     toast.success("Tu toma está lista", { description: "Ahora toca «Hacer mis subtítulos»." });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const e = tomarEncargo();
+    if (!e) return;
+    const { file: f, ...resto } = e;
+    pick(f);
+    setEncargo(resto);
+    setRecortar(true);
+    if (e.modo === "silencios") void buscarSilencios(f);
+    else toast.success("Tu video está aquí", { description: e.modo === "ia" ? "Toca «Hacer mis subtítulos» y después «Poner B-roll con IA»." : "Toca «Hacer mis subtítulos» y elige el estilo." });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const buscarSilencios = async (f: File | null = file) => {
+    if (!f) return;
+    setBusy("silencios");
+    try {
+      const ts = tramosPorAudio(await audioMono(f), 16_000);
+      if (!ts.length) { toast("No encontramos pausas que cortar", { description: "Tu video ya va sin silencios largos." }); setTsAudio([]); return; }
+      setTsAudio(ts);
+      setRecortar(true);
+    } catch (e) { toast.error(e instanceof Error && e.message ? e.message : "No se pudo leer el audio."); }
+    finally { setBusy(""); }
+  };
 
   const makeSubs = async () => {
     if (!file || busy) return;
@@ -142,8 +174,8 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
   const editSub = (i: number, texto: string) => setRes(r => r ? { ...r, subtitulos: r.subtitulos.map((s, k) => k === i ? { ...s, texto } : s) } : r);
   const words = useMemo(() => wordsFromSubs(res?.subtitulos ?? []), [res?.subtitulos]);
   const rep = useMemo(() => repetidas(res?.subtitulos ?? []), [res?.subtitulos]);
-  const ts = useMemo(() => (recortar && res?.subtitulos.length ? tramos(res.subtitulos, meta?.dur ?? 0, new Set(rep.filter(i => !mantener.has(i)))) : []),
-    [recortar, res?.subtitulos, meta?.dur, rep, mantener]);
+  const ts = useMemo(() => (!recortar ? [] : res?.subtitulos.length ? tramos(res.subtitulos, meta?.dur ?? 0, new Set(rep.filter(i => !mantener.has(i)))) : tsAudio ?? []),
+    [recortar, res?.subtitulos, meta?.dur, rep, mantener, tsAudio]);
   const quitados = ts.length && meta?.dur ? Math.max(0, meta.dur - duracion(ts)) : 0;
   const nRep = rep.filter(i => !mantener.has(i)).length;
   const size = meta ? outSize(meta) : { width: 1080, height: 1920 };
@@ -151,7 +183,7 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
   const props: SubsProps = {
     src: url ?? "", audioSrc: voz ? vozUrl : null, words: ts.length ? palabrasRecortadas(words, ts) : words, style, tramos: ts.length ? ts : undefined,
     portada: portadaOn ? portada : null, tituloArriba: conTitulo ? tituloArriba : "", cierre,
-    zoom: style === "conversacion" && zoom,
+    zoom: style === "conversacion" && zoom, brolls,
   };
   const composition = { id: "subs", component: SubsVideo, durationInFrames, fps: FPS, ...size, defaultProps: props };
   // El armador de video (web-renderer) pesa: se baja recién al tocar "Descargar".
@@ -168,13 +200,67 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
         composition, inputProps: props, container: "mp4", videoCodec: "h264",
         onProgress: p => setProgress(Math.round(p.progress * 100)),
       });
-      download(await out.getBlob(), "mi-video-con-subtitulos.mp4");
+      const blob = await out.getBlob();
+      if (encargo) {
+        try { await guardarEnCasilla(blob); } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo guardar en tu casilla."); }
+        return;
+      }
+      download(blob, "mi-video-con-subtitulos.mp4");
       setDone(true);
       toast.success("Tu video está descargado", { description: "Es un MP4 que se abre en cualquier celular o computadora." });
     } catch (e) {
       console.error("render", e);
       setWebIssue("Tu navegador no pudo armar este video. Pronto podrás hacerlo en la nube; mientras, ábrelo en Safari o en Chrome actualizado, o baja el .srt y úsalo en CapCut.");
     } finally { setBusy(""); }
+  };
+
+  /** El video editado vuelve a su casilla de Para publicar: queda primero (es el que se programa) y el crudo se guarda detrás. */
+  const guardarEnCasilla = async (blob: Blob) => {
+    if (!encargo || !user) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = supabase as any;
+    const { data: it } = await db.from("content_items").select("media_paths, caption").eq("id", encargo.itemId).maybeSingle();
+    if (!it) throw new Error("No encontramos la casilla de este video.");
+    const path = `${user.id}/${crypto.randomUUID()}/editado.mp4`;
+    const up = await supabase.storage.from("publicaciones").upload(path, blob, { contentType: "video/mp4", upsert: false });
+    if (up.error) throw new Error("No se pudo guardar el video editado.");
+    const pie = res?.pie ? `${res.pie}\n\n${(res.hashtags ?? []).map(h => (h.startsWith("#") ? h : `#${h}`)).join(" ")}`.trim() : "";
+    const { error } = await db.from("content_items").update({
+      media_paths: [path, ...((it.media_paths ?? []) as string[])].slice(0, 3), pub_estado: "listo", pub_error: null,
+      caption: (it.caption ?? "").trim() ? it.caption : pie || null, updated_at: new Date().toISOString(),
+    }).eq("id", encargo.itemId);
+    if (error) throw new Error("No se pudo poner el video en su casilla.");
+    setDone(true);
+    toast.success("Listo en su casilla", { description: "Revisa el copy y toca Programar." });
+    window.location.hash = "#/contenido";
+  };
+
+  /** B-roll con IA: una imagen por momento (cobra el servidor, 6 créditos cada una) que tapa el video 1,8 s. */
+  const ponerBroll = async () => {
+    if (!res?.subtitulos.length || busy) return;
+    const durFinal = ts.length ? duracion(ts) : meta?.dur ?? 0;
+    const momentos = momentosBroll(res.subtitulos, durFinal, ts);
+    if (!momentos.length) { toast("Tu video es muy corto para B-roll", { description: "Hace falta que dure más de 10 segundos." }); return; }
+    const tema = res.subtitulos.slice(0, 3).map(x => x.texto).join(" ");
+    setBusy("broll"); setProgress(0);
+    const hechos: { t: number; dur: number; src: string }[] = [];
+    try {
+      for (const [k, m] of momentos.entries()) {
+        const { data, error } = await supabase.functions.invoke("yt-produce", {
+          body: { action: "scene_image", visual: visualBroll(m, tema), style: "Cinematográfico", aspect: "9:16", scene: `broll-${k + 1}` },
+        });
+        if (error || typeof data?.image !== "string") {
+          if (!hechos.length) throw new Error(error ? await invokeErrorMessage(error, "No se pudo hacer el B-roll. No se te cobró.") : "No se pudo hacer el B-roll. No se te cobró.");
+          break;
+        }
+        if (data.billing) applyServerCharge("yt_scene_image", data.billing, "B-roll de tu video");
+        hechos.push({ t: m.t, dur: m.dur, src: data.image });
+        setBrolls([...hechos]);
+        setProgress(Math.round(((k + 1) / momentos.length) * 100));
+      }
+      toast.success(`${hechos.length} B-roll en tu video`, { description: "Míralo en la vista previa." });
+    } catch (e) { toast.error(e instanceof Error && e.message ? e.message : "No se pudo hacer el B-roll."); }
+    finally { setBusy(""); }
   };
 
   const savePortada = async () => {
@@ -190,8 +276,9 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
     } finally { setBusy(""); }
   };
 
-  const step = !file ? 0 : !res ? 1 : done ? 3 : 2;
-  const ready = !!res?.subtitulos.length;
+  const soloSilencios = encargo?.modo === "silencios" && !res;
+  const ready = !!res?.subtitulos.length || (soloSilencios && tsAudio !== null);
+  const step = !file ? 0 : !ready ? 1 : done ? 3 : 2;
 
   const preview = (
     <div className="card-surface rounded-2xl p-3 sm:p-4">
@@ -231,8 +318,18 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
         {hasImage === false && <p role="alert" className="rounded-lg border border-primary/40 bg-primary/10 p-3 text-[12px] text-foreground">{NO_IMAGE_MSG}</p>}
       </Card>
 
+      {encargo?.modo === "silencios" && (
+        <Card label="Silencios · gratis">
+          {busy === "silencios" ? <p className="inline-flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Buscando las pausas…</p>
+            : tsAudio === null ? (
+              <button type="button" onClick={() => void buscarSilencios()} disabled={!file || !!busy} className="btn-primary-nova inline-flex w-full min-h-[48px] items-center justify-center gap-2 rounded-xl text-sm font-semibold disabled:opacity-50"><Scissors className="w-4 h-4" /> Quitar los silencios</button>
+            ) : <p className="inline-flex items-center gap-1.5 text-sm text-foreground"><Check className="w-4 h-4 text-primary" /> {quitados > 0.05 ? `Se quitan ${quitados.toFixed(1).replace(".", ",")} s de pausas.` : "No hay pausas largas que quitar."}</p>}
+          <p className="text-[11px] text-muted-foreground">Se corta en tu navegador, sin IA. Si quieres subtítulos, hazlos abajo.</p>
+        </Card>
+      )}
+
       {/* 2 · Subtítulos */}
-      <Card label="2 · Subtítulos">
+      <Card label={encargo?.modo === "silencios" ? "Subtítulos (opcional)" : "2 · Subtítulos"}>
         {!res ? (
           <>
             <button type="button" onClick={makeSubs} disabled={!file || !!busy}
@@ -294,6 +391,16 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
               ))}
             </ul>
           )}
+          {res?.subtitulos.length ? (
+            <button type="button" onClick={() => void ponerBroll()} disabled={!!busy}
+              className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left hover:bg-secondary/40 disabled:opacity-50 ${encargo?.modo === "ia" && !brolls.length ? "border-primary/60" : "border-border"}`}>
+              <span className="text-muted-foreground">{busy === "broll" ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <Clapperboard className="w-4 h-4" />}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium text-foreground">{brolls.length ? `B-roll listo (${brolls.length}) · hacerlo de nuevo` : "Poner B-roll con IA"}</span>
+                <span className="block text-[11px] text-muted-foreground">{busy === "broll" ? `Creando las imágenes… ${progress} %` : `Imágenes que ilustran lo que dices, una cada ~7 s. ${CREDIT_COSTS.yt_scene_image} créditos cada una.`}</span>
+              </span>
+            </button>
+          ) : null}
           <Toggle on={portadaOn} onClick={() => setPortadaOn(v => !v)} title="Portada" line="Título grande y una palabra a mano en el primer segundo." />
           {portadaOn && (
             <div className="grid grid-cols-2 gap-2">
@@ -313,10 +420,10 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
       </section>
 
       {/* 4 · Descargar */}
-      <Card label="4 · Descarga">
+      <Card label={encargo ? "4 · A tu casilla" : "4 · Descarga"}>
         <button type="button" onClick={render} disabled={!ready || !!busy}
           className="btn-primary-nova inline-flex w-full min-h-[52px] items-center justify-center gap-2 rounded-xl text-sm font-semibold disabled:opacity-50">
-          {busy === "render" ? <><Loader2 className="w-4 h-4 animate-spin" /> Armando tu video… {progress} %</> : <><Sparkles className="w-4 h-4" /> Descargar mi video · gratis</>}
+          {busy === "render" ? <><Loader2 className="w-4 h-4 animate-spin" /> Armando tu video… {progress} %</> : encargo ? <><CalendarClock className="w-4 h-4" /> Guardar en mi casilla · gratis</> : <><Sparkles className="w-4 h-4" /> Descargar mi video · gratis</>}
         </button>
         {busy === "render" && <div className="h-1.5 overflow-hidden rounded-full bg-secondary"><div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} /></div>}
         {portadaOn && (
@@ -359,7 +466,7 @@ export function SubeTuVideo({ onHome, onNavigate }: { onHome: () => void; onNavi
   return (
     <ToolShell toolId="sube-tu-video" agente="editor" onNavigate={onNavigate} previewFirst
       crumbs={[{ label: "Crear" }, { label: "Con tu cara", onClick: onHome }, { label: "Sube tu video" }]}
-      title={desdeGuion ? "Tu toma con subtítulos" : "Sube tu video y ponle estilo"}
+      title={encargo ? "Edita tu video para tu casilla" : desdeGuion ? "Tu toma con subtítulos" : "Sube tu video y ponle estilo"}
       line="Subtítulos con estilo, portada, cierre y voz grave. Lo ves en tu video antes de descargarlo."
       onBack={onHome}
       steps={["Elige tu video", "Subtítulos", "Estilo", "Descarga"]} step={step}

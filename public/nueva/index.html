@@ -30,9 +30,9 @@
 <div class="bf-bar" id="bfBar" hidden>
   <div class="wrap">
     <b data-p="comboEvent">BLACK FRIDAY</b>
-    <span><span data-p="comboName">Combo Black</span>: 12 meses de SUPERNOVA con <span data-p="comboSavePct"></span> de descuento.</span>
+    <span><span data-p="comboName">Plan Anual</span>: 12 meses de SUPERNOVA por <span data-p="combo"></span> (<span data-p="comboPerDay"></span> al día).</span>
     <span>Termina en <span class="cd" id="bfBarCd">--</span></span>
-    <button type="button" data-open-combo>Ver el combo</button>
+    <button type="button" data-open-combo>Ver el plan anual</button>
   </div>
 </div>
 
@@ -62,11 +62,11 @@
   </div>
   <div class="wrap">
     <div class="hero-in">
-      <p class="eyebrow" style="color:var(--amber)" data-p="comboKicker">BLACK FRIDAY · SOLO HASTA EL 30 DE NOVIEMBRE</p>
+      <p class="eyebrow" style="color:var(--amber)" data-p="comboKicker">BLACK FRIDAY · PRECIO ESPECIAL HASTA EL 31 DE DICIEMBRE</p>
       <h1 id="h1" data-ab="h1"><span class="w glow" style="animation-delay:.05s">Crea reels, carruseles, imágenes y voces con IA</span> <span class="w amber" style="animation-delay:.25s">sin pagar 6 apps.</span></h1>
       <p class="lead">Todo lo que hoy haces con ChatGPT, Canva, CapCut, Midjourney, ElevenLabs y HeyGen, <b style="color:var(--fg)">en una sola app en español</b>. Para tus redes o para cobrarle a un negocio. Sin prompts.</p>
       <div class="hero-cta">
-        <a class="btn btn-p" href="#oferta" data-ev="hero_oferta"><span>Quiero el <span data-p="comboName">Combo Black</span> →</span></a>
+        <a class="btn btn-p" href="#oferta" data-ev="hero_oferta"><span>Quiero el <span data-p="comboName">Plan Anual</span> →</span></a>
         <a class="btn btn-g" href="#demo" data-ev="hero_demo_click">Ver cómo funciona</a>
       </div>
       <p class="hero-micro">12 meses por <span data-p="combo"></span> · <span data-p="comboPerDay"></span> al día · <span data-p="guarantee"></span></p>
@@ -319,13 +319,34 @@
       <div class="tk-vs rv d1">
         <span class="tag" style="align-self:flex-start;border-color:var(--amber);color:var(--amber)">SUPERNOVA · todo en una</span>
         <p class="big" style="margin-top:14px"><span data-p="monthly"></span><small>/mes</small></p>
-        <p id="billCombo" style="margin-top:6px">o <b class="amber"><span data-p="comboPerMonth"></span>/mes</b> con el <span data-p="comboName">Combo Black</span></p>
+        <p id="billCombo" style="margin-top:6px">o <b class="amber"><span data-p="comboPerMonth"></span>/mes</b> con el <span data-p="comboName">Plan Anual</span></p>
         <p class="mut" style="margin-top:12px">Textos, imágenes, carruseles, reels, voces, videos con avatar, anuncios e investigación. En español y sin prompts.</p>
         <div class="tk-save"><span>Te ahorras al año</span><b data-p="audSaveYear"></b></div>
         <a class="btn btn-p" style="margin-top:18px" href="#oferta" data-ev="bill_cta">Quiero ese ahorro →</a>
       </div>
     </div>
     <p class="sources" style="margin-top:14px">Precios públicos en dólares de EE. UU. al 1 de noviembre de 2026; pueden variar según tu país. Fuentes: <span id="ticketSrc"></span>.</p>
+
+
+    <div class="h2h rv">
+      <p class="eyebrow" style="color:var(--amber)">Cara a cara, con números reales</p>
+      <h3>Solo para crear imágenes y videos, <span class="amber">Higgsfield Plus cuesta US$468 al año.</span></h3>
+      <p class="mut">Y no te escribe un texto, no te arma un carrusel ni te dice qué anuncios ya venden.</p>
+      <div class="h2h-t">
+        <div class="h2h-c"><b>Higgsfield Plus</b><span class="pr">US$468<small>/año</small></span><small>US$39 al mes con pago anual</small></div>
+        <div class="h2h-c sn"><b>SUPERNOVA Anual</b><span class="pr" data-p="combo"></span><small><span data-p="comboPerDay"></span> al día</small></div>
+      </div>
+      <div class="h2h-rows">
+        <div><span>Imágenes y videos con IA</span><i class="y">✓</i><i class="y">✓</i></div>
+        <div><span>Textos, guiones y ganchos</span><i class="n">—</i><i class="y">✓</i></div>
+        <div><span>Carruseles con tu marca</span><i class="n">—</i><i class="y">✓</i></div>
+        <div><span>Anuncios con ángulos de venta</span><i class="n">—</i><i class="y">✓</i></div>
+        <div><span>Radar de anuncios que ya venden</span><i class="n">—</i><i class="y">✓</i></div>
+        <div><span>Tu mes de contenido en un calendario</span><i class="n">—</i><i class="y">✓</i></div>
+        <div><span>En español, pensado para LATAM</span><i class="n">—</i><i class="y">✓</i></div>
+      </div>
+      <p class="sources">Higgsfield: plan Plus con pago anual según <a href="https://higgsfield.ai/pricing" rel="noopener" target="_blank">su página de precios</a> (revisado el 1-nov-2026; con pago mensual cuesta más).</p>
+    </div>
 
     <div class="cmp-wrap rv">
       <div class="cmp-scroll" tabindex="0" aria-label="Tabla comparativa, desliza para ver más">
@@ -380,7 +401,7 @@
         <div class="co-row"><span>Apps</span><b id="cTools"></b></div>
         <div class="co-row"><span>Tu tiempo</span><b id="cTime"></b></div>
         <div class="co-tot"><span>Hoy te cuesta al mes</span><b id="cHoy"></b><small><span id="cHoyY"></span> al año</small></div>
-        <div class="co-gain"><span>Lo que recuperas cada mes</span><b id="cNet"></b><small>Ya descontado lo que pagas con el combo (<span id="cPay"></span>/mes). <span id="cNetY"></span> al año.</small></div>
+        <div class="co-gain"><span>Lo que recuperas cada mes</span><b id="cNet"></b><small>Ya descontado lo que pagas con el plan anual (<span id="cPay"></span>/mes). <span id="cNetY"></span> al año.</small></div>
         <a class="btn btn-p" href="#oferta" data-ev="calc_cta">Quiero recuperarlo →</a>
       </div>
     </div>
@@ -406,30 +427,30 @@
 <!-- 10b. LA OFERTA (Hormozi: todo lo que te llevas, su valor real, el precio, la garantía y por qué hoy) -->
 <section class="sec" id="oferta" aria-labelledby="of-t">
   <div class="wrap">
-    <p class="eyebrow rv" style="text-align:center;color:var(--amber)" data-p="comboKicker">BLACK FRIDAY · SOLO HASTA EL 30 DE NOVIEMBRE</p>
-    <h2 class="h2 rv d1" id="of-t" style="text-align:center;margin-inline:auto">Un año entero de contenido para tu negocio. <span class="amber">Por menos de lo que cuestan 8 meses.</span></h2>
+    <p class="eyebrow rv" style="text-align:center;color:var(--amber)" data-p="comboKicker">BLACK FRIDAY · PRECIO ESPECIAL HASTA EL 31 DE DICIEMBRE</p>
+    <h2 class="h2 rv d1" id="of-t" style="text-align:center;margin-inline:auto">Un año entero de contenido por <span data-p="combo"></span>. <span class="amber">Menos de lo que pagas en <span data-p="audMonthsCover"></span> meses de apps sueltas.</span></h2>
     <div class="grand rv">
-      <p class="eyebrow" style="margin-bottom:12px">Esto es todo lo que te llevas con el <span data-p="comboName">Combo Black</span></p>
+      <p class="eyebrow" style="margin-bottom:12px">Esto es todo lo que te llevas con el <span data-p="comboName">Plan Anual</span></p>
       <div class="stack">
         <div><span><b>12 meses de SUPERNOVA</b>Todas las herramientas: reels, carruseles, imágenes, anuncios, textos, calendario, Radar y Ofertas. 2.000 créditos cada mes.</span><em data-p="monthlyX12"></em></div>
         <div><span><b><span data-p="comunidadMeses"></span> meses en la Comunidad Creativos 10X</b>Llamadas en vivo y gente creando contigo.</span><em data-p="comunidadValor"></em></div>
         <div><span><b>+<span data-p="bonusCredits"></span> créditos de regalo que no caducan</b>Un mes y medio más de creación, cuando quieras usarlo.</span><em>Regalo</em></div>
-        <div><span><b>Tu precio, congelado</b>Mientras renueves, no te sube aunque suba para todos.</span><em>Solo en el combo</em></div>
+        <div><span><b>Tu precio, congelado</b>Mientras renueves, no te sube aunque suba para todos.</span><em>Solo en el plan anual</em></div>
         <div><span><b>Lo que dejas de pagar en <span data-p="audApps"></span> apps</b>Todo lo de tu factura de arriba, en una sola cuenta.</span><em data-p="audYear"></em></div>
       </div>
       <div class="tot"><span>Valor de la app y la comunidad</span><s data-p="stackValue"></s></div>
       <div class="now">
         <p class="k">HOY, UN SOLO PAGO</p>
         <p class="price" data-p="combo"></p>
-        <p><b style="color:var(--fg)"><span data-p="comboPerDay"></span> al día</b>, menos que un café. Ahorras <span data-p="comboSave"></span> frente al mes a mes.</p>
+        <p><b style="color:var(--fg)"><span data-p="comboPerDay"></span> al día</b>, menos que un café. Por separado, en apps sueltas, pagarías <span data-p="audYear"></span> al año.</p>
       </div>
-      <a class="btn btn-p" href="#" data-checkout="combo" data-cta="oferta_combo"><span>Sí, quiero el <span data-p="comboName">Combo Black</span> →</span></a>
+      <a class="btn btn-p" href="#" data-checkout="combo" data-cta="oferta_combo"><span>Sí, quiero el <span data-p="comboName">Plan Anual</span> →</span></a>
       <div class="cd" aria-label="Tiempo que queda de la oferta"><div><b id="ofD">--</b><span>días</span></div><div><b id="ofH">--</b><span>horas</span></div><div><b id="ofM">--</b><span>min</span></div><div><b id="ofS">--</b><span>seg</span></div></div>
       <a class="alt" href="#precios" data-ev="oferta_ver_mensual">Prefiero pagar mes a mes (<span data-p="monthly"></span>)</a>
     </div>
     <div class="guar rv"><i aria-hidden="true">🛡️</i><div><b>Garantía de 30 días: o te sirve, o te devolvemos el 100 %</b><p>Entra, crea tu contenido y úsalo. Si en 30 días sientes que no es para ti, te devolvemos todo tu dinero. El riesgo es nuestro.</p></div></div>
     <div class="why-now rv">
-      <div><span><b style="color:var(--fg)">El <span data-p="comboName">Combo Black</span> termina el <span data-p="comboEndsShort"></span> a medianoche (hora de RD).</b> <span data-p="comboNext"></span></span></div>
+      <div><span><b style="color:var(--fg)">El <span data-p="comboName">Plan Anual</span> termina el <span data-p="comboEndsShort"></span> a medianoche (hora de RD).</b> <span data-p="comboNext"></span></span></div>
       <div><span>Cada semana sin publicar es una semana en la que tus clientes le compran a otro.</span></div>
       <div><span>Lo que crees es tuyo: puedes usarlo para tu negocio o venderlo a tus clientes.</span></div>
     </div>
@@ -459,19 +480,19 @@
         <p class="small" style="margin-top:10px;text-align:center">Se renueva cada mes. Cancelas cuando quieras desde Whop.</p>
       </div>
       <div class="plan combo rv d1" id="comboCard">
-        <span class="ribbon" data-p="comboRibbon">BLACK FRIDAY · COMBO BLACK</span>
-        <h3 data-p="comboName">Combo Black</h3>
+        <span class="ribbon" data-p="comboRibbon">BLACK FRIDAY · PLAN ANUAL</span>
+        <h3 data-p="comboName">Plan Anual</h3>
         <p class="mut">12 meses de SUPERNOVA + regalos</p>
         <p class="price"><span class="was" data-p="monthlyX12"></span><span data-p="combo"></span><small> una vez</small></p>
-        <span class="save">Equivale a <span data-p="comboPerMonth"></span>/mes · Ahorras <span data-p="comboSave"></span> (<span data-p="comboSavePct"></span>)</span>
+        <span class="save">Equivale a <span data-p="comboPerMonth"></span>/mes · Valor real: <span data-p="stackValue"></span></span>
         <div class="stack">
           <div><span>12 meses de SUPERNOVA (2.000 créditos cada mes)</span><em data-p="monthlyX12Lbl"></em></div>
           <div><span>+<span data-p="bonusCredits"></span> créditos de regalo que no caducan</span><em>Bono</em></div>
           <div><span><span data-p="comunidadMeses"></span> meses en la Comunidad Creativos 10X, con llamadas en vivo</span><em>Se vende a US$99/mes</em></div>
-          <div><span>Tu precio queda congelado mientras renueves</span><em>Solo en el combo</em></div>
+          <div><span>Tu precio queda congelado mientras renueves</span><em>Solo en el plan anual</em></div>
         </div>
-        <a class="btn btn-p" href="#" data-checkout="combo" data-cta="plan_combo"><span>Quiero el <span data-p="comboName">Combo Black</span></span></a>
-        <p class="small" style="margin-top:10px;text-align:center" data-p="comboEndsTxt">Pago único por 12 meses. Termina el 30 de noviembre a medianoche (hora de RD).</p>
+        <a class="btn btn-p" href="#" data-checkout="combo" data-cta="plan_combo"><span>Quiero el <span data-p="comboName">Plan Anual</span></span></a>
+        <p class="small" style="margin-top:10px;text-align:center" data-p="comboEndsTxt">Pago único por 12 meses. Termina el 31 de diciembre a medianoche (hora de RD).</p>
       </div>
     </div>
     <div class="examples rv">
@@ -503,7 +524,7 @@
       <details><summary>¿SUPERNOVA reemplaza todas mis herramientas?</summary><p>No todas. Junta en un solo lugar las tareas de crear tu contenido cada semana. Si necesitas edición de diseño muy avanzada o avatares profesionales, Canva o HeyGen siguen siendo más completos en eso.</p></details>
       <details><summary>¿Puedo usar el contenido para vender?</summary><p>Sí, el contenido que generas es tuyo y puedes usarlo comercialmente. Revísalo antes de publicar para que cumpla las normas de cada red.</p></details>
       <details><summary>¿Y si no me sirve?</summary><p>Tienes 30 días de garantía. Si no es para ti, nos escribes y te devolvemos el 100 % de lo que pagaste.</p></details>
-      <details><summary>¿Por qué el combo y no el mes a mes?</summary><p>Porque pagas menos de lo que cuestan 8 meses, te llevas créditos de regalo y 3 meses de comunidad, y tu precio queda congelado. El mes a mes sigue disponible si prefieres no comprometerte.</p></details>
+      <details><summary>¿Por qué el plan anual y no el mes a mes?</summary><p>Porque te llevas 3.000 créditos de regalo y 3 meses de comunidad, tu precio queda congelado y pagas una sola vez en lugar de 12. El mes a mes sigue disponible si prefieres no comprometerte.</p></details>
     </div>
   </div>
 </section>
@@ -513,7 +534,7 @@
   <div class="wrap">
     <h2 class="h2 rv">Un año de contenido para tu negocio por <span class="amber" data-p="combo"></span></h2>
     <p class="lead rv d1" style="margin:16px auto 0"><span data-p="comboPerDay"></span> al día. 30 días de garantía. Termina el <span data-p="comboEndsShort"></span>.</p>
-    <div class="hero-cta rv d2"><a class="btn btn-p" href="#" data-checkout="combo" data-cta="final_combo"><span>Sí, quiero el <span data-p="comboName">Combo Black</span> →</span></a></div>
+    <div class="hero-cta rv d2"><a class="btn btn-p" href="#" data-checkout="combo" data-cta="final_combo"><span>Sí, quiero el <span data-p="comboName">Plan Anual</span> →</span></a></div>
   </div>
 </section>
 </main>
@@ -525,17 +546,17 @@
   </div>
 </footer>
 
-<div class="sticky" id="sticky"><span><b data-p="comboName">Combo Black</b> · <span data-p="combo"></span> · <span data-p="comboPerDay"></span> al día</span><a class="btn btn-p" href="#oferta" data-ev="sticky_oferta">Lo quiero</a></div>
+<div class="sticky" id="sticky"><span><b data-p="comboName">Plan Anual</b> · <span data-p="combo"></span> · <span data-p="comboPerDay"></span> al día</span><a class="btn btn-p" href="#oferta" data-ev="sticky_oferta">Lo quiero</a></div>
 
-<!-- Popup Black Friday: Combo Black -->
+<!-- Popup Black Friday: Plan Anual -->
 <div class="bf-modal" id="bfModal" role="dialog" aria-modal="true" aria-labelledby="bfTitle" aria-describedby="bfDesc">
   <div class="bf-box">
     <button class="bf-x" type="button" aria-label="Cerrar" data-close-combo>×</button>
-    <p class="bf-k" data-p="comboKicker">BLACK FRIDAY · SOLO HASTA EL 30 DE NOVIEMBRE</p>
-    <h2 id="bfTitle"><span data-p="comboName">Combo Black</span>: 12 meses de SUPERNOVA por menos de lo que cuestan 8 meses</h2>
-    <p class="mut" id="bfDesc" style="margin-top:8px">Mes a mes pagarías <b style="color:var(--fg)" data-p="monthlyX12"></b> al año. Con el combo pagas una sola vez.</p>
+    <p class="bf-k" data-p="comboKicker">BLACK FRIDAY · PRECIO ESPECIAL HASTA EL 31 DE DICIEMBRE</p>
+    <h2 id="bfTitle"><span data-p="comboName">Plan Anual</span>: 12 meses de SUPERNOVA + regalos por <span data-p="combo"></span></h2>
+    <p class="mut" id="bfDesc" style="margin-top:8px">En apps sueltas pagarías <b style="color:var(--fg)" data-p="audYear"></b> al año. Aquí pagas una sola vez y te llevas regalos.</p>
     <div class="bf-price"><span class="was" data-p="monthlyX12"></span><span class="now"><span data-p="combo"></span><small> /año</small></span></div>
-    <span class="save">Equivale a <span data-p="comboPerMonth"></span>/mes · Ahorras <span data-p="comboSave"></span></span>
+    <span class="save">Equivale a <span data-p="comboPerMonth"></span>/mes · Valor real: <span data-p="stackValue"></span></span>
     <div class="stack">
       <div><span>12 meses de SUPERNOVA · 2.000 créditos al mes</span><em>✓</em></div>
       <div><span>+<span data-p="bonusCredits"></span> créditos de regalo que no caducan</span><em>✓</em></div>
@@ -543,7 +564,7 @@
       <div><span>Precio congelado mientras renueves</span><em>✓</em></div>
     </div>
     <div class="bf-cd" aria-label="Tiempo que queda"><div><b id="cdD">--</b><span>días</span></div><div><b id="cdH">--</b><span>horas</span></div><div><b id="cdM">--</b><span>min</span></div><div><b id="cdS">--</b><span>seg</span></div></div>
-    <a class="btn btn-p" href="#" data-checkout="combo" data-cta="popup_combo"><span>Quiero el <span data-p="comboName">Combo Black</span></span></a>
+    <a class="btn btn-p" href="#" data-checkout="combo" data-cta="popup_combo"><span>Quiero el <span data-p="comboName">Plan Anual</span></span></a>
     <button class="bf-alt" type="button" data-close-combo data-go="#precios">Prefiero pagar mes a mes (<span data-p="monthly"></span>)</button>
   </div>
 </div>

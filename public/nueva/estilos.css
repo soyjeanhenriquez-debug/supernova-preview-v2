@@ -389,3 +389,22 @@ footer a{color:var(--fg2)}
 .calc-out .btn{margin-top:16px;width:100%}
 @media(max-width:900px){.tk-wrap,.calc{grid-template-columns:minmax(0,1fr)}.ticket{transform:none}.cks{grid-template-columns:minmax(0,1fr)}}
 @media(prefers-reduced-motion:reduce){.tk-row s::after{transition:none}}
+
+/* ---------- Cara a cara con Higgsfield ---------- */
+.h2h{margin-top:40px;border:1px solid var(--line);border-radius:24px;padding:26px;background:var(--card2)}
+.h2h h3{font:800 clamp(24px,3.4vw,34px)/1.15 Sora,sans-serif;margin-top:8px}
+.h2h>.mut{margin-top:8px}
+.h2h-t{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:20px}
+.h2h-c{border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:4px}
+.h2h-c.sn{border-color:var(--amber);background:rgba(245,168,58,.06)}
+.h2h-c b{font-family:Sora,sans-serif}
+.h2h-c .pr{font:800 34px/1.1 Sora,sans-serif}
+.h2h-c:not(.sn) .pr{color:var(--red);text-decoration:line-through;text-decoration-thickness:2px}
+.h2h-c .pr small{font-size:15px;color:var(--fg2)}
+.h2h-c>small{color:var(--mut);font-size:13px}
+.h2h-rows{margin-top:16px}
+.h2h-rows div{display:grid;grid-template-columns:minmax(0,1fr) 64px 64px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:15px;color:var(--fg2)}
+.h2h-rows i{font-style:normal;text-align:center;font-weight:800}
+.h2h-rows i.y{color:var(--ok)}.h2h-rows i.n{color:var(--mut)}
+.h2h-rows div:first-child::before{content:none}
+@media(max-width:600px){.h2h-c{padding:12px;min-width:0}.h2h-c .pr{font-size:23px}.h2h-c .pr small{font-size:12px}.h2h{padding:20px 16px}.h2h-rows div{grid-template-columns:minmax(0,1fr) 44px 44px;font-size:14px}}

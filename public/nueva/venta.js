@@ -1,15 +1,15 @@
 /* Lógica compartida de las páginas de venta (/nueva/ y /nueva/negocios/). Cada página define window.AUD
    (su público, la factura de herramientas y la calculadora) antes de cargar este archivo. */
 /* ===================== CONFIGURACIÓN (un solo lugar para cambiar precios y enlaces) =====================
-   Jean decide los precios. checkoutMonthly HOY cobra US$29,99: al lanzar, Jean lo cambia por el plan de US$39.
+   Jean decide los precios. Los enlaces son los productos de Whop que dio Jean (SUPERNOVA MES y SUPERNOVA ANUAL).
    combo.checkout vacío = falta crear el plan del combo en Whop (la página avisa en el borrador). */
 var CFG = {
-  priceMonthly: 39,
-  checkoutMonthly: "https://whop.com/checkout/plan_ukBjctlEKufto",
+  priceMonthly: 30, // SUPERNOVA MES en Whop: US$30/mes, precio especial Black Friday (1-nov-2026)
+  checkoutMonthly: "https://whop.com/digitalizados/supernova-mes/",
   // UNA sola oferta hasta fin de año (Jean, 01-nov-2026). Cambia sola de fase; mismas fechas que _shared/claseSemanal.ts.
+  // SUPERNOVA ANUAL en Whop: US$347 al año (Jean, 01-nov-2026). Una sola fase hasta el 31-dic.
   combo: { bonusCredits: 3000, comunidadMeses: 3, fases: [
-    { name: "Combo Black", event: "BLACK FRIDAY", price: 297, endsTxt: "30 de noviembre", endsAt: "2026-12-01T00:00:00-04:00", checkout: "" },
-    { name: "Combo Fin de Año", event: "FIN DE AÑO", price: 347, endsTxt: "31 de diciembre", endsAt: "2027-01-01T00:00:00-04:00", checkout: "" }
+    { name: "Plan Anual", event: "BLACK FRIDAY", price: 347, endsTxt: "31 de diciembre", endsAt: "2027-01-01T00:00:00-04:00", checkout: "https://whop.com/digitalizados/supernova-anual/" }
   ] },
   guarantee: "✓ Garantía de 30 días con reembolso del 100 %",
   verifiedAt: "31 de octubre de 2026",
@@ -33,7 +33,7 @@ CFG.combo.price = FASE ? FASE.price : 0; CFG.combo.checkout = FASE ? FASE.checko
     guarantee: CFG.guarantee, verifiedAt: CFG.verifiedAt,
     comboName: FASE ? FASE.name : "", comboEvent: FASE ? FASE.event : "",
     comboRibbon: FASE ? FASE.event + " · " + FASE.name.toUpperCase() : "",
-    comboKicker: FASE ? FASE.event + " · SOLO HASTA EL " + FASE.endsTxt.toUpperCase() : "",
+    comboKicker: FASE ? FASE.event + " · PRECIO ESPECIAL HASTA EL " + FASE.endsTxt.toUpperCase() : "",
     comboEndsTxt: FASE ? "Pago único por 12 meses. Termina el " + FASE.endsTxt + " a medianoche (hora de RD)." : "",
     comboEndsShort: FASE ? FASE.endsTxt : "",
     comboPerDay: fmt(Math.round(CFG.combo.price / 365 * 100) / 100),
@@ -41,7 +41,7 @@ CFG.combo.price = FASE ? FASE.price : 0; CFG.combo.checkout = FASE ? FASE.checko
     stackValue: fmt(x12 + 99 * CFG.combo.comunidadMeses),
     // Lo que pasa al cerrar cada fase (fechas reales de CFG.combo.fases)
     comboNext: !FASE ? "" : (function () { var i = CFG.combo.fases.indexOf(FASE), sig = CFG.combo.fases[i + 1];
-      return sig ? "Después sube a " + fmt(sig.price) + "." : "Después el combo desaparece y solo queda el mes a mes."; })()
+      return sig ? (sig.price > FASE.price ? "Después sube a " + fmt(sig.price) + "." : "") : "Después termina el precio especial."; })()
   };
   // Cuenta atrás de la oferta (la misma fecha que el popup)
   (function () {
@@ -57,6 +57,8 @@ CFG.combo.price = FASE ? FASE.price : 0; CFG.combo.checkout = FASE ? FASE.checko
   var audMonth = AUD.tools.reduce(function (s, t) { return s + t.p; }, 0), audYear = Math.round(audMonth * 12 * 100) / 100;
   P.audApps = String(AUD.tools.length); P.audMonth = fmt(Math.round(audMonth * 100) / 100); P.audYear = fmt(audYear);
   P.audSaveYear = fmt(Math.round((audYear - (CFG.combo.price || x12)) * 100) / 100);
+  // Cuántos meses de apps sueltas pagan un año de SUPERNOVA
+  P.audMonthsCover = audMonth ? String(Math.ceil((CFG.combo.price || x12) / audMonth)) : "";
   var tk = document.getElementById("ticketRows");
   if (tk) tk.innerHTML = AUD.tools.map(function (t) { return '<div class="tk-row"><span>' + t.n + "<small>" + t.d + "</small></span><s>" + fmt(t.p) + "</s></div>"; }).join("");
   var src = document.getElementById("ticketSrc");

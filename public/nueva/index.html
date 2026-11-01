@@ -328,6 +328,18 @@
     <p class="sources" style="margin-top:14px">Precios públicos en dólares de EE. UU. al 1 de noviembre de 2026; pueden variar según tu país. Fuentes: <span id="ticketSrc"></span>.</p>
 
 
+    <div class="hire rv">
+      <p class="eyebrow" style="color:var(--amber)">Y si se lo encargas a una persona</p>
+      <h3>Un video UGC con IA en Fiverr cuesta <span class="amber">unos US$25.</span> Uno al día son <span class="amber">US$791 al mes.</span></h3>
+      <div class="hire-g">
+        <div><b>US$10–90</b><span>el paquete más barato de cada vendedor (casi siempre 1 video corto)</span></div>
+        <div><b>US$26,38</b><span>la mediana con la comisión de Fiverr (5,5 %)</span></div>
+        <div><b>US$9.497</b><span>al año, con 1 video al día</span></div>
+      </div>
+      <p class="justo"><b>Lo justo:</b> si no ibas a contratar a nadie, esto no es un ahorro: es lo que cuesta que alguien lo haga por ti. Con SUPERNOVA lo haces tú, en minutos, con los créditos de tu plan.</p>
+      <p class="sources">Búsqueda propia en Fiverr («ai ugc video», 1 de noviembre de 2026): 15 vendedores con 20 reseñas o más. Precio «desde» de cada uno, sin la tarifa por pedido pequeño. Los precios cambian; búscalo tú mismo.</p>
+    </div>
+
     <div class="h2h rv">
       <p class="eyebrow" style="color:var(--amber)">Cara a cara, con números reales</p>
       <h3>Solo para crear imágenes y videos, <span class="amber">Higgsfield Plus cuesta US$468 al año.</span></h3>
@@ -395,17 +407,50 @@
         <div class="cks" id="calcTools"></div>
         <label class="sl"><span>Horas a la semana creando contenido <b id="cHrsV"></b></span><input type="range" id="cHrs" min="1" max="30" step="1"></label>
         <label class="sl"><span>Lo que vale una hora tuya <b id="cValV"></b></span><input type="range" id="cVal" min="2" max="50" step="1"></label>
+        <label class="sl"><span>Videos que encargarías hechos al mes <b id="cVidV"></b></span><input type="range" id="cVid" min="0" max="30" step="1"></label>
         <div class="sv" role="group" aria-label="Tiempo que te ahorra"><span>Si SUPERNOVA te ahorra</span><button type="button" data-save=".25">25 %</button><button type="button" data-save=".5" class="on">50 %</button><button type="button" data-save=".75">75 %</button><span>de ese tiempo</span></div>
       </div>
       <div class="calc-out">
         <div class="co-row"><span>Apps</span><b id="cTools"></b></div>
         <div class="co-row"><span>Tu tiempo</span><b id="cTime"></b></div>
+        <div class="co-row"><span>Videos encargados (Fiverr)</span><b id="cVidOut"></b></div>
         <div class="co-tot"><span>Hoy te cuesta al mes</span><b id="cHoy"></b><small><span id="cHoyY"></span> al año</small></div>
         <div class="co-gain"><span>Lo que recuperas cada mes</span><b id="cNet"></b><small>Ya descontado lo que pagas con el plan anual (<span id="cPay"></span>/mes). <span id="cNetY"></span> al año.</small></div>
         <a class="btn btn-p" href="#oferta" data-ev="calc_cta">Quiero recuperarlo →</a>
       </div>
     </div>
     <p class="sources rv">Cálculo con tus datos: horas × 4,3 semanas × lo que vale tu hora.</p>
+  </div>
+</section>
+
+<!-- 9c. TÚ ERES EL QUE COBRA (gente común) -->
+<section class="sec" id="cobra" aria-labelledby="co-t">
+  <div class="wrap">
+    <p class="eyebrow rv">Ahora date la vuelta</p>
+    <h2 class="h2 rv d1" id="co-t">En Fiverr cobran US$25 por un video así. <span class="amber">¿Y si el que cobra eres tú?</span></h2>
+    <div class="flip">
+      <div class="flip-n rv"><b>14</b><span>videos a US$25, vendidos directo a negocios, pagan tu Plan Anual completo (en Fiverr, el vendedor deja el 20 % de comisión)</span></div>
+      <div class="flip-s rv d1">
+        <ol>
+          <li><b>Haz tu muestra con SUPERNOVA.</b> Un video, un carrusel y un anuncio para un negocio real.</li>
+          <li><b>Ofrécela.</b> A negocios de tu zona por WhatsApp, o publícala en Fiverr como servicio.</li>
+          <li><b>Entrega cada semana.</b> Lo que a otros les toma días, tú lo haces en minutos.</li>
+        </ol>
+        <p class="justo"><b>Lo justo:</b> nadie te asegura clientes. Es una forma de recuperar lo que pagas, no un ingreso seguro. Si usas IA, dilo siempre a tu cliente.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 9d. 30 DÍAS, 30 ÁNGULOS -->
+<section class="sec" id="angulos" aria-labelledby="an-t">
+  <div class="wrap">
+    <p class="eyebrow rv">Haz la prueba</p>
+    <h2 class="h2 rv d1" id="an-t">Un video al día no sirve si dice lo mismo. <span class="amber">¿Llenas 30 días con 30 ángulos?</span></h2>
+    <p class="lead rv d2">Intenta llenar las casillas con una idea distinta cada día. Si te cuesta pasar de 5, no te falta talento: te falta un sistema.</p>
+    <div class="ang rv" id="ang"></div>
+    <div class="ang-cta rv"><button type="button" class="btn btn-p" id="angFill" data-ev="angulos_fill">Que SUPERNOVA me llene el mes →</button><span class="mut" id="angCount">0 de 30 casillas llenas</span></div>
+    <p class="sources rv">Ejemplo de ángulos para un negocio de comida. En la app, «Arma tu mes de contenido» los propone para tu negocio, con búsquedas reales.</p>
   </div>
 </section>
 
@@ -481,6 +526,10 @@
       <a class="btn btn-p" href="#" data-checkout="combo" data-cta="oferta_combo"><span>Sí, quiero el <span data-p="comboName">Plan Anual</span> →</span></a>
       <div class="cd" aria-label="Tiempo que queda de la oferta"><div><b id="ofD">--</b><span>días</span></div><div><b id="ofH">--</b><span>horas</span></div><div><b id="ofM">--</b><span>min</span></div><div><b id="ofS">--</b><span>seg</span></div></div>
       <a class="alt" href="#precios" data-ev="oferta_ver_mensual">Prefiero pagar mes a mes (<span data-p="monthly"></span>)</a>
+    </div>
+    <div class="justos rv">
+      <p><b>Lo justo:</b> pagas el acceso a todas las herramientas; cada creación usa créditos y la app te dice cuánto cuesta antes de crear.</p>
+      <p><b>Lo justo:</b> si en 30 días no es para ti, te devolvemos el 100 %. Sin preguntas raras.</p>
     </div>
     <div class="guar rv"><i aria-hidden="true">🛡️</i><div><b>Garantía de 30 días: o te sirve, o te devolvemos el 100 %</b><p>Entra, crea tu contenido y úsalo. Si en 30 días sientes que no es para ti, te devolvemos todo tu dinero. El riesgo es nuestro.</p></div></div>
     <div class="why-now rv">

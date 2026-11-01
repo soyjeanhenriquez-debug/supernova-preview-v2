@@ -212,15 +212,18 @@ CFG.combo.price = FASE ? FASE.price : 0; CFG.combo.checkout = FASE ? FASE.checko
   if (calc) {
     var box = document.getElementById("calcTools"), hrs = document.getElementById("cHrs"), val = document.getElementById("cVal"), ag = document.getElementById("cAg"), ahorro = .5, used = false;
     box.innerHTML = AUD.tools.map(function (t, i) { return '<label class="ck"><input type="checkbox" data-i="' + i + '" checked><span>' + t.n + "</span><em>" + fmt(t.p) + "</em></label>"; }).join("");
-    hrs.value = AUD.horas || 6; val.value = AUD.valorHora || 5;
+    // Video UGC con IA en Fiverr: mediana del paquete más barato de 15 vendedores con 20+ reseñas (1-nov-2026) + 5,5 % de comisión.
+    var VIDEO_FIVERR = 26.38, vid = document.getElementById("cVid");
+    hrs.value = AUD.horas || 6; val.value = AUD.valorHora || 5; if (vid) vid.value = AUD.videos != null ? AUD.videos : 4;
     var set = function (id, v) { var el = document.getElementById(id); if (el) el.textContent = v; };
     var r = function (n) { return fmt(Math.round(n)); };
     var upd = function () {
       var tools = 0; box.querySelectorAll("input:checked").forEach(function (c) { tools += AUD.tools[+c.getAttribute("data-i")].p; });
-      var tiempo = +hrs.value * 4.3 * +val.value, agencia = ag ? +ag.value : 0;
-      var hoy = tools + tiempo + agencia, pagas = CFG.combo.price ? CFG.combo.price / 12 : CFG.priceMonthly;
-      var neto = Math.max(0, tools + tiempo * ahorro + agencia - pagas);
+      var tiempo = +hrs.value * 4.3 * +val.value, agencia = ag ? +ag.value : 0, videos = vid ? +vid.value * VIDEO_FIVERR : 0;
+      var hoy = tools + tiempo + agencia + videos, pagas = CFG.combo.price ? CFG.combo.price / 12 : CFG.priceMonthly;
+      var neto = Math.max(0, tools + tiempo * ahorro + agencia + videos - pagas);
       set("cHrsV", hrs.value + " h"); set("cValV", fmt(+val.value)); set("cAgV", r(agencia));
+      if (vid) { set("cVidV", vid.value); set("cVidOut", r(videos)); }
       set("cTools", r(tools)); set("cTime", r(tiempo)); set("cAgOut", r(agencia));
       set("cHoy", r(hoy)); set("cHoyY", r(hoy * 12)); set("cPay", fmt(Math.round(pagas * 100) / 100)); set("cNet", r(neto)); set("cNetY", r(neto * 12));
     };
@@ -229,6 +232,24 @@ CFG.combo.price = FASE ? FASE.price : 0; CFG.combo.checkout = FASE ? FASE.checko
       ahorro = +b.getAttribute("data-save"); calc.querySelectorAll("[data-save]").forEach(function (x) { x.classList.toggle("on", x === b); }); upd();
     }); });
     upd();
+  }
+
+  /* ---------- 30 días, 30 ángulos: la persona intenta llenarlo; la app lo llena ---------- */
+  var ang = document.getElementById("ang");
+  if (ang) {
+    var IDEAS = ["Detrás de la cocina", "La duda que más te hacen", "Antes y después", "Mito vs. verdad", "Un uso que nadie conoce",
+      "Comparación con lo de siempre", "La historia del negocio", "Error que todos cometen", "Pedido del día", "Lo que pide un cliente fiel",
+      "Receta en 15 segundos", "Precio explicado", "Objeción: «es caro»", "Un día en el local", "Ingrediente estrella",
+      "Lista: 3 platos para compartir", "Pregunta al público", "Oferta de la semana", "Cómo pedir a domicilio", "Reto de la semana",
+      "Lo que no ves del servicio", "El plato que casi quitamos", "Para quién NO es", "Combo para la familia", "Respuesta a un comentario",
+      "Tendencia del momento, a nuestra manera", "Lo que dicen los números", "Paso a paso", "Agradecimiento a los clientes", "Resumen del mes"];
+    ang.innerHTML = IDEAS.map(function (_, i) { return '<label class="ang-c"><span>Día ' + (i + 1) + '</span><input type="text" maxlength="40" aria-label="Ángulo del día ' + (i + 1) + '"></label>'; }).join("");
+    var ins = ang.querySelectorAll("input"), cnt = document.getElementById("angCount");
+    var cuenta = function () { var n = 0; ins.forEach(function (x) { if (x.value.trim()) n++; }); cnt.textContent = n + " de 30 casillas llenas"; };
+    ang.addEventListener("input", cuenta);
+    document.getElementById("angFill").addEventListener("click", function () {
+      ins.forEach(function (x, i) { if (x.value.trim()) return; setTimeout(function () { x.value = IDEAS[i]; x.parentNode.classList.add("ok"); cuenta(); }, reduce ? 0 : i * 45); });
+    });
   }
 
   /* ---------- Precios vistos ---------- */

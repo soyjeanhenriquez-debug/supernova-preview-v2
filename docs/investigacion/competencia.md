@@ -229,6 +229,76 @@ Capturas de Jean + investigación pública del 07-oct-2026 (página de Skool, Yo
 
 **No tomamos:** escasez por número de miembros salvo que sea una regla real que se cumpla; cifras sin prueba ("+10K leads"); llamar "gratis" a algo de pago; exigir que el usuario instale Claude o GHL; usar sus nombres de agentes, textos o su skill de GitHub.
 
+## 11. anai (anaiapp.ai) — «Tu próximo video listo para publicar en 15 minutos» (revisado 01-nov-2026)
+
+- **Qué es:** estudio de video con IA en español. Biblioteca de virales → guion → escenas con personaje consistente
+  → edición con cortes y subtítulos → MP4 vertical sin marca de agua. Promete 15 min de tiempo activo por video (cada
+  escena tarda 2–3 min; el video, 5–10 min).
+- **Funciones:**
+  - Clona tu producto (fotos tuyas o del producto dentro de las escenas).
+  - Tu clon con IA.
+  - Personajes consistentes.
+  - Voces con emoción.
+  - Guiones.
+  - Regenerar una escena en un clic.
+  - Equipos y varias marcas (planes Studio/Elite).
+  - Pausar el plan un mes.
+  - anai School.
+- **Precios (mensual; el anual da 2 meses gratis):**
+
+  | Plan | Precio | Video al mes |
+  |---|---|---|
+  | Plus | US$39 | 240 s (~8 videos de 30 s) |
+  | Creator | US$99 | 673 s |
+  | Studio | US$189 | 1.346 s |
+  | Elite | US$369 | 2.692 s |
+
+- **Su página usa nuestras mismas jugadas:**
+  - «$177/mes en 6 apps sueltas → desde $39/mes» (investigación 24, voz 40, guion 34, imágenes 20, video 45, editor 14).
+  - «Si sabes usar WhatsApp, sabes usar anai».
+  - −88 % tiempo, −89 % costo, «15 horas ahorradas cada semana».
+- **Lo que tienen y nosotros no (o solo por piezas):**
+  - el flujo de punta a punta hasta el MP4 editado;
+  - dos personajes y tu producto dentro de las escenas;
+  - voces y labios para clientes (en pausa en SUPERNOVA);
+  - regenerar una escena;
+  - equipos.
+- **Lo que tenemos y ellos no:**
+  - Radar de anuncios de Meta;
+  - Ofertas ganadoras;
+  - carruseles;
+  - anuncios de imagen;
+  - textos de venta (página, correos, WhatsApp);
+  - mes de contenido y calendario;
+  - precio y ganancia;
+  - comunidad en vivo.
+- **Ojo con el precio:** a igual precio dan más segundos de video. Con 2.000 créditos (clip de 5 s = 89) salen
+  ~112 s de video si todo se gasta en video.
+
+## 12. UGC Viral Studio · «Haz la cuenta» (ugcviralstudio.com/fundadores/haz-la-cuenta, revisado 01-nov-2026)
+
+- **Qué venden:** una entrada de fundador de **US$997, pago único**, para crear influencers de IA. La IA se paga
+  aparte, a precio de proveedor. Lista de espera; abren en unos días. Firma «Eric».
+- **Cómo persuaden:** no venden; le dan al visitante una **tarea de 10 minutos**. Busca en Fiverr cuánto cuesta un
+  video UGC con IA de 60 s, multiplícalo por 30 y por 12. El número lo encuentra la persona, no la página.
+- **Las 8 partes de la página:**
+  1. La herida (gastaste más de lo que ganaste).
+  2. El diagnóstico (nadie habla de ti: crear no da dinero, promocionar sí).
+  3. Coca-Cola (hasta la marca más conocida sigue anunciándose).
+  4. La tarea, con una tabla para llenar.
+  5. La calculadora: precio por video × videos al mes, en mes, año y 2 años, y en qué mes ser fundador sale más barato.
+  6. Los 2 caminos: contratar US$2.535/mes o fundador US$997 una vez, cada uno con su «Lo justo».
+  7. 30 días, 30 ángulos: casillas para llenar que muestran si te falta dinero, tiempo o ideas.
+  8. El consejo secreto: «tú eres el que cobra»; ofrece lo mismo en Fiverr y recupera la entrada.
+- **La prueba:** una tabla propia de 27 vendedores de Fiverr (28-oct-2026), con país, estrellas, reseñas, paquetes y la
+  comisión de Fiverr. Promedio: US$85 por video de 60 s en Europa y América; US$56 en Asia y África.
+- **La honestidad suma confianza:**
+  - «Si no ibas a contratar estos videos, esto no es un ahorro».
+  - «No eres dueño del programa».
+  - «Nadie te asegura clientes».
+- **Lo que no se copia:** sus textos ni su tabla. Sí la mecánica: tarea, anclaje contra contratar a una persona,
+  consejo de revender y casillas de ángulos. Los datos se sacan de búsquedas propias.
+
 ## Pendientes de verificación
 - Cifras de volumen de Quantum y PulpoIA (no comprobables desde fuera).
 - Máquina IA: Instagram (reels más vistos), nombres de las 16 skills, con qué publica (GHL, n8n o Make) y si sus anuncios del 20-sep siguen activos en noviembre.

@@ -89,11 +89,83 @@ CFG.combo.price = FASE ? FASE.price : 0; CFG.combo.checkout = FASE ? FASE.checko
   if (src) src.innerHTML = AUD.tools.map(function (t) { return '<a href="' + t.u + '" rel="noopener" target="_blank">' + t.n + "</a>"; }).join(" · ");
   document.querySelectorAll("[data-p]").forEach(function (el) { var v = P[el.getAttribute("data-p")]; if (v != null) el.textContent = v; });
 
+  /* ---------- Promesa por sector (?s=) y para creativos (?p=creativo): la puerta /empezar/ manda aquí ---------- */
+  var PERS = {
+    auto: { h: "Más gente preguntando por tus carros.", a: "Sin agencia y en minutos.",
+      l: "Reels de tus carros, carruseles de ofertas y anuncios para Facebook e Instagram, hechos con IA en una sola app. Tú pones el carro; SUPERNOVA hace el resto.",
+      d: ["Carros que no rotan", "Fotos que no venden", "Anuncios que no traen citas", "Agencia cara", "Sin tiempo para publicar", "Curiosos que no compran", "7 suscripciones"],
+      f: [["Mañana", "Publicas el carro del día.", "Un reel con el carro en movimiento y su precio, listo en minutos."],
+          ["Esta semana", "Tu WhatsApp empieza a sonar.", "Anuncios con ángulos distintos para cada carro: precio, financiamiento, garantía."],
+          ["En 30 días", "Tu inventario se mueve en redes.", "Cada carro con su video, su carrusel y su anuncio, sin depender de nadie."],
+          ["En diciembre", "Vendes en la mejor época del año.", "Con campañas de fin de año listas mientras tu competencia todavía busca agencia."]] },
+    inmobiliaria: { h: "Más interesados en tus propiedades.", a: "Sin fotógrafo ni agencia.",
+      l: "Videos de recorrido, carruseles de cada propiedad y anuncios que llevan a tu WhatsApp, hechos con IA en una sola app.",
+      d: ["Propiedades que no se mueven", "Fotos sin vida", "Curiosos que no compran", "Agencia cara", "Sin tiempo para publicar", "Anuncios que no traen visitas", "7 suscripciones"],
+      f: [["Mañana", "Publicas la propiedad del día.", "Un reel con sus mejores espacios y su precio, en minutos."],
+          ["Esta semana", "Agendas más visitas.", "Anuncios con ángulos distintos: ubicación, precio, financiamiento."],
+          ["En 30 días", "Cada propiedad con su campaña.", "Video, carrusel y anuncio para cada una, sin esperar a nadie."],
+          ["En diciembre", "Cierras el año vendiendo.", "Con campañas listas para quienes buscan casa en enero."]] },
+    restaurante: { h: "Mesas llenas y pedidos por WhatsApp.", a: "Con contenido que da hambre.",
+      l: "Reels de tus platos, carruseles del menú y anuncios para tu zona, hechos con IA en una sola app. Sin fotógrafo ni community manager.",
+      d: ["Mesas vacías entre semana", "Fotos que no dan hambre", "No sabes qué publicar", "Community manager caro", "Sin tiempo", "Pedidos que no llegan", "7 suscripciones"],
+      f: [["Mañana", "Publicas el plato del día.", "Un reel que da hambre, listo antes de abrir."],
+          ["Esta semana", "Llenas los días flojos.", "Promos y anuncios para tu zona, cada uno con un ángulo distinto."],
+          ["En 30 días", "Tu menú vive en redes.", "Reels, carruseles y posts todos los días, sin contratar a nadie."],
+          ["En diciembre", "Tus cenas de fin de año, reservadas.", "Campañas de fiestas y eventos listas a tiempo."]] },
+    belleza: { h: "Tu agenda llena de citas.", a: "Con contenido que da confianza.",
+      l: "Antes y después, reels de tus servicios y anuncios que llevan a tu WhatsApp, hechos con IA en una sola app.",
+      d: ["Huecos en la agenda", "Clientes que no vuelven", "No sabes qué publicar", "Fotos sin impacto", "Agencia cara", "Sin tiempo", "7 suscripciones"],
+      f: [["Mañana", "Publicas tu antes y después.", "Listo en minutos, con tu marca."],
+          ["Esta semana", "Se llenan los huecos de tu agenda.", "Promos para los días flojos, cada una con su ángulo."],
+          ["En 30 días", "Tu marca se ve profesional.", "Reels, carruseles y anuncios todos los días, sin contratar a nadie."],
+          ["En diciembre", "Temporada alta, agenda llena.", "Campañas de fin de año listas a tiempo."]] },
+    tienda: { h: "Tus productos, vendiéndose en redes.", a: "Sin fotógrafo ni agencia.",
+      l: "Videos de producto, fotos tipo cliente, carruseles y anuncios, hechos con IA en una sola app. Y mira qué anuncios ya venden en tu categoría.",
+      d: ["Productos que no rotan", "Fotos de catálogo aburridas", "Anuncios que no venden", "Agencia cara", "Sin tiempo", "No sabes qué publicar", "7 suscripciones"],
+      f: [["Mañana", "Publicas el producto del día.", "Video y foto tipo cliente, listos en minutos."],
+          ["Esta semana", "Pruebas 5 ángulos en vez de 1.", "Lanzas varias versiones y en días ves cuál vende."],
+          ["En 30 días", "Tu catálogo vive en redes.", "Cada producto con su video, su carrusel y su anuncio."],
+          ["En diciembre", "Black Friday y Navidad, listos.", "Campañas armadas antes que tu competencia."]] },
+    servicios: { h: "Más clientes que ya confían en ti", a: "antes de llamarte.",
+      l: "Contenido que te muestra como experto, carruseles que educan y anuncios que llevan a tu agenda, hechos con IA en una sola app.",
+      d: ["Te piden precio y se van", "Nadie sabe lo que haces", "No sabes qué publicar", "Sin tiempo", "Agencia cara", "Te comparan con el más barato", "7 suscripciones"],
+      f: [["Mañana", "Publicas un consejo de experto.", "Un reel o un carrusel que responde lo que más te preguntan."],
+          ["Esta semana", "Te escriben los que ya confían.", "Anuncios que llevan a tu WhatsApp o a tu agenda."],
+          ["En 30 días", "Te conocen como el que sabe.", "Contenido todos los días, sin quitarle horas a tus clientes."],
+          ["En diciembre", "Arrancas enero con agenda.", "Campañas listas para quienes deciden a principio de año."]] },
+    otro: { h: "Más clientes para tu negocio.", a: "Sin agencia y en minutos.",
+      l: "Reels, carruseles, fotos y anuncios de tu negocio, hechos con IA en una sola app. Y mira qué anuncios ya funcionan en tu sector." },
+    creativo: { h: "Crea 30 piezas en una tarde.", a: "Y atiende más clientes sin contratar a nadie.",
+      l: "Reels, carruseles, imágenes, videos con IA y anuncios para tu marca o la de tus clientes, en una sola app. La voz de cada marca, guardada.",
+      d: ["Clientes que piden más", "Plazos imposibles", "Bloqueo creativo", "7 suscripciones", "Diseños que tardan", "Videos que tardan días", "Ideas repetidas"],
+      f: [["Mañana", "Entregas antes de lo prometido.", "Lo que te tomaba un día, listo en una tarde."],
+          ["Esta semana", "Sumas un cliente más.", "Con el mismo tiempo, más marcas atendidas."],
+          ["En 30 días", "Tu portafolio crece cada semana.", "Reels, carruseles y anuncios de varias marcas, con la voz de cada una."],
+          ["En diciembre", "Cobras más por entregar más rápido.", "Y cierras el año con clientes que se quedan."]] }
+  };
+  var qp = new URLSearchParams(location.search), clave = qp.get("p") === "creativo" ? "creativo" : qp.get("s");
+  var PS = PERS[clave];
+  if (PS) {
+    var h1 = document.getElementById("h1");
+    if (h1) h1.innerHTML = '<span class="w glow" style="animation-delay:.05s"></span> <span class="w amber" style="animation-delay:.25s"></span>';
+    if (h1) { h1.children[0].textContent = PS.h; h1.children[1].textContent = PS.a; }
+    var ld = document.querySelector(".hero .lead"); if (ld) ld.textContent = PS.l;
+    var pn = document.querySelector(".pains");
+    if (pn && PS.d) { pn.innerHTML = ""; PS.d.forEach(function (x) { var s = document.createElement("span"); s.textContent = x; pn.appendChild(s); }); }
+    if (PS.f) document.querySelectorAll("#futuro .fu").forEach(function (c, i) {
+      var x = PS.f[i]; if (!x) return;
+      c.querySelector(".fu-k").textContent = x[0]; c.querySelector("b").textContent = x[1]; c.querySelector("p").textContent = x[2];
+    });
+    var ft = document.getElementById("fu-t");
+    if (ft && clave !== "creativo") ft.innerHTML = 'Imagina tu negocio <span class="amber">dentro de 30 días.</span>';
+    document.documentElement.dataset.sector = clave;
+  }
+
   /* ---------- Medición (PostHog solo en el dominio oficial; mismos parámetros que la landing actual) ---------- */
   var official = location.hostname === CFG.officialHost;
   var q = [];
   window.snTrack = function (ev, props) {
-    props = Object.assign({ page: (window.AUD && AUD.page) || "venta", variant: document.documentElement.dataset.variant || "a" }, props || {});
+    props = Object.assign({ page: (window.AUD && AUD.page) || "venta", sector: document.documentElement.dataset.sector || null, variant: document.documentElement.dataset.variant || "a" }, props || {});
     if (window.posthog && window.posthog.capture) window.posthog.capture(ev, props); else q.push([ev, props]);
     if (!official && window.console) console.debug("[evento]", ev, props);
   };

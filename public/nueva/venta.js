@@ -4,12 +4,12 @@
    Jean decide los precios. Los enlaces son los productos de Whop que dio Jean (SUPERNOVA MES y SUPERNOVA ANUAL).
    combo.checkout vacío = falta crear el plan del combo en Whop (la página avisa en el borrador). */
 var CFG = {
-  priceMonthly: 30, // SUPERNOVA MES en Whop: US$30/mes, precio especial Black Friday (1-nov-2026)
-  checkoutMonthly: "https://whop.com/digitalizados/supernova-mes/",
+  priceMonthly: 39, // SUPERNOVA MES en Whop (plan_93briYTWt4o3U): US$39/mes
+  checkoutMonthly: "https://whop.com/checkout/plan_93briYTWt4o3U",
   // UNA sola oferta hasta fin de año (Jean, 01-nov-2026). Cambia sola de fase; mismas fechas que _shared/claseSemanal.ts.
   // SUPERNOVA ANUAL en Whop: US$347 al año (Jean, 01-nov-2026). Una sola fase hasta el 31-dic.
   combo: { bonusCredits: 3000, comunidadMeses: 3, fases: [
-    { name: "Plan Anual", event: "BLACK FRIDAY", price: 347, endsTxt: "31 de diciembre", endsAt: "2027-01-01T00:00:00-04:00", checkout: "https://whop.com/digitalizados/supernova-anual/" }
+    { name: "Plan Anual", event: "BLACK FRIDAY", price: 347, endsTxt: "31 de diciembre", endsAt: "2027-01-01T00:00:00-04:00", checkout: "https://whop.com/checkout/plan_18BwA5Fhx25n8" } // SUPERNOVA ANUAL, US$347/año
   ] },
   guarantee: "✓ Garantía de 30 días con reembolso del 100 %",
   verifiedAt: "31 de octubre de 2026",

@@ -113,6 +113,8 @@ const SUPERNOVA_PLANS = new Set([
   "plan_ukBjctlEKufto", // PRO (antes STARTER), US$29,99 con 3 días de prueba
   "plan_VsWbrtokeQOLu", // PRO MAX
   "plan_oRht08inLOu39", // COMUNIDAD CREATIVOS 10X, US$99/mes (cobrada en Whop, acceso a Skool)
+  "plan_93briYTWt4o3U", // SUPERNOVA MES, US$39/mes (1-nov-2026)
+  "plan_18BwA5Fhx25n8", // SUPERNOVA ANUAL, US$347/año (1-nov-2026); los 2.000 créditos llegan cada 30 días mientras siga activa
 ]);
 
 type SubStatus = "active" | "trialing" | "past_due" | "canceled" | "inactive";

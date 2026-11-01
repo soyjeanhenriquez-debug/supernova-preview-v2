@@ -252,6 +252,19 @@ CFG.combo.price = FASE ? FASE.price : 0; CFG.combo.checkout = FASE ? FASE.checko
     });
   }
 
+  /* ---------- Formatos: «Ver con sonido» enciende el audio de uno y apaga los demás ---------- */
+  document.querySelectorAll("[data-snd]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var v = b.parentNode.querySelector("video"), on = v.muted;
+      document.querySelectorAll(".fm video").forEach(function (x) { x.muted = true; });
+      document.querySelectorAll("[data-snd]").forEach(function (x) { x.textContent = "🔊 Ver con sonido"; });
+      if (!v.src && v.dataset.src) v.src = v.dataset.src;
+      v.muted = !on; if (on) { v.currentTime = 0; b.textContent = "🔇 Quitar sonido"; }
+      var pr = v.play(); if (pr && pr.catch) pr.catch(function () {});
+      snTrack("formato_sonido", { formato: b.closest(".fm").id });
+    });
+  });
+
   /* ---------- Precios vistos ---------- */
   new IntersectionObserver(function (es, o) { if (es[0].isIntersecting) { snTrack("pricing_view"); o.disconnect(); } }, { threshold: .3 }).observe(document.getElementById("precios"));
 

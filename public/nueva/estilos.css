@@ -482,3 +482,21 @@ footer a{color:var(--fg2)}
 .fu p{color:var(--fg2);font-size:15px;margin-top:8px}
 .fu-cta{margin-top:26px;text-align:center;font:700 18px Sora,sans-serif}
 @media(max-width:900px){.fut{grid-template-columns:minmax(0,1fr)}}
+
+/* ---------- Formatos para tu estrategia creativa (carrusel deslizable) ---------- */
+.fm-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.fm-chips a{border:1px solid var(--line2);border-radius:999px;padding:7px 12px;font:600 13px Manrope,sans-serif;color:var(--fg2);text-decoration:none}
+.fm-chips a:hover{border-color:var(--amber);color:var(--fg)}
+.fms{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(240px,280px);gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;padding:28px max(16px,calc((100vw - 1180px)/2)) 12px;scrollbar-width:thin}
+.fm{scroll-snap-align:start;display:flex;flex-direction:column}
+.fm-v{position:relative;aspect-ratio:9/16;border-radius:20px;overflow:hidden;border:1px solid var(--line2);background:#111}
+.fm-v video,.fm-v img{width:100%;height:100%;object-fit:cover;display:block}
+.fm-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px}
+.fm-n{position:absolute;top:10px;left:10px;z-index:2;background:rgba(0,0,0,.65);color:#fff;font:800 12px Sora,sans-serif;padding:4px 9px;border-radius:999px}
+.fm-snd{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:2;background:rgba(0,0,0,.72);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:8px 14px;font:700 13px Sora,sans-serif;white-space:nowrap;cursor:pointer}
+.fm-snd:hover{background:var(--amber);color:#000}
+.fm-k{margin-top:14px;font:800 11px Sora,sans-serif;letter-spacing:.12em;color:var(--amber)}
+.fm h3{font:800 20px/1.2 Sora,sans-serif;margin-top:4px}
+.fm>p:last-child{color:var(--fg2);font-size:14px;margin-top:6px}
+.fm-foot{text-align:center;color:var(--mut);font-size:13px;margin-top:8px}
+@media(max-width:700px){.fm-chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}.fm-chips a{white-space:nowrap}}

@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="es" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SUPERNOVA — Crea reels, carruseles, imágenes y voces con IA sin pagar 6 apps</title>
+<meta name="description" content="Todo lo que haces con ChatGPT, Canva, CapCut, Midjourney, ElevenLabs y HeyGen, en una sola app en español. Para tus redes o para cobrarle a un negocio. Sin prompts. 30 días de garantía.">
+<meta name="robots" content="noindex, nofollow"><!-- BORRADOR: quitar al lanzar -->
+<link rel="canonical" href="https://supernova-six-eta.vercel.app/nueva/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Crea reels, carruseles, imágenes y voces con IA sin pagar 6 apps">
+<meta property="og:description" content="Videos, carruseles, imágenes y anuncios para tus redes, desde un solo lugar.">
+<meta property="og:image" content="https://supernova-six-eta.vercel.app/nueva/media/restaurante.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"SUPERNOVA","applicationCategory":"BusinessApplication","operatingSystem":"Web","inLanguage":"es","offers":{"@type":"Offer","price":"39","priceCurrency":"USD"},"description":"Plataforma para crear y organizar contenido para redes sociales con inteligencia artificial."}
+</script>
+<link rel="stylesheet" href="/nueva/estilos.css">
+</head>
+<body>
+
+<div class="draft" id="draft" role="status"></div>
+
+<!-- Barra Black Friday: se oculta sola al terminar la oferta -->
+<div class="bf-bar" id="bfBar" hidden>
+  <div class="wrap">
+    <b data-p="comboEvent">BLACK FRIDAY</b>
+    <span><span data-p="comboName">Combo Black</span>: 12 meses de SUPERNOVA con <span data-p="comboSavePct"></span> de descuento.</span>
+    <span>Termina en <span class="cd" id="bfBarCd">--</span></span>
+    <button type="button" data-open-combo>Ver el combo</button>
+  </div>
+</div>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="logo" href="#top" aria-label="SUPERNOVA, inicio"><img src="/supernova-icon.webp" alt="" width="26" height="26">SUPERNOVA</a>
+    <nav aria-label="Principal">
+      <a class="hide-m" href="#demo">Cómo funciona</a>
+      <a class="hide-m" href="#comparar">Comparar</a>
+      <a class="hide-m" href="#precios">Precios</a>
+      <a href="/auth" data-ev="login_click">Entrar</a>
+      <a class="btn btn-p hide-m" href="#oferta" data-ev="nav_oferta">Ver la oferta</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+<!-- 1. HERO -->
+<section class="hero" aria-labelledby="h1">
+  <div class="tiles" aria-hidden="true">
+    <div class="tile t1"><video muted loop playsinline preload="none" poster="/nueva/media/restaurante.jpg" data-src="/nueva/media/restaurante.mp4"></video><span class="lbl">Video para un bar</span></div>
+    <div class="tile t2"><video muted loop playsinline preload="none" poster="/nueva/media/reel-ia.jpg" data-src="/nueva/media/reel-ia.mp4"></video><span class="lbl">Reel con subtítulos</span></div>
+    <div class="tile t3"><video muted loop playsinline preload="none" poster="/nueva/media/vinilo.jpg" data-src="/nueva/media/vinilo.mp4"></video><span class="lbl">Video para un servicio</span></div>
+    <div class="tile t4"><img src="/ejemplos-creativos/antes_despues.webp" alt="" loading="lazy"><span class="lbl">Anuncio</span></div>
+    <div class="tile t5"><img src="/ejemplos-creativos/receta.webp" alt="" loading="lazy"><span class="lbl">Imagen</span></div>
+  </div>
+  <div class="wrap">
+    <div class="hero-in">
+      <p class="eyebrow" style="color:var(--amber)" data-p="comboKicker">BLACK FRIDAY · SOLO HASTA EL 30 DE NOVIEMBRE</p>
+      <h1 id="h1" data-ab="h1"><span class="w glow" style="animation-delay:.05s">Crea reels, carruseles, imágenes y voces con IA</span> <span class="w amber" style="animation-delay:.25s">sin pagar 6 apps.</span></h1>
+      <p class="lead">Todo lo que hoy haces con ChatGPT, Canva, CapCut, Midjourney, ElevenLabs y HeyGen, <b style="color:var(--fg)">en una sola app en español</b>. Para tus redes o para cobrarle a un negocio. Sin prompts.</p>
+      <div class="hero-cta">
+        <a class="btn btn-p" href="#oferta" data-ev="hero_oferta"><span>Quiero el <span data-p="comboName">Combo Black</span> →</span></a>
+        <a class="btn btn-g" href="#demo" data-ev="hero_demo_click">Ver cómo funciona</a>
+      </div>
+      <p class="hero-micro">12 meses por <span data-p="combo"></span> · <span data-p="comboPerDay"></span> al día · <span data-p="guarantee"></span></p>
+    </div>
+    <div class="hero-strip" aria-hidden="true">
+      <div class="tile"><video muted loop playsinline preload="none" poster="/nueva/media/restaurante.jpg" data-src="/nueva/media/restaurante.mp4"></video><span class="lbl">Video</span></div>
+      <div class="tile"><video muted loop playsinline preload="none" poster="/nueva/media/reel-ia.jpg" data-src="/nueva/media/reel-ia.mp4"></video><span class="lbl">Reel</span></div>
+      <div class="tile"><img src="/ejemplos-creativos/antes_despues.webp" alt="" loading="lazy"><span class="lbl">Anuncio</span></div>
+      <div class="tile"><video muted loop playsinline preload="none" poster="/nueva/media/vinilo.jpg" data-src="/nueva/media/vinilo.mp4"></video><span class="lbl">Video</span></div>
+      <div class="tile"><img src="/ejemplos-creativos/calendario.webp" alt="" loading="lazy"><span class="lbl">Imagen</span></div>
+    </div>
+    <p class="demo-note" style="text-align:center">Todo lo que ves en esta página se hizo con SUPERNOVA.</p>
+  </div>
+</section>
+
+<!-- 2. Cinta -->
+<div class="marq" aria-hidden="true"><div class="marq-t" id="marq">
+  <span>Reels y videos</span><span>Carruseles</span><span>Imágenes para tus posts</span><span>Anuncios</span><span>Guiones y textos</span><span>Tu mes de contenido en un toque</span><span>Más de 114.000 anuncios reales para inspirarte</span><span>Ganchos que atrapan</span><span>Todo en español</span>
+</div></div>
+
+<!-- 3. DEMO GUIADA -->
+<section class="sec" id="demo" aria-labelledby="demo-t">
+  <div class="wrap">
+    <p class="eyebrow rv">Míralo en 30 segundos</p>
+    <h2 class="h2 rv d1" id="demo-t">De una idea a tu semana de contenido, sin saber de IA</h2>
+    <p class="lead rv d2">Un ejemplo con un negocio de comida: un recetario de cenas rápidas. No escribes prompts: eliges, revisas y listo.</p>
+    <div class="demo rv d2">
+      <div class="steps" role="tablist" aria-label="Pasos de la demostración">
+        <button class="step on" role="tab" aria-selected="true" data-step="0"><b>1. Tu negocio</b><small>Lo eliges una vez</small><span class="bar"></span></button>
+        <button class="step" role="tab" aria-selected="false" data-step="1"><b>2. Tu idea</b><small>O una referencia que te gustó</small><span class="bar"></span></button>
+        <button class="step" role="tab" aria-selected="false" data-step="2"><b>3. Los textos</b><small>Ganchos, guion y copy</small><span class="bar"></span></button>
+        <button class="step" role="tab" aria-selected="false" data-step="3"><b>4. Las imágenes y videos</b><small>Listos para tus redes</small><span class="bar"></span></button>
+        <button class="step" role="tab" aria-selected="false" data-step="4"><b>5. Tu calendario</b><small>Hasta 30 días en un toque</small><span class="bar"></span></button>
+        <button class="step" role="tab" aria-selected="false" data-step="5"><b>6. Publicas</b><small>Y marcas lo que ya salió</small><span class="bar"></span></button>
+      </div>
+      <div class="stage" aria-live="polite">
+        <div class="pane on" data-pane="0">
+          <span class="tag">Tu ficha</span>
+          <div class="field"><span class="k">¿Qué vendes?</span>Recetario digital «Cenas en 15 minutos»</div>
+          <div class="field"><span class="k">¿Para quién?</span>Mamás y papás que trabajan y llegan sin tiempo a cocinar</div>
+          <p class="small" style="margin-top:14px">SUPERNOVA usa esta ficha en todas las herramientas. No te la vuelve a pedir.</p>
+        </div>
+        <div class="pane" data-pane="1">
+          <span class="tag">¿Qué quieres crear hoy?</span>
+          <div class="chips"><span class="chip">Tengo una referencia</span><span class="chip">Tengo mi material</span><span class="chip on">Solo tengo una idea</span><span class="chip">No sé qué crear</span></div>
+          <div class="field"><span class="k">Tu idea</span><span class="typing" data-type="Quiero mostrar que con mi recetario la cena sale en 15 minutos, sin estrés."></span></div>
+        </div>
+        <div class="pane" data-pane="2">
+          <span class="tag">Textos</span>
+          <div class="copy-card"><b>Gancho</b><br>«Son las 7:40, llegaste tarde y todos tienen hambre. Mira esto.»</div>
+          <div class="copy-card"><b>Guion de reel (15 s)</b><br>Escena 1: cocina desordenada · Escena 2: abres el recetario · Escena 3: plato servido en 15 min · Cierre: «Escríbeme CENAS y te paso el recetario».</div>
+          <div class="copy-card"><b>Texto del post</b><br>7 cenas para la semana, con la lista de compras lista. Sin pensar qué hacer hoy.</div>
+        </div>
+        <div class="pane" data-pane="3">
+          <span class="tag">Imágenes y video</span>
+          <div class="grid3"><img src="/ejemplos-creativos/antes_despues.webp" alt="Anuncio antes y después del recetario" loading="lazy"><img src="/ejemplos-creativos/calendario.webp" alt="Imagen del plan de 7 cenas" loading="lazy"><img src="/ejemplos-creativos/sin_con.webp" alt="Anuncio sin plan y con plan" loading="lazy"></div>
+          <p class="small" style="margin-top:12px">Piezas reales hechas con el generador de imágenes de SUPERNOVA para este recetario.</p>
+        </div>
+        <div class="pane" data-pane="4">
+          <span class="tag">Tu semana</span>
+          <div class="cal-mini">
+            <div><b>Lun</b><span class="pill r">Reel</span><span class="pill">Carrusel</span></div>
+            <div><b>Mar</b><span class="pill">Imagen</span><span class="pill">Historia</span></div>
+            <div><b>Mié</b><span class="pill r">Reel</span><span class="pill">Post</span></div>
+            <div><b>Jue</b><span class="pill">Carrusel</span></div>
+            <div><b>Vie</b><span class="pill r">Reel</span><span class="pill">Oferta</span></div>
+            <div><b>Sáb</b><span class="pill">Imagen</span></div>
+            <div><b>Dom</b><span class="pill">Post</span></div>
+          </div>
+          <p class="small" style="margin-top:12px">«Arma tu mes de contenido» te propone hasta 30 días de ideas con búsquedas reales.</p>
+        </div>
+        <div class="pane" data-pane="5">
+          <span class="tag">Publicar</span>
+          <div class="copy-card"><b>Hoy · Reel de las 7:40</b><br>Descárgalo, súbelo a tus redes y márcalo con un toque.</div>
+          <div class="net"><span class="ok">✓ Instagram</span><span class="ok">✓ TikTok</span><span>YouTube Shorts</span></div>
+          <p class="small" style="margin-top:14px">Hoy publicas tú y SUPERNOVA lleva la cuenta de lo que ya salió en cada red. <span class="amber">La programación automática llega pronto.</span></p>
+        </div>
+      </div>
+    </div>
+    <p class="demo-note">Demostración guiada: los pasos y las pantallas son los de la app; las imágenes son piezas reales hechas con SUPERNOVA para ese recetario.</p>
+  </div>
+</section>
+
+<!-- 4. PROBLEMA -->
+<section class="sec" style="padding-top:20px" aria-labelledby="pr-t">
+  <div class="wrap">
+    <p class="eyebrow rv">El problema</p>
+    <h2 class="h2 rv d1" id="pr-t">Quieres crear con IA, pero cada cosa está en una app distinta (y cada una cobra)</h2>
+    <div class="pains rv d2"><span>¿Qué IA uso?</span><span>Prompts en inglés</span><span>6 suscripciones</span><span>Editar reels</span><span>Diseñar carruseles</span><span>Voces y avatares</span><span>¿Qué publico hoy?</span></div>
+    <div class="ba">
+      <div class="ba-c rv"><div class="b"><small>ANTES</small><p>Abres el celular y no sabes qué publicar. Pasan los días y tu cuenta se queda quieta.</p></div><div class="a"><small>CON SUPERNOVA</small><p>Ideas con búsquedas reales y un plan de hasta 30 días en un toque.</p></div></div>
+      <div class="ba-c rv d1"><div class="b"><small>ANTES</small><p>Una app para el texto, otra para diseñar, otra para el video y otra para ordenar.</p></div><div class="a"><small>CON SUPERNOVA</small><p>Textos, imágenes, carruseles y videos en el mismo lugar, con tu negocio ya cargado.</p></div></div>
+      <div class="ba-c rv d2"><div class="b"><small>ANTES</small><p>Empiezas siempre desde cero, sin saber si a alguien le interesa.</p></div><div class="a"><small>CON SUPERNOVA</small><p>Partes de anuncios y reels que llevan tiempo funcionando, y haces tu versión.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. QUÉ PUEDES CREAR -->
+<section class="sec" id="crear" aria-labelledby="cr-t">
+  <div class="wrap">
+    <p class="eyebrow rv">Qué puedes crear</p>
+    <h2 class="h2 rv d1" id="cr-t">Un solo lugar para todo lo que publicas</h2>
+    <div class="tabs rv d2" role="tablist" aria-label="Formatos">
+      <button class="tab" role="tab" aria-selected="true" data-tab="videos">Videos y reels</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="carruseles">Carruseles</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="imagenes">Imágenes</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="anuncios">Anuncios</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="textos">Textos y guiones</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="calendario">Calendario</button>
+    </div>
+
+    <div class="show" data-show="videos" role="tabpanel">
+      <div><h3>Videos y reels verticales</h3>
+        <ul><li>Clips de video con IA a partir de lo que describes</li><li>Reels con tu cara, con voz IA o con un personaje IA</li><li>Sube tu video y SUPERNOVA le pone subtítulos y gancho</li><li>Analiza un reel que te gustó y haz tu versión</li></ul>
+        <p class="cost">Un clip de video de 5 s desde 89 créditos. Subtítulos y gancho para tu video: 20 créditos.</p></div>
+      <div class="visual vrow">
+        <div class="v"><video muted loop playsinline preload="none" poster="/nueva/media/restaurante.jpg" data-src="/nueva/media/restaurante.mp4" aria-label="Video generado para un bar de tapas"></video></div>
+        <div class="v"><video muted loop playsinline preload="none" poster="/nueva/media/reel-herramientas.jpg" data-src="/nueva/media/reel-herramientas.mp4" aria-label="Reel con subtítulos hecho en Reel Studio"></video></div>
+        <div class="v"><video muted loop playsinline preload="none" poster="/nueva/media/sudadera.jpg" data-src="/nueva/media/sudadera.mp4" aria-label="Video generado de una venta en la calle"></video></div>
+      </div>
+    </div>
+
+    <div class="show" data-show="carruseles" role="tabpanel" hidden>
+      <div><h3>Carruseles que se leen hasta el final</h3>
+        <ul><li>3 portadas a elegir y láminas con tu marca</li><li>Convierte un reel en carrusel</li><li>Haz tu versión de un carrusel que ya funciona</li><li>Tu cara en la portada, si quieres</li></ul>
+        <p class="cost">Un carrusel desde 15 créditos (las imágenes con IA se cobran aparte, desde 7 créditos).</p></div>
+      <div class="visual"><div class="slides" tabindex="0" aria-label="Láminas de ejemplo, desliza">
+        <img src="/ejemplos-creativos/problema_solucion.webp" alt="Lámina: problema y solución" loading="lazy">
+        <img src="/ejemplos-creativos/beneficios.webp" alt="Lámina: beneficios" loading="lazy">
+        <img src="/ejemplos-creativos/incluye.webp" alt="Lámina: qué incluye" loading="lazy">
+        <img src="/ejemplos-creativos/oferta.webp" alt="Lámina: la oferta" loading="lazy">
+      </div><p class="small" style="margin-top:8px">Imágenes reales hechas con SUPERNOVA, ordenadas como carrusel. Desliza →</p></div>
+    </div>
+
+    <div class="show" data-show="imagenes" role="tabpanel" hidden>
+      <div><h3>Imágenes para tus publicaciones</h3>
+        <ul><li>Fotos de producto y escenas de tu negocio</li><li>Fotos estilo UGC (como si las hubiera tomado un cliente)</li><li>Miniaturas para YouTube</li><li>Varios modelos de imagen; la app elige el mejor por ti</li></ul>
+        <p class="cost">Una imagen desde 7 créditos.</p></div>
+      <div class="visual masonry">
+        <img src="/ejemplos-creativos/receta.webp" alt="Imagen de receta" loading="lazy"><img src="/ejemplos-creativos/tiempo.webp" alt="Imagen sobre el tiempo" loading="lazy"><img src="/ejemplos-creativos/transformacion.webp" alt="Imagen de transformación" loading="lazy"><img src="/ejemplos-creativos/notas.webp" alt="Imagen de notas" loading="lazy"><img src="/ejemplos-creativos/pedido.webp" alt="Imagen de pedido" loading="lazy"><img src="/ejemplos-creativos/native.webp" alt="Imagen estilo nativo" loading="lazy">
+      </div>
+    </div>
+
+    <div class="show" data-show="anuncios" role="tabpanel" hidden>
+      <div><h3>Variaciones de anuncios para probar</h3>
+        <ul><li>Más de 30 formatos de anuncio probados (antes y después, sin/con, objeción, oferta…)</li><li>20 ángulos de venta para no repetir siempre lo mismo</li><li>Textos del anuncio y titulares</li><li>Tus primeros 5 anuncios, paso a paso</li></ul>
+        <p class="cost">Mismo producto, distintos ángulos: así sabes cuál conecta.</p></div>
+      <div class="visual masonry">
+        <img src="/ejemplos-creativos/antes_despues.webp" alt="Anuncio antes y después" loading="lazy"><img src="/ejemplos-creativos/objecion.webp" alt="Anuncio de objeción" loading="lazy"><img src="/ejemplos-creativos/sin_con.webp" alt="Anuncio sin y con" loading="lazy"><img src="/ejemplos-creativos/pregunta.webp" alt="Anuncio de pregunta" loading="lazy"><img src="/ejemplos-creativos/advertencia.webp" alt="Anuncio de advertencia" loading="lazy"><img src="/ejemplos-creativos/old_new.webp" alt="Anuncio lo viejo y lo nuevo" loading="lazy">
+      </div>
+    </div>
+
+    <div class="show" data-show="textos" role="tabpanel" hidden>
+      <div><h3>Textos y guiones que suenan a ti</h3>
+        <ul><li>Guiones de reels, de YouTube y de video de ventas</li><li>Textos para tus posts y tus anuncios</li><li>Ganchos que atrapan, a partir de reels que funcionan</li><li>Tu ADN: aprende cómo hablas para que no suene a robot</li></ul>
+        <p class="cost">Un generador de texto desde 15 créditos. Mirar ganchos es gratis.</p></div>
+      <div class="visual script">
+        <p><b>GANCHO</b>«Si cocinas todos los días, esto te va a ahorrar una discusión en casa.»</p>
+        <p><b>DESARROLLO</b>Muestra la nevera llena y la pregunta de siempre: «¿qué hacemos hoy?». Corte al plan de 7 cenas pegado en la nevera.</p>
+        <p><b>CIERRE</b>«Escríbeme CENAS y te mando el plan de esta semana.»</p>
+        <p class="small">Ejemplo de estructura que entrega el generador de guiones.</p>
+      </div>
+    </div>
+
+    <div class="show" data-show="calendario" role="tabpanel" hidden>
+      <div><h3>Tu calendario de contenido</h3>
+        <ul><li>Arma tu mes: hasta 30 días de ideas en un toque</li><li>Meta semanal por tipo de pieza (reels, carruseles, posts)</li><li>Marca lo publicado en cada red con un toque</li><li>Anota quién te escribió y quién compró: solo números reales</li></ul>
+        <p class="cost">Tu mes de contenido: 50 créditos. <span class="amber">Programar automático en tus redes: próximamente.</span></p></div>
+      <div class="visual"><div class="cal-mini" style="margin-top:0">
+        <div><b>Lun</b><span class="pill r">Reel</span><span class="pill">Carrusel</span><span class="pill">Post</span></div>
+        <div><b>Mar</b><span class="pill r">Reel</span><span class="pill">Imagen</span></div>
+        <div><b>Mié</b><span class="pill">Video</span><span class="pill">Carrusel</span></div>
+        <div><b>Jue</b><span class="pill r">Reel</span><span class="pill">Post</span></div>
+        <div><b>Vie</b><span class="pill">Oferta</span><span class="pill">Imagen</span></div>
+        <div><b>Sáb</b><span class="pill r">Reel</span></div>
+        <div><b>Dom</b><span class="pill">Carrusel</span></div>
+      </div><p class="small" style="margin-top:10px">Vista ilustrativa de una semana.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 6. CÓMO FUNCIONA -->
+<section class="sec" style="padding-top:20px" aria-labelledby="how-t">
+  <div class="wrap">
+    <p class="eyebrow rv">Cómo funciona</p>
+    <h2 class="h2 rv d1" id="how-t">Tres pasos. Ningún prompt.</h2>
+    <div class="how">
+      <div class="rv"><h3>Cuéntale qué necesitas</h3><p>Eliges tu negocio, pegas una referencia que te gustó o escribes tu idea con tus palabras.</p></div>
+      <div class="rv d1"><h3>SUPERNOVA lo crea</h3><p>Recibes textos, imágenes, carruseles y videos. La app decide el modelo y el formato por ti.</p></div>
+      <div class="rv d2"><h3>Organiza y publica</h3><p>Revisa, ajusta lo que quieras, ponlo en tu calendario y descárgalo para tus redes.</p></div>
+    </div>
+    <p class="demo-note rv">Los videos con IA tardan unos minutos en estar listos y algunos formatos piden subir tu foto o tu video.</p>
+  </div>
+</section>
+
+<!-- 7. UNA SEMANA DE CONTENIDO -->
+<section class="sec" id="semana" aria-labelledby="wk-t">
+  <div class="wrap">
+    <p class="eyebrow rv">Por qué se queda contigo cada mes</p>
+    <h2 class="h2 rv d1" id="wk-t">Imagina tener organizada toda tu semana de contenido</h2>
+    <p class="lead rv d2">Ejemplo para un restaurante. Cada semana vuelves, armas la siguiente y sigues publicando con ritmo.</p>
+    <div class="week" id="week">
+      <div class="day"><b>Lunes</b><div class="it k-reel"><i>Reel</i>Cómo preparamos el plato del día</div><div class="it k-car"><i>Carrusel</i>5 platos para compartir</div><div class="it k-txt"><i>Promo</i>Menú ejecutivo de la semana</div></div>
+      <div class="day"><b>Martes</b><div class="it k-reel"><i>Reel</i>Detrás de la cocina</div><div class="it k-img"><i>Imagen</i>Foto del postre nuevo</div><div class="it k-txt"><i>Autoridad</i>De dónde vienen los ingredientes</div></div>
+      <div class="day"><b>Miércoles</b><div class="it k-reel"><i>Video</i>Un cliente prueba el plato estrella</div><div class="it k-car"><i>Carrusel</i>Mitos de la comida casera</div><div class="it k-txt"><i>Venta</i>2×1 en bebidas</div></div>
+      <div class="day"><b>Jueves</b><div class="it k-reel"><i>Reel</i>Receta rápida del chef</div><div class="it k-img"><i>Imagen</i>La terraza al atardecer</div></div>
+      <div class="day"><b>Viernes</b><div class="it k-reel"><i>Reel</i>Así se llena un viernes</div><div class="it k-txt"><i>Venta</i>Reserva para el fin de semana</div></div>
+      <div class="day"><b>Sábado</b><div class="it k-img"><i>Imagen</i>El plato del fin de semana</div><div class="it k-car"><i>Carrusel</i>Guía para pedir a domicilio</div></div>
+      <div class="day"><b>Domingo</b><div class="it k-reel"><i>Reel</i>Resumen de la semana</div><div class="it k-txt"><i>Comunidad</i>¿Qué plato quieres el lunes?</div></div>
+    </div>
+    <p class="demo-note">Demostración ilustrativa. Respeta lo que la app hace hoy: planear, crear cada pieza y marcar lo publicado. La cantidad que creas depende de tus créditos.</p>
+  </div>
+</section>
+
+<!-- 8. DIFERENCIADOR -->
+<section class="sec" aria-labelledby="df-t">
+  <div class="wrap">
+    <p class="eyebrow rv">Lo que nadie más te da</p>
+    <h2 class="h2 rv d1" id="df-t">No empieces siempre desde cero</h2>
+    <p class="lead rv d2">Antes de crear, mira lo que ya está funcionando: anuncios que llevan meses activos y reels que la gente guarda. Después haz tu versión, con tus palabras y tu negocio.</p>
+    <div class="flow">
+      <div class="rv"><b>Investiga</b><p>Radar de anuncios, ofertas que venden y reels que funcionan.</p></div>
+      <div class="rv d1"><b>Planifica</b><p>Tu mes de contenido con ideas y búsquedas reales.</p></div>
+      <div class="rv d2"><b>Crea</b><p>Videos, carruseles, imágenes, anuncios y textos.</p></div>
+      <div class="rv d3"><b>Publica</b><p>Descarga, publica y marca lo que salió.</p><span class="soon">Programar automático: próximamente</span></div>
+    </div>
+    <div class="stats">
+      <div class="rv"><b data-count="114000" data-prefix="Más de ">0</b><span>anuncios reales de la Biblioteca de Meta guardados para inspirarte</span></div>
+      <div class="rv d1"><b data-count="7500" data-prefix="Más de ">0</b><span>ofertas digitales analizadas</span></div>
+      <div class="rv d2"><b data-count="532">0</b><span>reels que funcionan, ya leídos: gancho, estructura y por qué funcionan</span></div>
+    </div>
+    <p class="demo-note rv">Que un anuncio lleve tiempo activo indica que alguien sigue invirtiendo en él, no garantiza que sea rentable. Te sirve de referencia para crear algo tuyo, nunca para copiarlo tal cual.</p>
+  </div>
+</section>
+
+<!-- 9. COMPARATIVA -->
+<section class="sec" id="comparar" aria-labelledby="cm-t">
+  <div class="wrap">
+    <p class="eyebrow rv">Lo que estás pagando hoy</p>
+    <h2 class="h2 rv d1" id="cm-t">¿Cuántas herramientas necesitas para crear tu contenido?</h2>
+    <p class="lead rv d2">Texto en una app, diseño en otra, video en otra y programar en otra. Cada una con su cuenta, su factura y su curva de aprendizaje.</p>
+
+    <div class="tk-wrap">
+      <div class="ticket" id="ticket">
+        <p class="tk-h">Lo que pagas por separado · cada mes</p>
+        <div id="ticketRows"></div>
+        <div class="tk-tot"><span>Total al mes</span><s data-p="audMonth"></s></div>
+        <p class="tk-y"><b data-p="audYear"></b> al año en <span data-p="audApps"></span> suscripciones, cada una con su cuenta y su curva de aprendizaje.</p>
+      </div>
+      <div class="tk-vs rv d1">
+        <span class="tag" style="align-self:flex-start;border-color:var(--amber);color:var(--amber)">SUPERNOVA · todo en una</span>
+        <p class="big" style="margin-top:14px"><span data-p="monthly"></span><small>/mes</small></p>
+        <p id="billCombo" style="margin-top:6px">o <b class="amber"><span data-p="comboPerMonth"></span>/mes</b> con el <span data-p="comboName">Combo Black</span></p>
+        <p class="mut" style="margin-top:12px">Textos, imágenes, carruseles, reels, voces, videos con avatar, anuncios e investigación. En español y sin prompts.</p>
+        <div class="tk-save"><span>Te ahorras al año</span><b data-p="audSaveYear"></b></div>
+        <a class="btn btn-p" style="margin-top:18px" href="#oferta" data-ev="bill_cta">Quiero ese ahorro →</a>
+      </div>
+    </div>
+    <p class="sources" style="margin-top:14px">Precios públicos en dólares de EE. UU. al 1 de noviembre de 2026; pueden variar según tu país. Fuentes: <span id="ticketSrc"></span>.</p>
+
+    <div class="cmp-wrap rv">
+      <div class="cmp-scroll" tabindex="0" aria-label="Tabla comparativa, desliza para ver más">
+      <table class="cmp">
+        <caption class="small" style="caption-side:bottom;text-align:left;padding:12px 16px">Tareas reales de contenido. Si no pudimos verificar una función, aparece como «—».</caption>
+        <thead><tr>
+          <th scope="col">Tarea</th>
+          <th scope="col" class="sn">SUPERNOVA<small data-p="monthlyLbl"></small></th>
+          <th scope="col">ChatGPT Plus<small>US$20/mes</small></th>
+          <th scope="col">Claude Pro<small>US$20/mes · US$17 anual</small></th>
+          <th scope="col">Canva Pro<small>US$144/año</small></th>
+          <th scope="col">HeyGen Creator<small>US$29/mes · US$24 anual</small></th>
+          <th scope="col">Buffer Essentials<small>US$5/mes por red</small></th>
+        </tr></thead>
+        <tbody>
+          <tr><td>Escribir textos y guiones con IA</td><td class="sn y">Incluido</td><td class="y">Incluido</td><td class="y">Incluido</td><td class="l">Limitado</td><td class="n">—</td><td class="l">Limitado</td></tr>
+          <tr><td>Crear imágenes con IA</td><td class="sn y">Incluido</td><td class="y">Incluido</td><td class="n">—</td><td class="l">Limitado</td><td class="n">—</td><td class="n">—</td></tr>
+          <tr><td>Diseñar carruseles</td><td class="sn y">Incluido</td><td class="n">—</td><td class="n">—</td><td class="y">Incluido</td><td class="n">—</td><td class="n">—</td></tr>
+          <tr><td>Generar videos con IA</td><td class="sn y">Incluido</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="y">Incluido</td><td class="n">—</td></tr>
+          <tr><td>Avatar que habla (avanzado)</td><td class="sn l">Limitado</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="y">Incluido</td><td class="n">—</td></tr>
+          <tr><td>Crear anuncios (imagen + texto + ángulos)</td><td class="sn y">Incluido</td><td class="l">Limitado</td><td class="l">Limitado</td><td class="l">Limitado</td><td class="n">—</td><td class="n">—</td></tr>
+          <tr><td>Investigar anuncios que llevan meses activos</td><td class="sn y">Incluido</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td></tr>
+          <tr><td>Planear tu mes de contenido</td><td class="sn y">Incluido</td><td class="l">Limitado</td><td class="l">Limitado</td><td class="p">Según plan</td><td class="n">—</td><td class="y">Incluido</td></tr>
+          <tr><td>Programar publicaciones automáticamente</td><td class="sn s">Próximamente</td><td class="n">—</td><td class="n">—</td><td class="p">Según plan</td><td class="n">—</td><td class="y">Incluido</td></tr>
+          <tr><td>Llevar la cuenta de lo publicado por red</td><td class="sn y">Incluido</td><td class="n">—</td><td class="n">—</td><td class="p">Según plan</td><td class="n">—</td><td class="y">Incluido</td></tr>
+          <tr><td>Todo en español, pensado para LATAM</td><td class="sn y">Incluido</td><td class="p">Según plan</td><td class="p">Según plan</td><td class="p">Según plan</td><td class="p">Según plan</td><td class="p">Según plan</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <div class="legend"><span class="y">Incluido</span><span class="l">Limitado</span><span class="p">Según plan</span><span class="s">Próximamente</span><span>— No verificado o no disponible</span></div>
+    </div>
+    <p class="sources">Somos honestos: Canva tiene un editor visual más completo, HeyGen avatares más avanzados y Buffer ya programa automático. SUPERNOVA no reemplaza todo lo que hacen; junta en un solo lugar las tareas que necesitas para crear tu contenido cada semana.<br>
+    Precios en dólares de EE. UU., verificados el <span data-p="verifiedAt"></span> en las páginas oficiales: <a href="https://chatgpt.com/pricing" rel="noopener" target="_blank">ChatGPT</a> · <a href="https://claude.com/pricing" rel="noopener" target="_blank">Claude</a> · <a href="https://www.canva.com/pricing/" rel="noopener" target="_blank">Canva</a> (precio anual; el mensual varía por país) · <a href="https://www.heygen.com/pricing" rel="noopener" target="_blank">HeyGen</a> · <a href="https://buffer.com/pricing" rel="noopener" target="_blank">Buffer</a>. Pueden cambiar sin aviso.</p>
+  </div>
+</section>
+
+<!-- 9b. CALCULADORA: lo que pierde cada mes, con sus números -->
+<section class="sec" id="calculadora" aria-labelledby="ca-t">
+  <div class="wrap">
+    <p class="eyebrow rv">Haz la cuenta con tus números</p>
+    <h2 class="h2 rv d1" id="ca-t">¿Cuánto te cuesta <span class="amber">seguir como estás?</span></h2>
+    <p class="lead rv d2">Marca lo que pagas hoy y cuánto tiempo le dedicas. Tu tiempo también cuesta dinero.</p>
+    <div class="calc rv" id="calc">
+      <div class="calc-in">
+        <p class="ck-t">Lo que pagas (o tendrías que pagar)</p>
+        <div class="cks" id="calcTools"></div>
+        <label class="sl"><span>Horas a la semana creando contenido <b id="cHrsV"></b></span><input type="range" id="cHrs" min="1" max="30" step="1"></label>
+        <label class="sl"><span>Lo que vale una hora tuya <b id="cValV"></b></span><input type="range" id="cVal" min="2" max="50" step="1"></label>
+        <div class="sv" role="group" aria-label="Tiempo que te ahorra"><span>Si SUPERNOVA te ahorra</span><button type="button" data-save=".25">25 %</button><button type="button" data-save=".5" class="on">50 %</button><button type="button" data-save=".75">75 %</button><span>de ese tiempo</span></div>
+      </div>
+      <div class="calc-out">
+        <div class="co-row"><span>Apps</span><b id="cTools"></b></div>
+        <div class="co-row"><span>Tu tiempo</span><b id="cTime"></b></div>
+        <div class="co-tot"><span>Hoy te cuesta al mes</span><b id="cHoy"></b><small><span id="cHoyY"></span> al año</small></div>
+        <div class="co-gain"><span>Lo que recuperas cada mes</span><b id="cNet"></b><small>Ya descontado lo que pagas con el combo (<span id="cPay"></span>/mes). <span id="cNetY"></span> al año.</small></div>
+        <a class="btn btn-p" href="#oferta" data-ev="calc_cta">Quiero recuperarlo →</a>
+      </div>
+    </div>
+    <p class="sources rv">Cálculo con tus datos: horas × 4,3 semanas × lo que vale tu hora.</p>
+  </div>
+</section>
+
+<!-- 10. PARA QUIÉN -->
+<section class="sec" style="padding-top:20px" aria-labelledby="wh-t">
+  <div class="wrap">
+    <p class="eyebrow rv">Para quién es</p>
+    <h2 class="h2 rv d1" id="wh-t">Para quien quiere crear con IA desde cero, o cobrar por hacerlo</h2>
+    <div class="who">
+      <div class="rv"><b>Quien empieza de cero</b><p>Si sabes usar WhatsApp, sabes usar SUPERNOVA.</p></div>
+      <div class="rv d1"><b>Quien quiere ofrecer contenido</b><p>Reels, carruseles y anuncios para negocios de tu zona.</p></div>
+      <div class="rv d2"><b>Creadores</b><p>Contenido para tus redes todos los días, sin quemarte.</p></div>
+      <div class="rv d3"><b>Emprendedores</b><p>Promociones y lanzamientos de lo que vendes.</p></div>
+      <div class="rv d4"><b>Quien maneja redes</b><p>Varios clientes desde una sola cuenta, según tus créditos.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 10b. LA OFERTA (Hormozi: todo lo que te llevas, su valor real, el precio, la garantía y por qué hoy) -->
+<section class="sec" id="oferta" aria-labelledby="of-t">
+  <div class="wrap">
+    <p class="eyebrow rv" style="text-align:center;color:var(--amber)" data-p="comboKicker">BLACK FRIDAY · SOLO HASTA EL 30 DE NOVIEMBRE</p>
+    <h2 class="h2 rv d1" id="of-t" style="text-align:center;margin-inline:auto">Un año entero de contenido para tu negocio. <span class="amber">Por menos de lo que cuestan 8 meses.</span></h2>
+    <div class="grand rv">
+      <p class="eyebrow" style="margin-bottom:12px">Esto es todo lo que te llevas con el <span data-p="comboName">Combo Black</span></p>
+      <div class="stack">
+        <div><span><b>12 meses de SUPERNOVA</b>Todas las herramientas: reels, carruseles, imágenes, anuncios, textos, calendario, Radar y Ofertas. 2.000 créditos cada mes.</span><em data-p="monthlyX12"></em></div>
+        <div><span><b><span data-p="comunidadMeses"></span> meses en la Comunidad Creativos 10X</b>Llamadas en vivo y gente creando contigo.</span><em data-p="comunidadValor"></em></div>
+        <div><span><b>+<span data-p="bonusCredits"></span> créditos de regalo que no caducan</b>Un mes y medio más de creación, cuando quieras usarlo.</span><em>Regalo</em></div>
+        <div><span><b>Tu precio, congelado</b>Mientras renueves, no te sube aunque suba para todos.</span><em>Solo en el combo</em></div>
+        <div><span><b>Lo que dejas de pagar en <span data-p="audApps"></span> apps</b>Todo lo de tu factura de arriba, en una sola cuenta.</span><em data-p="audYear"></em></div>
+      </div>
+      <div class="tot"><span>Valor de la app y la comunidad</span><s data-p="stackValue"></s></div>
+      <div class="now">
+        <p class="k">HOY, UN SOLO PAGO</p>
+        <p class="price" data-p="combo"></p>
+        <p><b style="color:var(--fg)"><span data-p="comboPerDay"></span> al día</b>, menos que un café. Ahorras <span data-p="comboSave"></span> frente al mes a mes.</p>
+      </div>
+      <a class="btn btn-p" href="#" data-checkout="combo" data-cta="oferta_combo"><span>Sí, quiero el <span data-p="comboName">Combo Black</span> →</span></a>
+      <div class="cd" aria-label="Tiempo que queda de la oferta"><div><b id="ofD">--</b><span>días</span></div><div><b id="ofH">--</b><span>horas</span></div><div><b id="ofM">--</b><span>min</span></div><div><b id="ofS">--</b><span>seg</span></div></div>
+      <a class="alt" href="#precios" data-ev="oferta_ver_mensual">Prefiero pagar mes a mes (<span data-p="monthly"></span>)</a>
+    </div>
+    <div class="guar rv"><i aria-hidden="true">🛡️</i><div><b>Garantía de 30 días: o te sirve, o te devolvemos el 100 %</b><p>Entra, crea tu contenido y úsalo. Si en 30 días sientes que no es para ti, te devolvemos todo tu dinero. El riesgo es nuestro.</p></div></div>
+    <div class="why-now rv">
+      <div><span><b style="color:var(--fg)">El <span data-p="comboName">Combo Black</span> termina el <span data-p="comboEndsShort"></span> a medianoche (hora de RD).</b> <span data-p="comboNext"></span></span></div>
+      <div><span>Cada semana sin publicar es una semana en la que tus clientes le compran a otro.</span></div>
+      <div><span>Lo que crees es tuyo: puedes usarlo para tu negocio o venderlo a tus clientes.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 11. PRECIOS -->
+<section class="sec" id="precios" aria-labelledby="pc-t">
+  <div class="wrap">
+    <p class="eyebrow rv">Precios</p>
+    <h2 class="h2 rv d1" id="pc-t">Un precio. Todo incluido. Sin contratos.</h2>
+    <p class="lead rv d2">Mirar el radar, las ofertas y los ganchos es gratis. Los créditos se usan solo cuando la IA crea algo para ti.</p>
+    <div class="plans">
+      <div class="plan rv">
+        <h3>SUPERNOVA</h3>
+        <p class="mut">Mes a mes</p>
+        <p class="price"><span data-p="monthly"></span><small>/mes</small></p>
+        <ul>
+          <li>Todas las herramientas: videos, reels, carruseles, imágenes, anuncios y textos</li>
+          <li>2.000 créditos cada mes</li>
+          <li>Calendario y tu mes de contenido</li>
+          <li>Radar de anuncios, ofertas que venden y reels que funcionan</li>
+          <li>Ayuda y guías paso a paso dentro de la app</li>
+          <li>¿Necesitas más? Compras créditos aparte y no caducan</li>
+        </ul>
+        <a class="btn btn-g" href="#" data-checkout="monthly" data-cta="plan_monthly">Empezar mes a mes</a>
+        <p class="small" style="margin-top:10px;text-align:center">Se renueva cada mes. Cancelas cuando quieras desde Whop.</p>
+      </div>
+      <div class="plan combo rv d1" id="comboCard">
+        <span class="ribbon" data-p="comboRibbon">BLACK FRIDAY · COMBO BLACK</span>
+        <h3 data-p="comboName">Combo Black</h3>
+        <p class="mut">12 meses de SUPERNOVA + regalos</p>
+        <p class="price"><span class="was" data-p="monthlyX12"></span><span data-p="combo"></span><small> una vez</small></p>
+        <span class="save">Equivale a <span data-p="comboPerMonth"></span>/mes · Ahorras <span data-p="comboSave"></span> (<span data-p="comboSavePct"></span>)</span>
+        <div class="stack">
+          <div><span>12 meses de SUPERNOVA (2.000 créditos cada mes)</span><em data-p="monthlyX12Lbl"></em></div>
+          <div><span>+<span data-p="bonusCredits"></span> créditos de regalo que no caducan</span><em>Bono</em></div>
+          <div><span><span data-p="comunidadMeses"></span> meses en la Comunidad Creativos 10X, con llamadas en vivo</span><em>Se vende a US$99/mes</em></div>
+          <div><span>Tu precio queda congelado mientras renueves</span><em>Solo en el combo</em></div>
+        </div>
+        <a class="btn btn-p" href="#" data-checkout="combo" data-cta="plan_combo"><span>Quiero el <span data-p="comboName">Combo Black</span></span></a>
+        <p class="small" style="margin-top:10px;text-align:center" data-p="comboEndsTxt">Pago único por 12 meses. Termina el 30 de noviembre a medianoche (hora de RD).</p>
+      </div>
+    </div>
+    <div class="examples rv">
+      <b>¿Qué alcanza con 2.000 créditos?</b> Por ejemplo: tu mes de contenido (50) + 10 carruseles con portada con IA (unos 220) + 15 imágenes (105) + 12 clips de video de 5 s (1.068). Total: unos 1.443 créditos, y te sobran para textos. Precios en créditos de hoy; pueden cambiar.
+    </div>
+    <div class="trust"><span>🔒 Pago seguro con Whop</span><span>↺ Cancela cuando quieras</span><span>✓ Lo que creas es tuyo y puedes usarlo para vender</span><span data-p="guarantee"></span></div>
+  </div>
+</section>
+
+<!-- 12. FAQ -->
+<section class="sec" style="padding-top:20px" aria-labelledby="fq-t">
+  <div class="wrap">
+    <p class="eyebrow rv">Preguntas frecuentes</p>
+    <h2 class="h2 rv d1" id="fq-t">Lo que la gente pregunta antes de entrar</h2>
+    <div class="faq">
+      <details><summary>¿Qué es SUPERNOVA?</summary><p>Una plataforma en español para crear y organizar el contenido de tu negocio con IA: videos, reels, carruseles, imágenes, anuncios y textos, más un calendario y herramientas para ver qué está funcionando en el mercado.</p></details>
+      <details><summary>¿Necesito saber de inteligencia artificial?</summary><p>No. Tú dices qué quieres crear y la app decide cómo: qué modelo usar, qué formato y qué duración.</p></details>
+      <details><summary>¿Tengo que escribir prompts?</summary><p>No. Eliges opciones, pegas una referencia o escribes tu idea con tus palabras. Lo técnico lo hace la app.</p></details>
+      <details><summary>¿Puedo crear contenido para mi negocio?</summary><p>Sí. Llenas una ficha corta de tu negocio una vez y todas las herramientas la usan.</p></details>
+      <details><summary>¿Puedo crear videos?</summary><p>Sí: clips de video con IA, reels con tu cara, con voz IA o con un personaje IA, y subtítulos con gancho para videos que subes tú. Los videos tardan unos minutos en estar listos.</p></details>
+      <details><summary>¿Puedo generar carruseles?</summary><p>Sí, con 3 portadas a elegir y láminas con tu marca. También puedes convertir un reel en carrusel.</p></details>
+      <details><summary>¿Puedo programar publicaciones?</summary><p>Hoy armas tu calendario, descargas cada pieza y marcas lo que ya publicaste en cada red. La programación automática en tus redes está en camino; te avisaremos cuando esté abierta.</p></details>
+      <details><summary>¿Con qué redes funciona?</summary><p>El contenido sale listo para Instagram, TikTok, YouTube (Shorts y videos) y Facebook. El calendario lleva la cuenta por red.</p></details>
+      <details><summary>¿Puedo usar SUPERNOVA para mis clientes?</summary><p>Sí. Lo que creas es tuyo y puedes usarlo comercialmente. La cantidad que produces depende de tus créditos.</p></details>
+      <details><summary>¿Cuántos créditos incluye mi plan?</summary><p>2.000 créditos cada mes. Se renuevan en cada ciclo; los del plan no se acumulan.</p></details>
+      <details><summary>¿Cuántos créditos consume un video?</summary><p>Un clip de video con IA de 5 segundos cuesta desde 89 créditos. Una imagen, desde 7. Un carrusel, desde 15. Antes de crear, la app te dice cuánto cuesta.</p></details>
+      <details><summary>¿Puedo comprar créditos adicionales?</summary><p>Sí. Los créditos que compras aparte se acumulan y no caducan.</p></details>
+      <details><summary>¿Qué pasa si cancelo?</summary><p>Cancelas desde Whop cuando quieras y conservas el acceso hasta el final del periodo que pagaste.</p></details>
+      <details><summary>¿SUPERNOVA reemplaza todas mis herramientas?</summary><p>No todas. Junta en un solo lugar las tareas de crear tu contenido cada semana. Si necesitas edición de diseño muy avanzada o avatares profesionales, Canva o HeyGen siguen siendo más completos en eso.</p></details>
+      <details><summary>¿Puedo usar el contenido para vender?</summary><p>Sí, el contenido que generas es tuyo y puedes usarlo comercialmente. Revísalo antes de publicar para que cumpla las normas de cada red.</p></details>
+      <details><summary>¿Y si no me sirve?</summary><p>Tienes 30 días de garantía. Si no es para ti, nos escribes y te devolvemos el 100 % de lo que pagaste.</p></details>
+      <details><summary>¿Por qué el combo y no el mes a mes?</summary><p>Porque pagas menos de lo que cuestan 8 meses, te llevas créditos de regalo y 3 meses de comunidad, y tu precio queda congelado. El mes a mes sigue disponible si prefieres no comprometerte.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- 13. CTA FINAL -->
+<section class="final">
+  <div class="wrap">
+    <h2 class="h2 rv">Un año de contenido para tu negocio por <span class="amber" data-p="combo"></span></h2>
+    <p class="lead rv d1" style="margin:16px auto 0"><span data-p="comboPerDay"></span> al día. 30 días de garantía. Termina el <span data-p="comboEndsShort"></span>.</p>
+    <div class="hero-cta rv d2"><a class="btn btn-p" href="#" data-checkout="combo" data-cta="final_combo"><span>Sí, quiero el <span data-p="comboName">Combo Black</span> →</span></a></div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© SUPERNOVA 2026</span>
+    <span><a href="/legal/terminos.html">Términos</a> · <a href="/legal/privacidad.html">Privacidad</a></span>
+  </div>
+</footer>
+
+<div class="sticky" id="sticky"><span><b data-p="comboName">Combo Black</b> · <span data-p="combo"></span> · <span data-p="comboPerDay"></span> al día</span><a class="btn btn-p" href="#oferta" data-ev="sticky_oferta">Lo quiero</a></div>
+
+<!-- Popup Black Friday: Combo Black -->
+<div class="bf-modal" id="bfModal" role="dialog" aria-modal="true" aria-labelledby="bfTitle" aria-describedby="bfDesc">
+  <div class="bf-box">
+    <button class="bf-x" type="button" aria-label="Cerrar" data-close-combo>×</button>
+    <p class="bf-k" data-p="comboKicker">BLACK FRIDAY · SOLO HASTA EL 30 DE NOVIEMBRE</p>
+    <h2 id="bfTitle"><span data-p="comboName">Combo Black</span>: 12 meses de SUPERNOVA por menos de lo que cuestan 8 meses</h2>
+    <p class="mut" id="bfDesc" style="margin-top:8px">Mes a mes pagarías <b style="color:var(--fg)" data-p="monthlyX12"></b> al año. Con el combo pagas una sola vez.</p>
+    <div class="bf-price"><span class="was" data-p="monthlyX12"></span><span class="now"><span data-p="combo"></span><small> /año</small></span></div>
+    <span class="save">Equivale a <span data-p="comboPerMonth"></span>/mes · Ahorras <span data-p="comboSave"></span></span>
+    <div class="stack">
+      <div><span>12 meses de SUPERNOVA · 2.000 créditos al mes</span><em>✓</em></div>
+      <div><span>+<span data-p="bonusCredits"></span> créditos de regalo que no caducan</span><em>✓</em></div>
+      <div><span><span data-p="comunidadMeses"></span> meses de Comunidad Creativos 10X con llamadas en vivo</span><em>✓</em></div>
+      <div><span>Precio congelado mientras renueves</span><em>✓</em></div>
+    </div>
+    <div class="bf-cd" aria-label="Tiempo que queda"><div><b id="cdD">--</b><span>días</span></div><div><b id="cdH">--</b><span>horas</span></div><div><b id="cdM">--</b><span>min</span></div><div><b id="cdS">--</b><span>seg</span></div></div>
+    <a class="btn btn-p" href="#" data-checkout="combo" data-cta="popup_combo"><span>Quiero el <span data-p="comboName">Combo Black</span></span></a>
+    <button class="bf-alt" type="button" data-close-combo data-go="#precios">Prefiero pagar mes a mes (<span data-p="monthly"></span>)</button>
+  </div>
+</div>
+
+<script>
+/* Público de esta página: su factura de herramientas (precios públicos en US$, 1-nov-2026) y la calculadora. */
+window.AUD = {"page": "venta_comunes", "horas": 6, "valorHora": 5, "tools": [{"n": "ChatGPT Plus", "d": "Textos, guiones e ideas", "p": 20, "u": "https://chatgpt.com/pricing"}, {"n": "Canva Pro", "d": "Carruseles y diseños · pago anual", "p": 12, "u": "https://www.canva.com/pricing/"}, {"n": "CapCut Pro", "d": "Editar reels y subtítulos", "p": 19.99, "u": "https://www.capcut.com/"}, {"n": "Midjourney Basic", "d": "Imágenes con IA", "p": 10, "u": "https://www.midjourney.com/"}, {"n": "ElevenLabs Creator", "d": "Voces con IA", "p": 22, "u": "https://elevenlabs.io/pricing"}, {"n": "HeyGen Creator", "d": "Videos con avatar", "p": 29, "u": "https://www.heygen.com/pricing"}]};
+</script>
+<script src="/nueva/venta.js"></script>
+</body>
+</html>

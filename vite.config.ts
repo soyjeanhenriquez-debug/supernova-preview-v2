@@ -27,7 +27,7 @@ function versionFile(): Plugin {
 const ROOT_REDIRECT = `<script>(function(){try{var h=location.hash||"";var go=function(){location.replace("/app"+location.search+h)};if(/access_token=|refresh_token=|error_code=|type=(recovery|signup|magiclink|invite|email_change)/.test(h)){go();return}for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i)||"";if(/^sb-.+-auth-token$/.test(k)&&(localStorage.getItem(k)||"").indexOf("access_token")>-1){go();return}}}catch(e){}})();</script>`;
 
 function landingAtRoot(): Plugin {
-  const SPA = /^\/(?!assets\/|fundador\/|.*\.[a-z0-9]+(\?|$)).*/i; // rutas de la app (sin extensión)
+  const SPA = /^\/(?!assets\/|fundador\/|nueva\/|ofrecer-contenido\/|clase\/|.*\.[a-z0-9]+(\?|$)).*/i; // rutas de la app (sin extensión)
   return {
     name: "supernova-landing-at-root",
     closeBundle() {

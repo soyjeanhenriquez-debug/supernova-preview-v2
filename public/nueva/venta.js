@@ -38,7 +38,6 @@ CFG.combo.price = FASE ? FASE.price : 0; CFG.combo.checkout = FASE ? FASE.checko
     comboEndsShort: FASE ? FASE.endsTxt : "",
     comboPerDay: fmt(Math.round(CFG.combo.price / 365 * 100) / 100),
     comunidadValor: fmt(99 * CFG.combo.comunidadMeses), // la Comunidad Creativos 10X se vende a US$99/mes
-    stackValue: fmt(x12 + 99 * CFG.combo.comunidadMeses),
     // Lo que pasa al cerrar cada fase (fechas reales de CFG.combo.fases)
     comboNext: !FASE ? "" : (function () { var i = CFG.combo.fases.indexOf(FASE), sig = CFG.combo.fases[i + 1];
       return sig ? (sig.price > FASE.price ? "Después sube a " + fmt(sig.price) + "." : "") : "Después termina el precio especial."; })()
@@ -55,6 +54,27 @@ CFG.combo.price = FASE ? FASE.price : 0; CFG.combo.checkout = FASE ? FASE.checko
   /* ---------- La factura de cada público: lo que pagaría por separado (precios públicos en US$) ---------- */
   var AUD = window.AUD || { page: "venta", tools: [] };
   var audMonth = AUD.tools.reduce(function (s, t) { return s + t.p; }, 0), audYear = Math.round(audMonth * 12 * 100) / 100;
+  /* ---------- El paquete: cada parte con lo que reemplaza y su precio público anual (1-nov-2026) ---------- */
+  var PAQ = [
+    { n: "Radar de anuncios ganadores", d: "Más de 114.000 anuncios reales de la Biblioteca de Meta. Los que llevan meses pagándose, primero.", r: "Reemplaza AdSpy (US$149/mes)", v: 1788 },
+    { n: "Video con IA", d: "Anuncios de 3 tomas con la misma persona, clips con sonido y motion graphics.", r: "Reemplaza Higgsfield Plus", v: 468 },
+    { n: "Carrusel que vende y Creativos", d: "Carruseles con tu cara en la portada y más de 30 formatos de anuncio con imagen.", r: "Reemplaza Canva Pro + Midjourney", v: 264 },
+    { n: "Textos que venden y Ganchos", d: "Páginas de venta, correos, guiones de reels y mensajes de WhatsApp, en español.", r: "Reemplaza ChatGPT Plus", v: 240 },
+    { n: "Reel Studio y Sube tu video", d: "Reels con IA, subtítulos con gancho y edición sin saber editar.", r: "Reemplaza CapCut Pro", v: 239.88 },
+    { n: "3 meses de Comunidad Creativos 10X", d: "Llamadas en vivo y gente creando contigo.", r: "Se vende a US$99/mes", v: 99 * CFG.combo.comunidadMeses },
+    { n: "Ofertas ganadoras", d: "Más de 7.500 ofertas digitales analizadas y las 300 que más venden, con su página y su precio.", r: "Incluido" },
+    { n: "Reels que funcionan y Analiza un Reel", d: "532 reels ya leídos (gancho, estructura y por qué funcionan) y tu versión de cualquier reel.", r: "Incluido" },
+    { n: "Influencer IA", d: "Vende sin mostrar tu cara: un personaje creado con IA y sus guiones.", r: "Incluido" },
+    { n: "Tu mes de contenido y calendario", d: "30 días de ideas con búsquedas reales, ordenados para publicar.", r: "Incluido" },
+    { n: "2.000 créditos cada mes + " + num(CFG.combo.bonusCredits) + " de regalo", d: "Para crear todo lo de arriba. Los de regalo no caducan.", r: "Incluido" },
+    { n: "Garantía de 30 días", d: "Si no es para ti, te devolvemos el 100 %.", r: "Sin riesgo" }
+  ];
+  var paqValue = PAQ.reduce(function (s, x) { return s + (x.v || 0); }, 0);
+  P.stackValue = fmt(Math.round(paqValue * 100) / 100);
+  var pq = document.getElementById("paqItems");
+  if (pq) pq.innerHTML = PAQ.map(function (x, i) {
+    return '<div class="pq-it rv"><span class="pq-n">' + String(i + 1).padStart(2, "0") + "</span><b>" + x.n + "</b><p>" + x.d + '</p><em class="' + (x.v ? "v" : "") + '">' + x.r + (x.v ? " · " + fmt(x.v) + " al año" : "") + "</em></div>";
+  }).join("");
   P.audApps = String(AUD.tools.length); P.audMonth = fmt(Math.round(audMonth * 100) / 100); P.audYear = fmt(audYear);
   P.audSaveYear = fmt(Math.round((audYear - (CFG.combo.price || x12)) * 100) / 100);
   // Cuántos meses de apps sueltas pagan un año de SUPERNOVA

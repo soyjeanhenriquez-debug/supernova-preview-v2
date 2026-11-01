@@ -164,6 +164,14 @@ CFG.combo.price = FASE ? FASE.price : 0; CFG.combo.checkout = FASE ? FASE.checko
       var src = "/empezar/img/" + clave + ".jpg";
       document.querySelectorAll(".hero .tiles .t4 img, .hero .tiles .t5 img, .hero-strip .tile img").forEach(function (im, i) { if (i < 2) im.src = src; });
     }
+    // Y su clip de video hecho con Veo 3.1 (Google Flow), si ya existe
+    if (/^(inmobiliaria|restaurante)$/.test(clave)) {
+      document.querySelectorAll(".hero .tiles .t1 video, .hero-strip .tile video").forEach(function (v, i) {
+        if (i > 1) return;
+        v.poster = "/empezar/video/" + clave + ".jpg"; v.setAttribute("data-src", "/empezar/video/" + clave + ".mp4");
+        if (v.src) { v.src = v.getAttribute("data-src"); }
+      });
+    }
   }
 
   /* ---------- Medición (PostHog solo en el dominio oficial; mismos parámetros que la landing actual) ---------- */

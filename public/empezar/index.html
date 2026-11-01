@@ -54,7 +54,7 @@
 .dots i.on{background:var(--amber);width:20px;border-radius:4px}
 .secs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:22px;text-align:left}
 .sec-c{position:relative;display:block;aspect-ratio:9/16;border-radius:20px;overflow:hidden;border:1px solid var(--line2);background:linear-gradient(160deg,#1c1c1e,#0b0b0c);color:#fff;text-decoration:none}
-.sec-c img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.sec-c img,.sec-c video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .sec-c::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 50%,rgba(0,0,0,.88))}
 .sec-c b{position:absolute;left:12px;right:12px;bottom:12px;z-index:2;font:800 16px/1.15 Sora,sans-serif}
 .sec-c .ic{position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);font-size:46px}
@@ -102,8 +102,8 @@
       <p class="sub">Te mostramos ejemplos de tu sector.</p>
       <div class="secs">
         <a class="sec-c" data-ruta="/nueva/negocios/?s=auto"><img src="/empezar/img/auto.jpg" alt="" loading="lazy"><b>Carros y motos</b></a>
-        <a class="sec-c" data-ruta="/nueva/negocios/?s=inmobiliaria"><img src="/empezar/img/inmobiliaria.jpg" alt="" loading="lazy"><b>Inmobiliaria</b></a>
-        <a class="sec-c" data-ruta="/nueva/negocios/?s=restaurante"><img src="/empezar/img/restaurante.jpg" alt="" loading="lazy"><b>Restaurante y comida</b></a>
+        <a class="sec-c" data-ruta="/nueva/negocios/?s=inmobiliaria"><video autoplay muted loop playsinline preload="metadata" poster="/empezar/video/inmobiliaria.jpg" src="/empezar/video/inmobiliaria.mp4" aria-hidden="true"></video><b>Inmobiliaria</b></a>
+        <a class="sec-c" data-ruta="/nueva/negocios/?s=restaurante"><video autoplay muted loop playsinline preload="metadata" poster="/empezar/video/restaurante.jpg" src="/empezar/video/restaurante.mp4" aria-hidden="true"></video><b>Restaurante y comida</b></a>
         <a class="sec-c" data-ruta="/nueva/negocios/?s=belleza"><img src="/empezar/img/belleza.jpg" alt="" loading="lazy"><b>Belleza y salud</b></a>
         <a class="sec-c" data-ruta="/nueva/negocios/?s=tienda"><img src="/empezar/img/tienda.jpg" alt="" loading="lazy"><b>Tienda física u online</b></a>
         <a class="sec-c" data-ruta="/nueva/negocios/?s=servicios"><img src="/empezar/img/servicios.jpg" alt="" loading="lazy"><b>Servicios profesionales</b></a>

@@ -30,38 +30,43 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/nueva/estilos.css">
 <style>
-/* Puerta de las páginas de venta: una pregunta y dos caminos. */
-.gate{min-height:100svh;display:flex;flex-direction:column;justify-content:center;padding:40px 0 56px;position:relative;overflow:hidden}
-.gate::before{content:"";position:absolute;inset:-20% -10% auto;height:120%;pointer-events:none;
-  background:radial-gradient(50% 45% at 50% 25%,rgba(245,168,58,.16),transparent 70%),
-             linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px) 0 0/56px 56px,
-             linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px) 0 0/56px 56px;
-  -webkit-mask-image:radial-gradient(70% 60% at 50% 30%,#000 40%,transparent 100%);mask-image:radial-gradient(70% 60% at 50% 30%,#000 40%,transparent 100%)}
+/* Puerta mobile first: tarjetas verticales 9:16 (imagen completa, sin recortar), deslizables como historias. */
+.gate{min-height:100svh;padding:22px 0 40px;position:relative;overflow:hidden}
+.gate::before{content:"";position:absolute;inset:-10% -10% auto;height:70%;pointer-events:none;background:radial-gradient(60% 50% at 50% 10%,rgba(245,168,58,.18),transparent 70%)}
 .gate .wrap{position:relative;text-align:center}
-.gate .logo{display:inline-flex;align-items:center;gap:9px;font:800 18px Sora,sans-serif;letter-spacing:.14em;color:var(--fg);text-decoration:none}
-.gate .logo img{width:26px;height:26px}
-.gate h1{font:800 clamp(38px,7vw,72px)/1.04 Sora,sans-serif;margin-top:26px;letter-spacing:-.02em}
-.gate .sub{color:var(--fg2);font-size:18px;margin-top:14px}
-.ways{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;max-width:860px;margin:36px auto 0;text-align:left}
-.way{display:flex;flex-direction:column;border:1px solid var(--line2);border-radius:24px;overflow:hidden;background:var(--card2);text-decoration:none;color:inherit;transition:transform .2s,border-color .2s,box-shadow .2s}
-.way:hover,.way:focus-visible{transform:translateY(-3px);border-color:var(--amber);box-shadow:0 20px 50px -25px rgba(245,168,58,.5);outline:none}
-.way .im{aspect-ratio:16/9;background:#111;overflow:hidden}
-.way .im img{width:100%;height:100%;object-fit:cover}
-.way .tx{padding:20px 20px 22px;display:flex;flex-direction:column;gap:8px;flex:1}
-.way b{font:800 26px/1.1 Sora,sans-serif}
-.way span{color:var(--fg2);font-size:15px}
-.way em{font-style:normal;margin-top:auto;padding-top:10px;font:700 15px Sora,sans-serif;color:var(--amber)}
-.gate .note{margin-top:22px;color:var(--mut);font-size:14px}
-.ways.w3{grid-template-columns:repeat(3,minmax(0,1fr));max-width:1080px}
-button.way{font:inherit;color:inherit;text-align:left;cursor:pointer;padding:0}
-.secs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;max-width:900px;margin:32px auto 0}
-.sec-c{display:flex;flex-direction:column;align-items:center;gap:10px;border:1px solid var(--line2);border-radius:20px;padding:22px 12px;background:var(--card2);font-size:34px;text-decoration:none;color:var(--fg);cursor:pointer;transition:border-color .2s,transform .2s}
-.sec-c b{font:700 15px Sora,sans-serif;text-align:center}
-.sec-c:hover,.sec-c:focus-visible{border-color:var(--amber);transform:translateY(-2px);outline:none}
-.back{margin-top:22px;color:var(--fg2);font:600 15px Manrope,sans-serif;background:none;border:0;cursor:pointer}
-@media(max-width:900px){.ways.w3{grid-template-columns:minmax(0,1fr)}.secs{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:700px){.ways{grid-template-columns:minmax(0,1fr)}.way .im{aspect-ratio:21/9}}
-@media(prefers-reduced-motion:reduce){.way{transition:none}}
+.gate .logo{display:inline-flex;align-items:center;gap:9px;font:800 15px Sora,sans-serif;letter-spacing:.16em;color:var(--fg);text-decoration:none}
+.gate .logo img{width:22px;height:22px}
+.gate h1{font:800 clamp(30px,8.5vw,64px)/1.05 Sora,sans-serif;margin-top:18px;letter-spacing:-.02em}
+.gate .sub{color:var(--fg2);font-size:16px;margin-top:10px}
+.rail{display:grid;grid-auto-flow:column;grid-auto-columns:78vw;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:22px 11vw 8px;margin:0 -16px;scrollbar-width:none}
+.rail::-webkit-scrollbar{display:none}
+.story{position:relative;display:block;aspect-ratio:9/16;border-radius:26px;overflow:hidden;scroll-snap-align:center;border:1px solid var(--line2);background:#111;color:#fff;text-decoration:none;text-align:left;font:inherit;padding:0;cursor:pointer;box-shadow:0 30px 60px -30px rgba(0,0,0,.9)}
+.story img,.story video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;animation:kb 14s ease-in-out infinite alternate}
+@keyframes kb{from{transform:scale(1)}to{transform:scale(1.07)}}
+.story::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 45%,rgba(0,0,0,.55) 65%,rgba(0,0,0,.92) 100%)}
+.story .tg{position:absolute;top:14px;left:14px;z-index:2;background:var(--amber);color:#000;font:800 11px Sora,sans-serif;letter-spacing:.1em;padding:5px 10px;border-radius:999px}
+.story .tx{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:20px 18px 22px;display:flex;flex-direction:column;gap:8px}
+.story b{font:800 26px/1.08 Sora,sans-serif}
+.story span{color:#e7e7ea;font-size:15px;line-height:1.4}
+.story em{font-style:normal;align-self:flex-start;margin-top:6px;background:var(--amber);color:#000;font:800 15px Sora,sans-serif;padding:11px 18px;border-radius:999px}
+.dots{display:flex;justify-content:center;gap:6px;margin-top:10px}
+.dots i{width:7px;height:7px;border-radius:50%;background:var(--line2);transition:background .2s,width .2s}
+.dots i.on{background:var(--amber);width:20px;border-radius:4px}
+.secs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:22px;text-align:left}
+.sec-c{position:relative;display:block;aspect-ratio:9/16;border-radius:20px;overflow:hidden;border:1px solid var(--line2);background:linear-gradient(160deg,#1c1c1e,#0b0b0c);color:#fff;text-decoration:none}
+.sec-c img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.sec-c::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 50%,rgba(0,0,0,.88))}
+.sec-c b{position:absolute;left:12px;right:12px;bottom:12px;z-index:2;font:800 16px/1.15 Sora,sans-serif}
+.sec-c .ic{position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);font-size:46px}
+.back{margin-top:18px;color:var(--fg2);font:600 15px Manrope,sans-serif;background:none;border:0;cursor:pointer}
+.gate .note{margin-top:18px;color:var(--mut);font-size:13px}
+@media(min-width:900px){
+  .rail{grid-auto-flow:row;grid-template-columns:repeat(3,minmax(0,330px));justify-content:center;overflow:visible;padding:30px 0 0;margin:0}
+  .dots{display:none}
+  .secs{grid-template-columns:repeat(4,minmax(0,1fr));max-width:860px;margin-left:auto;margin-right:auto}
+  .story:hover{transform:translateY(-4px);transition:transform .25s;border-color:var(--amber)}
+}
+@media(prefers-reduced-motion:reduce){.story img,.story video{animation:none}}
 </style>
 </head>
 <body>
@@ -71,35 +76,39 @@ button.way{font:inherit;color:inherit;text-align:left;cursor:pointer;padding:0}
 
     <div id="paso1">
       <h1>¿Qué quieres lograr con SUPERNOVA?</h1>
-      <p class="sub">Elige y te mostramos la oferta pensada para ti. Te toma 5 segundos.</p>
-      <div class="ways w3">
-        <button type="button" class="way" data-camino="negocio">
-          <div class="im"><img src="/nueva/media/restaurante.jpg" alt="" width="640" height="360"></div>
-          <div class="tx"><b>Más clientes para mi negocio</b><span>Tengo un negocio, venda o no por internet: carros, casas, comida, belleza, tienda, servicios…</span><em>Elegir →</em></div>
+      <p class="sub">Elige y te mostramos la oferta pensada para ti.</p>
+      <div class="rail" id="rail">
+        <button type="button" class="story" data-camino="negocio">
+          <img src="/empezar/img/puerta-negocio.jpg" alt="Dueña de una tienda recibiendo mensajes de clientes en su celular" width="720" height="1280">
+          <span class="tg">NEGOCIOS</span>
+          <span class="tx"><b>Más clientes para mi negocio</b><span>Carros, casas, comida, belleza, tienda o servicios. Vendas o no por internet.</span><em>Elegir mi sector →</em></span>
         </button>
-        <a class="way" href="/nueva/" data-ruta="/nueva/" data-camino="cero">
-          <div class="im"><img src="/nueva/media/reel-ia.jpg" alt="" width="640" height="360"></div>
-          <div class="tx"><b>Ganar dinero con contenido</b><span>Empiezo de cero o vendo poquito por WhatsApp. Quiero aprender y cobrar por esto.</span><em>Ver mi oferta →</em></div>
+        <a class="story" href="/nueva/" data-ruta="/nueva/" data-camino="cero">
+          <img src="/empezar/img/puerta-cero.jpg" alt="Joven creando contenido con su celular en casa" width="720" height="1280">
+          <span class="tg">EMPIEZA DE CERO</span>
+          <span class="tx"><b>Ganar dinero con contenido</b><span>Empiezo de cero o vendo poquito por WhatsApp. Quiero aprender y cobrar por esto.</span><em>Ver mi oferta →</em></span>
         </a>
-        <a class="way" href="/nueva/?p=creativo" data-ruta="/nueva/?p=creativo" data-camino="creativo">
-          <div class="im"><img src="/nueva/media/formatos/lista.jpg" alt="" width="640" height="360"></div>
-          <div class="tx"><b>Crear más y más rápido</b><span>Soy creador, community manager o agencia. Hago contenido para mi marca o la de mis clientes.</span><em>Ver mi oferta →</em></div>
+        <a class="story" href="/nueva/?p=creativo" data-ruta="/nueva/?p=creativo" data-camino="creativo">
+          <img src="/empezar/img/puerta-creativo.jpg" alt="Creadora de contenido en su estudio con cámara y luces" width="720" height="1280">
+          <span class="tg">CREATIVOS</span>
+          <span class="tx"><b>Crear más y más rápido</b><span>Creador, community manager o agencia. Para mi marca o la de mis clientes.</span><em>Ver mi oferta →</em></span>
         </a>
       </div>
+      <div class="dots" id="dots" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
     </div>
 
     <div id="paso2" hidden>
       <h1>¿De qué es tu negocio?</h1>
-      <p class="sub">Así te mostramos ejemplos de tu sector.</p>
+      <p class="sub">Te mostramos ejemplos de tu sector.</p>
       <div class="secs">
-        <a class="sec-c" data-ruta="/nueva/negocios/?s=auto">🚗<b>Carros y motos</b></a>
-        <a class="sec-c" data-ruta="/nueva/negocios/?s=inmobiliaria">🏠<b>Inmobiliaria</b></a>
-        <a class="sec-c" data-ruta="/nueva/negocios/?s=restaurante">🍽️<b>Restaurante y comida</b></a>
-        <a class="sec-c" data-ruta="/nueva/negocios/?s=belleza">💅<b>Belleza y salud</b></a>
-        <a class="sec-c" data-ruta="/nueva/negocios/?s=tienda">🛍️<b>Tienda física u online</b></a>
-        <a class="sec-c" data-ruta="/nueva/negocios/?s=servicios">💼<b>Servicios profesionales</b></a>
-        <a class="sec-c" data-ruta="/nueva/negocios/?s=digital">🎓<b>Cursos y productos digitales</b></a>
-        <a class="sec-c" data-ruta="/nueva/negocios/?s=otro">✨<b>Otro negocio</b></a>
+        <a class="sec-c" data-ruta="/nueva/negocios/?s=auto"><img src="/empezar/img/auto.jpg" alt="" loading="lazy"><b>Carros y motos</b></a>
+        <a class="sec-c" data-ruta="/nueva/negocios/?s=inmobiliaria"><img src="/empezar/img/inmobiliaria.jpg" alt="" loading="lazy"><b>Inmobiliaria</b></a>
+        <a class="sec-c" data-ruta="/nueva/negocios/?s=restaurante"><img src="/empezar/img/restaurante.jpg" alt="" loading="lazy"><b>Restaurante y comida</b></a>
+        <a class="sec-c" data-ruta="/nueva/negocios/?s=belleza"><img src="/empezar/img/belleza.jpg" alt="" loading="lazy"><b>Belleza y salud</b></a>
+        <a class="sec-c" data-ruta="/nueva/negocios/?s=tienda"><img src="/empezar/img/tienda.jpg" alt="" loading="lazy"><b>Tienda física u online</b></a>
+        <a class="sec-c" data-ruta="/nueva/negocios/?s=servicios"><img src="/empezar/img/servicios.jpg" alt="" loading="lazy"><b>Servicios profesionales</b></a>
+        <a class="sec-c" data-ruta="/nueva/negocios/?s=digital"><img src="/nueva/media/formatos/esta-ia.jpg" alt="" loading="lazy"><b>Cursos y productos digitales</b></a>
+        <a class="sec-c" data-ruta="/nueva/negocios/?s=otro"><span class="ic">✨</span><b>Otro negocio</b></a>
       </div>
       <button type="button" class="back" id="volver">← Volver</button>
     </div>
@@ -141,6 +150,11 @@ button.way{font:inherit;color:inherit;text-align:left;cursor:pointer;padding:0}
     p1.hidden = true; p2.hidden = false; scrollTo(0, 0); track("ruta_negocio");
   });
   document.getElementById("volver").addEventListener("click", function () { p2.hidden = true; p1.hidden = false; });
+  var rail = document.getElementById("rail"), dots = document.querySelectorAll("#dots i");
+  rail.addEventListener("scroll", function () {
+    var w = rail.firstElementChild.getBoundingClientRect().width + 12, k = Math.round(rail.scrollLeft / w);
+    dots.forEach(function (d, i) { d.classList.toggle("on", i === k); });
+  }, { passive: true });
 })();
 </script>
 </body>

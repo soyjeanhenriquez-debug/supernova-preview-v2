@@ -159,6 +159,11 @@ CFG.combo.price = FASE ? FASE.price : 0; CFG.combo.checkout = FASE ? FASE.checko
     var ft = document.getElementById("fu-t");
     if (ft && clave !== "creativo") ft.innerHTML = 'Imagina tu negocio <span class="amber">dentro de 30 días.</span>';
     document.documentElement.dataset.sector = clave;
+    // La foto de su sector entra en la portada (imágenes premium de /empezar/img/)
+    if (/^(auto|inmobiliaria|restaurante|belleza|tienda|servicios)$/.test(clave)) {
+      var src = "/empezar/img/" + clave + ".jpg";
+      document.querySelectorAll(".hero .tiles .t4 img, .hero .tiles .t5 img, .hero-strip .tile img").forEach(function (im, i) { if (i < 2) im.src = src; });
+    }
   }
 
   /* ---------- Medición (PostHog solo en el dominio oficial; mismos parámetros que la landing actual) ---------- */

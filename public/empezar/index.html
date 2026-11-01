@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SUPERNOVA — ¿Ya vendes algo por internet?</title>
+<meta name="description" content="Una pregunta y te mostramos la oferta de SUPERNOVA que es para ti.">
+<meta name="robots" content="noindex, nofollow">
+<meta property="og:title" content="¿Ya vendes algo por internet?">
+<meta property="og:image" content="https://supernova-six-eta.vercel.app/nueva/media/restaurante.jpg">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/nueva/estilos.css">
+<style>
+/* Puerta de las páginas de venta: una pregunta y dos caminos. */
+.gate{min-height:100svh;display:flex;flex-direction:column;justify-content:center;padding:40px 0 56px;position:relative;overflow:hidden}
+.gate::before{content:"";position:absolute;inset:-20% -10% auto;height:120%;pointer-events:none;
+  background:radial-gradient(50% 45% at 50% 25%,rgba(245,168,58,.16),transparent 70%),
+             linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px) 0 0/56px 56px,
+             linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px) 0 0/56px 56px;
+  -webkit-mask-image:radial-gradient(70% 60% at 50% 30%,#000 40%,transparent 100%);mask-image:radial-gradient(70% 60% at 50% 30%,#000 40%,transparent 100%)}
+.gate .wrap{position:relative;text-align:center}
+.gate .logo{display:inline-flex;align-items:center;gap:9px;font:800 18px Sora,sans-serif;letter-spacing:.14em;color:var(--fg);text-decoration:none}
+.gate .logo img{width:26px;height:26px}
+.gate h1{font:800 clamp(38px,7vw,72px)/1.04 Sora,sans-serif;margin-top:26px;letter-spacing:-.02em}
+.gate .sub{color:var(--fg2);font-size:18px;margin-top:14px}
+.ways{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;max-width:860px;margin:36px auto 0;text-align:left}
+.way{display:flex;flex-direction:column;border:1px solid var(--line2);border-radius:24px;overflow:hidden;background:var(--card2);text-decoration:none;color:inherit;transition:transform .2s,border-color .2s,box-shadow .2s}
+.way:hover,.way:focus-visible{transform:translateY(-3px);border-color:var(--amber);box-shadow:0 20px 50px -25px rgba(245,168,58,.5);outline:none}
+.way .im{aspect-ratio:16/9;background:#111;overflow:hidden}
+.way .im img{width:100%;height:100%;object-fit:cover}
+.way .tx{padding:20px 20px 22px;display:flex;flex-direction:column;gap:8px;flex:1}
+.way b{font:800 26px/1.1 Sora,sans-serif}
+.way span{color:var(--fg2);font-size:15px}
+.way em{font-style:normal;margin-top:auto;padding-top:10px;font:700 15px Sora,sans-serif;color:var(--amber)}
+.gate .note{margin-top:22px;color:var(--mut);font-size:14px}
+@media(max-width:700px){.ways{grid-template-columns:minmax(0,1fr)}.way .im{aspect-ratio:21/9}}
+@media(prefers-reduced-motion:reduce){.way{transition:none}}
+</style>
+</head>
+<body>
+<main class="gate">
+  <div class="wrap">
+    <a class="logo" href="#" aria-label="SUPERNOVA"><img src="/supernova-icon.webp" alt="" width="26" height="26">SUPERNOVA</a>
+    <h1>¿Ya vendes algo por internet?</h1>
+    <p class="sub">Responde y te mostramos la oferta que es para ti. Te toma 5 segundos.</p>
+    <div class="ways">
+      <a class="way" href="/nueva/negocios/" data-ruta="negocios">
+        <div class="im"><img src="/ejemplos-creativos/antes_despues.webp" alt="" width="640" height="360"></div>
+        <div class="tx"><b>Sí, ya vendo</b><span>Tienda, curso, servicio o producto de afiliado. Quiero anuncios que vendan más.</span><em>Ver mi oferta →</em></div>
+      </a>
+      <a class="way" href="/nueva/" data-ruta="comunes">
+        <div class="im"><img src="/nueva/media/reel-ia.jpg" alt="" width="640" height="360"></div>
+        <div class="tx"><b>Todavía no, quiero empezar</b><span>Quiero crear contenido con IA y empezar a cobrar por hacerlo.</span><em>Ver mi oferta →</em></div>
+      </a>
+    </div>
+    <p class="note">Black Friday · Plan Anual con precio especial hasta el 31 de diciembre</p>
+  </div>
+</main>
+<script>
+/* Lleva a cada persona a su página de venta y recuerda la respuesta (?q=1 vuelve a preguntar).
+   Los parámetros del anuncio (utm_*, fbclid…) siguen hacia la página elegida y de ahí al pago. */
+(function () {
+  var KEY = "sn_ruta", RUTAS = { negocios: "/nueva/negocios/", comunes: "/nueva/" };
+  var qs = new URLSearchParams(location.search), utm = new URLSearchParams();
+  qs.forEach(function (v, k) { if (/^(utm_|fbclid|gclid|ttclid)/.test(k)) utm.set(k, v); });
+  var go = function (ruta) { var u = utm.toString(); location.href = RUTAS[ruta] + (u ? "?" + u : ""); };
+  var official = location.hostname === "supernova-six-eta.vercel.app", q = [];
+  var track = function (ev, p) { if (window.posthog && posthog.capture) posthog.capture(ev, p); else q.push([ev, p]); };
+  if (official) {
+    var s = document.createElement("script"); s.async = true; s.src = "https://us-assets.i.posthog.com/static/array.js";
+    s.onload = function () { if (!window.posthog || !posthog.init) return; posthog.init("phc_xn9sCcuLxhVP3hQ3oxNFiPVq2vzxiicKuCrPAG2q79iR", { api_host: "https://us.i.posthog.com", defaults: "2026-08-30", person_profiles: "identified_only", respect_dnt: true, disable_surveys: true }); q.splice(0).forEach(function (e) { posthog.capture(e[0], e[1]); }); };
+    document.head.appendChild(s);
+  }
+  var guardada = null; try { guardada = localStorage.getItem(KEY); } catch (e) {}
+  if (guardada && RUTAS[guardada] && qs.get("q") !== "1") { go(guardada); return; }
+  track("ruta_view", { utm_source: utm.get("utm_source") || null });
+  document.querySelectorAll("[data-ruta]").forEach(function (a) {
+    var u = utm.toString(); if (u) a.href += "?" + u;
+    a.addEventListener("click", function (ev) {
+      var ruta = a.getAttribute("data-ruta");
+      try { localStorage.setItem(KEY, ruta); } catch (e) {}
+      track("ruta_elegida", { ruta: ruta });
+      if (official && window.posthog) { ev.preventDefault(); setTimeout(function () { go(ruta); }, 150); }
+    });
+  });
+})();
+</script>
+</body>
+</html>

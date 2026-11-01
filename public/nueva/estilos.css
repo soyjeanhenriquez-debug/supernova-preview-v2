@@ -473,3 +473,12 @@ footer a{color:var(--fg2)}
 .justos p{color:var(--fg2);font-size:14px;border-left:3px solid var(--amber);padding-left:12px}
 .justos b{color:var(--fg)}
 @media(max-width:900px){.hire-g,.flip{grid-template-columns:minmax(0,1fr)}.ang{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* ---------- Imagina tu vida dentro de 30 días ---------- */
+.fut{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:36px;position:relative}
+.fu{border:1px solid var(--line);border-radius:22px;padding:22px;background:linear-gradient(180deg,rgba(245,168,58,.07),transparent 60%),var(--card2)}
+.fu-k{display:inline-block;font:800 12px Sora,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#000;background:var(--amber);padding:5px 10px;border-radius:999px}
+.fu b{display:block;font:800 21px/1.2 Sora,sans-serif;margin-top:14px}
+.fu p{color:var(--fg2);font-size:15px;margin-top:8px}
+.fu-cta{margin-top:26px;text-align:center;font:700 18px Sora,sans-serif}
+@media(max-width:900px){.fut{grid-template-columns:minmax(0,1fr)}}

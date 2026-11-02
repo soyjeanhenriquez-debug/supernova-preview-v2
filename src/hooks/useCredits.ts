@@ -20,7 +20,8 @@ export type CreditAction =
   | "build_piece_std" | "build_piece_sonnet" | "build_piece_opus" | "build_piece_fable" | "build_piece_gpt" | "build_piece_astra"
   | "business_map"
   | "vid_mini_5" | "vid_mini_10" | "yt_voice_scene" | "yt_scene_image"
-  | "motion_style" | "motion_ad";
+  | "motion_style" | "motion_ad"
+  | "ah_storyboard" | "ah_cambio";
 
 // Precios calibrados para uso DIARIO: 2000/mes alcanza para ~1 mes de uso
 // intenso; explorar el radar es gratis, las acciones ligeras casi gratis.
@@ -60,6 +61,9 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   // Motion graphics (edge function motion-graphics, gemini-3-flash). Jean, 08-oct-2026: "×15, sin exagerar".
   motion_style: 40, // desglose + ADN del estilo + prompt listo para pegar (≤ US$0,023 → ≈ 14×)
   motion_ad: 50, // escenas, narración y prompts de clips de 10 s (≤ US$0,029 → ≈ 14×); la animación se dibuja gratis
+  // Video IA Perfecto (Modelo AH), fase 1 (edge function metodo-ah). Jean, 02-nov-2026: costo × 5.
+  ah_storyboard: 160, // agentes + personaje + 4–9 imágenes con reintentos (≈ US$0,25)
+  ah_cambio: 10, // «cambiar solo…»: 1 texto + 1 imagen (≈ US$0,015)
 };
 
 export const ACTION_LABEL: Record<CreditAction, string> = {
@@ -97,6 +101,8 @@ export const ACTION_LABEL: Record<CreditAction, string> = {
   content_month: "Tu mes de contenido",
   motion_style: "Modelar el estilo de un motion graphics",
   motion_ad: "Motion graphics con IA",
+  ah_storyboard: "Video IA Perfecto · storyboard",
+  ah_cambio: "Video IA Perfecto · cambiar solo una cosa",
 };
 
 const GEN_LIGHT_IDS = new Set(["captions-ig","yt-titles","hooks-meta","hooks-tiktok","reels-script","dm-script","whatsapp-sequence","order-bump","ugc-script","mandala-ad","market-idea","etsy-ideas","personaje-ideas","carrusel-copy","historia-escenas","avatar-6c","reel-ia-escenas"]);
@@ -120,6 +126,7 @@ export const ACTION_HOURS: Record<CreditAction, number> = {
   vid_mini_5: 2, vid_mini_10: 3, yt_voice_scene: 0.5, yt_scene_image: 1,
   content_month: 6,
   motion_style: 2, motion_ad: 6,
+  ah_storyboard: 4, ah_cambio: 0.5,
 };
 
 export interface CreditHistoryEntry {

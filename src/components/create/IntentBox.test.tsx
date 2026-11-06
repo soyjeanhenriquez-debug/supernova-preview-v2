@@ -14,6 +14,7 @@ vi.mock("@/lib/features", () => ({ useFeatureAccess: () => ({ canSee: (p: string
 vi.mock("@/lib/tools", async (orig) => ({ ...(await orig<typeof import("@/lib/tools")>()), useVia: () => ({ via: "creador" }) }));
 
 import { IntentBox } from "./IntentBox";
+import { takeMontaje } from "@/lib/intentHandoff";
 
 describe("¿Qué quieres crear hoy? · 4 entradas por lo que tienes (Guardián del Creador)", () => {
   beforeEach(() => { sessionStorage.clear(); localStorage.clear(); window.location.hash = ""; vi.spyOn(window, "scrollTo").mockImplementation(() => undefined); admin = false; });
@@ -53,6 +54,24 @@ describe("¿Qué quieres crear hoy? · 4 entradas por lo que tienes (Guardián d
     expect(screen.getByText("Mis fotos + una frase → reel")).toBeTruthy(); // Reel Studio abierto a clientes (26-oct)
     fireEvent.click(screen.getByText("Grabé mi video"));
     expect(window.location.hash).toBe("#/con-tu-cara/video");
+  });
+
+  it("referencia: un video descargado (caso Cindy) se sube y después se elige: uno parecido o unir mis tomas", () => {
+    render(<IntentBox onNavigate={vi.fn()} />);
+    fireEvent.click(screen.getByText("Tengo una referencia"));
+    const file = new File(["x"], "recetas.mp4", { type: "video/mp4" });
+    fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [file] } });
+    expect(screen.getByText("¿Qué quieres hacer con él?")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Ya tengo mis tomas: unirlas como este video/ }));
+    expect(window.location.hash).toBe("#/con-tu-cara/montaje");
+    expect(takeMontaje()).toEqual({ file, texto: undefined });
+  });
+
+  it("material: «Tengo varias tomas para unir» lleva a Edita tus tomas", () => {
+    render(<IntentBox onNavigate={vi.fn()} />);
+    fireEvent.click(screen.getByText("Tengo mi material"));
+    fireEvent.click(screen.getByText("Tengo varias tomas para unir"));
+    expect(window.location.hash).toBe("#/con-tu-cara/montaje");
   });
 
   it("material: el prompt llega escrito a Video con IA, sin generar", () => {

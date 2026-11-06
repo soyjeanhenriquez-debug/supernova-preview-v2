@@ -1,12 +1,13 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
-  ArrowRight, Camera, ChevronRight, Compass, Copy, FileText, Images, Lightbulb, MessageSquareText, Shapes, UserRound, Video,
+  ArrowRight, Camera, ChevronRight, Compass, Copy, FileText, Images, Lightbulb, MessageSquareText, Scissors, Shapes, Upload, UserRound, Video, Wand2,
   type LucideIcon,
 } from "lucide-react";
 import { useBusinessProfile } from "@/lib/businessProfile";
 import { useFeatureAccess } from "@/lib/features";
 import { TOOL_BY_ID, useVia } from "@/lib/tools";
 import { IG_POST_RE, IG_REEL_RE, planFor, routeIntent, setClipPrompt, startIntent, type IntentPlan } from "@/lib/intentRouter";
+import { giveMontaje, giveReelStudio } from "@/lib/intentHandoff";
 import { IdeaOfTheDay } from "@/components/create/IdeaOfTheDay";
 import { track } from "@/lib/analytics";
 
@@ -34,6 +35,9 @@ export function IntentBox({ onNavigate, compact = false, onDone }: {
   const [link, setLink] = useState("");
   const [idea, setIdea] = useState("");
   const [prompt, setPrompt] = useState<string | null>(null);
+  // Un video de ejemplo descargado (TikTok, WhatsApp…): antes solo se aceptaban enlaces de Instagram (caso Cindy, 06-nov-2026).
+  const [ejemplo, setEjemplo] = useState<File | null>(null);
+  const ejemploRef = useRef<HTMLInputElement>(null);
   const { via } = useVia();
   const { canSee } = useFeatureAccess();
   const { profile } = useBusinessProfile();
@@ -66,6 +70,7 @@ export function IntentBox({ onNavigate, compact = false, onDone }: {
 
   const rows: Row[] = [
     { id: "mi_video", icon: Video, label: "Grabé mi video", desc: "Subtítulos, portada y edición.", page: "Con tu cara", hash: "con-tu-cara/video", show: true },
+    { id: "varias_tomas", icon: Scissors, label: "Tengo varias tomas para unir", desc: "Las unimos como el video que te gusta y quitamos marcas de agua.", page: "Con tu cara", hash: "con-tu-cara/montaje", show: true },
     { id: "guion_grabo", icon: FileText, label: "Tengo mi guion y me grabo", desc: "Lo lees mirando a la cámara.", page: "Con tu cara", hash: "con-tu-cara/teleprompter", show: true },
     { id: "guion_animado", icon: Shapes, label: "Tengo mi guion, sin salir yo", desc: "Texto animado con el estilo que elijas.", page: "Motion graphics", hash: "motion", show: true },
     { id: "fotos_producto", icon: Camera, label: "Tengo fotos de mi producto", desc: "Fotos de estudio y en uso para vender.", page: "Foto de producto", hash: "foto-producto", show: true },
@@ -75,7 +80,7 @@ export function IntentBox({ onNavigate, compact = false, onDone }: {
   const clipCost = TOOL_BY_ID.videoia?.cost;
 
   const cards: { id: Entry; titulo: string; linea: string; icon: LucideIcon }[] = [
-    { id: "ref", titulo: "Tengo una referencia", linea: "Un reel o un carrusel que funciona.", icon: Copy },
+    { id: "ref", titulo: "Tengo una referencia", linea: "Un reel, un video o un carrusel que funciona.", icon: Copy },
     { id: "mat", titulo: "Tengo mi material", linea: "Mi video, mi guion, mis fotos o una escena.", icon: Images },
     { id: "idea", titulo: "Solo tengo una idea", linea: "Dila en una frase y la armamos.", icon: Lightbulb },
     { id: "nose", titulo: "No sé qué crear", linea: "Te damos una idea que ya está vendiendo.", icon: Compass },
@@ -117,7 +122,7 @@ export function IntentBox({ onNavigate, compact = false, onDone }: {
           {isReel && <p className="text-[12.5px] text-foreground">Es un reel. Ves por qué funciona y armas tu versión para grabar.</p>}
           {isPost && <p className="text-[12.5px] text-foreground">Es un carrusel. Lo modelas con tu estilo y tu ADN.</p>}
           {link.trim() && !isReel && !isPost && (
-            <p className="text-[12px] text-muted-foreground">Por ahora leemos enlaces de Instagram (instagram.com/reel/… o /p/…). Si es de TikTok o YouTube, usa «Solo tengo una idea» y cuéntanos de qué trata.</p>
+            <p className="text-[12px] text-muted-foreground">Leemos enlaces de Instagram (instagram.com/reel/… o /p/…). Si es de TikTok o YouTube, descarga el video y súbelo abajo.</p>
           )}
           <button onClick={goLink} disabled={!isReel && !isPost} className={primary}>
             {isPost ? "Modelar este carrusel" : "Ver por qué funciona y hacer mi versión"} <ArrowRight className="w-4 h-4" />
@@ -127,6 +132,27 @@ export function IntentBox({ onNavigate, compact = false, onDone }: {
               className="w-full h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-foreground/30">
               Hacerlo completo con IA en Reel Studio
             </button>
+          )}
+          {/* O el video descargado: y después se pregunta qué hacer con él. */}
+          <input ref={ejemploRef} type="file" accept="video/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; e.target.value = ""; if (f?.type.startsWith("video/")) setEjemplo(f); }} />
+          {!ejemplo ? (
+            <button onClick={() => ejemploRef.current?.click()}
+              className="w-full h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-foreground/30 inline-flex items-center justify-center gap-2">
+              <Upload className="w-4 h-4" /> O sube el video (de TikTok, WhatsApp o tu galería)
+            </button>
+          ) : (
+            <div className="rounded-xl border border-primary/50 bg-primary/[0.05] p-3 space-y-2">
+              <p className="text-[12.5px] text-foreground truncate">Tu video: {ejemplo.name}</p>
+              <p className="text-[13px] font-semibold text-foreground">¿Qué quieres hacer con él?</p>
+              <button onClick={() => { giveReelStudio({ file: ejemplo }); toHash("con-tu-cara/reel-ia", "ref_video_parecido"); }} className={primary}>
+                <Wand2 className="w-4 h-4" /> Hacer uno parecido con mi producto
+              </button>
+              <button onClick={() => { giveMontaje({ file: ejemplo }); toHash("con-tu-cara/montaje", "ref_video_tomas"); }}
+                className="w-full h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-foreground/30 inline-flex items-center justify-center gap-2">
+                <Scissors className="w-4 h-4" /> Ya tengo mis tomas: unirlas como este video
+              </button>
+              <button onClick={() => setEjemplo(null)} className="w-full text-[12px] text-muted-foreground hover:text-foreground">Elegir otro video</button>
+            </div>
           )}
           <p className="text-[11.5px] text-muted-foreground text-center">Antes de analizar o modelar ves cuántos créditos usa.</p>
         </div>

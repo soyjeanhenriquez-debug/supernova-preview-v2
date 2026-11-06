@@ -105,8 +105,8 @@ export function TreeNav({ activePage, onNavigate, collapsed }: { activePage: str
           </button>
         )}
         {!collapsed && (
-          <button onClick={() => setTree(false)} className="flex items-center gap-2 w-full px-3 py-2 text-[11.5px] text-muted-foreground/80 hover:text-foreground" title="Solo lo ves tú (admin)">
-            <Undo2 className="w-3.5 h-3.5" strokeWidth={1.7} /> Ver menú anterior (admin)
+          <button onClick={() => setTree(false)} className="flex items-center gap-2 w-full px-3 py-2 text-[11.5px] text-muted-foreground/80 hover:text-foreground" title="Puedes volver al menú nuevo cuando quieras">
+            <Undo2 className="w-3.5 h-3.5" strokeWidth={1.7} /> Ver menú anterior
           </button>
         )}
       </div>

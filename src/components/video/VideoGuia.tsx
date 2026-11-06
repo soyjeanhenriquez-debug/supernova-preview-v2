@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Clapperboard, FileText, Film, Link2, Megaphone, MessageCircle, Mic, MonitorPlay, Palette, Scissors, Send, Shapes, Sparkles, Upload, User, Wand2, X, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
-import { giveReelStudio } from "@/lib/intentHandoff";
+import { giveMontaje, giveReelStudio } from "@/lib/intentHandoff";
 import { toolEvent } from "@/lib/toolEvents";
 import { track } from "@/lib/analytics";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
@@ -20,13 +20,14 @@ import { ASK_ASSISTANT_EVENT } from "@/components/HelpAssistant";
  * docs/propuestas/2026-11-06-boceto-que-quieres-hacer-video.jpg.
  */
 export type GuiaModo = "anuncio" | "motion" | "clip" | "serie";
-type Para = "redes" | "anuncio";
+type Para = "redes" | "anuncio" | "editar";
 type Tiene = "ambos" | "video" | "texto" | "nada";
 type Destino = { modo: GuiaModo } | { hash: string };
 type Opcion = { id: string; icon: LucideIcon; titulo: string; desc?: string; ir?: Destino };
 
 const REEL_STUDIO = "#/con-tu-cara/reel-ia";
 const SUBE_TU_VIDEO = "#/con-tu-cara/video";
+const MONTAJE = "#/con-tu-cara/montaje";
 const VISTO_KEY = "sn_video_guia_visto";
 const NOMBRE: Record<GuiaModo, string> = { anuncio: "Anuncio en video", motion: "Motion graphics", clip: "Un clip", serie: "Serie" };
 const MIN_PALABRAS = 8;
@@ -34,15 +35,20 @@ const MIN_PALABRAS = 8;
 const PARA: Opcion[] = [
   { id: "redes", icon: MonitorPlay, titulo: "Un video para redes", desc: "Reels, TikTok o Shorts para que te conozcan." },
   { id: "anuncio", icon: Megaphone, titulo: "Un video para anunciar", desc: "Para vender tu producto con anuncios pagados." },
-  { id: "editar", icon: Scissors, titulo: "Editar un video que ya grabé", desc: "Subtítulos, cortes de silencios y portada.", ir: { hash: SUBE_TU_VIDEO } },
+  { id: "editar", icon: Scissors, titulo: "Editar lo que ya grabé", desc: "Un video o varias tomas: subtítulos, cortes, unirlas y quitar marcas de agua." },
+];
+const EDITAR: Opcion[] = [
+  { id: "uno", icon: Film, titulo: "Un video ya grabado", desc: "Subtítulos, cortes de silencios y portada.", ir: { hash: SUBE_TU_VIDEO } },
+  { id: "tomas", icon: Scissors, titulo: "Varias tomas para unir", desc: "Las que hiciste en la app o grabaste: las unimos como el video que te gusta, sin marcas de agua.", ir: { hash: MONTAJE } },
 ];
 const TIENE: Opcion[] = [
   { id: "ambos", icon: Film, titulo: "Un video de ejemplo y mi texto", desc: "Hacemos tu versión de ese video con tu texto." },
   { id: "video", icon: Film, titulo: "Solo un video de ejemplo", desc: "Lo analizamos y escribimos tu texto con la misma estructura." },
   { id: "texto", icon: FileText, titulo: "Solo mi texto (guion o copy)", desc: "Le ponemos voz, imágenes o animación." },
   { id: "nada", icon: Sparkles, titulo: "Nada todavía", desc: "Lo creamos contigo desde tu idea." },
+  { id: "tomas", icon: Scissors, titulo: "Mis tomas ya hechas", desc: "Las que creaste en la app o grabaste: las unimos como tu referencia.", ir: { hash: MONTAJE } },
 ];
-const COMO: Record<Para, Opcion[]> = {
+const COMO: Record<Exclude<Para, "editar">, Opcion[]> = {
   redes: [
     { id: "cara", icon: User, titulo: "Yo hablando a cámara", desc: "Tú das el mensaje y la app pone imágenes al ritmo de cada frase.", ir: { hash: REEL_STUDIO } },
     { id: "voz", icon: Mic, titulo: "Mi voz con imágenes, sin salir", desc: "Voz en off con tomas que acompañan lo que dices.", ir: { hash: REEL_STUDIO } },
@@ -96,9 +102,9 @@ export function VideoGuia({ onModo, onEstilo, disabled }: {
   const quiereVideo = tiene === "ambos" || tiene === "video";
   const quiereTexto = tiene === "ambos" || tiene === "texto";
   // Qué pantalla toca ahora, en orden: para qué → qué tienes → tu video → tu texto → qué hacemos.
-  const etapa = !para ? "para" : !tiene ? "tiene" : quiereVideo && !video ? "video" : quiereTexto && !textoListo ? "texto" : "final";
+  const etapa = !para ? "para" : para === "editar" ? "editar" : !tiene ? "tiene" : quiereVideo && !video ? "video" : quiereTexto && !textoListo ? "texto" : "final";
   const total = 3 + (quiereVideo ? 1 : 0) + (quiereTexto ? 1 : 0);
-  const n = { para: 1, tiene: 2, video: 3, texto: quiereVideo ? 4 : 3, final: total }[etapa];
+  const n = { para: 1, editar: 2, tiene: 2, video: 3, texto: quiereVideo ? 4 : 3, final: total }[etapa];
   const textoFinal = textoListo ? texto.trim() : "";
 
   const medir = (fin: string) => {
@@ -116,6 +122,7 @@ export function VideoGuia({ onModo, onEstilo, disabled }: {
       return;
     }
     if (d.hash === REEL_STUDIO) giveReelStudio({ file: video ?? undefined, texto: textoFinal });
+    if (d.hash === MONTAJE) giveMontaje({ file: video ?? undefined, texto: textoFinal });
     window.location.hash = d.hash;
   };
   const elegirPara = (o: Opcion) => (o.ir ? irA(o.ir, o.id) : setPara(o.id as Para));
@@ -125,7 +132,7 @@ export function VideoGuia({ onModo, onEstilo, disabled }: {
     if (etapa === "final" && quiereVideo) { setVideo(null); return; }
     if (etapa === "texto" && quiereVideo) { setVideo(null); return; }
     if (etapa === "video" || etapa === "texto" || etapa === "final") { setTiene(null); return; }
-    if (etapa === "tiene") setPara(null);
+    if (etapa === "tiene" || etapa === "editar") setPara(null);
   };
   const elegirVideo = (f: File | undefined) => {
     if (!f) return;
@@ -147,7 +154,7 @@ export function VideoGuia({ onModo, onEstilo, disabled }: {
     const q = pedido.trim();
     if (q.length < 5) { toast.error("Cuéntanos en una frase qué quieres hacer."); return; }
     const contexto = [
-      para ? `Quiero hacer un video ${para === "redes" ? "para redes" : "para anunciar"}.` : "Quiero hacer un video.",
+      para === "editar" ? "Quiero editar lo que ya grabé." : para ? `Quiero hacer un video ${para === "redes" ? "para redes" : "para anunciar"}.` : "Quiero hacer un video.",
       video ? `Tengo un video de ejemplo (${video.name}).` : "",
       textoFinal ? "Ya tengo mi texto." : "",
     ].filter(Boolean).join(" ");
@@ -204,10 +211,12 @@ export function VideoGuia({ onModo, onEstilo, disabled }: {
 
       {etapa === "para" && <div className="space-y-3">{pregunta("¿Qué video quieres hacer?", "Elige y te llevamos paso a paso.")}{grid(PARA, elegirPara)}</div>}
 
+      {etapa === "editar" && <div className="space-y-3">{pregunta("¿Qué quieres editar?")}{grid(EDITAR, o => o.ir && irA(o.ir, o.id))}</div>}
+
       {etapa === "tiene" && (
         <div className="space-y-3">
           {pregunta("¿Qué tienes ya?", "Usamos lo que tengas. Lo que falte, lo creamos contigo.")}
-          {grid(TIENE, o => setTiene(o.id as Tiene))}
+          {grid(TIENE, o => (o.ir ? irA(o.ir, o.id) : setTiene(o.id as Tiene)))}
         </div>
       )}
 
@@ -265,6 +274,7 @@ export function VideoGuia({ onModo, onEstilo, disabled }: {
               Sí, hacer uno parecido <ArrowRight className="w-4 h-4" />
             </button>
           </div>
+          {opcion({ id: "tomas", icon: Scissors, titulo: "Ya tengo mis tomas: unirlas como este video", desc: "Elige las tomas que hiciste en la app o súbelas. Las armamos con su ritmo y quitamos marcas de agua." }, () => irA({ hash: MONTAJE }, "tomas"))}
           {opcion({ id: "estilo", icon: Palette, titulo: `Solo copiar su estilo · ${CREDIT_COSTS.motion_style} créditos`, desc: "Los colores, la letra y la forma en que se mueve el texto, para tus propias frases animadas." }, soloEstilo)}
         </div>
       )}
@@ -273,7 +283,7 @@ export function VideoGuia({ onModo, onEstilo, disabled }: {
         <div className="space-y-3">
           {textoFinal && <p className="text-[12px] text-muted-foreground">Tu texto está listo.</p>}
           {pregunta(textoFinal ? "¿Cómo quieres que se vea tu texto?" : para === "anuncio" ? "¿Cómo quieres que se vea tu anuncio?" : "¿Cómo quieres que se vea?")}
-          {grid(textoFinal ? CON_TEXTO : COMO[para ?? "redes"], o => o.ir && irA(o.ir, o.id))}
+          {grid(textoFinal ? CON_TEXTO : COMO[para === "anuncio" ? "anuncio" : "redes"], o => o.ir && irA(o.ir, o.id))}
         </div>
       )}
 

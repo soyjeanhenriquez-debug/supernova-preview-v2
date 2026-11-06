@@ -1,5 +1,7 @@
 import { ChevronRight } from "lucide-react";
 import { useFeatureAccess } from "@/lib/features";
+import { useAuth } from "@/contexts/AuthContext";
+import { isGenjutsuOwner } from "@/lib/genjutsuOwner";
 import { openTreeTab, treeHash, treeSpot, currentTreeGenerator, useLocationHash } from "@/lib/tree";
 
 /**
@@ -10,11 +12,13 @@ import { openTreeTab, treeHash, treeSpot, currentTreeGenerator, useLocationHash 
 export function TreeTabsBar({ page, onNavigate }: { page: string; onNavigate: (page: string) => void }) {
   const hash = useLocationHash();
   const { canSee } = useFeatureAccess();
+  const { user } = useAuth();
+  const jean = isGenjutsuOwner(user?.id); // pestañas «solo tú» (owner), como en TreePage
   const generator = page === "Generadores" ? currentTreeGenerator() : null;
   const spot = treeSpot(page, hash, generator);
   if (!spot) return null;
   const { branch, leaf, door } = spot;
-  const tabs = (door ? door.tabs : leaf.tabs).filter(t => canSee(t.page));
+  const tabs = (door ? door.tabs : leaf.tabs).filter(t => canSee(t.page) && (!t.owner || jean));
 
   return (
     <div className="max-w-[1280px] mx-auto mb-5 space-y-2.5">

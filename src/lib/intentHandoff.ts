@@ -59,3 +59,15 @@ export function takeReelStudio(): EncargoReel | null {
   encargoReel = null;
   return e;
 }
+
+/** Lo que la guía de Video le pasa a «Edita tus tomas»: su video de referencia y/o cómo lo quiere (06-nov-2026). */
+let encargoMontaje: EncargoReel | null = null;
+export function giveMontaje(e: EncargoReel): void {
+  const texto = e.texto?.trim().slice(0, 600);
+  encargoMontaje = e.file || texto ? { file: e.file, texto: texto || undefined } : null;
+}
+export function takeMontaje(): EncargoReel | null {
+  const e = encargoMontaje;
+  encargoMontaje = null;
+  return e;
+}

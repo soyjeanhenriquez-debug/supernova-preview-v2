@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { VideoGuia } from "./VideoGuia";
-import { takeReelStudio } from "@/lib/intentHandoff";
+import { takeMontaje, takeReelStudio } from "@/lib/intentHandoff";
 
 vi.mock("@/lib/analytics", () => ({ track: vi.fn() }));
 vi.mock("@/lib/toolEvents", () => ({ toolEvent: vi.fn() }));
@@ -86,10 +86,38 @@ describe("Guía «¿Qué video quieres hacer?»", () => {
     expect(onModo).toHaveBeenCalledWith("anuncio", undefined);
   });
 
-  it("editar un video ya grabado lleva a Sube tu video", () => {
+  it("editar: un video ya grabado va a Sube tu video", () => {
     guia();
-    click(/Editar un video que ya grabé/);
+    click(/Editar lo que ya grabé/);
+    click(/Un video ya grabado/);
     expect(window.location.hash).toBe("#/con-tu-cara/video");
+  });
+
+  it("editar: varias tomas van a Edita tus tomas", () => {
+    guia();
+    click(/Editar lo que ya grabé/);
+    click(/Varias tomas para unir/);
+    expect(window.location.hash).toBe("#/con-tu-cara/montaje");
+  });
+
+  it("caso Cindy completo: referencia + su texto + ya tiene sus tomas → Edita tus tomas con la referencia y el texto", () => {
+    guia();
+    click(/Un video para redes/);
+    click(/Un video de ejemplo y mi texto/);
+    const file = new File(["x"], "recetas.mp4", { type: "video/mp4" });
+    subir(file);
+    fireEvent.change(screen.getByLabelText("Tu texto"), { target: { value: TEXTO } });
+    click(/^Seguir/);
+    click(/Ya tengo mis tomas: unirlas como este video/);
+    expect(window.location.hash).toBe("#/con-tu-cara/montaje");
+    expect(takeMontaje()).toEqual({ file, texto: TEXTO });
+  });
+
+  it("«Mis tomas ya hechas» lleva directo a Edita tus tomas", () => {
+    guia();
+    click(/Un video para anunciar/);
+    click(/Mis tomas ya hechas/);
+    expect(window.location.hash).toBe("#/con-tu-cara/montaje");
   });
 
   it("si nada le sirve, escribe qué quiere y se lo pasa al asistente con lo que ya contó", () => {

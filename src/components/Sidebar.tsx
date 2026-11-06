@@ -171,9 +171,9 @@ export function Sidebar({ activePage, onNavigate, mobile = false, onCloseMobile 
           )
         ) : <div className="pb-3"><ProductSwitcher collapsed={isCollapsed} onNavigate={handleNav} /></div>}
         {tree && <TreeNav activePage={activePage} onNavigate={handleNav} collapsed={isCollapsed} />}
-        {!tree && isAdmin && !isCollapsed && (
+        {!tree && !isCollapsed && (
           <button onClick={() => setTree(true)} className="mb-3 w-full rounded-xl border border-primary/40 px-3 py-2 text-left text-[12px] text-foreground hover:border-primary">
-            Probar el menú en árbol <span className="block text-[11px] text-muted-foreground">Solo lo ves tú (admin)</span>
+            Usar el menú nuevo <span className="block text-[11px] text-muted-foreground">Ordenado por lo que quieres hacer</span>
           </button>
         )}
         {/* Tu vía: cambia el menú, el Inicio y el botón Crear del teléfono. */}

@@ -9,7 +9,8 @@ import { useFeatureAccess } from "@/lib/features";
  * pestañas del Inicio, las 6 etapas de "Tu camino" y "Más herramientas").
  *
  * Cada hoja agrupa pantallas que YA existen (sus "pestañas"): no se borra ni se mueve ninguna, y cada
- * dirección vieja (#/…) sigue abriendo. Por ahora solo lo ven los admin (useTreeMenu).
+ * dirección vieja (#/…) sigue abriendo. Desde el 06-nov-2026 lo ven todos (decisión de Jean); cada uno puede volver al menú
+ * anterior desde el menú y regresar cuando quiera (useTreeMenu).
  */
 
 export type TreeTab = {
@@ -48,6 +49,7 @@ const VIDEO_DOORS: TreeDoor[] = [
     { label: "UGC sin producto", page: "Video anuncio", preset: "ugc", desc: "Solo la persona hablando a cámara: el producto no aparece. 4 pasos guiados." },
     { label: "UGC con producto", page: "Video anuncio", preset: "producto", desc: "La persona lo sostiene o lo señala mientras habla. 4 pasos guiados." },
     { label: "Voz en off", page: "Con tu cara", hash: "#/con-tu-cara/reel-ia", desc: "Tu voz sobre imágenes al ritmo de cada frase, capturas reales y tú al inicio y al final." },
+    { label: "Edita tus tomas", page: "Con tu cara", hash: "#/con-tu-cara/montaje", desc: "Ya tienes tus tomas: las unimos como tu referencia y quitamos las marcas de agua." },
     { label: "Imágenes estáticas", page: "Creativos", desc: "Anuncios en imagen listos para publicar." },
     { label: "Podcast", page: "Video anuncio", soon: true, desc: "Dos personas conversando frente al micrófono." },
     { label: "Dualcast", page: "Video anuncio", soon: true, desc: "Producción y edición en un mismo video." },
@@ -63,6 +65,7 @@ const VIDEO_DOORS: TreeDoor[] = [
     { label: "Reels que funcionan", page: "Con tu cara", hash: "#/con-tu-cara/biblioteca", desc: "Reels reales con sus vistas y por qué funcionan. Gratis de mirar." },
     { label: "Analiza un Reel", page: "Con tu cara", hash: "#/con-tu-cara/reel", desc: "Por qué funciona cualquier Reel y tu versión para grabar." },
     { label: "Sube tu video", page: "Con tu cara", hash: "#/con-tu-cara/video", desc: "Subtítulos, gancho y edición de lo que ya grabaste." },
+    { label: "Edita tus tomas", page: "Con tu cara", hash: "#/con-tu-cara/montaje", desc: "Une tus tomas como el video que te gusta, con su ritmo, sus textos y sin marcas de agua." },
     { label: "Teleprompter", page: "Con tu cara", hash: "#/con-tu-cara/teleprompter", desc: "Lee tu guion mirando a la cámara." },
     { label: "Reel Studio", page: "Con tu cara", hash: "#/con-tu-cara/reel-ia", desc: "Recrea un reel que funciona o créalo desde tu idea, con tu cara o solo con tu voz." },
     { label: "Mi historia animada", page: "Con tu cara", hash: "#/con-tu-cara/historia", owner: true, desc: "Tu historia real con tu personaje en 3D." },
@@ -195,7 +198,7 @@ export function nextAction(done: boolean[]): { branch: number; title: string; li
 const TREE_KEY = "supernova:tree-menu";
 const TREE_EVENT = "supernova:tree-menu-changed";
 
-/** El árbol se ve solo si eres admin y no lo apagaste ("Ver menú anterior"). */
+/** El árbol se ve para todos salvo que lo apagues ("Ver menú anterior"). Abierto a todos el 06-nov-2026 (Jean). */
 export function useTreeMenu() {
   const { isAdmin } = useFeatureAccess();
   const read = () => { try { return localStorage.getItem(TREE_KEY) !== "0"; } catch { return true; } };
@@ -210,7 +213,7 @@ export function useTreeMenu() {
     setPref(on);
     window.dispatchEvent(new Event(TREE_EVENT));
   }, []);
-  return { enabled: isAdmin && pref, isAdmin, setTree };
+  return { enabled: pref, isAdmin, setTree };
 }
 
 /** Abre una pestaña del árbol: pantalla, paso dentro de ella o generador concreto. */

@@ -32,6 +32,7 @@ import { wavSeconds } from "../_shared/wav.ts";
 import { cleanAnalisis, PROMPT_ANALISIS } from "../_shared/reelPlan.ts";
 import { b64 as b64m, geminiMedia, logMediaCost } from "../_shared/geminiMedia.ts";
 import { getReel, REEL_RE } from "../_shared/reelSource.ts";
+import { cleanMontaje, MAX_TOMAS, promptMontaje, type TomaInfo } from "../_shared/montaje.ts";
 
 const FN = "reel-ia";
 const AVATAR = "fal-ai/kling-video/ai-avatar/v2/standard";
@@ -313,6 +314,47 @@ Deno.serve(async (req) => {
         console.error(`${FN} analyze:`, e);
         await refund(g.txId, "análisis falló");
         return json({ error: e instanceof Error && e.name === "TimeoutError" ? "El análisis tardó demasiado. No se te cobró. Prueba con un reel más corto." : "No se pudo analizar el video. No se te cobró." }, 502);
+      }
+    }
+
+    // ---------- Edita tus tomas como tu referencia (06-nov-2026, Jean: montaje_tomas = 50) ----------
+    // Gemini mira la referencia (o lee cómo lo quiere la persona) y 2 cuadros de cada toma, y propone el montaje.
+    // El video se arma en el navegador con Remotion: aquí solo se cobra el análisis, antes de gastar.
+    if (body.action === "montaje") {
+      const path = typeof body.path === "string" && body.path.startsWith(`${uid}/ref/`) && !body.path.includes("..") && body.path.length < 300 ? body.path : null;
+      const pedido = typeof body.pedido === "string" ? body.pedido.replace(/\s+/g, " ").trim().slice(0, 600) : "";
+      if (!path && pedido.length < 10) return json({ error: "Sube tu video de referencia o cuéntanos cómo lo quieres." }, 400);
+      const tomas: TomaInfo[] = [];
+      const fotos: string[][] = [];
+      for (const t of (Array.isArray(body.tomas) ? body.tomas : []).slice(0, MAX_TOMAS)) {
+        const dur = Number(t?.dur);
+        if (!Number.isFinite(dur) || dur <= 0 || dur > 600) continue;
+        tomas.push({ n: tomas.length + 1, dur, nombre: String(t?.nombre ?? "").replace(/[^\p{L}\p{N} ._-]/gu, "").slice(0, 60) || `Toma ${tomas.length + 1}` });
+        fotos.push((Array.isArray(t?.frames) ? t.frames : []).filter((f: unknown) => typeof f === "string" && f.length < 120_000 && /^[A-Za-z0-9+/=]+$/.test(f)).slice(0, 2));
+      }
+      if (!tomas.length) return json({ error: "Elige al menos una toma." }, 400);
+      if (!Deno.env.get("GEMINI_API_KEY")) return json({ error: "El análisis no está disponible ahora." }, 503);
+      const parts: unknown[] = [];
+      if (path) {
+        const { data: file, error } = await admin().storage.from("biblioteca").download(path);
+        if (error || !file) return json({ error: "No se encontró tu video de referencia." }, 404);
+        if (file.size > REF_MAX) return json({ error: "El video pesa más de 18 MB. Recórtalo o bájale la calidad y súbelo de nuevo." }, 413);
+        parts.push({ text: "VIDEO DE REFERENCIA:" }, { inline_data: { mime_type: file.type || "video/mp4", data: b64m(new Uint8Array(await file.arrayBuffer())) } });
+      }
+      tomas.forEach((t, i) => { parts.push({ text: `TOMA ${t.n}:` }); fotos[i].forEach(f => parts.push({ inline_data: { mime_type: "image/jpeg", data: f } })); });
+      parts.push({ text: promptMontaje(tomas, !!path, pedido) });
+      const g = await charge(FN, uid, "montaje_tomas", "Edita tus tomas como tu referencia", 10, 30);
+      if (g instanceof Response) return g;
+      try {
+        const { out, cost, usage } = await geminiMedia(parts, 6000, 120_000, 0.3);
+        await logMediaCost(uid, FN, cost, usage);
+        const plan = cleanMontaje(out, tomas);
+        if (!plan) { await refund(g.txId, "montaje ilegible"); return json({ error: "La IA no pudo armar el montaje. No se te cobró: prueba otra vez." }, 502); }
+        return conCobro(g, { plan });
+      } catch (e) {
+        console.error(`${FN} montaje:`, e);
+        await refund(g.txId, "montaje falló");
+        return json({ error: e instanceof Error && e.name === "TimeoutError" ? "El análisis tardó demasiado. No se te cobró. Prueba con una referencia más corta." : "No se pudo armar el montaje. No se te cobró." }, 502);
       }
     }
 

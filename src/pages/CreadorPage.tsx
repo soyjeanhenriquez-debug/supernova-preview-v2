@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Captions, ChevronRight, Clapperboard, Flame, Loader2, ScrollText, Search, Sparkles, Video, Wand2 } from "lucide-react";
+import { Captions, ChevronRight, Clapperboard, Film, Flame, Loader2, ScrollText, Search, Sparkles, Video, Wand2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { AnalizaReel } from "@/components/reel/AnalizaReel";
 import { TeleprompterLibre } from "@/components/reel/TeleprompterLibre";
@@ -18,6 +18,7 @@ const EstudioAvatarPage = lazy(() => import("@/pages/EstudioAvatarPage").then(m 
 const HistoriaAnimada = lazy(() => import("@/components/historia/HistoriaAnimada").then(m => ({ default: m.HistoriaAnimada })));
 // Reel de herramienta IA (24-oct-2026, formato "Voz en off"): solo la cuenta de Jean mientras lo prueba.
 const ReelIA = lazy(() => import("@/components/reelia/ReelIA").then(m => ({ default: m.ReelIA })));
+const EditaTusTomas = lazy(() => import("@/components/montaje/EditaTusTomas").then(m => ({ default: m.EditaTusTomas })));
 // Reels que funcionan (30-oct-2026): biblioteca de reels reales con sus vistas, gratis de mirar.
 const ReelsQueFuncionan = lazy(() => import("@/components/reel/ReelsQueFuncionan").then(m => ({ default: m.ReelsQueFuncionan })));
 // Anuncio animado (28-oct-2026): agente que arma guion, storyboard e instrucciones de imagen. Solo admin en prueba.
@@ -96,6 +97,13 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
       </Suspense>
     );
   }
+  if (segs[0] === "montaje") {
+    return (
+      <Suspense fallback={<div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
+        <EditaTusTomas onHome={() => go([])} onNavigate={nav} />
+      </Suspense>
+    );
+  }
   if (segs[0] === "teleprompter") return <TeleprompterLibre onHome={() => go([])} />;
   if (segs[0] === "video") {
     return (
@@ -127,6 +135,7 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
           // Reel Studio abierto a todos el 26-oct-2026: el servidor cobra voz, tomas hablando y análisis (reel-ia).
           ...(isAdmin ? [["video-ia", Sparkles, "Video IA Perfecto · Modelo AH · solo admin", "Escribe tu idea en una frase: personaje fijo, guion y cada escena con su imagen. Tú solo apruebas.", "160 créditos el storyboard"]] as const : []),
           ...(isAdmin ? [["anuncio-animado", Clapperboard, "Anuncio animado · solo admin", "Dices qué vendes y eliges un estilo: cliente, datos, guion, escenas e instrucciones de imagen, como un cortometraje.", "15 + 30 + 15 créditos"]] as const : []),
+          ["montaje", Film, "Edita tus tomas", "Ya hiciste tus tomas: las unimos como el video que te gusta, con su ritmo, sus textos y sin marcas de agua.", `${CREDIT_COSTS.montaje_tomas} créditos el montaje · unirlas tal cual es gratis`],
           ["reel-ia", Sparkles, "Reel Studio", "Recrea un reel que funciona, o crea uno desde tu idea o tu guion: con tu cara o solo con tu voz, e imágenes al ritmo de cada frase.", "Unos 400 a 1.300 créditos por reel · ves el total antes de crear"],
         ] as const).map(([id, Icon, title, desc, cost]) => (
           <button key={id} type="button" onClick={() => go([id])}

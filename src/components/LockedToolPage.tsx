@@ -7,7 +7,6 @@ import { tutorialFor } from "@/lib/tutorials";
 import { TutorialDialog } from "@/components/TutorialButton";
 import { MARKET_NAME, NICHE_LABEL, flagFor } from "@/lib/offers";
 import { GuaranteeLine } from "@/components/PlanFeatures";
-import { creditEquivalentsLine } from "@/components/CreditRing";
 
 /**
  * Lo que ve en una herramienta quien tiene cuenta pero no plan (vitrina). Dice qué hace la
@@ -21,7 +20,7 @@ const EXTRA_PAGES: Record<string, { title: string; desc: string }> = {
   "Proyectos": { title: "Lo que creaste", desc: "Todo lo que creas y guardas queda aquí para retomarlo." },
   "Mi negocio": { title: "Mi ficha", desc: "Qué vendes, para quién y qué logra. La usan todas las herramientas." },
   "Tu ADN": { title: "Tu ADN", desc: "Quién eres y cómo hablas, una vez. Lo que modelas suena a ti, sin cambiar el tema." },
-  "Créditos": { title: "Mis créditos", desc: `PRO trae 2.000 créditos al mes para lo que hace la IA (${creditEquivalentsLine(2000, { withOr: true })}). Mirar ofertas, el radar y los ganchos es gratis.` },
+  "Créditos": { title: "Mis créditos", desc: "PRO trae 2.000 créditos al mes para lo que hace la IA. Mirar ofertas, el radar y los ganchos es gratis." },
 };
 
 /** Una muestra compartida por la sesión: se pide una vez. */

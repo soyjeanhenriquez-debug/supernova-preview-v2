@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { startCheckout } from "@/lib/stripe";
 import { formatUsd } from "@/lib/plans";
-import { creditEquivalentsLine } from "@/components/CreditRing";
 import { useCredits } from "@/hooks/useCredits";
 import { useCreditsLeft } from "@/hooks/useCreditsLeft";
 import { fmtNumber } from "@/lib/gemelo";
@@ -48,7 +47,6 @@ export function RechargePopup({ onRecharge }: { onRecharge: () => void }) {
   }, []);
 
   const noBalance = detail.reason === "insufficient_credits";
-  const rinde = creditEquivalentsLine(UNLOCK_PACK.credits, { withOr: true });
   // Prueba gratis (12-oct-2026): a una cuenta gratis no se le ofrece un pack, se le ofrece PRO.
   const trial = useTrialState();
   const free = trial.kind === "free";
@@ -118,7 +116,7 @@ export function RechargePopup({ onRecharge }: { onRecharge: () => void }) {
                 </p>
               )}
               <p className="text-[12px]">
-                Con {UNLOCK_PACK.credits.toLocaleString("de-DE")} créditos haces {rinde || "muchas piezas"}.
+                Son {UNLOCK_PACK.credits.toLocaleString("de-DE")} créditos y no caducan.
               </p>
             </div>
           </DialogDescription>
@@ -178,7 +176,6 @@ export function RechargeNudge() {
   }, [show]);
   if (!show) return null;
 
-  const rinde = creditEquivalentsLine(balance, { withOr: true });
   const buy = async () => {
     setBuying(true);
     const redirected = await startCheckout({ action: "pack", pack_id: UNLOCK_PACK.id });
@@ -189,7 +186,7 @@ export function RechargeNudge() {
       <p>
         {balance <= 0
           ? "Se te acabaron los créditos del mes."
-          : <>Te quedan <b className="text-foreground tabular-nums">{fmtNumber(balance)}</b> créditos{rinde ? ` (${rinde})` : ""}.</>}{" "}
+          : <>Te quedan <b className="text-foreground tabular-nums">{fmtNumber(balance)}</b> créditos.</>}{" "}
         Si quieres seguir a este ritmo, {fmtNumber(UNLOCK_PACK.credits)} créditos son {formatUsd(UNLOCK_PACK.price)} y no caducan.
       </p>
       <div className="flex flex-wrap items-center gap-2">

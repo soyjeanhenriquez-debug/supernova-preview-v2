@@ -21,8 +21,8 @@ describe("CreditRing", () => {
     expect(screen.getByText(/1\.500 de 2\.000/)).toBeTruthy();
     expect(screen.getByText(/Usaste 25 %/)).toBeTruthy();
     expect(screen.getByText(/150 de 1\.000/)).toBeTruthy();
-    // Qué rinde el saldo con los precios nuevos: imagen 7, anuncio en video 3 × 75 = 225.
-    expect(screen.getByText(/214 imágenes · 6 anuncios en video · 100 textos cortos/)).toBeTruthy();
+    // Dato seco (06-nov-2026, Jean): sin «te rinde para…».
+    expect(screen.queryByText(/Te rinde para/)).toBeNull();
   });
 
   it("creditEquivalents usa los precios nuevos (2.000 créditos = 285 imágenes u 8 anuncios en video)", () => {

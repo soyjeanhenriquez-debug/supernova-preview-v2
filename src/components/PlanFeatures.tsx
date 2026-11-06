@@ -1,6 +1,5 @@
 import { Check, ShieldCheck } from "lucide-react";
 import { PLANS, formatUsd, planFeatureParts, type PlanKey } from "@/lib/plans";
-import { creditEquivalentsLine } from "@/components/CreditRing";
 
 /**
  * Garantía publicada (manual §1): 30 días, si no terminas tu producto se devuelve el 100 %.
@@ -31,7 +30,6 @@ const PRO_MONTHLY_CREDITS = 2000;
 export function PlanFeatures({ plan, accent = "text-primary", max }: { plan: PlanKey; accent?: string; max?: number }) {
   const { inherits, extras } = planFeatureParts(plan);
   const shown = typeof max === "number" ? extras.slice(0, max) : extras;
-  const rinde = plan === "pro" ? creditEquivalentsLine(PRO_MONTHLY_CREDITS, { withOr: true }) : "";
   return (
     <div className="mt-2 space-y-1.5">
       {inherits && (
@@ -47,11 +45,6 @@ export function PlanFeatures({ plan, accent = "text-primary", max }: { plan: Pla
           </li>
         ))}
       </ul>
-      {rinde && (
-        <p className="text-[11px] text-muted-foreground">
-          Con {PRO_MONTHLY_CREDITS.toLocaleString("de-DE")} créditos al mes haces {rinde}.
-        </p>
-      )}
     </div>
   );
 }

@@ -38,7 +38,6 @@ type Phase = "plan" | "live" | "montage" | "ready";
 type Task = { i: number; kind: "voice" | "image" | "clip" };
 
 const FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
-const PLAN_CREDITS = 2000;
 const CONCURRENCY = 2;
 const PCTS = [0, 20, 40];
 const FORMATS: { id: Format; label: string }[] = [
@@ -533,7 +532,6 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
   }
 
   if (phase === "plan") {
-    const fits = cost.total > 0 ? Math.floor(PLAN_CREDITS / cost.total) : 0;
     return (
       <div className="max-w-[920px] mx-auto space-y-6 py-4">
         {header}
@@ -583,7 +581,6 @@ export function ProduceStudio({ uid, start, resumeId, onBack, onNavigate }: {
               <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Montaje, subtítulos y descarga</dt><dd className="text-foreground">Gratis</dd></div>
               <div className="flex justify-between gap-3 pt-2 border-t border-border/60"><dt className="text-foreground font-medium">Total</dt><dd className="text-foreground font-semibold tabular-nums">{num(cost.total)} créditos</dd></div>
             </dl>
-            {fits > 0 && <p className="text-[12px] text-muted-foreground">Así rinde tu plan: con los {num(PLAN_CREDITS)} créditos al mes del plan PRO te alcanza para unos {fits} videos como este.</p>}
           </div>
 
           {!recordOk && <p className="text-[12px] text-muted-foreground">Este navegador no puede grabar el video final. Puedes producir las escenas aquí y armarlo desde Chrome, Edge o Safari actualizados en esta misma computadora.</p>}

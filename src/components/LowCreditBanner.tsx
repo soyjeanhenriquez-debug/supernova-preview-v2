@@ -2,7 +2,6 @@ import { useCreditsLeft } from "@/hooks/useCreditsLeft";
 import { useEffect, useState } from "react";
 import { Zap, X } from "lucide-react";
 import { useCredits } from "@/hooks/useCredits";
-import { creditEquivalentsLine } from "@/components/CreditRing";
 
 const SESSION_KEY = "supernova_low_credit_dismissed";
 
@@ -29,14 +28,13 @@ export function LowCreditBanner({ onRecharge }: Props) {
 
   const renewDays = Math.max(0, Math.ceil((renewalDate.getTime() - Date.now()) / 86_400_000));
   const soon = purchased === 0 && renewDays <= 3;
-  const rinde = creditEquivalentsLine(balance, { withOr: true });
 
   return (
     <div className="flex items-center justify-between gap-3 px-5 py-2.5 bg-[hsl(28_85%_28%)] text-white border-b border-[hsl(28_85%_22%)] animate-fade-in">
       <div className="flex items-center gap-2 text-[13px] flex-wrap">
         <Zap className="w-4 h-4 shrink-0" />
         <span className="font-medium">
-          {balance <= 0 ? "Se te acabaron los créditos" : <>Te quedan <span className="font-bold tabular-nums">{balance}</span> créditos{rinde ? <span className="text-white/80 font-normal"> ({rinde})</span> : null}</>}
+          {balance <= 0 ? "Se te acabaron los créditos" : <>Te quedan <span className="font-bold tabular-nums">{balance}</span> créditos</>}
         </span>
         <span className="text-white/70">·</span>
         {soon ? (

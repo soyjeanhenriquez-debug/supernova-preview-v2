@@ -51,14 +51,17 @@ function Creditos({ onNavigate }: { onNavigate: (page: string) => void }) {
   const renew = renewalDate.toLocaleDateString("es", { day: "numeric", month: "long" });
   const linea = isAdmin ? "Créditos ilimitados (admin)."
     : free ? `Tu prueba gratis: prueba cada herramienta hasta ${trial.perTool} veces.`
-    : purchased > 0 && monthly <= 0 ? `Usas tus créditos comprados: te quedan ${fmtNumber(balance)}. No caducan.`
-    : `Te queda el ${pct} % de tus créditos del mes. Se renuevan el ${renew}.`;
+    : purchased > 0 && monthly <= 0 ? "créditos disponibles (comprados, no caducan)."
+    : `créditos disponibles. Los del mes se renuevan el ${renew}.`;
   return (
     <div className="rounded-2xl border border-border bg-card/40 p-5">
       <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-foreground">Tus créditos</p>
       <div className="mt-3 flex items-center gap-4">
-        <Anillo left={left} low={low} centro={isAdmin ? "∞" : `${pct} %`} />
-        <p className="text-[12.5px] text-muted-foreground leading-snug">{linea}</p>
+        {/* Dato seco (06-nov-2026, Jean): el saldo en número, sin «te rinde para…». En la prueba gratis, el % que queda. */}
+        <Anillo left={left} low={low} centro={isAdmin ? "∞" : free ? `${pct} %` : fmtNumber(balance)} />
+        <p className="text-[12.5px] text-muted-foreground leading-snug">
+          {linea}
+        </p>
       </div>
       <p className="mt-3 text-[11.5px] text-muted-foreground leading-snug">Mirar ofertas, el radar y los ganchos no gasta créditos.</p>
       <button onClick={() => onNavigate("Créditos")}

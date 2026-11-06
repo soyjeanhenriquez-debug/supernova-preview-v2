@@ -21,7 +21,8 @@ describe("RechargePopup", () => {
     expect(screen.queryByText(/Recarga para seguir/)).toBeNull();
     act(() => { window.dispatchEvent(new Event(RECHARGE_EVENT)); });
     expect(screen.getByText("Recarga para seguir con esta herramienta")).toBeTruthy();
-    expect(screen.getByText(/285 imágenes o 8 anuncios en video o 133 textos cortos/)).toBeTruthy();
+    expect(screen.getByText(/Son 2\.000 créditos y no caducan/)).toBeTruthy();
+    expect(screen.queryByText(/imágenes o .* anuncios en video/)).toBeNull(); // dato seco, sin «te rinde»
     fireEvent.click(screen.getByRole("button", { name: /Recargar 2\.000 créditos por US\$20/ }));
     expect(startCheckout).toHaveBeenCalledWith({ action: "pack", pack_id: "power" });
     expect(onRecharge).not.toHaveBeenCalled();
@@ -47,11 +48,11 @@ describe("RechargeNudge (después de un resultado bueno)", () => {
     expect(shouldNudgeRecharge(180, false, true)).toBe(false);
   });
 
-  it("con 180 créditos dice qué rinden, ofrece 2.000 por US$20 y no vuelve a salir en la sesión", () => {
+  it("con 180 créditos da el dato seco, ofrece 2.000 por US$20 y no vuelve a salir en la sesión", () => {
     __resetRechargeNudge();
     credits.balance = 180; admin.isAdmin = false;
     const { unmount } = render(<RechargeNudge />);
-    expect(screen.getByText(/25 imágenes/)).toBeTruthy();
+    expect(screen.queryByText(/imágenes/)).toBeNull();
     expect(screen.getByText(/2\.000 créditos son US\$20 y no caducan/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Recargar 2\.000 por US\$20/ }));
     expect(startCheckout).toHaveBeenLastCalledWith({ action: "pack", pack_id: "power" });

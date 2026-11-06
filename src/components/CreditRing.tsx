@@ -14,6 +14,8 @@ import { useBonusStatus } from "@/components/PublishBonus";
 const R = 8, C = 2 * Math.PI * R;
 
 /**
+ * 06-nov-2026, Jean: en pantalla va el dato seco de créditos, sin «te rinde para…» (a la larga trae problemas:
+ * los precios cambian y la promesa queda). Estas funciones quedan solo para cálculos internos.
  * Qué te rinde un saldo, en piezas reales (11-oct-2026, misión "pagar y recargar"): la gente no
  * sabe qué es "2.000 créditos" hasta que lo ve en imágenes, anuncios en video o textos. Los precios
  * salen de CREDIT_COSTS (espejo de credit_prices, que es quien cobra). Vive aquí, y no en la
@@ -52,7 +54,6 @@ export function CreditRing({ isAdmin }: { isAdmin: boolean }) {
   const low = !isAdmin && balance < 100;
   const usedPct = Math.round((1 - Math.max(0, Math.min(1, monthly / limit))) * 100);
   const renew = renewalDate.toLocaleDateString("es", { day: "numeric", month: "long" });
-  const rinde = isAdmin ? "" : creditEquivalentsLine(balance);
   const trial = useTrialState();
 
   // Prueba gratis (12-oct-2026): la cuenta gratis no tiene créditos; ve cuánto le queda de su prueba.
@@ -112,7 +113,6 @@ export function CreditRing({ isAdmin }: { isAdmin: boolean }) {
             <span className="text-[12px] text-muted-foreground">Saldo total</span>
             <span className="text-[13px] font-semibold text-foreground tabular-nums">{isAdmin ? "Ilimitado" : fmtNumber(balance)}</span>
           </div>
-          {rinde && <p className="mt-1 text-[11px] text-muted-foreground">Te rinde para {rinde}.</p>}
         </div>
         <a href="#/creditos" className="block border-t border-border px-4 py-2.5 text-[12px] text-foreground hover:bg-secondary/60">
           {low ? "Recargar créditos" : "Ver desglose y recargar"}

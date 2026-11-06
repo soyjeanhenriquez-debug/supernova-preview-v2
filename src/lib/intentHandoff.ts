@@ -44,14 +44,18 @@ export function takeReelStudioRef(): string {
 }
 
 /**
- * Video de referencia que la guía de Video (VideoGuia) o Motion graphics le pasan a Reel Studio (06-nov-2026):
- * la persona subió un reel que quiere hacer parecido. Un File no cabe en sessionStorage, así que vive en memoria
- * de esta pestaña (la app es de una sola página). Reel Studio lo muestra listo para analizar: nunca cobra solo.
+ * Lo que la guía de Video (VideoGuia) o Motion graphics le pasan a Reel Studio (06-nov-2026): el video de ejemplo
+ * que la persona quiere hacer parecido y/o el texto que ya tiene. Un File no cabe en sessionStorage, así que vive en
+ * memoria de esta pestaña (la app es de una sola página). Reel Studio lo deja listo: nunca cobra solo.
  */
-let reelStudioFile: File | null = null;
-export function giveReelStudioFile(file: File): void { reelStudioFile = file; }
-export function takeReelStudioFile(): File | null {
-  const f = reelStudioFile;
-  reelStudioFile = null;
-  return f;
+export type EncargoReel = { file?: File; texto?: string };
+let encargoReel: EncargoReel | null = null;
+export function giveReelStudio(e: EncargoReel): void {
+  const texto = e.texto?.trim().slice(0, 4000);
+  encargoReel = e.file || texto ? { file: e.file, texto: texto || undefined } : null;
+}
+export function takeReelStudio(): EncargoReel | null {
+  const e = encargoReel;
+  encargoReel = null;
+  return e;
 }

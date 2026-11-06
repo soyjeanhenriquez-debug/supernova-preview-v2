@@ -32,6 +32,7 @@ vi.mock("@/lib/genjutsuOwner", () => ({ isGenjutsuOwner: () => false }));
 vi.mock("@/components/video/AdFinalVideo", () => ({ AdFinalVideo: () => null }));
 vi.mock("@/components/video/ReadyToPublish", () => ({ ReadyToPublish: () => null }));
 vi.mock("@/components/video/MotionStudio", () => ({ MotionStudio: () => null }));
+vi.mock("@/components/video/VideoGuia", () => ({ VideoGuia: () => null }));
 vi.mock("@/components/video/videoApi", async (orig) => ({
   ...(await orig<typeof import("@/components/video/videoApi")>()),
   createVideo: (...a: unknown[]) => createVideo(...a),

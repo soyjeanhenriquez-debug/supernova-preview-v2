@@ -72,6 +72,8 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
   const { applyServerCharge, balance } = useCredits();
   const creditsLeft = useCreditsLeft().label;
   const [mode, setMode] = useState<Mode>(initialMode);
+  // Lo que la guía manda a Motion graphics: su video de ejemplo («Solo copiar su estilo») y/o su texto.
+  const [motionRef, setMotionRef] = useState<{ file?: File; texto?: string } | null>(null);
   const [seed, setSeed] = useState<CreativeSeed | null>(null);
   // Ángulo de venta del anuncio: uno solo; se aplica al reescribir el guion con «Mejorar con IA».
   const [angleId, setAngleId] = useState<string>(ANGLE_AUTO);
@@ -440,7 +442,7 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
       </div>
 
       {/* «¿Qué quieres hacer?»: lleva a la herramienta correcta según lo que la persona quiere (06-nov-2026). */}
-      {!seed && <VideoGuia onModo={m => { setMode(m); setRun([]); }} disabled={busy} />}
+      {!seed && <VideoGuia onModo={(m, texto) => { setMode(m); setRun([]); if (m === "motion" && texto) setMotionRef({ texto }); }} onEstilo={(file, texto) => { setMode("motion"); setRun([]); setMotionRef({ file, texto }); }} disabled={busy} />}
 
       <div className="flex flex-wrap gap-2">
         {MODES.map(m => (
@@ -559,7 +561,7 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
         </section>
       )}
 
-      {mode === "motion" && <MotionStudio productId={productId} hasProduct={profileReady(profile)} hook={seed?.hook} />}
+      {mode === "motion" && <MotionStudio productId={productId} hasProduct={profileReady(profile)} hook={seed?.hook} refFile={motionRef?.file} refScript={motionRef?.texto} onRefUsed={() => setMotionRef(null)} />}
 
       {/* ---------- Clip / Serie ---------- */}
       {!adMode && mode !== "motion" && (

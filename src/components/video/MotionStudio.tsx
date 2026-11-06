@@ -21,7 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { createVideo, downloadVideo, waitForVideo } from "@/components/video/videoApi";
 import { ModalPortal } from "@/components/ModalPortal";
-import { giveReelStudioFile } from "@/lib/intentHandoff";
+import { giveReelStudio } from "@/lib/intentHandoff";
 
 /**
  * Motion graphics con estilo (08-oct-2026). El flujo del tutorial "estilo de referencia → prompt
@@ -91,7 +91,11 @@ const videoSeconds = (file: File) => new Promise<number>(resolve => {
 
 type VoiceTake = { key: string; chunks: VoiceChunk[]; buffers: AudioBuffer[] };
 
-export function MotionStudio({ productId, hasProduct, hook }: { productId?: string | null; hasProduct: boolean; hook?: string }) {
+export function MotionStudio({ productId, hasProduct, hook, refFile, refScript, onRefUsed }: {
+  productId?: string | null; hasProduct: boolean; hook?: string;
+  /** Desde la guía de Video: el video de ejemplo («Solo copiar su estilo», se modela al llegar) y/o su texto. */
+  refFile?: File | null; refScript?: string; onRefUsed?: () => void;
+}) {
   const { applyServerCharge, balance } = useCredits();
   const { user } = useAuth();
   const [aiClips, setAiClips] = useState<Record<number, AiClip>>({});
@@ -238,6 +242,13 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
       if (fileRef.current) fileRef.current.value = "";
     }
   };
+  // La persona eligió en la guía «Solo copiar su estilo» con este video: el precio ya lo vio en el botón.
+  useEffect(() => {
+    if (!refFile && !refScript) return;
+    onRefUsed?.();
+    if (refScript) { setSource("guion"); setScript(refScript); }
+    if (refFile) void readReference([refFile], true);
+  }, [refFile, refScript]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------- 2. Escenas ----------
   const makePlan = async () => {
@@ -401,7 +412,7 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
                   </li>
                 ))}
               </ol>
-              <button type="button" onClick={() => { giveReelStudioFile(parecido); track("motion_a_reel_studio", {}); setParecido(null); window.location.hash = "#/con-tu-cara/reel-ia"; }}
+              <button type="button" onClick={() => { giveReelStudio({ file: parecido }); track("motion_a_reel_studio", {}); setParecido(null); window.location.hash = "#/con-tu-cara/reel-ia"; }}
                 className="w-full min-h-[48px] rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold">Sí, hacer uno parecido →</button>
               <button type="button" onClick={() => { const f = parecido; setParecido(null); void readReference([f], true); }}
                 className="w-full min-h-[44px] rounded-xl border border-border text-sm text-foreground">No, solo quiero copiar su estilo · {CREDIT_COSTS.motion_style} créditos</button>

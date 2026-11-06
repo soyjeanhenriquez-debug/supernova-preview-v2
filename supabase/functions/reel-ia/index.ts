@@ -32,6 +32,7 @@ import { wavSeconds } from "../_shared/wav.ts";
 import { cleanAnalisis, PROMPT_ANALISIS } from "../_shared/reelPlan.ts";
 import { b64 as b64m, geminiMedia, logMediaCost } from "../_shared/geminiMedia.ts";
 import { getReel, REEL_RE } from "../_shared/reelSource.ts";
+import { nombreVozEs } from "../_shared/vocesEs.ts";
 import { cleanMontaje, limpiarTextoVoz, MAX_TOMAS, promptMontaje, type ModoVoz, type TomaInfo } from "../_shared/montaje.ts";
 
 const FN = "reel-ia";
@@ -141,7 +142,7 @@ Deno.serve(async (req) => {
         // deno-lint-ignore no-explicit-any
         .slice(0, 60).map((v: any) => ({
           id: v.voice_id as string,
-          nombre: String(v.name ?? "Voz").slice(0, 60),
+          nombre: nombreVozEs(String(v.name ?? "Voz"), v.category === "premade").slice(0, 60),
           muestra: typeof v.preview_url === "string" && v.preview_url.startsWith("https://") ? v.preview_url : null,
           propia: jean && v.voice_id === propia,
           clonada: v.category === "cloned" || v.category === "professional",

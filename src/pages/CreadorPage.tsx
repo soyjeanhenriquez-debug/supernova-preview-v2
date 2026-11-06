@@ -127,7 +127,7 @@ export function CreadorPage({ onNavigate }: { onNavigate?: (page: string) => voi
           // Reel Studio abierto a todos el 26-oct-2026: el servidor cobra voz, tomas hablando y análisis (reel-ia).
           ...(isAdmin ? [["video-ia", Sparkles, "Video IA Perfecto · Modelo AH · solo admin", "Escribe tu idea en una frase: personaje fijo, guion y cada escena con su imagen. Tú solo apruebas.", "160 créditos el storyboard"]] as const : []),
           ...(isAdmin ? [["anuncio-animado", Clapperboard, "Anuncio animado · solo admin", "Dices qué vendes y eliges un estilo: cliente, datos, guion, escenas e instrucciones de imagen, como un cortometraje.", "15 + 30 + 15 créditos"]] as const : []),
-          ["reel-ia", Sparkles, "Reel Studio", "Recrea un reel que funciona, o crea uno desde tu idea o tu guion: voz, tus looks, imágenes al ritmo de cada frase y tú hablando.", "Unos 400 a 1.300 créditos por reel · ves el total antes de crear"],
+          ["reel-ia", Sparkles, "Reel Studio", "Recrea un reel que funciona, o crea uno desde tu idea o tu guion: con tu cara o solo con tu voz, e imágenes al ritmo de cada frase.", "Unos 400 a 1.300 créditos por reel · ves el total antes de crear"],
         ] as const).map(([id, Icon, title, desc, cost]) => (
           <button key={id} type="button" onClick={() => go([id])}
             className="card-surface group rounded-2xl p-5 text-left hover:border-primary/50 transition-colors">

@@ -42,3 +42,16 @@ export function takeReelStudioRef(): string {
     return IG_REEL_RE.test(v) ? v.slice(0, 300) : "";
   } catch { return ""; }
 }
+
+/**
+ * Video de referencia que la guía de Video (VideoGuia) o Motion graphics le pasan a Reel Studio (06-nov-2026):
+ * la persona subió un reel que quiere hacer parecido. Un File no cabe en sessionStorage, así que vive en memoria
+ * de esta pestaña (la app es de una sola página). Reel Studio lo muestra listo para analizar: nunca cobra solo.
+ */
+let reelStudioFile: File | null = null;
+export function giveReelStudioFile(file: File): void { reelStudioFile = file; }
+export function takeReelStudioFile(): File | null {
+  const f = reelStudioFile;
+  reelStudioFile = null;
+  return f;
+}

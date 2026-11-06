@@ -24,6 +24,7 @@ import { ReadyToPublish } from "@/components/video/ReadyToPublish";
 import { AdFinalVideo } from "@/components/video/AdFinalVideo";
 import { AdStudio } from "@/components/video/AdStudio";
 import { MotionStudio } from "@/components/video/MotionStudio";
+import { VideoGuia } from "@/components/video/VideoGuia";
 import { isGenjutsuOwner } from "@/lib/genjutsuOwner";
 import {
   createVideo, downloadVideo, invokeVideo, loadVideoConfig, streamUgcScript, takePresenter, waitForVideo,
@@ -60,7 +61,7 @@ const TITLES: Record<Mode, { h: string; p: string }> = {
   clip: { h: "Video con IA", p: "Describe la escena y la IA la graba por ti, con sonido." },
   serie: { h: "Series de video", p: "Novelas, dibujos animados o shorts en escenas que siguen una a la otra: el final de cada clip es el inicio del siguiente." },
   anuncio: { h: "Anuncio en video", p: "3 tomas de 5 segundos: gancho, demostración y llamada a la acción. La IA arma el guion; tú solo lo creas." },
-  motion: { h: "Motion graphics", p: "Texto animado con el estilo de un video que ya funciona: elige o modela el estilo, pega tu guion (o usa tu producto) y descárgalo listo para Reels, TikTok o anuncios." },
+  motion: { h: "Motion graphics", p: "Texto animado con el estilo (colores, letra y movimiento) de un video que te guste: elige o modela el estilo, pega tu guion (o usa tu producto) y descárgalo listo para Reels, TikTok o anuncios." },
   ugc: { h: "UGC con IA", p: "Un presentador creado con IA habla a cámara de tu producto, en español latino. Explica y presenta; nunca finge ser cliente." },
 };
 const SEED_MODE: Partial<Record<CreativeSeed["target"], VideoMode>> = { video_anuncio: "anuncio", video_ugc: "ugc", serie: "serie" };
@@ -437,6 +438,9 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
         <h1 className="font-display font-bold text-2xl text-foreground">{t.h}</h1>
         <p className="text-sm text-muted-foreground mt-1">{t.p}</p>
       </div>
+
+      {/* «¿Qué quieres hacer?»: lleva a la herramienta correcta según lo que la persona quiere (06-nov-2026). */}
+      {!seed && <VideoGuia onModo={m => { setMode(m); setRun([]); }} disabled={busy} />}
 
       <div className="flex flex-wrap gap-2">
         {MODES.map(m => (

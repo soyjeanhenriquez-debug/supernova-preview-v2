@@ -64,7 +64,7 @@ const VIDEO_DOORS: TreeDoor[] = [
     { label: "Analiza un Reel", page: "Con tu cara", hash: "#/con-tu-cara/reel", desc: "Por qué funciona cualquier Reel y tu versión para grabar." },
     { label: "Sube tu video", page: "Con tu cara", hash: "#/con-tu-cara/video", desc: "Subtítulos, gancho y edición de lo que ya grabaste." },
     { label: "Teleprompter", page: "Con tu cara", hash: "#/con-tu-cara/teleprompter", desc: "Lee tu guion mirando a la cámara." },
-    { label: "Reel Studio", page: "Con tu cara", hash: "#/con-tu-cara/reel-ia", desc: "Recrea un reel que funciona o créalo desde tu idea: voz, tus looks y tú hablando." },
+    { label: "Reel Studio", page: "Con tu cara", hash: "#/con-tu-cara/reel-ia", desc: "Recrea un reel que funciona o créalo desde tu idea, con tu cara o solo con tu voz." },
     { label: "Mi historia animada", page: "Con tu cara", hash: "#/con-tu-cara/historia", owner: true, desc: "Tu historia real con tu personaje en 3D." },
   ] },
   { id: "youtube", name: "YouTube", tabs: [

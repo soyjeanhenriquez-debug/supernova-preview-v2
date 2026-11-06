@@ -115,6 +115,7 @@ export type AppEvent =
   | "video_generado" | "video_final_armado" | "comunidad_upsell_click"
   | "estudio_avatar_imagen" | "estudio_avatar_video" | "avatar_6c_prompt"
   | "motion_grabado" | "motion_estilo_modelado" | "motion_escenas" | "motion_partes" | "motion_clip_ia"
+  | "video_guia_destino" | "motion_a_reel_studio"
   | "home_card_click" | "home_ask_assistant" | "search_used" | "via_elegida"
   | "idea_sheet_open" | "idea_create_click"
   | "intent_start"

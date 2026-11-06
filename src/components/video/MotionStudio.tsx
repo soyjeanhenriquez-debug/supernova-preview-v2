@@ -20,6 +20,8 @@ import { compressImage } from "@/lib/montage";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { createVideo, downloadVideo, waitForVideo } from "@/components/video/videoApi";
+import { ModalPortal } from "@/components/ModalPortal";
+import { giveReelStudioFile } from "@/lib/intentHandoff";
 
 /**
  * Motion graphics con estilo (08-oct-2026). El flujo del tutorial "estilo de referencia → prompt
@@ -75,6 +77,18 @@ const b64ToBlob = (b64: string, mime: string) => {
   return new Blob([bytes], { type: mime });
 };
 
+/** Duración de un video local (0 si el navegador no la puede leer). No sube nada. */
+const videoSeconds = (file: File) => new Promise<number>(resolve => {
+  const v = document.createElement("video");
+  const url = URL.createObjectURL(file);
+  const done = (n: number) => { URL.revokeObjectURL(url); resolve(Number.isFinite(n) ? n : 0); };
+  v.preload = "metadata";
+  v.onloadedmetadata = () => done(v.duration);
+  v.onerror = () => done(0);
+  setTimeout(() => done(0), 5000);
+  v.src = url;
+});
+
 type VoiceTake = { key: string; chunks: VoiceChunk[]; buffers: AudioBuffer[] };
 
 export function MotionStudio({ productId, hasProduct, hook }: { productId?: string | null; hasProduct: boolean; hook?: string }) {
@@ -87,6 +101,9 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
   const [saved, setSaved] = useState<MotionStyle[]>(() => loadSavedStyles());
   const [style, setStyle] = useState<MotionStyle>(() => loadSavedStyles()[0] ?? MOTION_PRESETS[0]);
   const [reading, setReading] = useState(false);
+  // Un video completo (con voz, de 20 s o más) casi nunca es «copiar el estilo»: la persona quiere uno
+  // parecido. Antes de cobrar se le pregunta y, si sí, se lleva su video a Reel Studio (caso Cindy, 06-nov-2026).
+  const [parecido, setParecido] = useState<File | null>(null);
   const [changes, setChanges] = useState("");
   const [showPrompt, setShowPrompt] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -189,13 +206,18 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
   };
 
   // ---------- 1. Modelar el estilo de una referencia ----------
-  const readReference = async (files: FileList | null) => {
+  const readReference = async (files: FileList | File[] | null, soloEstilo = false) => {
     if (!files?.length || reading) return;
     const list = Array.from(files);
     const video = list.find(f => f.type.startsWith("video/"));
     const images = list.filter(f => f.type.startsWith("image/"));
     if (!video && images.length < 2) { toast.error("Sube un video o al menos 2 capturas de la referencia."); return; }
     if (video && video.size > 300 * 1024 * 1024) { toast.error("Ese video pesa demasiado. Usa uno de menos de 300 MB."); return; }
+    if (video && !soloEstilo && (await videoSeconds(video)) >= 20) {
+      if (fileRef.current) fileRef.current.value = "";
+      setParecido(video);
+      return;
+    }
     if (balance < CREDIT_COSTS.motion_style) { toast.error(`Te faltan créditos: modelar un estilo cuesta ${CREDIT_COSTS.motion_style}.`); return; }
     setReading(true);
     try {
@@ -364,6 +386,29 @@ export function MotionStudio({ productId, hasProduct, hook }: { productId?: stri
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,380px)] min-w-0">
+      {parecido && (
+        <ModalPortal onClose={() => setParecido(null)}>
+          <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center" onClick={() => setParecido(null)}>
+            <div role="dialog" aria-modal="true" aria-label="¿Quieres un video parecido a este?" onClick={e => e.stopPropagation()}
+              className="w-full sm:max-w-md bg-card border border-border rounded-t-3xl sm:rounded-3xl p-5 space-y-3">
+              <p className="text-[12px] text-muted-foreground truncate">{parecido.name}</p>
+              <h3 className="font-display font-bold text-xl text-foreground">¿Quieres un video parecido a este?</h3>
+              <p className="text-sm text-muted-foreground">Aquí solo copiamos los colores, la letra y el movimiento del texto. Para hacer tu versión completa:</p>
+              <ol className="space-y-1.5">
+                {["Lo analizamos: su gancho, sus partes y su cierre.", "Pegas tu texto si lo tienes. Si no, lo escribimos.", "Eliges la voz y las imágenes.", "Apruebas el storyboard.", "Lo descargas o lo programas."].map((x, k) => (
+                  <li key={k} className="flex items-start gap-2.5 text-sm text-foreground">
+                    <span className="w-6 h-6 shrink-0 rounded-full bg-primary/15 text-primary text-[12px] font-bold flex items-center justify-center">{k + 1}</span>{x}
+                  </li>
+                ))}
+              </ol>
+              <button type="button" onClick={() => { giveReelStudioFile(parecido); track("motion_a_reel_studio", {}); setParecido(null); window.location.hash = "#/con-tu-cara/reel-ia"; }}
+                className="w-full min-h-[48px] rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold">Sí, hacer uno parecido →</button>
+              <button type="button" onClick={() => { const f = parecido; setParecido(null); void readReference([f], true); }}
+                className="w-full min-h-[44px] rounded-xl border border-border text-sm text-foreground">No, solo quiero copiar su estilo · {CREDIT_COSTS.motion_style} créditos</button>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
       <div className="space-y-6 min-w-0">
         {/* 1. Estilo */}
         <section className="rounded-2xl border border-border p-4 sm:p-5 space-y-3 min-w-0">

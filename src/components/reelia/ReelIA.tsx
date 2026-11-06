@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { isGenjutsuOwner } from "@/lib/genjutsuOwner";
 import { fmtNum as fmtCr } from "@/lib/recommendTarget";
-import { useCredits } from "@/hooks/useCredits";
+import { CREDIT_COSTS, useCredits } from "@/hooks/useCredits";
 import { fnErrorMessage, fnHeaders, readBilling } from "@/lib/fnAuth";
 import { audioSeconds, compressImage } from "@/lib/montage";
 import { deleteProduction, getMedia, putMedia } from "@/lib/productionStore";
@@ -34,7 +34,7 @@ import { GrabarConGuion } from "@/components/reel/GrabarConGuion";
 import { dejarToma } from "@/lib/grabacion";
 import { SiguientePaso } from "@/components/agentes/SiguientePaso";
 import { BIBLIO, useStudioDatos, type Borrador, type Identidad, type Plantilla } from "./useStudioDatos";
-import { takeReelStudioRef } from "@/lib/intentHandoff";
+import { takeReelStudioFile, takeReelStudioRef } from "@/lib/intentHandoff";
 
 /**
  * Reel Studio (24/25-oct-2026; abierto a clientes el 26-oct-2026: el servidor cobra voz, tomas hablando y análisis). Inicio: recrear un reel de referencia, crear desde una idea o
@@ -191,6 +191,8 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
   const [texto, setTexto] = useState("");
   const [enlace, setEnlace] = useState("");
   const [refVideo, setRefVideo] = useState<string | null>(null);
+  // Video que la persona trajo desde la guía de Video o desde Motion graphics: listo para analizar con un toque.
+  const [pendiente, setPendiente] = useState<File | null>(null);
   // «Lo grabo yo» (27-oct-2026): grabarte con tu guion encima y llevar la toma a «Sube tu video».
   const [grabar, setGrabar] = useState(false);
   const tomaRef = useRef<HTMLInputElement>(null);
@@ -265,6 +267,8 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
     // Desde «Reels que funcionan»: un reel nuevo de referencia con el enlace puesto. Analizarlo lo decide la persona.
     const ref = takeReelStudioRef();
     if (ref) { empezar("referencia"); setEnlace(ref); }
+    const file = takeReelStudioFile();
+    if (file) { empezar("referencia"); setPendiente(file); }
   }, [uid, setUrl]); // eslint-disable-line react-hooks/exhaustive-deps
   // Un proyecto nuevo toma Mi identidad cuando termina de cargar.
   useEffect(() => { if (datos.idnListo && !metaRef.current.reel && !metaRef.current.chat.length) commit({ ajustes: ajustesDe(idn) }); }, [datos.idnListo]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1129,6 +1133,16 @@ export function ReelIA({ onHome, onNavigate }: { onHome: () => void; onNavigate:
                   <input value={enlace} onChange={e => setEnlace(e.target.value.slice(0, 500))} placeholder="Pega el enlace del reel (Instagram)" disabled={!!busy} className={`${field} min-h-[44px]`} />
                   <button type="button" onClick={() => void cargarReferencia({ url: enlace.trim() })} disabled={!!busy || !enlace.trim()} className="h-11 px-4 rounded-xl bg-primary text-primary-foreground disabled:opacity-50" aria-label="Analizar enlace"><Link2 className="w-4 h-4" /></button>
                 </div>
+                {pendiente && (
+                  <div className="rounded-xl border border-primary/50 bg-primary/5 p-3 space-y-2">
+                    <p className="text-sm text-foreground"><b>Tu video:</b> {pendiente.name}</p>
+                    <p className="text-[12px] text-muted-foreground">Lo miramos y lo escuchamos para sacar su gancho, sus partes y su ritmo. Después escribes (o pegas) tu texto y eliges voz e imágenes.</p>
+                    <button type="button" onClick={() => { const f = pendiente; setPendiente(null); void cargarReferencia({ file: f }); }} disabled={!!busy}
+                      className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
+                      <Sparkles className="w-4 h-4" /> Analizar este video · {CREDIT_COSTS.reel_analyze} créditos
+                    </button>
+                  </div>
+                )}
                 <input ref={refRef} type="file" accept="video/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void cargarReferencia({ file: f }); }} />
                 <button type="button" onClick={() => refRef.current?.click()} disabled={!!busy} className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-border text-sm text-foreground disabled:opacity-50"><Upload className="w-4 h-4" /> O sube el video (hasta 18 MB)</button>
                 <p className="text-[11px] text-muted-foreground">TikTok y YouTube no se pueden leer por enlace: descarga el video y súbelo. Se analiza el video real; si no se puede abrir, te lo decimos.</p>

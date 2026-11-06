@@ -32,7 +32,7 @@ import { wavSeconds } from "../_shared/wav.ts";
 import { cleanAnalisis, PROMPT_ANALISIS } from "../_shared/reelPlan.ts";
 import { b64 as b64m, geminiMedia, logMediaCost } from "../_shared/geminiMedia.ts";
 import { getReel, REEL_RE } from "../_shared/reelSource.ts";
-import { cleanMontaje, MAX_TOMAS, promptMontaje, type TomaInfo } from "../_shared/montaje.ts";
+import { cleanMontaje, limpiarTextoVoz, MAX_TOMAS, promptMontaje, type ModoVoz, type TomaInfo } from "../_shared/montaje.ts";
 
 const FN = "reel-ia";
 const AVATAR = "fal-ai/kling-video/ai-avatar/v2/standard";
@@ -329,7 +329,11 @@ Deno.serve(async (req) => {
     if (body.action === "montaje") {
       const path = typeof body.path === "string" && body.path.startsWith(`${uid}/ref/`) && !body.path.includes("..") && body.path.length < 300 ? body.path : null;
       const pedido = typeof body.pedido === "string" ? body.pedido.replace(/\s+/g, " ").trim().slice(0, 600) : "";
-      if (!path && pedido.length < 10) return json({ error: "Sube tu video de referencia o cuéntanos cómo lo quieres." }, 400);
+      // Qué se escucha (Jean, 06-nov-2026): el sonido de sus tomas, su texto con una voz nueva o un texto de la IA.
+      const voz: ModoVoz = body.voz === "propio" || body.voz === "ia" ? body.voz : "tomas";
+      const texto = voz === "propio" ? limpiarTextoVoz(body.texto) : "";
+      if (voz === "propio" && texto.split(" ").length < 5) return json({ error: "Pega tu texto completo (al menos una frase)." }, 400);
+      if (!path && pedido.length < 10 && !texto) return json({ error: "Sube tu video de referencia o cuéntanos cómo lo quieres." }, 400);
       const tomas: TomaInfo[] = [];
       const fotos: string[][] = [];
       for (const t of (Array.isArray(body.tomas) ? body.tomas : []).slice(0, MAX_TOMAS)) {
@@ -348,14 +352,14 @@ Deno.serve(async (req) => {
         parts.push({ text: "VIDEO DE REFERENCIA:" }, { inline_data: { mime_type: file.type || "video/mp4", data: b64m(new Uint8Array(await file.arrayBuffer())) } });
       }
       tomas.forEach((t, i) => { parts.push({ text: `TOMA ${t.n}:` }); fotos[i].forEach(f => parts.push({ inline_data: { mime_type: "image/jpeg", data: f } })); });
-      parts.push({ text: promptMontaje(tomas, !!path, pedido) });
+      parts.push({ text: promptMontaje(tomas, !!path, pedido, voz, texto) });
       const { data: guard, error: gErr } = await admin().rpc("edge_guard", { p_user_id: uid, p_fn: `${FN}:montaje`, p_max_hour: 6, p_max_day: 15 });
       if (gErr) return json({ error: "No se pudo verificar el acceso. Intenta de nuevo." }, 503);
       if (guard?.ok !== true) return json({ error: guard?.reason === "rate_limited" ? "Ya pediste varias propuestas seguidas. Intenta más tarde." : "Tu cuenta no tiene acceso activo." }, guard?.reason === "rate_limited" ? 429 : 403);
       try {
-        const { out, cost, usage } = await geminiMedia(parts, 6000, 120_000, 0.3);
+        const { out, cost, usage } = await geminiMedia(parts, voz === "tomas" ? 6000 : 9000, 120_000, 0.3);
         await logMediaCost(uid, FN, cost, usage);
-        const plan = cleanMontaje(out, tomas);
+        const plan = cleanMontaje(out, tomas, voz, texto);
         if (!plan) return json({ error: "La IA no pudo armar el montaje. Prueba otra vez." }, 502);
         return json({ plan });
       } catch (e) {

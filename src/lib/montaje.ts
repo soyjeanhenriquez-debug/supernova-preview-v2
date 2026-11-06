@@ -4,7 +4,26 @@
  * (los usa también el servidor). Nada de esto sube el video ni cobra.
  */
 import { detectAuto, MIN_CONFIDENCE, workSize, type MarkModel } from "@/lib/watermark";
-export { cleanMontaje, duracionMontaje, montajeSimple, MAX_TOMAS, type PlanMontaje, type Segmento, type TomaInfo, type Transicion } from "../../supabase/functions/_shared/montaje";
+export {
+  ajustarAVoz, cleanMontaje, duracionMontaje, montajeSimple, segundosDe, DUR_NUEVA, MAX_GUION, MAX_TOMAS,
+  type ModoVoz, type Nueva, type PlanMontaje, type Segmento, type TomaInfo, type Transicion,
+} from "../../supabase/functions/_shared/montaje";
+import type { PlanMontaje as Plan } from "../../supabase/functions/_shared/montaje";
+
+/** Antes de armar: los planos de IA que no se crearon se cambian por la toma de al lado (no quedan avisos en el video). */
+export function sinPendientes(plan: Plan, creadas: (string | null)[]): Plan {
+  const reales = plan.segmentos.filter(s => s.toma > 0);
+  if (!reales.length) return plan;
+  return {
+    ...plan,
+    segmentos: plan.segmentos.map((s, i) => {
+      if (s.toma > 0 || (s.nueva && creadas[s.nueva - 1])) return s;
+      const vecino = plan.segmentos.slice(0, i).reverse().find(x => x.toma > 0) ?? reales[0];
+      const { nueva: _n, ...resto } = s;
+      return { ...resto, toma: vecino.toma, desde: vecino.desde, hasta: vecino.hasta, vel: vecino.vel, loop: vecino.loop };
+    }),
+  };
+}
 
 export type TomaPreparada = { dur: number; W: number; H: number; frames: string[]; marca: MarkModel | null };
 

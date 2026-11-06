@@ -20,7 +20,7 @@ import { ASK_ASSISTANT_EVENT } from "@/components/HelpAssistant";
  * docs/propuestas/2026-11-06-boceto-que-quieres-hacer-video.jpg.
  */
 export type GuiaModo = "anuncio" | "motion" | "clip" | "serie";
-type Para = "redes" | "anuncio" | "editar";
+type Para = "redes" | "anuncio" | "editar" | "referencia";
 type Tiene = "ambos" | "video" | "texto" | "nada";
 type Destino = { modo: GuiaModo } | { hash: string };
 type Opcion = { id: string; icon: LucideIcon; titulo: string; desc?: string; ir?: Destino };
@@ -32,10 +32,13 @@ const VISTO_KEY = "sn_video_guia_visto";
 const NOMBRE: Record<GuiaModo, string> = { anuncio: "Anuncio en video", motion: "Motion graphics", clip: "Un clip", serie: "Serie" };
 const MIN_PALABRAS = 8;
 
+// Lo que la persona ya TIENE va primero (lección de Cindy, 06-nov-2026: con su referencia y sus tomas no se
+// reconocía en «para redes / para anunciar»).
 const PARA: Opcion[] = [
-  { id: "redes", icon: MonitorPlay, titulo: "Un video para redes", desc: "Reels, TikTok o Shorts para que te conozcan." },
-  { id: "anuncio", icon: Megaphone, titulo: "Un video para anunciar", desc: "Para vender tu producto con anuncios pagados." },
-  { id: "editar", icon: Scissors, titulo: "Editar lo que ya grabé", desc: "Un video o varias tomas: subtítulos, cortes, unirlas y quitar marcas de agua." },
+  { id: "referencia", icon: Film, titulo: "Tengo un video de referencia", desc: "Uno de TikTok, Instagram o un anuncio que quieres hacer parecido. Lo subes aquí." },
+  { id: "editar", icon: Scissors, titulo: "Ya tengo mis tomas o mi video", desc: "Unirlas como un video que te gusta, subtítulos, cortes y quitar marcas de agua." },
+  { id: "redes", icon: MonitorPlay, titulo: "Un video para redes, desde cero", desc: "Reels, TikTok o Shorts para que te conozcan." },
+  { id: "anuncio", icon: Megaphone, titulo: "Un video para anunciar, desde cero", desc: "Para vender tu producto con anuncios pagados." },
 ];
 const EDITAR: Opcion[] = [
   { id: "uno", icon: Film, titulo: "Un video ya grabado", desc: "Subtítulos, cortes de silencios y portada.", ir: { hash: SUBE_TU_VIDEO } },
@@ -48,7 +51,7 @@ const TIENE: Opcion[] = [
   { id: "nada", icon: Sparkles, titulo: "Nada todavía", desc: "Lo creamos contigo desde tu idea." },
   { id: "tomas", icon: Scissors, titulo: "Mis tomas ya hechas", desc: "Las que creaste en la app o grabaste: las unimos como tu referencia.", ir: { hash: MONTAJE } },
 ];
-const COMO: Record<Exclude<Para, "editar">, Opcion[]> = {
+const COMO: Record<"redes" | "anuncio", Opcion[]> = {
   redes: [
     { id: "cara", icon: User, titulo: "Yo hablando a cámara", desc: "Tú das el mensaje y la app pone imágenes al ritmo de cada frase.", ir: { hash: REEL_STUDIO } },
     { id: "voz", icon: Mic, titulo: "Mi voz con imágenes, sin salir", desc: "Voz en off con tomas que acompañan lo que dices.", ir: { hash: REEL_STUDIO } },
@@ -105,8 +108,10 @@ export function VideoGuia({ onModo, onEstilo, disabled, fija }: {
   const quiereTexto = tiene === "ambos" || tiene === "texto";
   // Qué pantalla toca ahora, en orden: para qué → qué tienes → tu video → tu texto → qué hacemos.
   const etapa = !para ? "para" : para === "editar" ? "editar" : !tiene ? "tiene" : quiereVideo && !video ? "video" : quiereTexto && !textoListo ? "texto" : "final";
-  const total = 3 + (quiereVideo ? 1 : 0) + (quiereTexto ? 1 : 0);
-  const n = { para: 1, editar: 2, tiene: 2, video: 3, texto: quiereVideo ? 4 : 3, final: total }[etapa];
+  // «Tengo un video de referencia» salta «¿qué tienes ya?»: 1 la pregunta · 2 súbelo · 3 qué hacemos con él.
+  const atajo = para === "referencia";
+  const total = atajo ? 3 : 3 + (quiereVideo ? 1 : 0) + (quiereTexto ? 1 : 0);
+  const n = { para: 1, editar: 2, tiene: 2, video: atajo ? 2 : 3, texto: quiereVideo ? 4 : 3, final: total }[etapa];
   const textoFinal = textoListo ? texto.trim() : "";
 
   const medir = (fin: string) => {
@@ -127,11 +132,16 @@ export function VideoGuia({ onModo, onEstilo, disabled, fija }: {
     if (d.hash === MONTAJE) giveMontaje({ file: video ?? undefined, texto: textoFinal });
     window.location.hash = d.hash;
   };
-  const elegirPara = (o: Opcion) => (o.ir ? irA(o.ir, o.id) : setPara(o.id as Para));
+  const elegirPara = (o: Opcion) => {
+    if (o.ir) { irA(o.ir, o.id); return; }
+    setPara(o.id as Para);
+    if (o.id === "referencia") setTiene("video");
+  };
   const atras = () => {
     setEscribir(false);
     if (etapa === "final" && quiereTexto) { setTextoListo(false); return; }
     if (etapa === "final" && quiereVideo) { setVideo(null); return; }
+    if (atajo && etapa === "video") { setTiene(null); setPara(null); return; }
     if (etapa === "texto" && quiereVideo) { setVideo(null); return; }
     if (etapa === "video" || etapa === "texto" || etapa === "final") { setTiene(null); return; }
     if (etapa === "tiene" || etapa === "editar") setPara(null);
@@ -156,7 +166,7 @@ export function VideoGuia({ onModo, onEstilo, disabled, fija }: {
     const q = pedido.trim();
     if (q.length < 5) { toast.error("Cuéntanos en una frase qué quieres hacer."); return; }
     const contexto = [
-      para === "editar" ? "Quiero editar lo que ya grabé." : para ? `Quiero hacer un video ${para === "redes" ? "para redes" : "para anunciar"}.` : "Quiero hacer un video.",
+      para === "editar" ? "Ya tengo mis tomas o mi video." : para === "referencia" ? "Tengo un video de referencia." : para ? `Quiero hacer un video ${para === "redes" ? "para redes" : "para anunciar"}.` : "Quiero hacer un video.",
       video ? `Tengo un video de ejemplo (${video.name}).` : "",
       textoFinal ? "Ya tengo mi texto." : "",
     ].filter(Boolean).join(" ");

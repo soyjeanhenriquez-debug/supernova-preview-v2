@@ -88,14 +88,14 @@ describe("Guía «¿Qué video quieres hacer?»", () => {
 
   it("editar: un video ya grabado va a Sube tu video", () => {
     guia();
-    click(/Editar lo que ya grabé/);
+    click(/Ya tengo mis tomas o mi video/);
     click(/Un video ya grabado/);
     expect(window.location.hash).toBe("#/con-tu-cara/video");
   });
 
   it("editar: varias tomas van a Edita tus tomas", () => {
     guia();
-    click(/Editar lo que ya grabé/);
+    click(/Ya tengo mis tomas o mi video/);
     click(/Varias tomas para unir/);
     expect(window.location.hash).toBe("#/con-tu-cara/montaje");
   });
@@ -111,6 +111,26 @@ describe("Guía «¿Qué video quieres hacer?»", () => {
     click(/Ya tengo mis tomas: unirlas como este video/);
     expect(window.location.hash).toBe("#/con-tu-cara/montaje");
     expect(takeMontaje()).toEqual({ file, texto: TEXTO });
+  });
+
+  it("caso Cindy desde el primer paso: «Tengo un video de referencia» → lo sube → unirlo con sus tomas", () => {
+    guia();
+    click(/Tengo un video de referencia/);
+    expect(screen.getByText("Sube tu video de ejemplo")).toBeTruthy();
+    expect(screen.getByText("Paso 2 de 3")).toBeTruthy();
+    const file = new File(["x"], "recetas.mp4", { type: "video/mp4" });
+    subir(file);
+    expect(screen.getByText("¿Qué quieres hacer con este video?")).toBeTruthy();
+    click(/Ya tengo mis tomas: unirlas como este video/);
+    expect(window.location.hash).toBe("#/con-tu-cara/montaje");
+    expect(takeMontaje()).toEqual({ file, texto: undefined });
+  });
+
+  it("«Tengo un video de referencia» → Atrás vuelve a la primera pregunta", () => {
+    guia();
+    click(/Tengo un video de referencia/);
+    click(/Atrás/);
+    expect(screen.getByText("¿Qué video quieres hacer?")).toBeTruthy();
   });
 
   it("«Mis tomas ya hechas» lleva directo a Edita tus tomas", () => {

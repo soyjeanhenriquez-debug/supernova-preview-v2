@@ -29,7 +29,8 @@ export const USD_REAL = { imagen: 0.0081, look: 0.0115, animar: 0.118, vozCaract
 export const AVISO_USD = 2;
 /** Créditos de la voz y de cada toma hablando (credit_prices reel_voz_* y reel_lip_*; decisión de Jean, 26-oct-2026). Solo
  *  para MOSTRAR el estimado: quien cobra es el servidor (reel-ia). */
-export const PRECIO_VOZ = { hasta600: 99, hasta1200: 198 } as const;
+// 06-nov-2026, Jean: «mínimo un ×10 a la voz» sobre nuestro costo (US$0,132 / US$0,264 a US$0,008 el crédito).
+export const PRECIO_VOZ = { hasta600: 165, hasta1200: 330 } as const;
 export const PRECIO_HABLA = { hasta6: 255, hasta12: 510 } as const;
 export const creditosVoz = (guion: string) => (guion.trim() ? (guion.trim().length <= 600 ? PRECIO_VOZ.hasta600 : PRECIO_VOZ.hasta1200) : 0);
 export const creditosToma = (seg: number) => (seg <= 0 ? 0 : seg <= 6 ? PRECIO_HABLA.hasta6 : PRECIO_HABLA.hasta12);

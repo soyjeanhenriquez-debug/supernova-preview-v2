@@ -12,6 +12,7 @@ import { toolEvent } from "@/lib/toolEvents";
 import { exportClean, computeResidue, PRESETS } from "@/lib/watermark";
 import { ajustarAVoz, aLocal, duracionMontaje, segundosDe, DUR_NUEVA, MAX_GUION, MAX_TOMAS, montajeSimple, prepararToma, sinPendientes, type ModoVoz, type PlanMontaje, type Segmento, type TomaPreparada } from "@/lib/montaje";
 import { wordsFromAlignment } from "@/lib/reelIa";
+import { PRECIO_VOZ } from "@/lib/reelDinamico";
 import type { Word } from "@/lib/subtitleStyles";
 import { createVideo, waitForVideo } from "@/components/video/videoApi";
 import { MontajeVideo, MONTAJE_FPS, MONTAJE_SIZE, totalFrames, type MontajeProps } from "@/remotion/MontajeVideo";
@@ -41,8 +42,7 @@ const card = "card-surface rounded-2xl p-4 space-y-3";
 // Una toma de la app sirve si ya está en nuestro almacenamiento o es de los últimos 2 días (los enlaces del proveedor caducan).
 const usable = (j: Job) => j.result_url.includes("/videos-creados/") || Date.now() - new Date(j.created_at).getTime() < 2 * 864e5;
 // Espejo de credit_prices (reel_voz_600 / reel_voz_1200): el cobro real lo decide el servidor.
-const VOZ_600 = 99, VOZ_1200 = 198;
-const precioVoz = (t: string) => (t.length <= 600 ? VOZ_600 : VOZ_1200);
+const precioVoz = (t: string) => (t.length <= 600 ? PRECIO_VOZ.hasta600 : PRECIO_VOZ.hasta1200);
 type Voz = { id: string; nombre: string; muestra: string | null };
 type VozLista = { src: string; words: Word[]; guion: string; vozId: string };
 type Creada = { estado: "creando" | "lista" | "error"; src?: string; progress?: number | null; error?: string };

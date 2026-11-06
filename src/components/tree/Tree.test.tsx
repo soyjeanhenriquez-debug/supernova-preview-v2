@@ -9,7 +9,8 @@ vi.mock("@/contexts/JourneyContext", () => ({ useJourney: () => journey }));
 vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: { id: "u1", email: "jean@example.com", user_metadata: { display_name: "Jean" } } }) }));
 vi.mock("@/contexts/ProductContext", () => ({ useProducts: () => ({ activeId: "p1", active: { name: "Mi reto" } }) }));
 vi.mock("@/lib/features", () => ({ useFeatureAccess: () => ({ canSee: () => true, isAdmin: true }) }));
-vi.mock("@/hooks/useCredits", () => ({ useCredits: () => ({ balance: 2000, limit: 2000 }) }));
+vi.mock("@/hooks/useCredits", () => ({ useCredits: () => ({ balance: 2000, limit: 2000 }), CREDIT_COSTS: { motion_style: 40 } }));
+vi.mock("@/components/HelpAssistant", () => ({ ASK_ASSISTANT_EVENT: "supernova:ask-assistant" }));
 vi.mock("@/lib/analytics", () => ({ track: vi.fn() }));
 // Las 4 entradas de "Crea tu contenido" se prueban en src/components/create/IntentBox.test.tsx.
 vi.mock("@/components/create/IntentBox", () => ({ IntentBox: () => <div>4 entradas</div> }));
@@ -54,17 +55,29 @@ describe("Pantalla de rama y de puertas", () => {
     expect(screen.getByText(/Siguiente: Paso 3/)).toBeTruthy();
   });
 
-  it("Video: por formato (temario del curso), con «Pronto», preset de UGC con producto y lo de Jean oculto", () => {
+  it("Video: la guía va primero y lleva a la pantalla correcta", () => {
+    window.location.hash = "#/paso/crear/video";
+    const nav = vi.fn();
+    render(<TreePage onNavigate={nav} />);
+    expect(screen.getByText("¿Qué video quieres hacer?")).toBeTruthy();
+    expect(screen.queryByLabelText("Cerrar la guía")).toBeNull(); // aquí no se cierra
+    expect(screen.getByText(/Ya sabes qué formato quieres/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Un video para anunciar/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Nada todavía/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Una persona presentando mi producto/ }));
+    expect(nav).toHaveBeenCalledWith("Video anuncio");
+  });
+
+  it("Video: por formato (temario del curso), sin «Pronto», preset de UGC con producto y lo de Jean oculto", () => {
     try { localStorage.removeItem("supernova:tree-video-door"); sessionStorage.clear(); } catch { /* nada */ }
     window.location.hash = "#/paso/crear/video";
     const nav = vi.fn();
     const { unmount } = render(<TreePage onNavigate={nav} />);
     expect(screen.getByRole("tab", { name: "Por formato" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByText("UGC sin producto")).toBeTruthy();
-    expect(screen.getAllByText("Pronto")).toHaveLength(4); // Podcast, Dualcast, Trends virales, Ugly Ads
+    expect(screen.queryByText("Pronto")).toBeNull(); // Podcast, Dualcast, Trends virales y Ugly Ads no se muestran hasta que existan
     expect(screen.getByText("Voz en off")).toBeTruthy(); // Reel Studio abierto a clientes (26-oct-2026)
-    fireEvent.click(screen.getByText("Podcast"));
-    expect(nav).not.toHaveBeenCalled();
+    expect(screen.queryByText("Podcast")).toBeNull();
     fireEvent.click(screen.getByText("UGC con producto"));
     expect(nav).toHaveBeenCalledWith("Video anuncio");
     expect(sessionStorage.getItem("supernova:video-preset")).toBe("producto");

@@ -71,3 +71,15 @@ export function takeMontaje(): EncargoReel | null {
   encargoMontaje = null;
   return e;
 }
+
+/** Lo que la guía de Video (en la página Video del menú) le pasa a Motion graphics: su video de ejemplo y/o su texto. */
+let encargoMotion: EncargoReel | null = null;
+export function giveMotion(e: EncargoReel): void {
+  const texto = e.texto?.trim().slice(0, 4000);
+  encargoMotion = e.file || texto ? { file: e.file, texto: texto || undefined } : null;
+}
+export function takeMotion(): EncargoReel | null {
+  const e = encargoMotion;
+  encargoMotion = null;
+  return e;
+}

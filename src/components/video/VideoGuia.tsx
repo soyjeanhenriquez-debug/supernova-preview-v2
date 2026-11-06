@@ -79,14 +79,16 @@ function marcarVista() {
 }
 const palabras = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;
 
-export function VideoGuia({ onModo, onEstilo, disabled }: {
+export function VideoGuia({ onModo, onEstilo, disabled, fija }: {
   /** Ir a un modo de esta pantalla, con el texto de la persona si lo trajo (Motion graphics lo usa como guion). */
   onModo: (m: GuiaModo, texto?: string) => void;
   /** «Solo copiar su estilo»: Motion graphics con el video de ejemplo (y su texto como guion). */
   onEstilo: (file: File, texto?: string) => void;
   disabled?: boolean;
+  /** Página Video del menú (06-nov-2026): la guía es lo primero y no se cierra; la cuadrícula queda debajo como atajo. */
+  fija?: boolean;
 }) {
-  const [abierta, setAbierta] = useState(abiertaAlEntrar);
+  const [abierta, setAbierta] = useState(() => !!fija || abiertaAlEntrar());
   const [para, setPara] = useState<Para | null>(null);
   const [tiene, setTiene] = useState<Tiene | null>(null);
   const [video, setVideo] = useState<File | null>(null);
@@ -97,7 +99,7 @@ export function VideoGuia({ onModo, onEstilo, disabled }: {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const reiniciar = () => { setPara(null); setTiene(null); setVideo(null); setTexto(""); setTextoListo(false); setEscribir(false); setPedido(""); };
-  const cerrar = () => { marcarVista(); setAbierta(false); reiniciar(); };
+  const cerrar = () => { marcarVista(); if (!fija) setAbierta(false); reiniciar(); };
 
   const quiereVideo = tiene === "ambos" || tiene === "video";
   const quiereTexto = tiene === "ambos" || tiene === "texto";
@@ -203,9 +205,11 @@ export function VideoGuia({ onModo, onEstilo, disabled }: {
               <ArrowLeft className="w-4 h-4" /> Atrás
             </button>
           )}
-          <button type="button" onClick={cerrar} aria-label="Cerrar la guía" className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground">
-            <X className="w-4 h-4" />
-          </button>
+          {!fija && (
+            <button type="button" onClick={cerrar} aria-label="Cerrar la guía" className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground">
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 

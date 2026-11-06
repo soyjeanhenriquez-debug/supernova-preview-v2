@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { IntentBox } from "@/components/create/IntentBox";
+import { VideoGuia, type GuiaModo } from "@/components/video/VideoGuia";
+import { giveMotion } from "@/lib/intentHandoff";
 import { ChevronRight } from "lucide-react";
 import { useSubRoute } from "@/lib/useSubRoute";
 import { useFeatureAccess } from "@/lib/features";
@@ -23,6 +25,9 @@ export function TreeCrumbs({ branch, leaf, onNavigate }: { branch: TreeBranch; l
   );
 }
 
+// Cada modo de la guía de Video abre su pantalla (Index.tsx: VideoStudioPage con su initialMode).
+const PAGINA_MODO: Record<GuiaModo, string> = { anuncio: "Video anuncio", motion: "Motion graphics", clip: "Video IA", serie: "Series" };
+
 /** Pantalla de una rama (#/paso/<rama>) o de una hoja con puertas (#/paso/crear/video). */
 export function TreePage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const { segs } = useSubRoute(TREE_SLUG);
@@ -45,6 +50,14 @@ export function TreePage({ onNavigate }: { onNavigate: (page: string) => void })
           <h1 className="font-display font-bold text-[24px] md:text-[28px] text-foreground tracking-[-0.02em]">{leaf.name}</h1>
           <p className="mt-1 text-[14px] text-muted-foreground">{leaf.desc}</p>
         </header>
+        {/* Video (06-nov-2026, Jean): primero la guía «¿Qué video quieres hacer?»; la cuadrícula queda como atajo. */}
+        {leaf.id === "video" && (
+          <>
+            <VideoGuia fija onModo={(m, texto) => { if (m === "motion" && texto) giveMotion({ texto }); onNavigate(PAGINA_MODO[m]); }}
+              onEstilo={(file, texto) => { giveMotion({ file, texto }); onNavigate("Motion graphics"); }} />
+            <p className="pt-2 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">¿Ya sabes qué formato quieres? Elige directo</p>
+          </>
+        )}
         <div role="tablist" aria-label="Tipo de video" className="flex gap-1 rounded-xl bg-secondary/60 p-1 w-full sm:w-fit overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {leaf.doors.map(d => (
             <button key={d.id} role="tab" aria-selected={d.id === current.id} onClick={() => pick(d.id)}
@@ -54,7 +67,7 @@ export function TreePage({ onNavigate }: { onNavigate: (page: string) => void })
           ))}
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {current.tabs.filter(t => canSee(t.page) && (!t.owner || jean)).map(t => (
+          {current.tabs.filter(t => canSee(t.page) && (!t.owner || jean) && !t.soon).map(t => (
             <button key={t.label} onClick={() => openTreeTab(t, onNavigate)} disabled={t.soon} aria-disabled={t.soon}
               className={`group text-left rounded-2xl border border-border bg-card/40 p-5 transition-colors ${t.soon ? "opacity-55 cursor-default" : "hover:border-primary/50"}`}>
               <span className="flex items-center gap-2 font-display font-semibold text-[16px] text-foreground">

@@ -1,5 +1,5 @@
 import { useCreditsLeft } from "@/hooks/useCreditsLeft";
-import { takeClipPrompt } from "@/lib/intentHandoff";
+import { takeMotion, takeClipPrompt } from "@/lib/intentHandoff";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PieceStrategy } from "@/components/PieceStrategy";
 import { ANGLE_AUTO } from "@/lib/angles";
@@ -73,7 +73,7 @@ export function VideoStudioPage({ initialMode = "clip" }: { initialMode?: Mode }
   const creditsLeft = useCreditsLeft().label;
   const [mode, setMode] = useState<Mode>(initialMode);
   // Lo que la guía manda a Motion graphics: su video de ejemplo («Solo copiar su estilo») y/o su texto.
-  const [motionRef, setMotionRef] = useState<{ file?: File; texto?: string } | null>(null);
+  const [motionRef, setMotionRef] = useState<{ file?: File; texto?: string } | null>(() => (initialMode === "motion" ? takeMotion() : null));
   const [seed, setSeed] = useState<CreativeSeed | null>(null);
   // Ángulo de venta del anuncio: uno solo; se aplica al reescribir el guion con «Mejorar con IA».
   const [angleId, setAngleId] = useState<string>(ANGLE_AUTO);

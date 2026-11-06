@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProducts } from "@/contexts/ProductContext";
 import { useFeatureAccess } from "@/lib/features";
 import { FORMAT_LABEL, type Build } from "@/lib/productBuilder";
+import { TusCreaciones } from "@/components/creaste/TusCreaciones";
 
 /**
  * Etapa 4 · "Mis productos": lo que el usuario creó y guardó (mini apps de "Hacer mi versión", planes
@@ -47,11 +48,13 @@ export function BrainPage({ onNavigate }: { onNavigate?: (page: string) => void 
           </h2>
           <p className="text-xs uppercase tracking-wider text-primary font-semibold mt-1">Lo que creaste</p>
           <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
-            Aquí queda todo lo que creas y guardas: tu mini app de "Hacer mi versión" con sus instrucciones, tu guion de venta y los planes de negocio.
-            Ábrelo cuando lo necesites y sigue con tu plan de lanzamiento.
+            Aquí queda todo lo que creas y guardas: el enlace de tu producto, tus videos, tus carruseles, las ofertas que guardaste con la ★
+            y tus mini apps de "Hacer mi versión". Ábrelo cuando lo necesites y sigue con tu plan de lanzamiento.
           </p>
         </div>
       </div>
+
+      <TusCreaciones onNavigate={onNavigate} />
 
       {builderOn && onNavigate && (
         <div>
@@ -80,7 +83,7 @@ export function BrainPage({ onNavigate }: { onNavigate?: (page: string) => void 
 
       {/* Projects */}
       <div>
-        <h3 className="font-display font-bold text-lg mb-3">Guardados ({projects.length})</h3>
+        <h3 className="font-display font-bold text-lg mb-3">Mini apps y planes ({projects.length})</h3>
         {projects.length === 0 ? (
           <div className="card-surface rounded-xl py-16 text-center">
             <div className="empty-icon mb-4"><Brain className="w-9 h-9" /></div>

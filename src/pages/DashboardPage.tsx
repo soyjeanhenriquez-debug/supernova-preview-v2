@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { IntentBox } from "@/components/create/IntentBox";
-import { ChevronRight, Coins, FileText, BookOpen, Orbit, FolderKanban, Lock, PlayCircle, Image as ImageIcon, Video, Search, X, LayoutGrid, List, Sparkles, Send } from "lucide-react";
+import { ChevronRight, Coins, FileText, BookOpen, Orbit, FolderKanban, Lock, PlayCircle, Image as ImageIcon, Video, Search, X, LayoutGrid, List, Sparkles } from "lucide-react";
 import { useCredits } from "@/hooks/useCredits";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProducts } from "@/contexts/ProductContext";
@@ -138,12 +138,6 @@ const CAT_KEY = "supernova:home-cat";
 const norm = normText;
 
 /** Preguntas de un toque para el asistente (es gratis, con tope diario en el servidor). */
-const ASK_SUGGESTIONS = [
-  "Empiezo de cero: ¿qué herramienta uso primero?",
-  "¿Cómo hago mi primer anuncio para Meta?",
-  "¿Qué negocio digital me conviene vender por WhatsApp?",
-];
-
 function CardBadge({ tool, locked, featured }: { tool: Tool; locked?: boolean; featured?: boolean }) {
   if (locked) return <span className="inline-flex items-center gap-1 rounded-full bg-background/80 border border-border px-2 py-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground"><Lock className="w-3 h-3" /> PRO</span>;
   if (featured ?? tool.featured) return <span className="rounded-full bg-primary text-primary-foreground px-2 py-0.5 text-[10px] font-semibold tracking-wide">Empieza aquí</span>;
@@ -281,11 +275,11 @@ export function DashboardPage({ onNavigate }: Props) {
     track("home_ask_assistant", { text });
     window.dispatchEvent(new CustomEvent(ASK_ASSISTANT_EVENT, { detail: { text } }));
   };
-  const usedPct = limit > 0 ? Math.max(0, Math.min(100, Math.round((balance / limit) * 100))) : 0;
 
   return (
     <div className="max-w-[1400px] mx-auto py-4">
-      <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_300px]">
+      {/* La columna de créditos y ayuda ahora es el PanelAyuda de toda la app (Index.tsx). */}
+      <div className="grid gap-8">
         <div className="min-w-0 space-y-8">
           {/* La frase de la app: se entiende en 5 segundos qué hacer aquí. */}
           <header className="flex items-start justify-between gap-4 flex-wrap">
@@ -536,59 +530,6 @@ export function DashboardPage({ onNavigate }: Props) {
           </section>
         </div>
 
-        {/* Columna derecha (pantallas grandes): créditos, asistente y cómo funciona. En el teléfono,
-            los créditos van arriba y el asistente es el botón flotante de siempre. */}
-        <aside className="hidden xl:flex flex-col gap-4 xl:sticky xl:top-4 self-start">
-          {!locked && (
-            <div className="rounded-2xl border border-border bg-card/40 p-5">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-foreground">Tus créditos</p>
-                <Coins className="w-4 h-4 text-primary" strokeWidth={1.8} />
-              </div>
-              {isAdmin ? (
-                <p className="mt-3 font-display font-bold text-[28px] text-foreground leading-none">Ilimitado</p>
-              ) : (<>
-                <p className="mt-3 font-display font-bold text-[28px] tabular-nums text-foreground leading-none">{balance.toLocaleString("de-DE")}</p>
-                <p className="mt-1 text-[12px] text-muted-foreground">{balance > limit ? `créditos disponibles (tu plan trae ${limit.toLocaleString("de-DE")} al mes; el resto los recargaste)` : `créditos disponibles de ${limit.toLocaleString("de-DE")} de tu plan este mes`}</p>
-                <div className="mt-3 h-1.5 rounded-full bg-secondary overflow-hidden" aria-hidden>
-                  <div className="h-full rounded-full bg-primary" style={{ width: `${usedPct}%` }} />
-                </div>
-              </>)}
-              <p className="mt-3 text-[11.5px] text-muted-foreground leading-snug">Mirar ofertas, el radar y los ganchos no gasta créditos.</p>
-              <button onClick={() => onNavigate("Créditos")} className="mt-4 w-full h-10 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:border-foreground/30">
-                Ver mis créditos
-              </button>
-            </div>
-          )}
-
-          <div className="rounded-2xl border border-border bg-card/40 p-5">
-            <div className="flex items-center gap-2">
-              <span className="w-8 h-8 rounded-xl border border-border flex items-center justify-center text-primary"><Sparkles className="w-4 h-4" strokeWidth={1.8} /></span>
-              <span className="min-w-0">
-                <span className="block font-display font-semibold text-[14px] text-foreground">Pregúntale a la IA</span>
-                <span className="block text-[11px] text-muted-foreground">Te dice qué herramienta usar. Gratis.</span>
-              </span>
-            </div>
-            <div className="mt-4 space-y-2">
-              {ASK_SUGGESTIONS.map(s => (
-                <button key={s} onClick={() => ask(s)} className="w-full text-left rounded-xl border border-border px-3 py-2.5 text-[12.5px] text-foreground/90 hover:border-foreground/30 hover:text-foreground leading-snug">
-                  {s}
-                </button>
-              ))}
-            </div>
-            <button onClick={() => ask("")} className="mt-3 w-full h-10 rounded-xl bg-secondary text-[13px] text-muted-foreground hover:text-foreground inline-flex items-center justify-between px-3">
-              Escribe tu pregunta… <Send className="w-4 h-4" strokeWidth={1.8} />
-            </button>
-          </div>
-
-          <button onClick={() => window.dispatchEvent(new Event(OPEN_TOUR_EVENT))} className="rounded-2xl border border-border bg-card/40 p-4 text-left hover:border-foreground/30 flex items-center gap-3">
-            <PlayCircle className="w-5 h-5 text-muted-foreground shrink-0" strokeWidth={1.7} />
-            <span className="min-w-0">
-              <span className="block text-[13px] font-semibold text-foreground">Ver cómo funciona</span>
-              <span className="block text-[11.5px] text-muted-foreground">Un recorrido de 1 minuto por la app.</span>
-            </span>
-          </button>
-        </aside>
       </div>
     </div>
   );

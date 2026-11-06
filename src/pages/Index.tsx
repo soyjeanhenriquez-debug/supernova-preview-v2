@@ -24,6 +24,7 @@ import { tutorialFor } from "@/lib/tutorials";
 import { PAGE_SLUG, SLUG_PAGE } from "@/lib/pageSlugs";
 import { TREE_PAGE, useTreeMenu } from "@/lib/tree";
 import { TreeTabsBar } from "@/components/tree/TreeTabsBar";
+import { PanelAyuda } from "@/components/PanelAyuda";
 import { TreeBottomNav } from "@/components/tree/TreeBottomNav";
 
 // Carga diferida: cada pantalla es su propio chunk → la primera carga solo
@@ -275,6 +276,12 @@ const Index = () => {
           {!locked && !tree && activePage !== "Dashboard" && <NextStepCard page={activePage} onNavigate={setActivePage} />}
         </main>
       </div>
+      {/* Panel de ayuda siempre a la vista (06-nov-2026, Jean): créditos en el círculo, «Pregúntale a la IA» y
+          «Ver cómo funciona», en todas las pantallas grandes. En el Inicio desde 1280 px; en las herramientas,
+          que tienen sus propias columnas, desde 1536 px para no apretarlas. */}
+      <aside className={`hidden ${activePage === "Dashboard" ? "xl:block" : "2xl:block"} w-[300px] shrink-0 sticky top-0 h-screen self-start overflow-y-auto py-6 pr-6`} aria-label="Ayuda y créditos">
+        <PanelAyuda onNavigate={setActivePage} />
+      </aside>
       {/* Atajo al radar: solo donde se buscan ofertas (Inicio y Ofertas), no encima de las herramientas. */}
       {(activePage === "Dashboard" || activePage === "Ofertas") && <FloatingWinnerButton onClick={() => setActivePage("Buscar Ofertas Winner")} />}
       {tree ? <TreeBottomNav activePage={activePage} onNavigate={setActivePage} /> : <MobileBottomNav activePage={activePage} onNavigate={setActivePage} onSearch={() => setSearchOpen(true)} />}

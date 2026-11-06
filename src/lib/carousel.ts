@@ -73,7 +73,9 @@ export type Slide = {
 export type Cover = { title: string; subtitle: string; tag: string; why: string };
 /** `rec` = la portada que recomendó la IA; `pick` = la que eligió la persona. */
 /** `idea` = la frase que todo el carrusel defiende. */
-export type CarouselDraft = { covers: Cover[]; pick: number; rec?: number; slides: Slide[]; caption: string; scene?: string; idea?: string; clone?: CloneInfo; template?: CoverTemplateId };
+export type CarouselDraft = { covers: Cover[]; pick: number; rec?: number; slides: Slide[]; caption: string; scene?: string; idea?: string; clone?: CloneInfo; template?: CoverTemplateId;
+  /** Id en carousel_saves: el mismo carrusel se actualiza, no se duplica («Lo que creaste», 06-nov-2026). */
+  saveId?: string };
 export type StyleId = "poster" | "editorial" | "moderno" | "impacto" | "elegante" | "tuit";
 /**
  * Sistema de diseño + la "firma" que no se puede copiar (carrusel "Uncopyable" de Grow with Alex): los

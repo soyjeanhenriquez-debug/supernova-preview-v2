@@ -1,7 +1,8 @@
-import { Flame, CalendarDays, Heart, Zap, Eye, Sparkles, Check } from "lucide-react";
+import { Flame, CalendarDays, Heart, Zap, Eye, Sparkles, Check, Star } from "lucide-react";
 import { AdMediaPreview } from "@/components/AdMediaPreview";
 import { Pill } from "@/components/ui/pill";
 import { CREDIT_COSTS } from "@/hooks/useCredits";
+import { useOfferFavorites } from "@/hooks/useOfferFavorites";
 import { Delta, type FollowedRow } from "@/components/dashboard/RoiHunterWidget";
 import { type Offer, NICHE_LABEL, CANAL_CORTO, flagFor, anunciosActivos, diasPagando } from "@/lib/offers";
 import { type OfferWatch, type WatchPoint, describeEvent, daysAgo } from "@/lib/offerWatch";
@@ -34,6 +35,8 @@ export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, onCr
   const idioma = idiomaDe(o.language);
   const solo = hacerloSolo(o.copy_score);
   const sub = [o.page_name, o.niche ? (NICHE_LABEL[o.niche] ?? o.niche) : null].filter(Boolean).join(" · ");
+  const fav = useOfferFavorites();
+  const guardada = fav.isFavorite(o.id);
 
   return (
     <article className="card-surface rounded-2xl overflow-hidden flex flex-col ad-card-hover relative">
@@ -44,6 +47,12 @@ export function OfferCard({ o, following, onToggleFollow, onOpen, onCreate, onCr
       >
         <AdMediaPreview fill coverUrl={o.cover_url} adUrl={o.sample_ad_url ?? undefined} pageId={o.page_id} pageName={o.page_name ?? name} title={name} />
       </div>
+      {/* Guardar con estrellita: gratis, para tenerla en «Lo que creaste» (06-nov-2026). */}
+      <button onClick={() => void fav.toggle(o.id)}
+        aria-label={guardada ? "Quitar de guardadas" : "Guardar esta oferta (gratis)"} title={guardada ? "Quitar de guardadas" : "Guardar en «Lo que creaste» · gratis"}
+        className={`absolute top-2 left-2 z-10 w-11 h-11 rounded-full backdrop-blur flex items-center justify-center border transition-colors ${guardada ? "bg-primary/90 border-primary text-primary-foreground" : "bg-background/70 border-border text-foreground hover:text-primary"}`}>
+        <Star className="w-[18px] h-[18px]" fill={guardada ? "currentColor" : "none"} />
+      </button>
       {/* 44px: el mínimo cómodo para un dedo. Seguir cobra: el precio se ve también en el teléfono (sin hover). */}
       <button onClick={onToggleFollow}
         aria-label={following ? "Dejar de seguir" : `Seguir esta oferta · ${CREDIT_COSTS.follow_offer} créditos`}

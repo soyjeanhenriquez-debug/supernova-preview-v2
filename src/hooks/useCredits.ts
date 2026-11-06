@@ -40,7 +40,7 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   gen_ad_image_nbpro: 20, // APIMart Nano Banana Pro (~US$0,0285) ≈ 5,6× (05-oct-2026, aprobado por Jean)
   video_subtitles: 20, // Sube tu video: audio a Gemini (~US$0,01–0,02) (13-oct-2026, Jean)
   reel_analyze: 25, // Analiza un Reel: Apify + Gemini mira el video + tu versión (~US$0,04) (16-oct-2026, Jean)
-  montaje_tomas: 50, // Edita tus tomas: Gemini mira la referencia y propone el montaje (~US$0,04); armar es gratis en el navegador (06-nov-2026, Jean)
+  montaje_tomas: 50, // Edita tus tomas: se cobra al armar y descargar (con o sin IA); proponer y ver es gratis con tope (06-nov-2026, Jean)
   reel_level: 5, // Analiza un Reel: otra versión con otro nivel, sin volver a mirar el video (~US$0,01) (16-oct-2026, Jean)
   reel_carousel: 10, // Reel → Carrusel de un Reel ya analizado, sin volver a mirar el video (~US$0,015) (17-oct-2026, Jean)
   clone_carousel: 15, // carousel-clone: Apify + Gemini con imágenes (~US$0,02) ≈ 6× (05-oct-2026, aprobado por Jean)
@@ -83,7 +83,7 @@ export const ACTION_LABEL: Record<CreditAction, string> = {
   clone_carousel: "Modelar un carrusel viral",
   video_subtitles: "Subtítulos y gancho de tu video",
   reel_analyze: "Analizar un Reel",
-  montaje_tomas: "Editar tus tomas como tu referencia",
+  montaje_tomas: "Armar y descargar tus tomas editadas",
   reel_level: "Otra versión de un Reel",
   reel_carousel: "Reel → Carrusel",
   model_slide: "Modelar una lámina de un carrusel",

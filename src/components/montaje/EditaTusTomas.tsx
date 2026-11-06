@@ -18,9 +18,10 @@ import { takeMontaje } from "@/lib/intentHandoff";
 /**
  * «Edita tus tomas como tu referencia» (06-nov-2026, pedido de Jean con el caso de Cindy): la persona ya hizo sus
  * tomas (en la app o en otro lado) y tiene un video de referencia y/o sabe cómo lo quiere. Elige sus tomas, la IA
- * mira la referencia y propone el montaje (montaje_tomas, 50 créditos, lo cobra reel-ia en el servidor), se quitan
- * las marcas de agua que haya (gratis, en el navegador) y se arma con Remotion en su equipo. Sin referencia ni
- * pedido, «Unir mis tomas tal cual» es gratis.
+ * mira la referencia y propone el montaje, se quitan las marcas de agua que haya y se arma con Remotion en su equipo.
+ * Cobro (Jean, 06-nov-2026: «cobrar al descargar»): proponer y ver la vista previa es gratis; armar y descargar
+ * cuesta montaje_tomas (50), con o sin IA. Lo cobra reel-ia («montaje_descarga») ANTES de entregar el archivo; si
+ * cambia algo y vuelve a armar en esta misma sesión, no se cobra otra vez.
  */
 type Toma = { key: string; nombre: string; origen: string; src?: string; prep?: TomaPreparada; quitar: boolean; error?: string };
 type Job = { id: string; result_url: string; prompt: string | null; created_at: string; kind: string | null };
@@ -44,6 +45,7 @@ export function EditaTusTomas({ onHome, onNavigate }: { onHome: () => void; onNa
   const [paso, setPaso] = useState("");
   const [progress, setProgress] = useState(0);
   const [hecho, setHecho] = useState<Blob | null>(null);
+  const [pagado, setPagado] = useState(false); // ya pagó la descarga de este montaje en esta sesión
   const subirRef = useRef<HTMLInputElement>(null);
   const refRef = useRef<HTMLInputElement>(null);
 
@@ -103,7 +105,6 @@ export function EditaTusTomas({ onHome, onNavigate }: { onHome: () => void; onNa
     if (busy || !user) return;
     if (!tomas.length) { toast.error("Elige o sube al menos una toma."); return; }
     if (conIA && !ref && pedido.trim().length < 10) { toast.error("Sube tu video de referencia o cuéntanos cómo lo quieres."); return; }
-    if (conIA && balance < CREDIT_COSTS.montaje_tomas) { toast.error(`Te faltan créditos: el montaje cuesta ${CREDIT_COSTS.montaje_tomas}.`); return; }
     setBusy(conIA ? "analizar" : "preparar"); setHecho(null);
     try {
       const ts = listas(await preparar(tomas));
@@ -122,11 +123,10 @@ export function EditaTusTomas({ onHome, onNavigate }: { onHome: () => void; onNa
       const resp = await fetch(`${FN}/reel-ia`, { method: "POST", headers: await fnHeaders(),
         body: JSON.stringify({ action: "montaje", path, pedido: pedido.trim(), tomas: ts.map((t, i) => ({ ...info[i], frames: t.prep!.frames })) }) });
       if (!resp.ok) throw new Error(await fnErrorMessage(resp, "No se pudo armar el montaje."));
-      const data = await resp.json() as { plan: PlanMontaje; billing?: { charged: number; balance: number | null } };
-      applyServerCharge("montaje_tomas", data.billing ?? readBilling(resp), "Edita tus tomas");
+      const data = await resp.json() as { plan: PlanMontaje };
       setPlan(data.plan);
       track("montaje_plan", { ia: true, tomas: ts.length, referencia: !!ref });
-      toast.success("Tu montaje está listo", { description: "Revísalo: puedes cambiar el texto de arriba, quitar trozos o reordenar." });
+      toast.success("Tu montaje está listo", { description: "Míralo gratis. Puedes cambiar el texto de arriba, quitar trozos o reordenar." });
     } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo armar el montaje."); }
     finally { setBusy(""); setPaso(""); setProgress(0); }
   };
@@ -138,6 +138,7 @@ export function EditaTusTomas({ onHome, onNavigate }: { onHome: () => void; onNa
   /** Quita las marcas (si las hay y la persona lo dejó marcado) y arma el MP4 en el navegador. Gratis. */
   const armar = async () => {
     if (!props || busy) return;
+    if (!pagado && balance < CREDIT_COSTS.montaje_tomas) { toast.error(`Te faltan créditos: armar y descargar cuesta ${CREDIT_COSTS.montaje_tomas}.`); return; }
     setBusy("limpiar"); setHecho(null);
     try {
       const clips = [...props.clips];
@@ -164,6 +165,15 @@ export function EditaTusTomas({ onHome, onNavigate }: { onHome: () => void; onNa
         inputProps, container: "mp4", videoCodec: "h264", onProgress: p => setProgress(p.progress),
       });
       const blob = await res.getBlob();
+      // El cobro va en el servidor y ANTES de entregar el archivo (una sola vez por sesión).
+      if (!pagado) {
+        setPaso("Confirmando tu descarga…");
+        const pay = await fetch(`${FN}/reel-ia`, { method: "POST", headers: await fnHeaders(), body: JSON.stringify({ action: "montaje_descarga" }) });
+        if (!pay.ok) throw new Error(await fnErrorMessage(pay, "No se pudo cobrar la descarga. No se te cobró."));
+        const d = await pay.json() as { billing?: { charged: number; balance: number | null } };
+        applyServerCharge("montaje_tomas", d.billing ?? readBilling(pay), "Edita tus tomas");
+        setPagado(true);
+      }
       setHecho(blob);
       toolEvent("edita-tus-tomas", "resultado");
       track("montaje_armado", { segundos: Math.round(duracionMontaje(props.plan)), marcas: sucias.length });
@@ -249,11 +259,11 @@ export function EditaTusTomas({ onHome, onNavigate }: { onHome: () => void; onNa
           className="w-full rounded-xl border border-border bg-background/40 p-3 text-[16px] sm:text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary/60" />
         <button type="button" onClick={() => void analizar(true)} disabled={ocupado || !tomas.length}
           className="flex w-full min-h-[48px] items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold disabled:opacity-50">
-          {busy === "analizar" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />} Proponer el montaje · {CREDIT_COSTS.montaje_tomas} créditos
+          {busy === "analizar" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />} Proponer el montaje · gratis
         </button>
         <button type="button" onClick={() => void analizar(false)} disabled={ocupado || !tomas.length}
           className="w-full min-h-[40px] text-[13px] text-muted-foreground hover:text-foreground disabled:opacity-50">
-          O unir mis tomas tal cual, en este orden · gratis
+          O unir mis tomas tal cual, en este orden
         </button>
       </section>
 
@@ -292,7 +302,7 @@ export function EditaTusTomas({ onHome, onNavigate }: { onHome: () => void; onNa
           )}
           {marcas > 0 && (
             <div className="rounded-lg border border-primary/40 bg-primary/5 p-2.5 space-y-1.5">
-              <p className="text-[13px] text-foreground"><Eraser className="inline w-4 h-4 text-primary mr-1" />Encontramos una marca de agua en {marcas} {marcas === 1 ? "toma" : "tomas"}. La quitamos gratis al armar.</p>
+              <p className="text-[13px] text-foreground"><Eraser className="inline w-4 h-4 text-primary mr-1" />Encontramos una marca de agua en {marcas} {marcas === 1 ? "toma" : "tomas"}. La quitamos al armar.</p>
               {ts.filter(t => t.prep?.marca).map(t => (
                 <label key={t.key} className="flex items-center gap-2 text-[12px] text-muted-foreground">
                   <input type="checkbox" checked={t.quitar} disabled={ocupado} onChange={e => setTomas(xs => xs.map(x => (x.key === t.key ? { ...x, quitar: e.target.checked } : x)))} />
@@ -303,7 +313,7 @@ export function EditaTusTomas({ onHome, onNavigate }: { onHome: () => void; onNa
           )}
           <button type="button" onClick={() => void armar()} disabled={ocupado}
             className="flex w-full min-h-[48px] items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground text-[15px] font-semibold disabled:opacity-50">
-            {busy === "limpiar" || busy === "armar" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Armar y descargar mi video · gratis
+            {busy === "limpiar" || busy === "armar" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} {pagado ? "Volver a armar y descargar · ya pagado" : `Armar y descargar mi video · ${CREDIT_COSTS.montaje_tomas} créditos`}
           </button>
         </section>
       )}
@@ -338,7 +348,7 @@ export function EditaTusTomas({ onHome, onNavigate }: { onHome: () => void; onNa
           </div>
         )}
         {props && <p className="text-center text-[12px] text-muted-foreground">{plan!.segmentos.length} trozos · {fmt(duracionMontaje(plan!))} s</p>}
-        {hecho && <p className="text-center text-sm text-foreground"><Check className="inline w-4 h-4 text-primary mr-1" />Descargado. Puedes cambiar algo y volver a armarlo gratis.</p>}
+        {hecho && <p className="text-center text-sm text-foreground"><Check className="inline w-4 h-4 text-primary mr-1" />Descargado. Si cambias algo, vuelves a armarlo sin pagar otra vez.</p>}
       </div>
     </ToolShell>
   );

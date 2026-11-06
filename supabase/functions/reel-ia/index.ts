@@ -319,7 +319,13 @@ Deno.serve(async (req) => {
 
     // ---------- Edita tus tomas como tu referencia (06-nov-2026, Jean: montaje_tomas = 50) ----------
     // Gemini mira la referencia (o lee cómo lo quiere la persona) y 2 cuadros de cada toma, y propone el montaje.
-    // El video se arma en el navegador con Remotion: aquí solo se cobra el análisis, antes de gastar.
+    // Jean decidió «cobrar al descargar»: proponer y ver la vista previa es gratis (con tope por hora y por día para
+    // que nadie gaste IA sin fin); armar y descargar cobra 50 en «montaje_descarga».
+    if (body.action === "montaje_descarga") {
+      const g = await charge(FN, uid, "montaje_tomas", "Edita tus tomas · armar y descargar", 20, 60);
+      if (g instanceof Response) return g;
+      return conCobro(g, { ok: true });
+    }
     if (body.action === "montaje") {
       const path = typeof body.path === "string" && body.path.startsWith(`${uid}/ref/`) && !body.path.includes("..") && body.path.length < 300 ? body.path : null;
       const pedido = typeof body.pedido === "string" ? body.pedido.replace(/\s+/g, " ").trim().slice(0, 600) : "";
@@ -343,18 +349,18 @@ Deno.serve(async (req) => {
       }
       tomas.forEach((t, i) => { parts.push({ text: `TOMA ${t.n}:` }); fotos[i].forEach(f => parts.push({ inline_data: { mime_type: "image/jpeg", data: f } })); });
       parts.push({ text: promptMontaje(tomas, !!path, pedido) });
-      const g = await charge(FN, uid, "montaje_tomas", "Edita tus tomas como tu referencia", 10, 30);
-      if (g instanceof Response) return g;
+      const { data: guard, error: gErr } = await admin().rpc("edge_guard", { p_user_id: uid, p_fn: `${FN}:montaje`, p_max_hour: 6, p_max_day: 15 });
+      if (gErr) return json({ error: "No se pudo verificar el acceso. Intenta de nuevo." }, 503);
+      if (guard?.ok !== true) return json({ error: guard?.reason === "rate_limited" ? "Ya pediste varias propuestas seguidas. Intenta más tarde." : "Tu cuenta no tiene acceso activo." }, guard?.reason === "rate_limited" ? 429 : 403);
       try {
         const { out, cost, usage } = await geminiMedia(parts, 6000, 120_000, 0.3);
         await logMediaCost(uid, FN, cost, usage);
         const plan = cleanMontaje(out, tomas);
-        if (!plan) { await refund(g.txId, "montaje ilegible"); return json({ error: "La IA no pudo armar el montaje. No se te cobró: prueba otra vez." }, 502); }
-        return conCobro(g, { plan });
+        if (!plan) return json({ error: "La IA no pudo armar el montaje. Prueba otra vez." }, 502);
+        return json({ plan });
       } catch (e) {
         console.error(`${FN} montaje:`, e);
-        await refund(g.txId, "montaje falló");
-        return json({ error: e instanceof Error && e.name === "TimeoutError" ? "El análisis tardó demasiado. No se te cobró. Prueba con una referencia más corta." : "No se pudo armar el montaje. No se te cobró." }, 502);
+        return json({ error: e instanceof Error && e.name === "TimeoutError" ? "El análisis tardó demasiado. Prueba con una referencia más corta." : "No se pudo armar el montaje." }, 502);
       }
     }
 

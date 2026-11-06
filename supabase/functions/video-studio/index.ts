@@ -61,6 +61,9 @@ export function receiptLabel(v: unknown): string {
 /** ¿El host está en la lista de APIMart (o en la extra del secreto)? Exacto o subdominio. */
 export function hostAllowed(host: string, extra: string | undefined = Deno.env.get("APIMART_MEDIA_HOSTS")): boolean {
   const h = host.toLowerCase().replace(/\.$/, "");
+  // Nuestro propio almacenamiento: video-guardar copia ahí cada video terminado (los enlaces de APIMart caducan).
+  const own = Deno.env.get("SUPABASE_URL");
+  if (own && h === new URL(own).hostname) return true;
   const list = [...MEDIA_HOSTS, ...(extra ?? "").split(",").map(x => x.trim().toLowerCase()).filter(Boolean)];
   return list.some(d => h === d || h.endsWith(`.${d}`));
 }

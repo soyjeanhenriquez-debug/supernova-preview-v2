@@ -1,4 +1,5 @@
-// SUPERNOVA — Correo diario de alertas para el admin (8:00 hora RD).
+// SUPERNOVA — Correo diario de alertas para el admin (8:00 hora RD) y, con {"check":"ia"},
+// alerta inmediata si Gemini se queda sin saldo (cada 30 min, ver checkIa).
 // Lee el informe admin_health_report (pantallazos de clientes, tareas automáticas
 // fallidas, videos fallidos, radar parado, clientes en prueba sin usar la app) y,
 // si hay algo, lo manda por correo. Si no hay alertas no manda nada: un correo
@@ -101,12 +102,85 @@ function reportAlerts(r: Report): Alert[] {
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 
+// Correo al admin por Resend. Sin RESEND_API_KEY no manda nada (dry-run).
+async function sendMail(subject: string, html: string): Promise<"sent" | "dry_run" | "failed"> {
+  const key = Deno.env.get("RESEND_API_KEY");
+  if (!key) return "dry_run";
+  const to = Deno.env.get("ADMIN_ALERT_EMAIL") || DEFAULT_TO;
+  const resp = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: FROM, to, subject, html, text: htmlToText(html) }),
+  });
+  if (!resp.ok) {
+    console.error("health-alert: resend", resp.status, (await resp.text()).slice(0, 200));
+    return "failed";
+  }
+  return "sent";
+}
+
+// Alerta de saldo de la IA (06-nov-2026): Gemini se quedó sin saldo prepago y Jean se enteró por una
+// clienta. Cada 30 min (cron supernova-ia-saldo-check) se hace la llamada más barata posible (modelo
+// lite, 1 token) y solo se manda correo cuando el estado CAMBIA: se cayó (402 sin saldo, 401/403 llave
+// mala) o volvió. Otros códigos (429, 5xx) son pasajeros: se guardan pero no avisan.
+const IA_CAIDA = new Set([401, 402, 403]);
+// deno-lint-ignore no-explicit-any
+async function checkIa(admin: any): Promise<Response> {
+  const key = Deno.env.get("GEMINI_API_KEY");
+  if (!key) return json(200, { ok: true, skipped: "sin GEMINI_API_KEY" });
+  let status = 0, detail = "";
+  try {
+    const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "gemini-flash-lite-latest", max_tokens: 1, messages: [{ role: "user", content: "ok" }] }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    status = r.status;
+    detail = r.ok ? "" : (await r.text()).slice(0, 300);
+    if (r.ok) await r.body?.cancel();
+  } catch (e) {
+    detail = e instanceof Error ? e.message : String(e);
+  }
+  const caida = IA_CAIDA.has(status);
+  const { data: prev } = await admin.from("provider_alerts").select("ok").eq("provider", "gemini").maybeSingle();
+  const estabaCaida = prev ? prev.ok === false : false;
+  let mail: string | null = null;
+  if (caida && !estabaCaida) {
+    const why = status === 402 ? "se quedó sin saldo prepago" : "rechazó la llave (revisa GEMINI_API_KEY)";
+    mail = await sendMail(`SUPERNOVA · URGENTE: Gemini ${why}`,
+      `<div style="font-family:system-ui,sans-serif;max-width:560px;margin:auto;color:#111">
+        <h2 style="margin:0 0 8px;color:#dc2626">Gemini ${esc(why)}</h2>
+        <p>Desde ahora fallan las herramientas de IA de texto y análisis de la app (modelar estilos, guiones, análisis de ofertas y reels…). A los clientes no se les cobra: el servidor devuelve los créditos, pero ven un error.</p>
+        <p><b>Qué hacer:</b> recarga el saldo en <a href="https://ai.studio/projects">Google AI Studio → proyecto → facturación</a>. Te aviso por correo cuando vuelva a funcionar.</p>
+        <p style="color:#666;font-size:13px">Respuesta de Google (${status}): ${esc(detail.slice(0, 200))}</p></div>`);
+  } else if (!caida && status === 200 && estabaCaida) {
+    mail = await sendMail("SUPERNOVA · Gemini volvió a funcionar",
+      `<div style="font-family:system-ui,sans-serif;max-width:560px;margin:auto;color:#111">
+        <h2 style="margin:0 0 8px;color:#16a34a">Gemini ya responde bien</h2>
+        <p>Las herramientas de IA de la app vuelven a funcionar.</p></div>`);
+  }
+  // 429/5xx/timeout no cambian el estado guardado: solo cuentan "funciona" (200) o "caída". Si el correo
+  // falló, tampoco: así se reintenta en la próxima vuelta.
+  if ((caida || status === 200) && mail !== "failed") {
+    const row: Record<string, unknown> = { provider: "gemini", status, ok: !caida, checked_at: new Date().toISOString() };
+    if (mail === "sent") row.alerted_at = new Date().toISOString();
+    const { error } = await admin.from("provider_alerts").upsert(row);
+    if (error) console.error("health-alert: provider_alerts", error.message);
+  } else {
+    console.error("health-alert: gemini", status, detail.slice(0, 160));
+  }
+  return json(200, { ok: true, provider: "gemini", status, caida, mail });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   if (!(await authorizeInternal(req, admin))) return json(401, { error: "No autorizado" });
+  const body = await req.json().catch(() => ({}));
+  if (body?.check === "ia") return checkIa(admin);
 
   const { data, error } = await admin.rpc("admin_health_report");
   if (error || !data) {
@@ -133,18 +207,8 @@ Deno.serve(async (req) => {
       <b>${esc(a.title)}</b>${a.detail ? `<div style="color:#555;font-size:13px;margin-top:4px">${esc(a.detail)}</div>` : ""}</div>`).join("")}
     <p style="margin-top:18px"><a href="${APP_URL}/admin/salud">Abrir Admin → Salud</a></p></div>`;
 
-  const key = Deno.env.get("RESEND_API_KEY");
-  if (!key) return json(200, { ok: true, dry_run: true, alerts: alerts.length, subject, note: "Sin RESEND_API_KEY: no se envió nada." });
-
-  const to = Deno.env.get("ADMIN_ALERT_EMAIL") || DEFAULT_TO;
-  const resp = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: FROM, to, subject, html, text: htmlToText(html) }),
-  });
-  if (!resp.ok) {
-    console.error("health-alert: resend", resp.status, (await resp.text()).slice(0, 200));
-    return json(502, { error: "No se pudo enviar el correo" });
-  }
+  const sent = await sendMail(subject, html);
+  if (sent === "dry_run") return json(200, { ok: true, dry_run: true, alerts: alerts.length, subject, note: "Sin RESEND_API_KEY: no se envió nada." });
+  if (sent === "failed") return json(502, { error: "No se pudo enviar el correo" });
   return json(200, { ok: true, alerts: alerts.length, sent: true });
 });

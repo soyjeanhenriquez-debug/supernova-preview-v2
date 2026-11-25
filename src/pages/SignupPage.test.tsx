@@ -34,12 +34,19 @@ vi.setConfig({ testTimeout: 20_000 });
 describe("SignupPage", () => {
   beforeEach(() => { signUp.mockReset(); resend.mockReset(); sessionStorage.clear(); });
 
-  it("crea la cuenta tras 2 preguntas y termina en 'confirma tu correo', sin planes ni precios", async () => {
+  it("crea la cuenta tras 2 preguntas, ofrece los 3 días en Whop con su correo y deja entrar sin tarjeta", async () => {
     signUp.mockResolvedValue({ data: { user: { identities: [{ id: "i" }] }, session: null }, error: null });
     render(<MemoryRouter><SignupPage /></MemoryRouter>);
     fill();
     fireEvent.click(screen.getByRole("button", { name: /continuar/i }));
     await answerAll();
+    // 25-nov (Jean): el registro encadena con la prueba de 3 días de PRO en Whop.
+    const cta = await screen.findByRole("link", { name: /Activar mis 3 días gratis/ });
+    expect(cta.getAttribute("href")).toMatch(/^https:\/\/whop\.com\/checkout\/plan_ukBjctlEKufto\?/);
+    expect(cta.getAttribute("href")).toContain("email=ana%40gmail.com");
+    expect(screen.getByText(/no te cobra nada en esos 3 días/)).toBeTruthy();
+    expect(sessionStorage.getItem("sn_signup_email")).toBe("ana@gmail.com");
+    fireEvent.click(screen.getByRole("button", { name: /Prefiero entrar sin tarjeta/ }));
     expect(await screen.findByText("Confirma tu correo para entrar.")).toBeTruthy();
     expect(signUp).toHaveBeenCalledTimes(1);
     const arg = signUp.mock.calls[0][0];
@@ -50,10 +57,19 @@ describe("SignupPage", () => {
       signup_source: "trial",
       onboarding: { experience_level: "Estoy empezando desde cero", sells_what: "Todavía no lo sé: quiero ideas" },
     });
-    // Lo que molestó a Jean: precios y planes antes de ver nada.
-    expect(screen.queryByText(/US\$/)).toBeNull();
     expect(screen.queryByText(/COMUNIDAD/i)).toBeNull();
     expect(screen.getByRole("link", { name: /Abrir Gmail/ })).toBeTruthy();
+  });
+
+  it("al volver de Whop con la cuenta ya creada, salta a 'confirma tu correo' con el pago registrado", async () => {
+    sessionStorage.setItem("sn_signup_email", "ana@gmail.com");
+    window.history.pushState({}, "", "/signup?checkout_status=success");
+    render(<MemoryRouter><SignupPage /></MemoryRouter>);
+    expect(await screen.findByText("Confirma tu correo para entrar.")).toBeTruthy();
+    expect(screen.getByText(/tu pago ya está registrado/)).toBeTruthy();
+    expect(screen.getByText("ana@gmail.com")).toBeTruthy();
+    expect(signUp).not.toHaveBeenCalled();
+    window.history.pushState({}, "", "/");
   });
 
   it("si Supabase falla, vuelve a los datos con el error en español y sin perder lo escrito", async () => {

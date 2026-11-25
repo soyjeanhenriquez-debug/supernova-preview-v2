@@ -8,6 +8,8 @@ import { Turnstile } from "@/components/Turnstile";
 import { authErrorMessage } from "@/lib/authErrors";
 import { isValidEmail, suggestEmail } from "@/lib/authEmail";
 import { loadEditorialFonts } from "@/lib/loadFonts";
+import { checkoutUrl } from "@/lib/plans";
+import { TrialTerms } from "@/components/PlanFeatures";
 
 loadEditorialFonts();
 
@@ -31,7 +33,22 @@ const SUPPORT = "soyjeanhenriquez@gmail.com";
  * El acceso de pago lo dan SOLO los webhooks de Whop (approved_emails). Registrarse no da acceso.
  * Quien llega de Whop ya pagado (?checkout_status=success) ve su variante: "crea tu cuenta con el
  * mismo correo que usaste al pagar".
+ *
+ * 25-nov-2026 (Jean): el registro encadena con la prueba de 3 días. Al crear la cuenta se muestra
+ * "Activa tus 3 días gratis" con sus condiciones (TrialTerms) y un botón al checkout de Whop del plan
+ * PRO con el correo ya puesto y las utm_* de la visita. Whop devuelve a /signup?checkout_status=success
+ * y, como la cuenta ya existe (sn_signup_email en la sesión), se salta directo a "confirma tu correo".
+ * Quien no quiera poner tarjeta todavía puede entrar con la prueba gratis normal (enlace pequeño).
  */
+
+const SIGNUP_EMAIL_KEY = "sn_signup_email";
+
+/** Checkout de PRO con el correo de la cuenta y las utm_* con las que llegó la persona. */
+function trialCheckoutUrl(email: string) {
+  const url = new URL(checkoutUrl("pro", email));
+  new URLSearchParams(window.location.search).forEach((v, k) => { if (k.startsWith("utm_")) url.searchParams.set(k, v); });
+  return url.toString();
+}
 
 type Quiz = {
   experience_level: string;
@@ -88,9 +105,18 @@ const primaryBtn =
   "flex w-full items-center justify-center gap-2 border border-[#C5A880] bg-[#C5A880] px-8 py-4 font-[Inter,sans-serif] text-sm font-medium uppercase tracking-[0.14em] text-black transition-all duration-500 hover:bg-transparent hover:text-[#C5A880] disabled:opacity-50";
 
 export default function SignupPage() {
-  const [step, setStep] = useState(0); // 0 datos · 1..N preguntas · N+1 final
+  // Vuelta de Whop con la cuenta ya creada en esta sesión: directo a "confirma tu correo".
+  const [returning] = useState(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      const back = q.get("checkout_status") === "success" || q.has("receipt_id");
+      return back ? sessionStorage.getItem(SIGNUP_EMAIL_KEY) || "" : "";
+    } catch { return ""; }
+  });
+  const [step, setStep] = useState(returning ? QUESTIONS.length + 1 : 0); // 0 datos · 1..N preguntas · N+1 final
+  const [showTrial, setShowTrial] = useState(false);
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(returning);
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [quiz, setQuiz] = useState<Partial<Quiz>>({});
@@ -170,6 +196,10 @@ export default function SignupPage() {
 
     // Con sesión (si algún día se apaga "Confirmar correo"): directo a la app.
     if (data.session) { window.location.replace("/app"); return; }
+    if (!paid) {
+      try { sessionStorage.setItem(SIGNUP_EMAIL_KEY, normalizedEmail); } catch { /* sin sesión: igual sigue */ }
+      setShowTrial(true);
+    }
     setStep(QUESTIONS.length + 1);
   };
 
@@ -207,7 +237,7 @@ export default function SignupPage() {
                 </div>
               )}
               <p className="mb-5 font-[Inter,sans-serif] text-[10px] uppercase tracking-[0.35em] text-[#C5A880]">
-                {paid ? "— Último paso" : "— Crea tu cuenta gratis"}
+                {paid ? "— Último paso" : "— Tus 3 días gratis de PRO"}
               </p>
               <h1 className="font-['Playfair_Display',serif] text-4xl font-medium leading-[1.1] sm:text-5xl">
                 Encuentra qué vender
@@ -217,7 +247,7 @@ export default function SignupPage() {
               <p className="mt-5 font-[Inter,sans-serif] text-sm font-light leading-relaxed text-[#86868B]">
                 {paid
                   ? "Toma 30 segundos: tus datos, 2 preguntas de un toque y confirmas tu correo."
-                  : "Crear tu cuenta es gratis y no pide tarjeta. Tus datos, 2 preguntas de un toque, confirmas tu correo y entras a ver ofertas reales que ya se venden hoy."}
+                  : "Tus datos, 2 preguntas de un toque y activas tus 3 días gratis de SUPERNOVA PRO, con todo incluido. Hoy pagas $0."}
               </p>
 
               <form onSubmit={startQuiz} className="mt-8 space-y-5" noValidate>
@@ -312,9 +342,35 @@ export default function SignupPage() {
           )}
 
           {/* Final: confirmar el correo. Sin planes ni precios: primero se ve la app. */}
-          {step === QUESTIONS.length + 1 && (
+          {step === QUESTIONS.length + 1 && showTrial && !paid && (
+            <motion.div key="trial" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4 }}>
+              <p className="mb-4 text-center font-[Inter,sans-serif] text-[10px] uppercase tracking-[0.35em] text-[#C5A880]">
+                — Tu cuenta está creada
+              </p>
+              <h1 className="text-center font-['Playfair_Display',serif] text-4xl font-medium leading-[1.1]">
+                Activa tus 3 días gratis
+                <br />
+                <span className="italic text-[#C5A880]">de SUPERNOVA PRO.</span>
+              </h1>
+              <div className="mt-8">
+                <TrialTerms tone="signup" />
+              </div>
+              <a href={trialCheckoutUrl(normalizedEmail)} className={`${primaryBtn} mt-6`}>
+                Activar mis 3 días gratis <ArrowRight className="h-4 w-4" />
+              </a>
+              <p className="mt-3 text-center font-[Inter,sans-serif] text-[11px] text-[#86868B]">
+                Te lleva a Whop con tu correo ya puesto. Al terminar vuelves aquí.
+              </p>
+              <p className="mt-6 text-center font-[Inter,sans-serif] text-xs text-[#86868B]">
+                <button type="button" onClick={() => setShowTrial(false)} className="hover:text-[#F5F5F7] hover:underline">
+                  Prefiero entrar sin tarjeta (5 usos por herramienta)
+                </button>
+              </p>
+            </motion.div>
+          )}
+          {step === QUESTIONS.length + 1 && !(showTrial && !paid) && (
             <motion.div key="final" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-              <ConfirmEmailStep email={normalizedEmail} paid={paid} onChangeEmail={() => { setStep(0); setEmailChecked(false); resetCaptcha(); }} />
+              <ConfirmEmailStep email={normalizedEmail} paid={paid} onChangeEmail={() => { setStep(0); setEmailChecked(false); resetCaptcha(); try { sessionStorage.removeItem(SIGNUP_EMAIL_KEY); } catch { /* nada */ } }} />
             </motion.div>
           )}
         </AnimatePresence>

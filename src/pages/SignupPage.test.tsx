@@ -72,6 +72,15 @@ describe("SignupPage", () => {
     window.history.pushState({}, "", "/");
   });
 
+  it("también reconoce la vuelta de Whop sin parámetros (viene de whop.com)", async () => {
+    sessionStorage.setItem("sn_signup_email", "ana@gmail.com");
+    Object.defineProperty(document, "referrer", { configurable: true, value: "https://whop.com/checkout/plan_ukBjctlEKufto/" });
+    render(<MemoryRouter><SignupPage /></MemoryRouter>);
+    expect(await screen.findByText("Confirma tu correo para entrar.")).toBeTruthy();
+    expect(screen.getByText("ana@gmail.com")).toBeTruthy();
+    Object.defineProperty(document, "referrer", { configurable: true, value: "" });
+  });
+
   it("si Supabase falla, vuelve a los datos con el error en español y sin perder lo escrito", async () => {
     signUp.mockResolvedValue({ data: { user: null, session: null }, error: { message: "email rate limit exceeded", code: "over_email_send_rate_limit", status: 429 } });
     render(<MemoryRouter><SignupPage /></MemoryRouter>);

@@ -109,7 +109,9 @@ export default function SignupPage() {
   const [returning] = useState(() => {
     try {
       const q = new URLSearchParams(window.location.search);
-      const back = q.get("checkout_status") === "success" || q.has("receipt_id");
+      // Whop redirige a /signup tras pagar ("Redirección del pago" del producto); por si no añade
+      // ?checkout_status, también cuenta venir de whop.com con la cuenta ya creada en esta sesión.
+      const back = q.get("checkout_status") === "success" || q.has("receipt_id") || /(^|\.)whop\.com/.test(new URL(document.referrer || "http://x").hostname);
       return back ? sessionStorage.getItem(SIGNUP_EMAIL_KEY) || "" : "";
     } catch { return ""; }
   });

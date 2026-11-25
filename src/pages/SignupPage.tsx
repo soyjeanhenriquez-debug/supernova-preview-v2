@@ -42,6 +42,10 @@ const SUPPORT = "soyjeanhenriquez@gmail.com";
  */
 
 const SIGNUP_EMAIL_KEY = "sn_signup_email";
+const SIGNUP_NONCE_KEY = "sn_signup_nonce";
+/** Al volver de Whop: cuántas veces y cada cuánto se pregunta si la prueba ya quedó activa. */
+const ACTIVATE_TRIES = 30;
+const ACTIVATE_EVERY_MS = 3000;
 
 /** Checkout de PRO con el correo de la cuenta y las utm_* con las que llegó la persona. */
 function trialCheckoutUrl(email: string) {
@@ -117,6 +121,10 @@ export default function SignupPage() {
   });
   const [step, setStep] = useState(returning ? QUESTIONS.length + 1 : 0); // 0 datos · 1..N preguntas · N+1 final
   const [showTrial, setShowTrial] = useState(false);
+  // Volvió de Whop desde esta pestaña: se intenta entrar directo a la app (sin esperar el correo).
+  const [activating, setActivating] = useState(() => {
+    try { return !!returning && !!sessionStorage.getItem(SIGNUP_NONCE_KEY); } catch { return false; }
+  });
   const [name, setName] = useState("");
   const [email, setEmail] = useState(returning);
   const [password, setPassword] = useState("");
@@ -164,6 +172,9 @@ export default function SignupPage() {
 
   const createAccount = async (finalQuiz: Partial<Quiz>) => {
     setLoading(true);
+    // Llave de un solo navegador: al volver de Whop prueba que esta pestaña creó la cuenta
+    // (entrar-tras-prueba la compara en el servidor antes de abrir la sesión).
+    const nonce = paid ? "" : (crypto.randomUUID?.() ?? `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`);
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
@@ -174,6 +185,7 @@ export default function SignupPage() {
           display_name: name.trim(),
           signup_source: "trial",
           onboarding: finalQuiz,
+          ...(nonce ? { signup_nonce: nonce } : {}),
         },
         captchaToken: CAPTCHA_ENABLED ? captchaToken : undefined,
       },
@@ -199,7 +211,7 @@ export default function SignupPage() {
     // Con sesión (si algún día se apaga "Confirmar correo"): directo a la app.
     if (data.session) { window.location.replace("/app"); return; }
     if (!paid) {
-      try { sessionStorage.setItem(SIGNUP_EMAIL_KEY, normalizedEmail); } catch { /* sin sesión: igual sigue */ }
+      try { sessionStorage.setItem(SIGNUP_EMAIL_KEY, normalizedEmail); sessionStorage.setItem(SIGNUP_NONCE_KEY, nonce); } catch { /* sin sesión: igual sigue */ }
       setShowTrial(true);
     }
     setStep(QUESTIONS.length + 1);
@@ -363,14 +375,14 @@ export default function SignupPage() {
               <p className="mt-3 text-center font-[Inter,sans-serif] text-[11px] text-[#86868B]">
                 Te lleva a Whop con tu correo ya puesto. Al terminar vuelves aquí.
               </p>
-              <p className="mt-6 text-center font-[Inter,sans-serif] text-xs text-[#86868B]">
-                <button type="button" onClick={() => setShowTrial(false)} className="hover:text-[#F5F5F7] hover:underline">
-                  Prefiero entrar sin tarjeta (5 usos por herramienta)
-                </button>
-              </p>
             </motion.div>
           )}
-          {step === QUESTIONS.length + 1 && !(showTrial && !paid) && (
+          {step === QUESTIONS.length + 1 && activating && (
+            <motion.div key="activando" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4 }}>
+              <ActivatingStep email={normalizedEmail} onFail={() => setActivating(false)} />
+            </motion.div>
+          )}
+          {step === QUESTIONS.length + 1 && !activating && !(showTrial && !paid) && (
             <motion.div key="final" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
               <ConfirmEmailStep email={normalizedEmail} paid={paid} onChangeEmail={() => { setStep(0); setEmailChecked(false); resetCaptcha(); try { sessionStorage.removeItem(SIGNUP_EMAIL_KEY); } catch { /* nada */ } }} />
             </motion.div>
@@ -382,6 +394,55 @@ export default function SignupPage() {
         Al registrarte aceptas los <a href="/legal/terminos.html" className="underline-offset-2 hover:underline">Términos</a> y la{" "}
         <a href="/legal/privacidad.html" className="underline-offset-2 hover:underline">Política de privacidad</a> · © SUPERNOVA 2026
       </footer>
+    </div>
+  );
+}
+
+/**
+ * Vuelta de Whop: pregunta al servidor (entrar-tras-prueba) si la prueba ya quedó activa para esta
+ * cuenta y, en cuanto lo está, abre la sesión y entra a la app sin esperar el correo. Whop avisa a
+ * SUPERNOVA por webhook unos segundos después del pago: por eso se pregunta varias veces. Si no se
+ * puede (otra pestaña, otro correo en Whop, webhook que no llega), sigue el camino normal: confirmar
+ * el correo, y el acceso se activa igual por el correo con el que se pagó.
+ */
+function ActivatingStep({ email, onFail }: { email: string; onFail: () => void }) {
+  useEffect(() => {
+    let alive = true;
+    const nonce = (() => { try { return sessionStorage.getItem(SIGNUP_NONCE_KEY) ?? ""; } catch { return ""; } })();
+    (async () => {
+      for (let i = 0; i < ACTIVATE_TRIES && alive; i++) {
+        const { data, error } = await supabase.functions.invoke("entrar-tras-prueba", { body: { email, nonce } });
+        if (!alive) return;
+        const tokenHash = (data as { token_hash?: string } | null)?.token_hash;
+        if (tokenHash) {
+          const { data: auth, error: otpErr } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "magiclink" });
+          if (!alive) return;
+          if (!otpErr && auth?.session) {
+            try { sessionStorage.removeItem(SIGNUP_EMAIL_KEY); sessionStorage.removeItem(SIGNUP_NONCE_KEY); sessionStorage.removeItem("sn_paid"); } catch { /* nada */ }
+            window.location.replace("/app");
+            return;
+          }
+          break;
+        }
+        // 403 (no cuadra) no se arregla esperando; "pending" o un fallo de red, sí.
+        const status = (error as { context?: { status?: number } } | null)?.context?.status;
+        if (status === 400 || status === 403) break;
+        await new Promise((r) => setTimeout(r, ACTIVATE_EVERY_MS));
+      }
+      if (alive) onFail();
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="text-center" role="status">
+      <div className="mx-auto mb-6 h-10 w-10 animate-spin rounded-full border-2 border-[#C5A880]/30 border-t-[#C5A880]" />
+      <p className="mb-4 font-[Inter,sans-serif] text-[10px] uppercase tracking-[0.35em] text-[#C5A880]">— Tu prueba de 3 días</p>
+      <h1 className="font-['Playfair_Display',serif] text-4xl font-medium leading-[1.1]">Activando tu SUPERNOVA PRO…</h1>
+      <p className="mx-auto mt-4 max-w-sm font-[Inter,sans-serif] text-sm font-light leading-relaxed text-[#a1a1aa]">
+        Estamos recibiendo la confirmación de Whop. En unos segundos entras directo a la app.
+      </p>
     </div>
   );
 }
